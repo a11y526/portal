@@ -201,6 +201,11 @@ export async function revealBoard(boardId) {
   return unwrap(await need().rpc('reveal_board', { p_board_id: boardId }));
 }
 
+// 발표 취소: 그 발표로 준 포인트를 거둬들이고 보드를 다시 연다. 결과: { ok, removed, class_id }
+export async function unrevealBoard(boardId) {
+  return unwrap(await need().rpc('unreveal_board', { p_board_id: boardId }));
+}
+
 // submissions 표가 바뀌면 fn(payload)
 export function onSubmissionsChange(fn) {
   need().channel('submissions-watch')

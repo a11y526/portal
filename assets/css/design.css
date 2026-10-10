@@ -163,7 +163,7 @@ a:hover { color: var(--accent-hover); }
 @keyframes av-tilt    { 0%,100% { transform: rotate(0); } 35% { transform: rotate(-12deg); } 70% { transform: rotate(6deg); } }
 @keyframes av-wave    { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-20deg); } 50% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } }
 @keyframes av-dance   { 0%,100% { transform: rotate(-6deg) translateX(-2%); } 50% { transform: rotate(6deg) translateX(2%); } }
-@keyframes av-levelup { 0% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-30%) rotate(180deg); } 80% { transform: translateY(0) rotate(360deg); } 90% { transform: scale(1.08,.92); } 100% { transform: none; } }
+@keyframes av-levelup { 0% { transform: translateY(0) rotateY(0); } 40% { transform: translateY(-30%) rotateY(180deg); } 80% { transform: translateY(0) rotateY(360deg); } 90% { transform: scale(1.08,.92); } 100% { transform: none; } }
 @keyframes av-drop    { 0% { opacity: 0; transform: translateY(-60%); } 70% { opacity: 1; transform: translateY(4%); } 100% { transform: none; } }
 
 .av .av-body { animation: av-breathe 3s ease-in-out infinite; }
@@ -171,13 +171,25 @@ a:hover { color: var(--accent-hover); }
 .av .av-eyes { animation: av-blink var(--blink, 5s) infinite; animation-delay: var(--blink-d, 0s); }
 .av--jump    { animation: av-jump .7s var(--ease) both; animation-delay: var(--d, 0s); }
 .av--tilt .av-head { animation: av-tilt .8s var(--ease); }
-.av--wave .av-arm  { animation: av-wave .9s var(--ease); }
+.av .av-arm { opacity: 0; }
+.av--wave .av-arm { animation: av-arm 1.3s var(--ease) both; }
 .av--dance   { animation: av-dance 1.2s ease-in-out infinite; }
 .av--levelup { animation: av-levelup 1.2s var(--ease) both; }
 .av-item-new { animation: av-drop .6s var(--ease-back) both; }
 
+/* 손 흔들기: 팔이 아래에서 올라와 흔들고 내려감 */
+@keyframes av-arm { 0% { opacity: 0; transform: translateY(45%); } 18% { opacity: 1; transform: translateY(0) rotate(0); } 34% { transform: rotate(-16deg); } 50% { transform: rotate(12deg); } 66% { transform: rotate(-12deg); } 82% { opacity: 1; transform: translateY(0) rotate(0); } 100% { opacity: 0; transform: translateY(45%); } }
+/* 캐릭터 옆 표시: 물음표 말풍선, 모래시계, 반짝임 */
+.av .av-fx { transform-origin: center; }
+.av .av-q { animation: av-q 1.8s var(--ease-back) both; }
+.av .av-hourglass { animation: av-flip 2.4s var(--ease) infinite; }
+.av .av-spark { opacity: 0; animation: av-spark 1.1s var(--ease) both; animation-delay: var(--d, 0s); }
+@keyframes av-q { 0% { opacity: 0; transform: translateY(20%) scale(.3); } 15% { opacity: 1; transform: scale(1.1); } 25% { transform: scale(1); } 80% { opacity: 1; transform: none; } 100% { opacity: 0; transform: translateY(-15%); } }
+@keyframes av-flip { 0%, 45% { transform: rotate(0); } 65%, 100% { transform: rotate(180deg); } }
+@keyframes av-spark { 0% { opacity: 0; transform: scale(0) rotate(0); } 40% { opacity: 1; transform: scale(1.2) rotate(45deg); } 100% { opacity: 0; transform: scale(.4) rotate(90deg); } }
+
 /* ---------- 저사양 대체 (ui.js가 <html class="lite">) ---------- */
-.lite .av .av-body, .lite .av .av-head, .lite .av--dance { animation: none; }
+.lite .av .av-body, .lite .av .av-head, .lite .av--dance, .lite .av .av-hourglass { animation: none; }
 .lite .glass, .lite .glass-strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.92); }
 .lite .orb { filter: none; opacity: .18; animation: none; }
 .lite .orb-wrap { transform: none; transition: none; }

@@ -417,6 +417,47 @@ revoke all on function public.reveal_board(uuid) from public, anon;
 grant execute on function public.reveal_board(uuid) to authenticated;
 
 -- ---------------------------------------------------------
+-- 발표 취소 (교사)
+-- 그 발표로 지급한 포인트 기록(point_events 중 board_id가 이 보드인 것)을 지우고 보드를 다시 연다.
+-- 포인트 원장은 원래 정정 기록을 더하는 방식이지만, 발표 취소만은 예외로 지운다.
+-- (정정 기록으로 하면 다시 발표할 때 "이미 받은 학생"이 되어 지급되지 않기 때문)
+-- board_id가 붙은 포인트 기록은 발표 지급뿐이다.
+-- ---------------------------------------------------------
+create or replace function public.unreveal_board(p_board_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  b         public.boards;
+  v_removed int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+
+  select * into b from public.boards where id = p_board_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if b.status <> 'revealed' then
+    raise exception 'NOT_REVEALED';
+  end if;
+
+  delete from public.point_events where board_id = b.id;
+  get diagnostics v_removed = row_count;
+
+  update public.boards set status = 'open', result = null where id = b.id;
+
+  return jsonb_build_object('ok', true, 'removed', v_removed, 'class_id', b.class_id);
+end;
+$$;
+revoke all on function public.unreveal_board(uuid) from public, anon;
+grant execute on function public.unreveal_board(uuid) to authenticated;
+
+-- ---------------------------------------------------------
 -- 코드 발급 (교사)
 -- 평문 코드는 이 응답에서만 돌려준다(인쇄용). 저장은 해시만.
 -- p_only_missing = true면 코드가 없는 학생만.

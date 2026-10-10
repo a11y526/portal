@@ -124,9 +124,9 @@ function makeCard(s) {
       </div>
       <label class="memo-label" for="memo-${s.id}">메모 (선택)</label>
       <input class="input memo-in" id="memo-${s.id}" type="text" maxlength="200" placeholder="예: 3번 사례" autocomplete="off">
-      <div class="sub-actions">
-        <button type="button" class="act act-cancel press" data-act="close">취소</button>
+      <div class="sub-actions stack">
         <button type="button" class="act act-send press" data-act="return">다시 보내기</button>
+        <button type="button" class="act act-cancel press" data-act="close">취소</button>
       </div>
     </div>`;
   return el;

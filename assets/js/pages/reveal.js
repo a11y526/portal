@@ -2,7 +2,7 @@
 // 화면 어두워짐 → 3위·2위·1위 순서로 카드가 뒤집히며 공개(클릭/스페이스) → 1위에서 빛줄기 + 폭죽 → 4위부터 목록
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, countUp, isLite } from '../ui.js';
-import { listClasses, getBoard, listSubmissions, revealBoard, onSubmissionsChange, sendClassRefresh } from '../db.js';
+import { listClasses, getBoard, listSubmissions, revealBoard, unrevealBoard, onSubmissionsChange, sendClassRefresh } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
 
 initUI({
@@ -35,6 +35,7 @@ async function loadReady() {
     $('ready-title').textContent = '순위 발표';
     $('ready-info').textContent = '오늘 보드가 없어요';
     $('start').classList.add('hidden');
+    $('unreveal').classList.add('hidden');
     $('ready-warn').classList.add('hidden');
     return;
   }
@@ -53,7 +54,25 @@ async function loadReady() {
   $('start').textContent = revealed ? '다시 보기' : '순위 발표';
   $('start').classList.remove('hidden');
   $('start').disabled = false;
+  $('unreveal').classList.toggle('hidden', !revealed);
+  $('unreveal').disabled = false;
 }
+
+/* ---------- 발표 취소: 그 발표로 준 포인트를 거둬들이고 보드를 다시 연다 ---------- */
+$('unreveal').addEventListener('click', async () => {
+  if (!board || board.status !== 'revealed') return;
+  if (!confirm(`${classId}반 ${board.lesson_code}차시 발표를 취소할까요?\n이 발표로 준 포인트를 거둬들이고, 제출과 검사를 다시 할 수 있게 돼요.`)) return;
+  $('unreveal').disabled = true;
+  try {
+    const res = await unrevealBoard(board.id);
+    sendClassRefresh(classId);
+    toast(res?.removed ? `발표를 취소하고 포인트 ${res.removed}건을 거둬들였어요` : '발표를 취소했어요', 'ok');
+    await loadReady();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    $('unreveal').disabled = false;
+  }
+});
 
 let readyTimer;
 const scheduleReady = () => {

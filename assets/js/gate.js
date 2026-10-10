@@ -10,6 +10,7 @@ export function errMsg(err) {
   if (/ALREADY_REVIEWED/.test(m)) return '이미 검사한 제출이에요';
   if (/BOARD_REVEALED/.test(m)) return '이미 순위를 발표한 보드예요';
   if (/HAS_SUBMISSIONS/.test(m)) return '제출이 시작돼서 모둠을 바꿀 수 없어요';
+  if (/NOT_REVEALED/.test(m)) return '아직 발표하지 않은 보드예요';
   if (/NOT_TEACHER/.test(m)) return '교사 계정으로 로그인해 주세요';
   return '처리하지 못했어요: ' + m;
 }

@@ -204,9 +204,8 @@ function renderMine(data) {
   let html;
   if (g.state === 'pending') html = pendingBox();
   else if (g.state === 'passed') html = passedBox(g.rank);
-  else if (g.state === 'returned') html = returnedBox(g.feedback) + (open ? codeForm('고쳐서 다시 제출') : '');
-  else if (open) html = codeForm('다 했어요');
-  else html = closedBox(board.status === 'revealed' ? '발표가 끝났어요' : '제출이 마감됐어요');
+  else if (open) html = (g.state === 'returned' ? returnedBox(g.feedback) : '') + codeForm(g.state === 'returned' ? '고쳐서 다시 제출' : '다 했어요');
+  else html = (g.state === 'returned' ? returnedBox(g.feedback) : '') + closedBox(board.status === 'revealed' ? '발표가 끝났어요' : '제출이 마감됐어요');
   setMine(key, g.state, html);
 }
 

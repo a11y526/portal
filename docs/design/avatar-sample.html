@@ -1,0 +1,118 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>캐릭터 예시</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/css/design.css">
+<link rel="stylesheet" href="../../assets/css/site.css">
+<style>
+  .s-wrap { max-width: 1120px; padding: 40px 24px 72px; gap: 28px; }
+  .s-wrap h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: -.02em; }
+  .s-wrap h2 { margin: 0 0 14px; font-size: 18px; font-weight: 900; }
+  .s-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px; }
+  .s-card { border-radius: var(--r-lg); padding: 22px 16px 18px; display: flex; flex-direction: column; align-items: center; gap: 12px; }
+  .s-parts { font-size: 13px; color: var(--ink-2); text-align: center; line-height: 1.5; }
+  .s-sizes { display: flex; align-items: flex-end; gap: 14px; }
+  .s-sizes figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 11px; color: var(--ink-2); }
+  .s-ctrl { border-radius: var(--r-lg); padding: 18px 20px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .s-ctx { display: grid; grid-template-columns: 1.2fr 1fr; gap: 18px; }
+  .s-box { border-radius: var(--r-lg); padding: 20px; }
+  .s-row { display: flex; align-items: center; gap: 12px; padding: 8px 10px; border-radius: 16px; }
+  .s-row + .s-row { margin-top: 4px; }
+  .s-row .rk { width: 28px; font-weight: 900; font-size: 18px; text-align: center; }
+  .s-row .nm { flex: 1; font-weight: 700; }
+  .s-row .cl { font-size: 13px; color: var(--ink-2); }
+  .s-row .xp { font-weight: 900; }
+  .s-group { display: flex; gap: 14px; flex-wrap: wrap; }
+  .s-group figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; }
+  @media (max-width: 900px) { .s-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .s-ctx { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+<main class="wrap s-wrap">
+  <h1>캐릭터 예시</h1>
+
+  <section class="s-grid" id="grid"></section>
+
+  <section class="s-ctrl glass" aria-label="모션 시험">
+    <button class="btn btn-line btn-small" data-act="wave">손 흔들기</button>
+    <button class="btn btn-line btn-small" data-act="tilt">고개 갸웃</button>
+    <button class="btn btn-line btn-small" data-act="returned">다시 받음</button>
+    <button class="btn btn-line btn-small" data-act="wait">검사 대기</button>
+    <button class="btn btn-line btn-small" data-act="pass">모둠 통과</button>
+    <button class="btn btn-line btn-small" data-act="levelup">레벨업</button>
+    <button class="btn btn-line btn-small" data-act="dance">1위 춤</button>
+  </section>
+
+  <section class="s-ctx">
+    <div class="s-box glass">
+      <h2>순위표 줄 (40px)</h2>
+      <div id="rows"></div>
+    </div>
+    <div class="s-box glass">
+      <h2>모둠 카드 (48px)</h2>
+      <div class="s-group" id="group"></div>
+    </div>
+  </section>
+</main>
+<script type="module">
+  import { initUI } from '../../assets/js/ui.js';
+  import { avatarSVG, react, setWaiting, setDance, bindReactions } from '../../assets/js/avatar.js';
+  import { PARTS } from '../../assets/js/avatar-parts.js';
+
+  initUI();
+  bindReactions();
+
+  const samples = [
+    { face: 'face_round',  hair: 'hair_short', eyes: 'eyes_round',  mouth: 'mouth_smile', outfit: 'outfit_tee' },
+    { face: 'face_slim',   hair: 'hair_bob',   eyes: 'eyes_smile',  mouth: 'mouth_grin',  outfit: 'outfit_hood' },
+    { face: 'face_square', hair: 'hair_curly', eyes: 'eyes_sleepy', mouth: 'mouth_flat',  outfit: 'outfit_tee' },
+    { face: 'face_round',  hair: 'hair_tied',  eyes: 'eyes_round',  mouth: 'mouth_grin',  outfit: 'outfit_hood' },
+  ];
+  const names = ['별빛', '토끼', '양자', '번개'];
+  const label = (a) => ['face', 'hair', 'eyes', 'mouth', 'outfit'].map((s) => PARTS[s][a[s]].name).join(' · ');
+
+  document.getElementById('grid').innerHTML = samples.map((a, i) => `
+    <article class="s-card glass rise" style="--d:${i * 0.06}s">
+      <div class="big">${avatarSVG(a, 200)}</div>
+      <div class="s-parts">${label(a)}</div>
+      <div class="s-sizes">
+        <figure>${avatarSVG(a, 96)}<figcaption>96</figcaption></figure>
+        <figure>${avatarSVG(a, 48)}<figcaption>48</figcaption></figure>
+        <figure>${avatarSVG(a, 40)}<figcaption>40</figcaption></figure>
+      </div>
+    </article>`).join('');
+
+  document.getElementById('rows').innerHTML = samples.map((a, i) => `
+    <div class="s-row glass">
+      <span class="rk num">${i + 4}</span>${avatarSVG(a, 40)}
+      <span class="nm">${names[i]}</span><span class="cl">1-${8 + i}</span>
+      <span class="xp num">${120 - i * 14} XP</span>
+    </div>`).join('');
+
+  document.getElementById('group').innerHTML = samples.map((a, i) => `
+    <figure>${avatarSVG(a, 48)}<figcaption>${names[i]}</figcaption></figure>`).join('');
+
+  const all = () => [...document.querySelectorAll('svg.av')];
+  const bigs = () => [...document.querySelectorAll('.big svg.av')];
+  let waiting = false, dancing = false;
+
+  document.querySelector('.s-ctrl').addEventListener('click', (e) => {
+    const act = e.target.closest('button')?.dataset.act;
+    if (!act) return;
+    if (act === 'wait') { waiting = !waiting; all().forEach((s) => setWaiting(s, waiting)); return; }
+    if (act === 'dance') { dancing = !dancing; bigs().forEach((s) => setDance(s, dancing)); return; }
+    if (act === 'pass') {
+      document.querySelectorAll('#group svg.av').forEach((s, i) => react(s, 'jump', { delay: i * 120 }));
+      bigs().forEach((s, i) => react(s, 'jump', { delay: i * 120 }));
+      return;
+    }
+    all().forEach((s) => react(s, act));
+  });
+</script>
+</body>
+</html>

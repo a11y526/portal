@@ -38,9 +38,22 @@
     </section>
 
     <div class="side hidden" id="side">
+      <section class="group-card glass-strong rise hidden" style="--d:.08s" id="mine" aria-labelledby="mine-h">
+        <div class="group-head">
+          <h2 id="mine-h">우리 모둠</h2>
+          <button type="button" class="link-btn hidden" id="num-change"></button>
+        </div>
+        <div id="mine-body" aria-live="polite"></div>
+      </section>
+
       <section class="sim-card glass rise hidden" style="--d:.14s" id="sims" aria-labelledby="sims-h">
         <h2 id="sims-h">시뮬레이션</h2>
         <div id="sim-list" style="display:flex;flex-direction:column;gap:10px"></div>
+      </section>
+
+      <section class="status-card glass rise hidden" style="--d:.2s" id="groups" aria-labelledby="groups-h">
+        <h2 id="groups-h">모둠 현황</h2>
+        <div class="group-grid" id="group-grid"></div>
       </section>
     </div>
   </div>

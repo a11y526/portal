@@ -1,0 +1,169 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>내 기록</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2457E6}a:hover{color:#1A43B8}
+.glass{background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 32px rgba(28,39,76,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 1px rgba(255,255,255,.4)}
+.glass-strong{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(28px) saturate(200%);backdrop-filter:blur(28px) saturate(200%);border:1px solid rgba(255,255,255,.9);box-shadow:0 18px 40px rgba(28,39,76,.14),inset 0 1px 0 #fff}
+.orb{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none}
+.lift{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+.lift:hover{transform:translateY(-3px)}
+.press{transition:transform .15s}
+.press:active{transform:scale(.97)}
+@keyframes rise{from{opacity:0;transform:translateY(18px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes fill{from{transform:scaleX(0)}to{transform:scaleX(1)}}
+.fill{transform-origin:left;animation:fill 1.4s cubic-bezier(.2,.8,.2,1) .3s both}
+@keyframes ring{from{stroke-dashoffset:339.3}}
+.ring{animation:ring 1.6s cubic-bezier(.2,.8,.2,1) .2s both}
+@keyframes pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.15);opacity:1}100%{transform:scale(1)}}
+.pop{animation:pop .8s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes rays{to{transform:rotate(360deg)}}
+.rays{animation:rays 12s linear infinite}
+@keyframes fadein{from{opacity:0}to{opacity:1}}
+.fadein{animation:fadein .4s ease both}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; min-height: 1060px; overflow: hidden; background: #EDF1F7; font-family: 'Noto Sans KR', sans-serif; color: #0B1220">
+<div class="orb" aria-hidden="true" style="width: 560px; height: 560px; left: -180px; top: -200px; background: #6EA8FF; opacity: .5"></div>
+<div class="orb" aria-hidden="true" style="width: 480px; height: 480px; right: -160px; top: 140px; background: #6FE3C8; opacity: .45"></div>
+<div class="orb" aria-hidden="true" style="width: 440px; height: 440px; left: 30%; bottom: -200px; background: #B79CFF; opacity: .4"></div>
+
+<div style="position: relative; max-width: 960px; margin: 0 auto; padding: 32px 24px 72px; display: flex; flex-direction: column; gap: 24px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<a href="Main.dc.html" class="glass lift" aria-label="처음으로" style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 999px; color: #0B1220">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 6l-6 6 6 6"></path></svg>
+</a>
+<a href="Rank.dc.html" class="glass lift" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; text-decoration: none; color: #0B1220; font-weight: 500; font-size: 15px">이번 달 순위</a>
+</div>
+
+<section class="glass-strong rise" style="border-radius: 36px; padding: 32px; display: flex; flex-wrap: wrap; align-items: center; gap: 32px">
+<div style="position: relative; width: 136px; height: 136px; flex: none">
+<svg width="136" height="136" viewBox="0 0 136 136" aria-hidden="true" style="transform: rotate(-90deg)">
+<circle cx="68" cy="68" r="54" fill="none" stroke="rgba(36,87,230,.12)" stroke-width="12"></circle>
+<circle class="ring" cx="68" cy="68" r="54" fill="none" stroke="#2457E6" stroke-width="12" stroke-linecap="round" stroke-dasharray="339.3" style="stroke-dashoffset: 129"></circle>
+</svg>
+<div style="position: absolute; inset: 0; display: flex; flex-direction: column; align-items: center; justify-content: center">
+<span style="font-size: 14px; font-weight: 700; color: #4E5868">레벨</span>
+<span style="font-size: 44px; font-weight: 900; letter-spacing: -0.04em; line-height: 1">7</span>
+</div>
+</div>
+<div style="flex: 1 1 320px; min-width: 0; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap">
+<h1 style="margin: 0; font-size: 40px; font-weight: 900; letter-spacing: -0.03em">중력고양이</h1>
+<span style="padding: 4px 12px; border-radius: 999px; background: rgba(36,87,230,.10); font-size: 14px; font-weight: 700; color: #2457E6">8반 · 3모둠</span>
+</div>
+<div style="display: flex; justify-content: space-between; font-size: 15px; font-weight: 500; color: #4E5868">
+<span>레벨 8까지</span><span style="font-weight: 900; color: #0B1220">38 XP 남음</span>
+</div>
+<div style="height: 18px; border-radius: 999px; background: rgba(36,87,230,.12); overflow: hidden">
+<div class="fill" style="width: 62%; height: 100%; border-radius: 999px; background: #2457E6; box-shadow: inset 0 1px 0 rgba(255,255,255,.45)"></div>
+</div>
+</div>
+</section>
+
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px">
+<div class="glass rise" style="animation-delay: .1s; border-radius: 28px; padding: 22px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; font-weight: 700; color: #4E5868">이번 달 XP</span>
+<span style="font-size: 36px; font-weight: 900; letter-spacing: -0.03em">301</span>
+<span style="font-size: 14px; font-weight: 700; color: #0F8A5F">전체 7위 ▲4</span>
+</div>
+<div class="glass rise" style="animation-delay: .16s; border-radius: 28px; padding: 22px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; font-weight: 700; color: #4E5868">누적 XP</span>
+<span style="font-size: 36px; font-weight: 900; letter-spacing: -0.03em">452</span>
+<span style="font-size: 14px; color: #4E5868">레벨은 줄지 않아요</span>
+</div>
+<div class="glass rise" style="animation-delay: .22s; border-radius: 28px; padding: 22px; display: flex; flex-direction: column; gap: 6px">
+<span style="font-size: 14px; font-weight: 700; color: #4E5868">코인</span>
+<span style="display: flex; align-items: center; gap: 8px; font-size: 36px; font-weight: 900; letter-spacing: -0.03em">
+<svg width="28" height="28" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#F2B705"></circle><circle cx="12" cy="12" r="6.5" fill="none" stroke="#B88600" stroke-width="1.6"></circle></svg>
+64</span>
+<span style="font-size: 14px; color: #4E5868">상점에서 써요</span>
+</div>
+</div>
+
+<section class="glass rise" style="animation-delay: .28s; border-radius: 32px; padding: 24px; display: flex; flex-direction: column; gap: 14px">
+<h2 style="margin: 0 0 0 4px; font-size: 22px; font-weight: 900">상점</h2>
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 12px">
+<div style="display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 22px; background: rgba(255,255,255,.65)">
+<span style="display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 16px; background: rgba(36,87,230,.12); color: #2457E6">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"></circle><circle cx="17" cy="9" r="2.5"></circle><path d="M3 20a6 6 0 0 1 12 0"></path><path d="M15 20a4.5 4.5 0 0 1 6-4.2"></path></svg>
+</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 700">모둠 선택권</span>
+<span style="font-size: 14px; color: #4E5868">[가격] 코인</span>
+</div>
+<button type="button" class="press" style="margin-left: auto; min-height: 44px; padding: 0 18px; border-radius: 999px; border: 0; background: #2457E6; color: #fff; font-family: inherit; font-size: 15px; font-weight: 700; cursor: pointer">구매 신청</button>
+</div>
+<div style="display: flex; align-items: center; gap: 14px; padding: 16px; border-radius: 22px; background: rgba(255,255,255,.65)">
+<span style="display: inline-flex; align-items: center; justify-content: center; width: 52px; height: 52px; border-radius: 16px; background: rgba(242,183,5,.18); color: #8A6400">
+<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3l2.7 5.6 6.1.9-4.4 4.3 1 6.1L12 17l-5.4 2.9 1-6.1-4.4-4.3 6.1-.9z"></path></svg>
+</span>
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 17px; font-weight: 700">상점</span>
+<span style="font-size: 14px; color: #4E5868">[가격] 코인</span>
+</div>
+<span style="margin-left: auto; padding: 8px 14px; border-radius: 999px; background: rgba(255,196,77,.28); color: #8A5300; font-size: 14px; font-weight: 700">승인 대기</span>
+</div>
+</div>
+</section>
+
+<section class="glass rise" style="animation-delay: .34s; border-radius: 32px; padding: 24px; display: flex; flex-direction: column; gap: 6px">
+<h2 style="margin: 0 0 8px 4px; font-size: 22px; font-weight: 900">받은 기록</h2>
+<sc-for list="{{history}}" as="h" hint-placeholder-count="5">
+<div style="display: flex; align-items: center; gap: 14px; min-height: 56px; padding: 0 8px; border-bottom: 1px solid rgba(78,88,104,.12)">
+<span style="width: 48px; font-size: 14px; color: #4E5868; font-variant-numeric: tabular-nums">{{h.date}}</span>
+<span style="font-size: 16px; font-weight: 500">{{h.what}}</span>
+<span style="margin-left: auto; font-size: 16px; font-weight: 900; color: {{h.color}}">{{h.amount}}</span>
+</div>
+</sc-for>
+</section>
+</div>
+
+<sc-if value="{{showLevelUp}}" hint-placeholder-val="{{false}}">
+<div class="fadein" style="position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; background: rgba(237,241,247,.55); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px)">
+<div style="position: relative; width: 420px; max-width: calc(100% - 48px)">
+<svg class="rays" width="560" height="560" viewBox="0 0 200 200" aria-hidden="true" style="position: absolute; left: 50%; top: 50%; margin: -280px 0 0 -280px; opacity: .5">
+<g fill="#FFC48A"><path d="M100 100 L96 0 L104 0 Z"></path><path d="M100 100 L196 96 L196 104 Z"></path><path d="M100 100 L104 200 L96 200 Z"></path><path d="M100 100 L4 104 L4 96 Z"></path><path d="M100 100 L168 26 L174 32 Z"></path><path d="M100 100 L174 168 L168 174 Z"></path><path d="M100 100 L32 174 L26 168 Z"></path><path d="M100 100 L26 32 L32 26 Z"></path></g>
+</svg>
+<div class="glass-strong pop" style="position: relative; border-radius: 40px; padding: 40px 32px; display: flex; flex-direction: column; align-items: center; gap: 10px; text-align: center">
+<span style="font-size: 18px; font-weight: 700; color: #2457E6">레벨 업!</span>
+<span style="font-size: 96px; font-weight: 900; letter-spacing: -0.05em; line-height: 1">8</span>
+<span style="font-size: 16px; color: #4E5868">누적 490 XP 달성</span>
+<button type="button" class="press" style="margin-top: 10px; min-height: 52px; padding: 0 32px; border-radius: 999px; border: 0; background: #2457E6; color: #fff; font-family: inherit; font-size: 17px; font-weight: 900; cursor: pointer">확인</button>
+</div>
+</div>
+</div>
+</sc-if>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"showLevelUp":{"editor":"boolean","default":false,"section":"시안"},"$preview":{"width":1280,"height":1060}}'>
+class Component extends DCLogic {
+renderVals() {
+var green = '#0F8A5F', red = '#C2410C';
+return {
+showLevelUp: this.props.showLevelUp ?? false,
+history: [
+{ date: '10/8', what: '523차시 모둠활동 통과', amount: '+10 XP', color: green },
+{ date: '10/8', what: '523차시 모둠 순위 2위 보너스', amount: '+6 XP', color: green },
+{ date: '10/6', what: '상점 구매 신청', amount: '−[가격] 코인', color: red },
+{ date: '10/1', what: '522차시 모둠활동 통과', amount: '+10 XP', color: green },
+{ date: '10/1', what: '522차시 모둠 순위 1위 보너스', amount: '+10 XP', color: green }
+]
+};
+}
+}
+</script>
+</body>
+</html>

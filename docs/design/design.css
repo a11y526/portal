@@ -1,0 +1,194 @@
+/* =========================================================
+   과학 수업 포털 — 디자인 기준 CSS
+   시안(reference/*.dc.html)에서 뽑은 토큰, 유리 카드, 모션.
+   assets/css/design.css로 복사해서 쓰고, 페이지별 CSS는 따로 둔다.
+   HTML <head>에 글꼴을 넣는다:
+   <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+   ========================================================= */
+
+/* ---------- 페이지 전환 (Chrome 계열: 지원하면 자동, 아니면 무시) ---------- */
+@view-transition { navigation: auto; }
+::view-transition-old(root),
+::view-transition-new(root) { animation-duration: .45s; animation-timing-function: cubic-bezier(.2,.8,.2,1); }
+
+/* ---------- 토큰 ---------- */
+:root {
+  --bg: #EDF1F7;
+  --ink: #0B1220;
+  --ink-2: #4E5868;
+  --accent: #2457E6;
+  --accent-hover: #1A43B8;
+  --accent-tint: rgba(36,87,230,.10);
+
+  --orb-blue: #6EA8FF;
+  --orb-violet: #B79CFF;
+  --orb-mint: #6FE3C8;
+  --orb-peach: #FFC48A;
+
+  --pending-fg: #8A5300;  --pending-bg: rgba(255,196,77,.22);  --pending-dot: #D98E04;
+  --returned-fg: #A23B0B; --returned-bg: rgba(255,122,69,.16); --returned-solid: #C2410C;
+  --passed-fg: #0B6B47;   --passed-bg: rgba(34,197,130,.16);   --passed-solid: #0F8A5F;
+  --idle-fg: #4E5868;     --idle-bg: rgba(255,255,255,.55);    --idle-dot: #9AA3B2;
+
+  --gold: #D19A00; --silver: #8C97A8; --bronze: #B96B2E;
+
+  --r-xl: 36px; --r-lg: 28px; --r-md: 22px; --r-sm: 14px; --r-pill: 999px;
+
+  --glass-bg: rgba(255,255,255,.55);
+  --glass-strong-bg: rgba(255,255,255,.72);
+  --glass-border: rgba(255,255,255,.8);
+  --glass-blur: blur(24px) saturate(180%);
+  --glass-strong-blur: blur(28px) saturate(200%);
+  --shadow: 0 12px 32px rgba(28,39,76,.10);
+  --shadow-strong: 0 18px 40px rgba(28,39,76,.14);
+
+  --ease: cubic-bezier(.2,.8,.2,1);
+  --ease-back: cubic-bezier(.2,.9,.3,1.3);
+  --t-fast: .2s; --t-mid: .45s; --t-slow: .7s;
+}
+
+/* ---------- 기본 ---------- */
+*, *::before, *::after { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
+body {
+  margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+  font-family: 'Noto Sans KR', system-ui, sans-serif; overflow-x: hidden;
+}
+a { color: var(--accent); }
+a:hover { color: var(--accent-hover); }
+.num { font-variant-numeric: tabular-nums; }
+:focus-visible { outline: 3px solid rgba(36,87,230,.4); outline-offset: 2px; }
+
+/* ---------- 배경 오브 (시차: ui.js가 --px, --py를 -1~1로 넘김) ---------- */
+.bg { position: fixed; inset: 0; z-index: -1; overflow: hidden; pointer-events: none; }
+.orb-wrap { position: absolute; transform: translate(calc(var(--px,0) * var(--depth,24px)), calc(var(--py,0) * var(--depth,24px))); transition: transform .6s var(--ease); }
+.orb { width: 100%; height: 100%; border-radius: 50%; filter: blur(70px); opacity: .5; animation: drift 18s ease-in-out infinite; }
+.orb.blue { background: var(--orb-blue); }
+.orb.violet { background: var(--orb-violet); animation-direction: reverse; animation-duration: 22s; }
+.orb.mint { background: var(--orb-mint); animation-duration: 26s; }
+.orb.peach { background: var(--orb-peach); animation-direction: reverse; }
+
+/* ---------- 유리 ---------- */
+.glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-blur); backdrop-filter: var(--glass-blur);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.95), inset 0 -1px 1px rgba(255,255,255,.4);
+}
+.glass-strong {
+  background: var(--glass-strong-bg);
+  -webkit-backdrop-filter: var(--glass-strong-blur); backdrop-filter: var(--glass-strong-blur);
+  border: 1px solid rgba(255,255,255,.9);
+  box-shadow: var(--shadow-strong), inset 0 1px 0 #fff;
+}
+/* 포인터를 따라 움직이는 빛 반사 (ui.js가 카드 기준 --mx, --my를 %로 넘김) */
+.glass-live { position: relative; overflow: hidden; isolation: isolate; }
+.glass-live::after {
+  content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+  background: radial-gradient(240px circle at var(--mx,50%) var(--my,0%), rgba(255,255,255,.7), transparent 60%);
+  opacity: 0; transition: opacity .3s;
+}
+.glass-live:hover::after { opacity: 1; }
+
+/* ---------- 버튼·칩 ---------- */
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 20px;
+  border: 0; border-radius: var(--r-pill); font: inherit; font-weight: 700; cursor: pointer; text-decoration: none;
+  transition: transform .15s, box-shadow var(--t-fast); }
+.btn:active { transform: scale(.97); }
+.btn-primary { background: var(--accent); color: #fff; box-shadow: 0 10px 24px rgba(36,87,230,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+.btn-primary:hover { color: #fff; }
+.btn-big { min-height: 60px; font-size: 20px; font-weight: 900; }
+.btn-glass { color: var(--ink); }
+.btn-pass { background: var(--passed-solid); color: #fff; }
+.btn-return { background: var(--returned-bg); color: var(--returned-fg); }
+.chip { display: inline-flex; align-items: center; padding: 4px 12px; border-radius: var(--r-pill); font-size: 13px; font-weight: 700; background: var(--accent-tint); color: var(--accent); }
+.lift { transition: transform .25s var(--ease), box-shadow .25s; }
+.lift:hover { transform: translateY(-3px); box-shadow: 0 20px 40px rgba(28,39,76,.16), inset 0 1px 0 #fff; }
+
+/* ---------- 상태 ---------- */
+.is-idle     { --s-fg: var(--idle-fg);     --s-bg: var(--idle-bg); }
+.is-pending  { --s-fg: var(--pending-fg);  --s-bg: var(--pending-bg); }
+.is-returned { --s-fg: var(--returned-fg); --s-bg: var(--returned-bg); }
+.is-passed   { --s-fg: var(--passed-fg);   --s-bg: var(--passed-bg); }
+.status { color: var(--s-fg); background: var(--s-bg); }
+
+/* ---------- 모션: 키프레임 ---------- */
+@keyframes rise   { from { opacity: 0; transform: translateY(18px); } to { opacity: 1; transform: none; } }
+@keyframes pop    { 0% { opacity: 0; transform: scale(.3); } 60% { opacity: 1; transform: scale(1.12); } 100% { transform: scale(1); } }
+@keyframes spin   { to { transform: rotate(360deg); } }
+@keyframes breathe{ 0%,100% { opacity: .55; } 50% { opacity: 1; } }
+@keyframes grow   { from { transform: scaleY(0); } to { transform: scaleY(1); } }
+@keyframes shine  { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
+@keyframes fill   { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes ring   { from { stroke-dashoffset: var(--ring-len, 339.3); } }
+@keyframes drift  { 0%,100% { transform: translate(0,0); } 50% { transform: translate(40px,-30px); } }
+@keyframes draw   { from { stroke-dashoffset: var(--draw-len, 60); } to { stroke-dashoffset: 0; } }
+@keyframes morph  { 0% { transform: perspective(800px) rotateX(0); } 50% { transform: perspective(800px) rotateX(88deg); opacity: .4; } 100% { transform: perspective(800px) rotateX(0); } }
+@keyframes slide-in  { from { opacity: 0; transform: translateY(-24px) scale(.98); } to { opacity: 1; transform: none; } }
+@keyframes slide-out { to { opacity: 0; transform: translateX(60px); } }
+@keyframes bump   { 0%,100% { transform: scale(1); } 40% { transform: scale(1.25); } }
+@keyframes fall   { 0% { opacity: 0; transform: translateY(-10px) rotate(0); } 15% { opacity: 1; } 100% { opacity: 0; transform: translateY(150px) rotate(320deg); } }
+@keyframes rays   { to { transform: rotate(360deg); } }
+
+/* ---------- 모션: 클래스 (지연은 style="--d:.1s") ---------- */
+.rise   { animation: rise var(--t-slow) var(--ease) both; animation-delay: var(--d, 0s); }
+.pop    { animation: pop .7s var(--ease-back) both; animation-delay: var(--d, 0s); }
+.spin   { animation: spin 1.1s linear infinite; }
+.breathe{ animation: breathe 1.8s ease-in-out infinite; }
+.grow   { transform-origin: bottom; animation: grow .9s var(--ease) both; animation-delay: var(--d, 0s); }
+.shine  { background-image: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.75) 50%, transparent 65%); background-size: 200% 100%; animation: shine 3.2s ease-in-out infinite; }
+.fill   { transform-origin: left; animation: fill 1.4s var(--ease) .3s both; }
+.ring   { animation: ring 1.6s var(--ease) .2s both; }
+.draw path, .draw circle, .draw line, .draw polyline { stroke-dasharray: var(--draw-len, 60); animation: draw .8s var(--ease) both; animation-delay: var(--d, 0s); }
+.morph  { animation: morph .5s var(--ease); }
+.slide-in  { animation: slide-in var(--t-mid) var(--ease) both; }
+.slide-out { animation: slide-out .35s var(--ease) forwards; }
+.bump   { animation: bump .4s var(--ease-back); }
+.rays   { animation: rays 12s linear infinite; }
+.press  { transition: transform .15s; }
+.press:active { transform: scale(.97); }
+.confetti-bit { position: absolute; top: 0; width: 8px; height: 12px; border-radius: 2px; animation: fall 2.2s ease-in infinite; animation-delay: var(--d, 0s); }
+
+/* ---------- 캐릭터 모션 (avatar.js가 만든 SVG의 그룹에 붙임) ----------
+   .av            캐릭터 SVG 루트
+   .av-body       몸통 그룹      .av-head  머리 그룹(머리카락·얼굴·소품 포함)
+   .av-eyes       눈 그룹        .av-arm   손 흔들기용 팔(있을 때)
+   반응은 루트에 클래스를 잠깐 붙였다 뗀다: .av--jump .av--tilt .av--wave .av--levelup
+   ------------------------------------------------------------------ */
+.av g { transform-box: fill-box; transform-origin: center bottom; }
+.av .av-eyes { transform-origin: center; }
+@keyframes av-breathe { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-1.5%) scaleY(1.015); } }
+@keyframes av-blink   { 0%, 92%, 100% { transform: scaleY(1); } 95% { transform: scaleY(.1); } }
+@keyframes av-jump    { 0%,100% { transform: translateY(0); } 30% { transform: translateY(-22%) scale(1.04,.96); } 55% { transform: translateY(0) scale(1.06,.92); } 70% { transform: translateY(-6%); } }
+@keyframes av-tilt    { 0%,100% { transform: rotate(0); } 35% { transform: rotate(-12deg); } 70% { transform: rotate(6deg); } }
+@keyframes av-wave    { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-20deg); } 50% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } }
+@keyframes av-dance   { 0%,100% { transform: rotate(-6deg) translateX(-2%); } 50% { transform: rotate(6deg) translateX(2%); } }
+@keyframes av-levelup { 0% { transform: translateY(0) rotate(0); } 40% { transform: translateY(-30%) rotate(180deg); } 80% { transform: translateY(0) rotate(360deg); } 90% { transform: scale(1.08,.92); } 100% { transform: none; } }
+@keyframes av-drop    { 0% { opacity: 0; transform: translateY(-60%); } 70% { opacity: 1; transform: translateY(4%); } 100% { transform: none; } }
+
+.av .av-body { animation: av-breathe 3s ease-in-out infinite; }
+.av .av-head { animation: av-breathe 3s ease-in-out infinite; animation-delay: .12s; }
+.av .av-eyes { animation: av-blink var(--blink, 5s) infinite; animation-delay: var(--blink-d, 0s); }
+.av--jump    { animation: av-jump .7s var(--ease) both; animation-delay: var(--d, 0s); }
+.av--tilt .av-head { animation: av-tilt .8s var(--ease); }
+.av--wave .av-arm  { animation: av-wave .9s var(--ease); }
+.av--dance   { animation: av-dance 1.2s ease-in-out infinite; }
+.av--levelup { animation: av-levelup 1.2s var(--ease) both; }
+.av-item-new { animation: av-drop .6s var(--ease-back) both; }
+
+/* ---------- 저사양 대체 (ui.js가 <html class="lite">) ---------- */
+.lite .av .av-body, .lite .av .av-head, .lite .av--dance { animation: none; }
+.lite .glass, .lite .glass-strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.92); }
+.lite .orb { filter: none; opacity: .18; animation: none; }
+.lite .orb-wrap { transform: none; transition: none; }
+.lite .glass-live::after { display: none; }
+.lite .shine, .lite .breathe, .lite .rays { animation: none; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glass, .glass-strong { background: rgba(255,255,255,.92); }
+}
+
+/* ---------- 움직임 줄이기 설정 ---------- */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+  ::view-transition-old(root), ::view-transition-new(root) { animation: none !important; }
+}

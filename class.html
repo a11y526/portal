@@ -1,0 +1,50 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>반 페이지</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap class-wrap">
+  <div class="class-top">
+    <div class="left">
+      <a href="index.html" class="icon-btn glass lift" aria-label="반 선택으로 돌아가기">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+      </a>
+      <h1 class="class-title" id="title"></h1>
+      <span class="glass pill lesson-chip hidden" id="lesson"></span>
+    </div>
+  </div>
+
+  <div class="class-body">
+    <section class="padlet-card glass rise" aria-labelledby="padlet-h">
+      <div class="padlet-head">
+        <h2 id="padlet-h">오늘의 패들렛</h2>
+        <div class="padlet-actions hidden" id="padlet-actions">
+          <button type="button" class="btn btn-line btn-small" id="padlet-full">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>
+            <span>크게 보기</span>
+          </button>
+          <a id="padlet-open" href="#" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
+        </div>
+      </div>
+      <div id="padlet-slot"><div class="skeleton padlet-empty"></div></div>
+    </section>
+
+    <div class="side hidden" id="side">
+      <section class="sim-card glass rise hidden" style="--d:.14s" id="sims" aria-labelledby="sims-h">
+        <h2 id="sims-h">시뮬레이션</h2>
+        <div id="sim-list" style="display:flex;flex-direction:column;gap:10px"></div>
+      </section>
+    </div>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/class.js"></script>
+</body>
+</html>

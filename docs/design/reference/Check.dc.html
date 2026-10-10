@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>검사 화면</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2457E6}a:hover{color:#1A43B8}
+.glass{background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,.8);box-shadow:0 10px 28px rgba(28,39,76,.10),inset 0 1px 0 rgba(255,255,255,.95)}
+.glass-strong{background:rgba(255,255,255,.74);-webkit-backdrop-filter:blur(28px) saturate(200%);backdrop-filter:blur(28px) saturate(200%);border:1px solid rgba(255,255,255,.9);box-shadow:0 14px 34px rgba(28,39,76,.13),inset 0 1px 0 #fff}
+.orb{position:absolute;border-radius:50%;filter:blur(60px);pointer-events:none}
+.press{transition:transform .15s}
+.press:active{transform:scale(.96)}
+@keyframes rise{from{opacity:0;transform:translateY(12px)}to{opacity:1;transform:none}}
+.rise{animation:rise .45s cubic-bezier(.2,.8,.2,1) both}
+input:focus{outline:3px solid rgba(36,87,230,.35);outline-offset:1px}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; width: 390px; height: 844px; overflow: hidden; background: #EDF1F7; font-family: 'Noto Sans KR', sans-serif; color: #0B1220; display: flex; flex-direction: column">
+<div class="orb" aria-hidden="true" style="width: 320px; height: 320px; left: -120px; top: -100px; background: #6EA8FF; opacity: .55"></div>
+<div class="orb" aria-hidden="true" style="width: 300px; height: 300px; right: -140px; top: 360px; background: #B79CFF; opacity: .45"></div>
+<div class="orb" aria-hidden="true" style="width: 260px; height: 260px; left: 40px; bottom: -120px; background: #6FE3C8; opacity: .5"></div>
+
+<div style="position: relative; padding: 56px 20px 12px; display: flex; align-items: center; gap: 10px">
+<h1 style="margin: 0; font-size: 30px; font-weight: 900; letter-spacing: -0.03em">검사</h1>
+<button type="button" class="glass press" style="display: inline-flex; align-items: center; gap: 6px; min-height: 44px; padding: 0 16px; border-radius: 999px; font-family: inherit; font-size: 16px; font-weight: 700; color: #0B1220; cursor: pointer">8반
+<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"></path></svg>
+</button>
+<span style="margin-left: auto; padding: 8px 14px; border-radius: 999px; background: rgba(255,196,77,.3); color: #8A5300; font-size: 15px; font-weight: 900">대기 {{pendingCount}}</span>
+</div>
+
+<div style="position: relative; flex: 1; overflow-y: auto; padding: 8px 20px 20px; display: flex; flex-direction: column; gap: 14px">
+<sc-for list="{{pending}}" as="p" hint-placeholder-count="2">
+<div class="glass-strong rise" style="border-radius: 26px; padding: 18px; display: flex; flex-direction: column; gap: 14px">
+<div style="display: flex; align-items: center; gap: 10px">
+<div style="display: flex; flex-direction: column; gap: 2px">
+<span style="font-size: 24px; font-weight: 900; letter-spacing: -0.02em">{{p.group}}</span>
+<span style="font-size: 13px; color: #4E5868">{{p.meta}}</span>
+</div>
+<a href="#" style="margin-left: auto; display: inline-flex; align-items: center; min-height: 40px; padding: 0 14px; border-radius: 999px; background: rgba(36,87,230,.10); text-decoration: none; font-size: 14px; font-weight: 700">패들렛 보기 ↗</a>
+</div>
+<sc-if value="{{p.open}}" hint-placeholder-val="{{false}}">
+<div style="display: flex; flex-direction: column; gap: 10px">
+<div style="display: flex; flex-wrap: wrap; gap: 8px">
+<sc-for list="{{p.presets}}" as="t" hint-placeholder-count="3">
+<button type="button" class="press" onClick="{{t.pick}}" style="min-height: 40px; padding: 0 14px; border-radius: 999px; border: 1px solid {{t.border}}; background: {{t.bg}}; font-family: inherit; font-size: 14px; font-weight: 700; color: {{t.fg}}; cursor: pointer">{{t.text}}</button>
+</sc-for>
+</div>
+<label for="memo" style="font-size: 13px; font-weight: 700; color: #4E5868">메모 (선택)</label>
+<input id="memo" type="text" placeholder="예: 3번 사례" style="height: 48px; border-radius: 14px; border: 1px solid rgba(78,88,104,.25); background: rgba(255,255,255,.85); padding: 0 14px; font-family: inherit; font-size: 16px; color: #0B1220">
+<div style="display: flex; gap: 10px">
+<button type="button" class="press" onClick="{{p.close}}" style="flex: 1; height: 52px; border-radius: 999px; border: 1px solid rgba(78,88,104,.25); background: rgba(255,255,255,.7); font-family: inherit; font-size: 16px; font-weight: 700; color: #0B1220; cursor: pointer">취소</button>
+<button type="button" class="press" onClick="{{p.sendBack}}" style="flex: 2; height: 52px; border-radius: 999px; border: 0; background: #C2410C; font-family: inherit; font-size: 17px; font-weight: 900; color: #fff; cursor: pointer">다시 보내기</button>
+</div>
+</div>
+</sc-if>
+<sc-if value="{{p.closed}}" hint-placeholder-val="{{true}}">
+<div style="display: flex; gap: 10px">
+<button type="button" class="press" onClick="{{p.openBack}}" style="flex: 1; height: 56px; border-radius: 999px; border: 0; background: rgba(255,122,69,.18); font-family: inherit; font-size: 18px; font-weight: 900; color: #A23B0B; cursor: pointer">다시</button>
+<button type="button" class="press" onClick="{{p.pass}}" style="flex: 1.4; height: 56px; border-radius: 999px; border: 0; background: #0F8A5F; font-family: inherit; font-size: 18px; font-weight: 900; color: #fff; cursor: pointer; box-shadow: 0 8px 20px rgba(15,138,95,.3)">통과</button>
+</div>
+</sc-if>
+</div>
+</sc-for>
+
+<sc-if value="{{noPending}}" hint-placeholder-val="{{false}}">
+<div class="glass" style="border-radius: 22px; padding: 22px; text-align: center; font-size: 16px; font-weight: 500; color: #4E5868">기다리는 제출이 없어요</div>
+</sc-if>
+
+<h2 style="margin: 10px 0 0 4px; font-size: 15px; font-weight: 700; color: #4E5868">처리함</h2>
+<div class="glass" style="border-radius: 22px; padding: 6px 16px">
+<sc-for list="{{done}}" as="d" hint-placeholder-count="2">
+<div style="display: flex; align-items: center; gap: 10px; min-height: 52px; border-bottom: 1px solid rgba(78,88,104,.12)">
+<span style="font-size: 16px; font-weight: 700">{{d.group}}</span>
+<span style="font-size: 13px; color: #4E5868">{{d.time}}</span>
+<span style="margin-left: auto; padding: 4px 12px; border-radius: 999px; background: {{d.bg}}; color: {{d.fg}}; font-size: 13px; font-weight: 700">{{d.label}}</span>
+</div>
+</sc-for>
+</div>
+</div>
+
+<div style="position: relative; padding: 12px 20px 34px">
+<a href="Rank.dc.html" class="press" style="display: flex; align-items: center; justify-content: center; gap: 10px; height: 58px; border-radius: 999px; background: #0B1220; color: #fff; text-decoration: none; font-size: 17px; font-weight: 900; box-shadow: 0 12px 28px rgba(11,18,32,.3)">
+<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="12" rx="2"></rect><path d="M8 20h8"></path><path d="M12 16v4"></path></svg>
+순위 발표 화면 열기</a>
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":390,"height":844}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = {
+items: [
+{ id: 'g3', group: '3모둠', time: '10:42', by: '21번', status: 'pending' },
+{ id: 'g4', group: '4모둠', time: '10:44', by: '8번', status: 'pending' },
+{ id: 'g1', group: '1모둠', time: '10:31', by: '3번', status: 'passed' },
+{ id: 'g6', group: '6모둠', time: '10:38', by: '15번', status: 'returned' }
+],
+open: 'g4',
+preset: '힘의 방향'
+};
+}
+renderVals() {
+var self = this;
+var st = this.state;
+var presets = ['힘의 방향', '화살표 길이', '힘 이름 빠짐', '사례 번호 확인'];
+function setStatus(id, status) {
+self.setState({ open: null, items: st.items.map(function (it) { return it.id === id ? Object.assign({}, it, { status: status }) : it; }) });
+}
+var pending = st.items.filter(function (it) { return it.status === 'pending'; }).map(function (it) {
+var isOpen = st.open === it.id;
+return {
+group: it.group,
+meta: it.time + ' 제출 · ' + it.by,
+open: isOpen,
+closed: !isOpen,
+openBack: function () { self.setState({ open: it.id }); },
+close: function () { self.setState({ open: null }); },
+pass: function () { setStatus(it.id, 'passed'); },
+sendBack: function () { setStatus(it.id, 'returned'); },
+presets: presets.map(function (t) {
+var on = st.preset === t;
+return { text: t, bg: on ? 'rgba(255,122,69,.18)' : 'rgba(255,255,255,.7)', border: on ? '#C2410C' : 'rgba(78,88,104,.25)', fg: on ? '#A23B0B' : '#0B1220', pick: function () { self.setState({ preset: t }); } };
+})
+};
+});
+var done = st.items.filter(function (it) { return it.status !== 'pending'; }).map(function (it) {
+var ok = it.status === 'passed';
+return { group: it.group, time: it.time, label: ok ? '통과' : '다시 보냄', bg: ok ? 'rgba(34,197,130,.18)' : 'rgba(255,122,69,.16)', fg: ok ? '#0B6B47' : '#A23B0B' };
+});
+return { pending: pending, done: done, pendingCount: String(pending.length), noPending: pending.length === 0 };
+}
+}
+</script>
+</body>
+</html>

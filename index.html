@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>1학년 과학</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap main-wrap">
+  <div class="main-top">
+    <div class="glass pill brand">
+      <svg class="draw" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2457E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7 15h10"/></svg>
+      1학년 과학
+    </div>
+  </div>
+
+  <h1 class="main-title rise">몇 반인가요?</h1>
+
+  <a id="last" class="last-class glass-strong glass-live lift rise hidden" style="--d:.08s" href="#">
+    <div style="display:flex;flex-direction:column;gap:4px">
+      <span class="sub">지난번에 들어간 반</span>
+      <span class="big" id="last-text"></span>
+    </div>
+    <span class="go-dot" aria-hidden="true">
+      <svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14"/><path d="M13 6l6 6-6 6"/></svg>
+    </span>
+  </a>
+
+  <nav class="class-grid" id="grid" aria-label="반 선택"></nav>
+</main>
+<script type="module" src="assets/js/pages/index.js"></script>
+</body>
+</html>

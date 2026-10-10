@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<title>이번 달 TOP 20</title>
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&amp;display=swap" rel="stylesheet">
+<style>
+body{margin:0}
+a{color:#2457E6}a:hover{color:#1A43B8}
+.glass{background:rgba(255,255,255,.55);-webkit-backdrop-filter:blur(24px) saturate(180%);backdrop-filter:blur(24px) saturate(180%);border:1px solid rgba(255,255,255,.8);box-shadow:0 12px 32px rgba(28,39,76,.10),inset 0 1px 0 rgba(255,255,255,.95),inset 0 -1px 1px rgba(255,255,255,.4)}
+.glass-strong{background:rgba(255,255,255,.72);-webkit-backdrop-filter:blur(28px) saturate(200%);backdrop-filter:blur(28px) saturate(200%);border:1px solid rgba(255,255,255,.9);box-shadow:0 18px 40px rgba(28,39,76,.14),inset 0 1px 0 #fff}
+.orb{position:absolute;border-radius:50%;filter:blur(70px);pointer-events:none}
+.lift{transition:transform .25s cubic-bezier(.2,.8,.2,1),box-shadow .25s}
+.lift:hover{transform:translateY(-3px)}
+@keyframes rise{from{opacity:0;transform:translateY(22px)}to{opacity:1;transform:none}}
+.rise{animation:rise .7s cubic-bezier(.2,.8,.2,1) both}
+@keyframes grow{from{transform:scaleY(0)}to{transform:scaleY(1)}}
+.grow{transform-origin:bottom;animation:grow .9s cubic-bezier(.2,.8,.2,1) both}
+@keyframes pop{0%{transform:scale(.3);opacity:0}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+.pop{animation:pop .7s cubic-bezier(.2,.9,.3,1.3) both}
+@keyframes shine{0%{background-position:-200% 0}100%{background-position:200% 0}}
+.shine{background-image:linear-gradient(110deg,transparent 35%,rgba(255,255,255,.75) 50%,transparent 65%);background-size:200% 100%;animation:shine 3.2s ease-in-out infinite}
+@media (prefers-reduced-motion:reduce){*{animation:none!important;transition:none!important}}
+</style>
+</helmet>
+<div style="position: relative; min-height: 1240px; overflow: hidden; background: #EDF1F7; font-family: 'Noto Sans KR', sans-serif; color: #0B1220">
+<div class="orb" aria-hidden="true" style="width: 600px; height: 600px; left: -200px; top: -220px; background: #6EA8FF; opacity: .5"></div>
+<div class="orb" aria-hidden="true" style="width: 520px; height: 520px; right: -180px; top: 80px; background: #FFC48A; opacity: .45"></div>
+<div class="orb" aria-hidden="true" style="width: 480px; height: 480px; left: 25%; top: 640px; background: #B79CFF; opacity: .35"></div>
+
+<div style="position: relative; max-width: 960px; margin: 0 auto; padding: 32px 24px 72px; display: flex; flex-direction: column; gap: 32px">
+
+<div style="display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap">
+<a href="Main.dc.html" class="glass lift" aria-label="처음으로" style="display: inline-flex; align-items: center; justify-content: center; width: 48px; height: 48px; border-radius: 999px; color: #0B1220">
+<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"></path><path d="M11 6l-6 6 6 6"></path></svg>
+</a>
+<a href="Me.dc.html" class="glass lift" style="display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: 999px; text-decoration: none; color: #0B1220; font-weight: 500; font-size: 15px">내 기록 보기</a>
+</div>
+
+<div class="rise" style="display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center">
+<span class="glass" style="padding: 6px 14px; border-radius: 999px; font-size: 14px; font-weight: 700; color: #4E5868">1학년 6~12반 · 이번 달 XP</span>
+<h1 style="margin: 8px 0 0; font-size: 60px; line-height: 1.05; font-weight: 900; letter-spacing: -0.04em">10월 TOP 20</h1>
+<span style="font-size: 15px; color: #4E5868">11월 1일에 새로 시작해요</span>
+</div>
+
+<div style="display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end">
+<sc-for list="{{podium}}" as="p" hint-placeholder-count="3">
+<div style="display: flex; flex-direction: column; align-items: center; gap: 12px">
+<div class="pop" style="animation-delay: {{p.delay}}; display: flex; flex-direction: column; align-items: center; gap: 8px">
+<sc-if value="{{p.first}}" hint-placeholder-val="{{false}}">
+<svg width="40" height="30" viewBox="0 0 40 30" fill="#F2B705" stroke="#B88600" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3 26 L6 7 L14 15 L20 3 L26 15 L34 7 L37 26 Z"></path></svg>
+</sc-if>
+<span style="display: inline-flex; align-items: center; justify-content: center; width: {{p.size}}; height: {{p.size}}; border-radius: 999px; background: rgba(255,255,255,.85); border: 4px solid {{p.ring}}; font-size: 30px; font-weight: 900; box-shadow: 0 10px 26px rgba(28,39,76,.16)">{{p.initial}}</span>
+<span style="font-size: 20px; font-weight: 900; letter-spacing: -0.02em; text-align: center">{{p.name}}</span>
+<span style="padding: 3px 10px; border-radius: 999px; background: rgba(36,87,230,.10); font-size: 13px; font-weight: 700; color: #2457E6">{{p.cls}}</span>
+<span style="font-size: 26px; font-weight: 900; font-variant-numeric: tabular-nums">{{p.xp}}<span style="font-size: 14px; font-weight: 700; color: #4E5868"> XP</span></span>
+</div>
+<div class="glass-strong grow shine" style="animation-delay: {{p.delay}}; width: 100%; height: {{p.height}}; border-radius: 24px 24px 12px 12px; display: flex; justify-content: center; padding-top: 14px; box-sizing: border-box">
+<span style="font-size: 44px; font-weight: 900; color: {{p.ring}}; letter-spacing: -0.04em">{{p.rank}}</span>
+</div>
+</div>
+</sc-for>
+</div>
+
+<div class="glass" style="border-radius: 28px; padding: 8px">
+<sc-for list="{{rows}}" as="r" hint-placeholder-count="17">
+<div class="rise" style="animation-delay: {{r.delay}}; display: flex; align-items: center; gap: 14px; min-height: 60px; padding: 0 16px; border-radius: 20px; background: {{r.bg}}; border: {{r.border}}">
+<span style="width: 32px; font-size: 20px; font-weight: 900; color: #4E5868; font-variant-numeric: tabular-nums; text-align: center">{{r.rank}}</span>
+<span style="display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px; border-radius: 999px; background: rgba(255,255,255,.9); font-size: 16px; font-weight: 900">{{r.initial}}</span>
+<span style="font-size: 17px; font-weight: 700">{{r.name}}</span>
+<span style="padding: 3px 10px; border-radius: 999px; background: rgba(36,87,230,.10); font-size: 13px; font-weight: 700; color: #2457E6">{{r.cls}}</span>
+<sc-if value="{{r.mine}}" hint-placeholder-val="{{false}}">
+<span style="padding: 3px 10px; border-radius: 999px; background: #2457E6; font-size: 12px; font-weight: 700; color: #fff">나</span>
+</sc-if>
+<span style="margin-left: auto; width: 52px; font-size: 14px; font-weight: 700; color: {{r.moveColor}}; text-align: right">{{r.move}}</span>
+<span style="width: 84px; text-align: right; font-size: 18px; font-weight: 900; font-variant-numeric: tabular-nums">{{r.xp}}<span style="font-size: 12px; font-weight: 700; color: #4E5868"> XP</span></span>
+</div>
+</sc-for>
+</div>
+
+</div>
+</div>
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props='{"$preview":{"width":1280,"height":1240}}'>
+class Component extends DCLogic {
+constructor(props) {
+super(props);
+this.state = { t: 0 };
+}
+componentDidMount() {
+var self = this;
+var start = null;
+function step(ts) {
+if (start === null) start = ts;
+var t = Math.min(1, (ts - start) / 1400);
+self.setState({ t: t });
+if (t < 1) self.raf = requestAnimationFrame(step);
+}
+this.raf = requestAnimationFrame(step);
+}
+componentWillUnmount() {
+if (this.raf) cancelAnimationFrame(this.raf);
+}
+renderVals() {
+var data = [
+['은하수', 10, 412, 1], ['뉴턴의사과', 6, 398, -1], ['마찰력장인', 11, 371, 3], ['부력오리', 8, 344, 0], ['관성의법칙', 7, 330, 2],
+['전자구름', 12, 317, -1], ['중력고양이', 8, 301, 4], ['탄성고무줄', 9, 288, -2], ['우주먼지', 8, 276, 1], ['빛의속도', 6, 262, -3],
+['무지개분광', 10, 249, 5], ['지구자전', 9, 237, 0], ['자석소년', 11, 225, -1], ['물방울렌즈', 7, 214, 2], ['별빛탐험가', 8, 203, -4],
+['화산탐사대', 6, 191, 1], ['질량보존', 9, 180, 99], ['번개탐지기', 7, 168, -1], ['원자핵', 11, 157, 2], ['온도계', 10, 146, -2]
+];
+var t = this.state.t;
+var e = 1 - Math.pow(1 - t, 3);
+var rings = ['#D19A00', '#8C97A8', '#B96B2E'];
+var heights = ['200px', '150px', '118px'];
+var sizes = ['92px', '76px', '76px'];
+var order = [1, 0, 2];
+var podium = order.map(function (i, k) {
+var d = data[i];
+return {
+rank: String(i + 1), name: d[0], cls: d[1] + '반', initial: d[0].charAt(0),
+xp: String(Math.round(d[2] * e)), ring: rings[i], height: heights[i], size: sizes[i],
+first: i === 0, delay: (i === 0 ? 0.45 : (i === 1 ? 0.2 : 0.05)) + 's'
+};
+});
+var rows = data.slice(3).map(function (d, k) {
+var mv = d[3];
+var mine = d[0] === '중력고양이';
+return {
+rank: String(k + 4), name: d[0], cls: d[1] + '반', initial: d[0].charAt(0), xp: String(d[2]), mine: mine,
+move: mv === 99 ? 'NEW' : (mv > 0 ? '▲' + mv : (mv < 0 ? '▼' + (-mv) : '–')),
+moveColor: mv === 99 ? '#2457E6' : (mv > 0 ? '#0F8A5F' : (mv < 0 ? '#C2410C' : '#6B7383')),
+bg: mine ? 'rgba(36,87,230,.12)' : 'transparent',
+border: mine ? '1.5px solid rgba(36,87,230,.35)' : '1.5px solid transparent',
+delay: (0.6 + k * 0.04).toFixed(2) + 's'
+};
+});
+return { podium: podium, rows: rows };
+}
+}
+</script>
+</body>
+</html>

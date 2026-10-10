@@ -623,5 +623,86 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .nick-row .roster-btns { margin-left: auto; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
+/* ---------- 입구: 로그인 (index.html) ---------- */
+.login-view { display: flex; flex-direction: column; gap: 24px; }
+.login-box { max-width: 560px; width: 100%; border-radius: var(--r-xl); padding: 28px; display: flex; flex-direction: column; gap: 18px; }
+.login-classes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 8px; }
+.login-cls {
+  height: 64px; border-radius: var(--r-md); border: 1.5px solid rgba(78,88,104,.2); background: rgba(255,255,255,.7);
+  display: flex; align-items: baseline; justify-content: center; gap: 1px; font: inherit; color: var(--ink); cursor: pointer;
+  padding-top: 14px;
+}
+.login-cls b { font-size: 26px; font-weight: 900; letter-spacing: -0.03em; }
+.login-cls span { font-size: 13px; font-weight: 700; color: var(--ink-2); }
+.login-cls.on { background: var(--accent); border-color: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(36,87,230,.3); }
+.login-cls.on span { color: rgba(255,255,255,.85); }
+.login-row { display: grid; grid-template-columns: 120px minmax(0, 1fr); gap: 12px; }
+.guest { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.guest-label { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.guest-links { display: flex; gap: 8px; flex-wrap: wrap; }
+.guest-link { display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: var(--r-pill); text-decoration: none; color: var(--ink); font-size: 15px; font-weight: 700; }
+.guest-link:hover { color: var(--ink); }
+
+/* ---------- 입구: 로그인 뒤 (왼쪽 캐릭터, 오른쪽 메뉴) ---------- */
+.home { display: grid; grid-template-columns: minmax(260px, 380px) minmax(0, 1fr); gap: 24px; align-items: stretch; }
+.home-me { border-radius: var(--r-xl); padding: 32px 24px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 10px; text-align: center; }
+.home-av { width: 240px; height: 240px; }
+.home-av svg { width: 100%; height: 100%; }
+.home-nick { margin: 8px 0 0; font-size: 32px; font-weight: 900; letter-spacing: -0.03em; overflow-wrap: anywhere; }
+.home-menu { display: flex; flex-direction: column; gap: 16px; }
+.home-item {
+  flex: 1; min-height: 110px; display: flex; align-items: center; gap: 18px; padding: 20px 26px;
+  border-radius: var(--r-lg); text-decoration: none; color: var(--ink);
+}
+.home-item:hover { color: var(--ink); }
+.home-ic { flex: none; width: 60px; height: 60px; border-radius: 18px; background: var(--accent-tint); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
+.home-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+.home-txt b { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; }
+.home-txt span { font-size: 15px; color: var(--ink-2); min-height: 1em; }
+.home-go { margin-left: auto; font-size: 34px; font-weight: 500; color: var(--ink-2); line-height: 1; }
+.main-wrap .home-item.lift:hover { transform: translateY(-3px); }
+@media (max-width: 760px) {
+  .home { grid-template-columns: 1fr; }
+  .home-av { width: 180px; height: 180px; }
+  .home-item { min-height: 88px; }
+}
+@media (max-width: 480px) {
+  .login-box { padding: 20px; }
+  .login-classes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .login-row { grid-template-columns: 96px minmax(0, 1fr); }
+  .home-txt b { font-size: 22px; }
+}
+
+/* ---------- 반 페이지: 로그인 안 했을 때 ---------- */
+.login-need { justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+.login-need .state-title { font-size: 17px; }
+.mine-num { font-size: 14px; font-weight: 500; }
+
+/* ---------- 관리 첫 화면 (teacher/index.html) ---------- */
+.admin-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
+.hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.hub-item {
+  position: relative; min-height: 120px; padding: 22px 24px; border-radius: var(--r-lg); text-decoration: none; color: var(--ink);
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
+}
+.hub-item:hover { color: var(--ink); }
+.hub-item b { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+.hub-item span { font-size: 14px; color: var(--ink-2); min-height: 1.2em; }
+.hub-badge { position: absolute; top: 18px; right: 18px; min-width: 30px; height: 30px; padding: 0 9px; border-radius: var(--r-pill);
+  background: var(--returned-solid); color: #fff; font-style: normal; font-weight: 900; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; }
+.panel { display: flex; flex-direction: column; gap: 24px; }
+.panel.card { gap: 16px; }
+
+/* 반별 잠금 */
+.lock-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 10px; }
+.lock-row { display: flex; align-items: center; gap: 12px; padding: 12px 14px 12px 18px; border-radius: 18px; background: rgba(255,255,255,.6); }
+.lock-row b { font-size: 20px; font-weight: 900; width: 52px; }
+.lock-row.is-locked { background: var(--returned-bg); }
+.switch { margin-left: auto; position: relative; flex: none; width: 60px; height: 34px; border: 0; border-radius: var(--r-pill); background: rgba(78,88,104,.25); cursor: pointer; transition: background .2s; }
+.switch span { position: absolute; top: 3px; left: 3px; width: 28px; height: 28px; border-radius: 50%; background: #fff; box-shadow: 0 2px 6px rgba(0,0,0,.2); transition: transform .2s var(--ease); }
+.switch[aria-checked="true"] { background: var(--returned-solid); }
+.switch[aria-checked="true"] span { transform: translateX(26px); }
+.switch[disabled] { opacity: .5; cursor: default; }
+
 /* 등장(rise)이 끝난 뒤 hover의 transform(lift)이 먹도록: 끝난 상태를 붙잡지 않는다 */
 .rise { animation-fill-mode: backwards; }

@@ -165,3 +165,18 @@ create table if not exists public.rank_snapshots (
   month      text not null,  -- 'YYYY-MM' (한국 시간)
   board_id   uuid null references public.boards(id) on delete set null
 );
+
+-- ---------------------------------------------------------
+-- 학생 로그인: 반별 잠금, 출입증
+-- ---------------------------------------------------------
+
+-- 잠근 반은 로그인할 수 없고, 잠글 때 그 반의 출입증을 모두 지운다
+alter table public.classes add column if not exists locked boolean not null default false;
+
+-- 로그인하면 기기마다 출입증(무작위 64자)을 발급한다. 저장은 sha256 해시만. 로그아웃하면 지운다
+create table if not exists public.student_sessions (
+  token_hash text primary key,
+  student_id uuid not null references public.students(id) on delete cascade,
+  created_at timestamptz not null default now()
+);
+create index if not exists student_sessions_student_idx on public.student_sessions (student_id);

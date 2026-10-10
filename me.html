@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>내 기록</title>
+<title>마이페이지</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -13,34 +13,13 @@
 <body>
 <main class="wrap me-wrap">
   <div class="page-top">
-    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로" id="back">
+    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
     </a>
-    <div class="row-actions">
-      <button type="button" class="link-btn hidden" id="leave">나가기</button>
-      <a href="rank.html" class="nav-link glass lift">이번 달 순위</a>
-    </div>
+    <a href="rank.html" class="nav-link glass lift">이번 달 순위</a>
   </div>
 
-  <!-- 코드 넣기 -->
-  <section class="glass-strong me-login rise hidden" id="login" aria-labelledby="login-h">
-    <h1 id="login-h">내 기록</h1>
-    <form class="code-form" id="login-form" autocomplete="off">
-      <div class="field">
-        <span>반</span>
-        <div class="cls-tabs" id="cls-pick" role="radiogroup" aria-label="반"></div>
-      </div>
-      <label class="field"><span>번호</span>
-        <input id="num-in" class="code-input num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" required>
-      </label>
-      <label class="field"><span>내 코드 6자리</span>
-        <input id="code-in" class="code-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="● ● ● ● ● ●" required>
-      </label>
-      <button class="btn btn-primary btn-big press" type="submit">열기</button>
-    </form>
-  </section>
-
-  <!-- 내 기록 -->
+  <!-- 마이페이지 -->
   <div class="me-body hidden" id="me">
     <section class="glass-strong me-hero rise">
       <div class="me-avatar" id="hero-av"></div>

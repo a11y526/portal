@@ -87,16 +87,122 @@ revoke all on function public._check_code(int, int, text) from public, anon, aut
 revoke all on function public._new_code() from public, anon, authenticated;
 
 -- ---------------------------------------------------------
+-- 학생 로그인 (출입증)
+-- 로그인하면 기기 전용 출입증(무작위 64자)을 돌려주고, 저장은 sha256 해시만 한다.
+-- 학생 함수는 코드 대신 출입증을 받는다. 로그아웃, 반 잠금, 코드 다시 발급 때 출입증을 지운다.
+-- ---------------------------------------------------------
+
+-- 출입증 → 학생 id. 없거나, 명단에서 뺐거나, 반이 잠겼으면 null (내부용)
+create or replace function public._session_student(p_token text)
+returns uuid
+language sql
+stable
+security definer
+set search_path = public, extensions
+as $$
+  select s.id
+  from public.student_sessions x
+  join public.students s on s.id = x.student_id and s.active
+  join public.classes c on c.id = s.class_id and not c.locked
+  where coalesce(p_token, '') ~ '^[0-9a-f]{64}$'
+    and x.token_hash = encode(digest(p_token, 'sha256'), 'hex');
+$$;
+revoke all on function public._session_student(text) from public, anon, authenticated;
+
+-- 로그인 (학생)
+-- 결과: {ok: true, token, class_id, number} 또는 {ok: false, error}
+--   CLASS_LOCKED 선생님이 반을 잠금 · LOCKED 코드를 여러 번 틀림 · BAD_CODE 반, 번호 또는 코드가 맞지 않음
+create or replace function public.student_login(p_class_id int, p_number int, p_code text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  v_token text;
+begin
+  if exists (select 1 from public.classes where id = p_class_id and locked) then
+    return jsonb_build_object('ok', false, 'error', 'CLASS_LOCKED');
+  end if;
+  if public._code_locked(p_class_id, p_number) then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
+  end if;
+  v_sid := public._check_code(p_class_id, p_number, p_code);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+  end if;
+
+  v_token := encode(gen_random_bytes(32), 'hex');
+  insert into public.student_sessions (token_hash, student_id)
+  values (encode(digest(v_token, 'sha256'), 'hex'), v_sid);
+
+  return jsonb_build_object('ok', true, 'token', v_token, 'class_id', p_class_id, 'number', p_number);
+end;
+$$;
+revoke all on function public.student_login(int, int, text) from public;
+grant execute on function public.student_login(int, int, text) to anon, authenticated;
+
+-- 로그아웃 (학생): 이 기기의 출입증을 지운다
+create or replace function public.student_logout(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+begin
+  delete from public.student_sessions
+  where token_hash = encode(digest(coalesce(p_token, ''), 'sha256'), 'hex');
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.student_logout(text) from public;
+grant execute on function public.student_logout(text) to anon, authenticated;
+
+-- 반 잠금 (교사): 잠그면 그 반 학생의 출입증을 모두 지운다(모두 로그아웃)
+create or replace function public.set_class_lock(p_class_id int, p_locked boolean)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_removed int := 0;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.classes set locked = p_locked where id = p_class_id;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if p_locked then
+    delete from public.student_sessions x
+    using public.students s
+    where s.id = x.student_id and s.class_id = p_class_id;
+    get diagnostics v_removed = row_count;
+  end if;
+  return jsonb_build_object('ok', true, 'class_id', p_class_id, 'locked', p_locked, 'removed', v_removed);
+end;
+$$;
+revoke all on function public.set_class_lock(int, boolean) from public, anon;
+grant execute on function public.set_class_lock(int, boolean) to authenticated;
+
+-- ---------------------------------------------------------
 -- 반 페이지 (누구나)
 -- 오늘 보드 + 그날 모둠별 상태·교사 메모. 제출 시각·순서는 주지 않는다.
 -- has_roster: 이 반에 명단이 있는지
--- p_number를 넘기면 my_known(명단에 있는 번호인지), my_group(그날 모둠, 없으면 null),
--- my_members(그날 우리 모둠원의 승인된 닉네임·캐릭터, 번호는 주지 않음)도 준다.
+-- p_token(로그인 출입증)을 넘기면 session('ok' 또는 'none'), my_group(그날 모둠, 없으면 null),
+-- my_members(그날 우리 모둠원의 승인된 닉네임·캐릭터, 번호는 주지 않음)도 준다. 다른 반 출입증은 'none'.
 -- 보드가 발표됐으면 모둠 순위(rank)도 준다.
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
+drop function if exists public.get_class_page(int, int);
 
-create or replace function public.get_class_page(p_class_id int, p_number int default null)
+create or replace function public.get_class_page(p_class_id int, p_token text default null)
 returns jsonb
 language plpgsql
 stable
@@ -121,9 +227,9 @@ begin
     select * into b from public.boards where id = c.today_board_id;
   end if;
 
-  if p_number is not null then
-    select id into v_sid from public.students
-    where class_id = p_class_id and number = p_number and active;
+  if p_token is not null then
+    select s.id into v_sid from public.students s
+    where s.id = public._session_student(p_token) and s.class_id = p_class_id;
     if v_sid is not null and b.id is not null then
       select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
     end if;
@@ -183,27 +289,26 @@ begin
     ) end,
     'groups',     v_groups,
     'has_roster', exists (select 1 from public.students where class_id = p_class_id and active),
-    'my_known',   case when p_number is null then null else v_sid is not null end,
+    'session',    case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'my_group',   v_my,
     'my_members', v_members
   );
 end;
 $$;
-revoke all on function public.get_class_page(int, int) from public;
-grant execute on function public.get_class_page(int, int) to anon, authenticated;
+revoke all on function public.get_class_page(int, text) from public;
+grant execute on function public.get_class_page(int, text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 모둠 제출 (학생)
 -- 결과: {ok: true, group_no} 또는 {ok: false, error}
---   LOCKED        코드를 여러 번 틀림
---   BAD_CODE      반, 번호 또는 코드가 맞지 않음
+--   NO_SESSION    로그인 안 됨(로그아웃, 반 잠금, 코드 다시 발급)
 --   BOARD_CHANGED 오늘 보드가 아님
 --   CLOSED        보드가 열려 있지 않음
 --   NO_GROUP      그날 모둠에 없음 (아직 편성 전이거나 결석)
 --   ALREADY       이미 검사 대기 중이거나 통과함
--- (틀린 시도 기록이 지워지지 않도록 오류를 raise하지 않고 돌려준다)
 -- ---------------------------------------------------------
-create or replace function public.submit_group(p_board_id uuid, p_class_id int, p_number int, p_code text)
+drop function if exists public.submit_group(uuid, int, int, text);
+create or replace function public.submit_group(p_board_id uuid, p_token text)
 returns jsonb
 language plpgsql
 volatile
@@ -214,20 +319,18 @@ declare
   v_sid   uuid;
   v_group smallint;
   v_today uuid;
+  v_class int;
   b       public.boards;
 begin
-  if public._code_locked(p_class_id, p_number) then
-    return jsonb_build_object('ok', false, 'error', 'LOCKED');
-  end if;
-
-  v_sid := public._check_code(p_class_id, p_number, p_code);
+  v_sid := public._session_student(p_token);
   if v_sid is null then
-    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
 
-  select today_board_id into v_today from public.classes where id = p_class_id;
+  select s.class_id into v_class from public.students s where s.id = v_sid;
+  select today_board_id into v_today from public.classes where id = v_class;
   select * into b from public.boards where id = p_board_id for update;
-  if not found or b.class_id <> p_class_id or v_today is distinct from b.id then
+  if not found or b.class_id <> v_class or v_today is distinct from b.id then
     return jsonb_build_object('ok', false, 'error', 'BOARD_CHANGED');
   end if;
   if b.status <> 'open' then
@@ -250,8 +353,8 @@ begin
   return jsonb_build_object('ok', true, 'group_no', v_group);
 end;
 $$;
-revoke all on function public.submit_group(uuid, int, int, text) from public;
-grant execute on function public.submit_group(uuid, int, int, text) to anon, authenticated;
+revoke all on function public.submit_group(uuid, text) from public;
+grant execute on function public.submit_group(uuid, text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 검사 (교사): 'passed' 또는 'returned'
@@ -508,6 +611,7 @@ begin
   loop
     v_code := public._new_code();
     update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = r.id;
+    delete from public.student_sessions where student_id = r.id;
     delete from public.code_attempts where student_key = p_class_id || '-' || r.number;
     v_out := v_out || jsonb_build_array(jsonb_build_object(
       'class_id', p_class_id, 'number', r.number, 'code', v_code
@@ -542,6 +646,7 @@ begin
 
   v_code := public._new_code();
   update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = s.id;
+  delete from public.student_sessions where student_id = s.id;
   delete from public.code_attempts where student_key = s.class_id || '-' || s.number;
 
   return jsonb_build_object('class_id', s.class_id, 'number', s.number, 'code', v_code);
@@ -700,10 +805,11 @@ create trigger students_default_avatar
 
 -- ---------------------------------------------------------
 -- 내 기록 (학생)
--- 결과: {ok: true, ...} 또는 {ok: false, error: 'LOCKED' | 'BAD_CODE'}
+-- 결과: {ok: true, ...} 또는 {ok: false, error: 'NO_SESSION'}
 -- wardrobe: 지금 입을 수 있는 부품 (무료 기본. 4단계에서 산 아이템이 더해짐)
 -- ---------------------------------------------------------
-create or replace function public.get_my_page(p_class_id int, p_number int, p_code text)
+drop function if exists public.get_my_page(int, int, text);
+create or replace function public.get_my_page(p_token text)
 returns jsonb
 language plpgsql
 volatile
@@ -722,12 +828,9 @@ declare
   v_board uuid;
   v_group smallint;
 begin
-  if public._code_locked(p_class_id, p_number) then
-    return jsonb_build_object('ok', false, 'error', 'LOCKED');
-  end if;
-  v_sid := public._check_code(p_class_id, p_number, p_code);
+  v_sid := public._session_student(p_token);
   if v_sid is null then
-    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
 
   select * into s from public.students where id = v_sid;
@@ -779,15 +882,16 @@ begin
   );
 end;
 $$;
-revoke all on function public.get_my_page(int, int, text) from public;
-grant execute on function public.get_my_page(int, int, text) to anon, authenticated;
+revoke all on function public.get_my_page(text) from public;
+grant execute on function public.get_my_page(text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 닉네임 신청 (학생)
 -- 2~8자, 한글·영문·숫자만. 승인 전까지는 원래 닉네임(있으면)이 그대로 보인다.
--- 오류: LOCKED, BAD_CODE, BAD_NICK(규칙에 안 맞음), SAME(지금 닉네임과 같음), TAKEN(다른 학생이 쓰거나 신청 중)
+-- 오류: NO_SESSION, BAD_NICK(규칙에 안 맞음), SAME(지금 닉네임과 같음), TAKEN(다른 학생이 쓰거나 신청 중)
 -- ---------------------------------------------------------
-create or replace function public.request_nickname(p_class_id int, p_number int, p_code text, p_nickname text)
+drop function if exists public.request_nickname(int, int, text, text);
+create or replace function public.request_nickname(p_token text, p_nickname text)
 returns jsonb
 language plpgsql
 volatile
@@ -799,12 +903,9 @@ declare
   v_nick text := btrim(coalesce(p_nickname, ''));
   s      public.students;
 begin
-  if public._code_locked(p_class_id, p_number) then
-    return jsonb_build_object('ok', false, 'error', 'LOCKED');
-  end if;
-  v_sid := public._check_code(p_class_id, p_number, p_code);
+  v_sid := public._session_student(p_token);
   if v_sid is null then
-    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
 
   if char_length(v_nick) not between 2 and 8 or v_nick !~ '^[가-힣A-Za-z0-9]+$' then
@@ -831,16 +932,17 @@ begin
   return jsonb_build_object('ok', true, 'nickname_request', v_nick, 'nickname_status', 'pending');
 end;
 $$;
-revoke all on function public.request_nickname(int, int, text, text) from public;
-grant execute on function public.request_nickname(int, int, text, text) to anon, authenticated;
+revoke all on function public.request_nickname(text, text) from public;
+grant execute on function public.request_nickname(text, text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 캐릭터 저장 (학생)
 -- 7칸(face, hair, eyes, mouth, outfit, acc, bg)이 모두 있어야 하고, 판매 중인 무료 부품만 허용
 -- (4단계에서 산 아이템도 허용하도록 바꾼다)
--- 오류: LOCKED, BAD_CODE, BAD_ITEM
+-- 오류: NO_SESSION, BAD_ITEM
 -- ---------------------------------------------------------
-create or replace function public.save_avatar(p_class_id int, p_number int, p_code text, p_avatar jsonb)
+drop function if exists public.save_avatar(int, int, text, jsonb);
+create or replace function public.save_avatar(p_token text, p_avatar jsonb)
 returns jsonb
 language plpgsql
 volatile
@@ -853,12 +955,9 @@ declare
   v_slot text;
   v_id   text;
 begin
-  if public._code_locked(p_class_id, p_number) then
-    return jsonb_build_object('ok', false, 'error', 'LOCKED');
-  end if;
-  v_sid := public._check_code(p_class_id, p_number, p_code);
+  v_sid := public._session_student(p_token);
   if v_sid is null then
-    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
 
   foreach v_slot in array array['face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg'] loop
@@ -876,8 +975,8 @@ begin
   return jsonb_build_object('ok', true, 'avatar', v_out);
 end;
 $$;
-revoke all on function public.save_avatar(int, int, text, jsonb) from public;
-grant execute on function public.save_avatar(int, int, text, jsonb) to anon, authenticated;
+revoke all on function public.save_avatar(text, jsonb) from public;
+grant execute on function public.save_avatar(text, jsonb) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 이번 달 TOP 20 (누구나)

@@ -109,3 +109,12 @@ drop policy if exists rank_snapshots_teacher_all on public.rank_snapshots;
 create policy rank_snapshots_teacher_all on public.rank_snapshots
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 학생 출입증 (학생은 03의 함수로만)
+alter table public.student_sessions enable row level security;
+revoke all on public.student_sessions from anon;
+
+drop policy if exists student_sessions_teacher_all on public.student_sessions;
+create policy student_sessions_teacher_all on public.student_sessions
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

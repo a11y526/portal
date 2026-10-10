@@ -1,10 +1,11 @@
-// 관리 화면: 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정, 닉네임 승인, 명단(반별 마지막 번호)·코드 발급, 빠른 피드백 버튼
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#boards #roster #nick #lock #presets)
+// 보드 만들기(여러 반 한 번에)·오늘 보드 지정, 명단·코드 발급, 닉네임 승인, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setTodayBoard, toPadletEmbed,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
-  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname,
+  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
 } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
 
@@ -92,6 +93,7 @@ function renderToday() {
         </div>
       </div>`;
   }).join('');
+  updateHub();
 }
 
 $('today-list').addEventListener('change', async (e) => {
@@ -318,6 +320,7 @@ function renderRoster() {
         : `<span class="tag tag-off">명단에서 뺌</span>
            <span class="roster-btns"><button type="button" class="btn btn-line btn-small" data-on>되살리기</button></span>`}
     </div>`).join('') : '<div class="empty"><strong>명단이 없어요</strong></div>';
+  updateHub();
 }
 
 async function refreshStudents() {
@@ -466,6 +469,7 @@ function renderNicks() {
         <button type="button" class="btn btn-danger btn-small" data-reject>거절</button>
       </span>
     </div>`).join('') : '<p class="muted" style="margin:0">기다리는 신청이 없어요</p>';
+  updateHub();
 }
 
 async function refreshNicks() {
@@ -499,6 +503,7 @@ function renderPresets() {
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
       </button>
     </span>`).join('');
+  updateHub();
 }
 
 async function refreshPresets() {
@@ -527,11 +532,73 @@ $('preset-form').addEventListener('submit', async (e) => {
   } catch (err) { toast(errMsg(err), 'error'); }
 });
 
+/* ---------- 반별 잠금 ---------- */
+function renderLocks() {
+  $('lock-list').innerHTML = classes.map((c) => `
+    <div class="lock-row${c.locked ? ' is-locked' : ''}">
+      <b>${c.id}반</b>
+      <span class="tag ${c.locked ? 'tag-warn' : 'tag-done'}">${c.locked ? '잠김' : '열림'}</span>
+      <button type="button" class="switch" role="switch" aria-checked="${!!c.locked}" data-lock="${c.id}" aria-label="${c.id}반 잠금"><span></span></button>
+    </div>`).join('');
+  updateHub();
+}
+
+$('lock-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-lock]');
+  if (!btn) return;
+  const c = classes.find((x) => x.id === Number(btn.dataset.lock));
+  const next = !c.locked;
+  if (next && !confirm(`${c.id}반을 잠글까요? 로그인해 있던 학생도 모두 로그아웃돼요.`)) return;
+  btn.disabled = true;
+  try {
+    await setClassLock(c.id, next);
+    c.locked = next;
+    renderLocks();
+    toast(next ? `${c.id}반을 잠갔어요` : `${c.id}반을 열었어요`, 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    btn.disabled = false;
+  }
+});
+
+/* ---------- 첫 화면 항목 ---------- */
+function updateHub() {
+  const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+  const today = classes.filter((c) => c.today_board_id).length;
+  if (classes.length) set('hub-boards', `오늘 보드 ${today}/${classes.length}반`);
+  const active = students.filter((s) => s.active);
+  if (active.length) set('hub-roster', `학생 ${active.length}명 · 코드 없음 ${active.filter((s) => !s.has_code).length}명`);
+  set('hub-nick', nickReqs.length ? `기다리는 신청 ${nickReqs.length}개` : '기다리는 신청 없음');
+  $('hub-nick-badge').textContent = nickReqs.length;
+  $('hub-nick-badge').classList.toggle('hidden', !nickReqs.length);
+  const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
+  if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
+  set('hub-presets', `버튼 ${presets.length}개`);
+}
+
+function route() {
+  const key = location.hash.slice(1);
+  let open = null;
+  document.querySelectorAll('[data-panel]').forEach((p) => {
+    const on = p.dataset.panel === key;
+    p.classList.toggle('hidden', !on);
+    if (on) open = p;
+  });
+  $('hub').classList.toggle('hidden', !!open);
+  $('hub-back').classList.toggle('hidden', !open);
+  $('admin-h').textContent = open ? open.dataset.title : '관리';
+  scrollTo(0, 0);
+  if (key === 'nick') refreshNicks().catch(() => {});
+}
+addEventListener('hashchange', route);
+route();
+
 /* ---------- 시작 ---------- */
 async function refresh() {
   [classes, boards] = await Promise.all([listClasses(), listBoards()]);
   renderToday();
   renderBoards();
+  renderLocks();
 }
 
 renderCreateForm();

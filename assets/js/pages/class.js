@@ -3,6 +3,7 @@ import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw } from '../ui.js';
 import { sb, getClassPage, submitGroup, onClassRefresh, sendClassRefresh } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
+import { readLogin, clearLogin } from '../login.js';
 
 initUI();
 bindReactions();
@@ -79,47 +80,30 @@ function renderSims(list) {
 
 const LABEL = { idle: '진행 중', pending: '검사 대기', returned: '다시 확인', passed: '통과' };
 const SUBMIT_ERR = {
-  BAD_CODE: '반, 번호 또는 코드가 맞지 않아요',
-  LOCKED: '여러 번 틀렸어요. 10분 뒤에 다시 해 주세요',
+  NO_SESSION: '다시 로그인해 주세요',
   CLOSED: '제출이 마감됐어요',
   BOARD_CHANGED: '오늘 수업이 바뀌었어요',
   NO_GROUP: '오늘 모둠 명단에 없어요',
   ALREADY: '이미 제출했어요',
 };
 
-// 내 번호는 이 기기에 기억해 둔다 (다음부터는 코드만 넣으면 됨)
-const NUM_KEY = 'num-' + classId;
-function readNum() {
-  try {
-    const n = Number(localStorage.getItem(NUM_KEY));
-    return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
-  } catch { return null; }
-}
-function saveNum(n) {
-  try { n ? localStorage.setItem(NUM_KEY, String(n)) : localStorage.removeItem(NUM_KEY); } catch {}
-}
+// 로그인(출입증)이 이 반 것일 때만 쓴다. 로그인 안 했으면 패들렛만 보이고 제출 칸은 로그인 버튼
+let login = readLogin();
+if (login && login.class_id !== classId) login = null;
 
 let page = null;
-let myNumber = readNum();
-let numError = '';
 let mineKey;    // 지금 보이는 우리 모둠 화면
 let mineState;  // 지금 보이는 상태 (바뀌면 뒤집히며 전환)
 let swapTimer;
 
-const numberForm = () => `
-  <form class="code-form" id="num-form">
-    <label for="num-in">내 번호</label>
-    <input id="num-in" class="code-input num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" autocomplete="off" required>
-    ${numError ? `<p class="form-err">${esc(numError)}</p>` : ''}
-    <button class="btn btn-primary btn-big press" type="submit">확인</button>
-  </form>`;
+const loginBox = () => `
+  <div class="state-box is-idle login-need">
+    <span class="state-title">로그인하면 제출할 수 있어요</span>
+    <a class="btn btn-primary press" href="index.html">로그인</a>
+  </div>`;
 
-const codeForm = (btnText) => `
-  <form class="code-form" id="code-form">
-    <label for="code-in">내 코드 6자리</label>
-    <input id="code-in" class="code-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" autocomplete="off" placeholder="● ● ● ● ● ●" required>
-    <button class="btn btn-primary btn-big press" type="submit">${btnText}</button>
-  </form>`;
+const submitBtn = (text) => `
+  <button type="button" class="btn btn-primary btn-big press" id="submit-btn">${text}</button>`;
 
 const closedBox = (text) => `
   <div class="state-box is-idle"><span class="state-title">${text}</span></div>`;
@@ -209,19 +193,19 @@ function renderMine(data) {
   }
   card.classList.remove('hidden');
 
-  if (myNumber && data.my_known === false) {
-    numError = '명단에 없는 번호예요';
-    myNumber = null;
-    saveNum(null);
+  // 출입증이 지워졌으면(로그아웃, 반 잠금, 코드 다시 발급) 로그인 풀기
+  if (login && data.session === 'none') {
+    clearLogin();
+    login = null;
   }
-  const myGroup = myNumber ? data.my_group : null;
+  const myGroup = login ? data.my_group : null;
   $('mine-h').textContent = myGroup ? `우리 모둠 · ${myGroup}모둠` : '우리 모둠';
-  $('num-change').classList.toggle('hidden', !myNumber);
-  if (myNumber) $('num-change').textContent = `${myNumber}번 · 바꾸기`;
+  $('num-change').classList.toggle('hidden', !login);
+  if (login) $('num-change').textContent = `${login.number}번`;
 
-  if (!myNumber) {
+  if (!login) {
     renderMates(null);
-    setMine('num|' + numError, null, numberForm());
+    setMine('login', null, loginBox());
     return;
   }
   // 모둠은 수업마다 선생님이 편성한다
@@ -243,67 +227,32 @@ function renderMine(data) {
   let html;
   if (g.state === 'pending') html = pendingBox();
   else if (g.state === 'passed') html = passedBox(g.rank);
-  else if (open) html = (g.state === 'returned' ? returnedBox(g.feedback) : '') + codeForm(g.state === 'returned' ? '고쳐서 다시 제출' : '다 했어요');
+  else if (open) html = (g.state === 'returned' ? returnedBox(g.feedback) : '') + submitBtn(g.state === 'returned' ? '고쳐서 다시 제출' : '다 했어요');
   else html = (g.state === 'returned' ? returnedBox(g.feedback) : '') + closedBox(board.status === 'revealed' ? '발표가 끝났어요' : '제출이 마감됐어요');
   setMine(key, g.state, html);
 }
 
-$('mine-body').addEventListener('submit', (e) => {
-  e.preventDefault();
-  if (e.target.id === 'num-form') onNumber(e.target);
-  if (e.target.id === 'code-form') onCode(e.target);
+$('mine-body').addEventListener('click', (e) => {
+  if (e.target.closest('#submit-btn')) onSubmit(e.target.closest('#submit-btn'));
 });
 
-function onNumber(form) {
-  const n = Number(form.querySelector('#num-in').value.trim());
-  if (!Number.isInteger(n) || n < 1 || n > 99) {
-    toast('번호를 확인해 주세요', 'error');
-    return;
-  }
-  myNumber = n;
-  numError = '';
-  saveNum(n);
-  mineKey = undefined;
-  form.querySelector('button').disabled = true;
-  load();
-}
-
-$('num-change').addEventListener('click', () => {
-  myNumber = null;
-  numError = '';
-  saveNum(null);
-  mineKey = mineState = undefined;
-  shown.groups = undefined;
-  renderMine(page);
-  renderGroups(page);
-  $('num-in')?.focus();
-});
-
-async function onCode(form) {
-  const input = form.querySelector('#code-in');
-  const btn = form.querySelector('button');
-  const code = input.value.replace(/\D/g, '');
-  if (code.length !== 6) {
-    toast('코드 6자리를 넣어 주세요', 'error');
-    input.focus();
-    return;
-  }
-  if (!page?.board) return;
+async function onSubmit(btn) {
+  if (!page?.board || !login) return;
   btn.disabled = true;
   try {
-    const res = await submitGroup(page.board.id, classId, myNumber, code);
+    const res = await submitGroup(page.board.id, login.token);
     if (res?.ok) {
       sendClassRefresh(classId);
       await load();
       return;
     }
     toast(SUBMIT_ERR[res?.error] || '제출하지 못했어요', 'error');
-    if (res?.error === 'BAD_CODE' || res?.error === 'LOCKED') {
-      input.value = '';
-      input.focus();
-    } else {
-      await load();
+    if (res?.error === 'NO_SESSION') {
+      clearLogin();
+      login = null;
+      mineKey = undefined;
     }
+    await load();
   } catch (err) {
     console.error(err);
     toast('제출하지 못했어요. 다시 눌러 주세요', 'error');
@@ -320,7 +269,7 @@ function renderGroups(data) {
   const groups = data?.board ? (data.groups ?? []) : [];
   $('groups').classList.toggle('hidden', !groups.length);
   if (!groups.length) return;
-  const myGroup = myNumber ? data.my_group : null;
+  const myGroup = login ? data.my_group : null;
   const key = JSON.stringify(groups.map((g) => [g.no, g.state, g.rank, g.no === myGroup]));
   if (key === shown.groups) return;
   shown.groups = key;
@@ -385,7 +334,7 @@ async function load() {
   if (loading) { again = true; return; }
   loading = true;
   try {
-    const data = await getClassPage(classId, myNumber);
+    const data = await getClassPage(classId, login?.token ?? null);
     page = data;
     const board = data?.board ?? null;
     renderLesson(board);

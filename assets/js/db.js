@@ -18,34 +18,38 @@ function unwrap({ data, error }) {
 
 /* ---------- 학생 ---------- */
 
-export async function getClassPage(classId, number = null) {
-  return unwrap(await need().rpc('get_class_page', { p_class_id: classId, p_number: number }));
-}
-
-// 결과: { ok: true, group_no } 또는 { ok: false, error }
-export async function submitGroup(boardId, classId, number, code) {
-  return unwrap(await need().rpc('submit_group', {
-    p_board_id: boardId, p_class_id: classId, p_number: number, p_code: code,
-  }));
+// token(로그인 출입증)을 넘기면 session, my_group, my_members도 온다
+export async function getClassPage(classId, token = null) {
+  return unwrap(await need().rpc('get_class_page', { p_class_id: classId, p_token: token }));
 }
 
 // 아래 학생 함수의 결과: { ok: true, ... } 또는 { ok: false, error }
+// 출입증이 없거나 지워졌으면(로그아웃, 반 잠금, 코드 다시 발급) error = 'NO_SESSION'
+
+// 로그인: { ok: true, token, class_id, number } 또는 error = 'CLASS_LOCKED' | 'LOCKED' | 'BAD_CODE'
+export async function studentLogin(classId, number, code) {
+  return unwrap(await need().rpc('student_login', { p_class_id: classId, p_number: number, p_code: code }));
+}
+
+export async function studentLogout(token) {
+  return unwrap(await need().rpc('student_logout', { p_token: token }));
+}
+
+export async function submitGroup(boardId, token) {
+  return unwrap(await need().rpc('submit_group', { p_board_id: boardId, p_token: token }));
+}
 
 // 내 기록: 레벨, XP, 순위, 코인, 받은 기록, 닉네임, 캐릭터, 입을 수 있는 부품
-export async function getMyPage(classId, number, code) {
-  return unwrap(await need().rpc('get_my_page', { p_class_id: classId, p_number: number, p_code: code }));
+export async function getMyPage(token) {
+  return unwrap(await need().rpc('get_my_page', { p_token: token }));
 }
 
-export async function requestNickname(classId, number, code, nickname) {
-  return unwrap(await need().rpc('request_nickname', {
-    p_class_id: classId, p_number: number, p_code: code, p_nickname: nickname,
-  }));
+export async function requestNickname(token, nickname) {
+  return unwrap(await need().rpc('request_nickname', { p_token: token, p_nickname: nickname }));
 }
 
-export async function saveAvatar(classId, number, code, avatar) {
-  return unwrap(await need().rpc('save_avatar', {
-    p_class_id: classId, p_number: number, p_code: code, p_avatar: avatar,
-  }));
+export async function saveAvatar(token, avatar) {
+  return unwrap(await need().rpc('save_avatar', { p_token: token, p_avatar: avatar }));
 }
 
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
@@ -104,7 +108,7 @@ export async function amITeacher() {
 }
 
 export async function listClasses() {
-  return unwrap(await need().from('classes').select('id, label, today_board_id').order('id'));
+  return unwrap(await need().from('classes').select('id, label, today_board_id, locked').order('id'));
 }
 
 export async function listBoards() {
@@ -165,6 +169,11 @@ export async function listNicknameRequests() {
     .select('id, class_id, number, nickname, nickname_request')
     .eq('nickname_status', 'pending').eq('active', true)
     .order('class_id').order('number'));
+}
+
+// 반 잠금: 잠그면 그 반 학생 모두 로그아웃
+export async function setClassLock(classId, locked) {
+  return unwrap(await need().rpc('set_class_lock', { p_class_id: classId, p_locked: locked }));
 }
 
 export async function decideNickname(studentId, approve) {

@@ -1,7 +1,7 @@
-// 내 기록: 코드로 열기 → 캐릭터, 레벨 고리, XP 바, 이번 달 순위, 코인, 받은 기록, 닉네임 신청, 꾸미기, 레벨업 연출
-import { CLASSES } from '../config.js';
+// 마이페이지(로그인 필요): 캐릭터, 레벨 고리, XP 바, 이번 달 순위, 코인, 받은 기록, 닉네임 신청, 꾸미기, 레벨업 연출
 import { initUI, toast, esc, countUp, isLite } from '../ui.js';
 import { getMyPage, requestNickname, saveAvatar } from '../db.js';
+import { readLogin, clearLogin } from '../login.js';
 import { avatarSVG, mountAvatar, react, bindReactions, normalize } from '../avatar.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 
@@ -13,8 +13,6 @@ const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 const RING = 339.3;
 
 const ERR = {
-  BAD_CODE: '반, 번호 또는 코드가 맞지 않아요',
-  LOCKED: '여러 번 틀렸어요. 10분 뒤에 다시 해 주세요',
   BAD_NICK: '2~8자, 한글·영문·숫자만 쓸 수 있어요',
   SAME: '지금 닉네임과 같아요',
   TAKEN: '다른 친구가 쓰고 있는 닉네임이에요',
@@ -26,92 +24,25 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 
-// 코드는 이 화면에서만 쓰고 기기에 저장하지 않는다. 반·번호만 기억한다(반 페이지와 같은 칸)
-let cred = null;      // { classId, number, code }
+const login = readLogin();
 let me = null;        // get_my_page 결과
 let wearing = null;   // 저장된 캐릭터
 let draft = null;     // 고르는 중인 캐릭터
 let slot = null;      // 꾸미기에서 보고 있는 칸
 let heroSvg = null;
 
-/* ---------- 코드 넣기 ---------- */
-const fromUrl = Number(new URLSearchParams(location.search).get('c'));
-let pickClass = CLASSES.includes(fromUrl) ? fromUrl : Number(store.get('lastClass'));
-if (!CLASSES.includes(pickClass)) pickClass = null;
-
-function savedNum(c) {
-  const n = Number(store.get('num-' + c));
-  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+// 로그인이 풀렸으면(로그아웃, 반 잠금, 코드 다시 발급) 첫 화면으로
+function goLogin() {
+  clearLogin();
+  location.replace('index.html');
 }
-
-function renderClassPick() {
-  $('cls-pick').innerHTML = CLASSES.map((n) => `
-    <button type="button" role="radio" class="cls-tab press${n === pickClass ? ' on' : ''}" aria-checked="${n === pickClass}" data-c="${n}">${n}반</button>`).join('');
-}
-
-$('cls-pick').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-c]');
-  if (!b) return;
-  pickClass = Number(b.dataset.c);
-  renderClassPick();
-  const n = savedNum(pickClass);
-  $('num-in').value = n ?? '';
-  (n ? $('code-in') : $('num-in')).focus();
-});
-
-function showLogin() {
-  cred = me = null;
-  try { sessionStorage.removeItem('me-mark'); } catch {}
-  $('me').classList.add('hidden');
-  $('leave').classList.add('hidden');
-  $('login').classList.remove('hidden');
-  renderClassPick();
-  if (pickClass) $('num-in').value = savedNum(pickClass) ?? '';
-  $('code-in').value = '';
-  (pickClass && $('num-in').value ? $('code-in') : $('num-in')).focus();
-}
-
-$('login-form').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const number = Number($('num-in').value.trim());
-  const code = $('code-in').value.replace(/\D/g, '');
-  if (!pickClass) return toast('반을 골라 주세요', 'error');
-  if (!Number.isInteger(number) || number < 1 || number > 99) return toast('번호를 확인해 주세요', 'error');
-  if (code.length !== 6) return toast('코드 6자리를 넣어 주세요', 'error');
-
-  const btn = e.currentTarget.querySelector('[type="submit"]');
-  btn.disabled = true;
-  try {
-    const res = await getMyPage(pickClass, number, code);
-    if (!res?.ok) {
-      toast(ERR[res?.error] || '열지 못했어요', 'error');
-      $('code-in').value = '';
-      $('code-in').focus();
-      return;
-    }
-    store.set('lastClass', String(pickClass));
-    store.set('num-' + pickClass, String(number));
-    cred = { classId: pickClass, number, code };
-    open(res);
-  } catch (err) {
-    console.error(err);
-    toast('열지 못했어요. 다시 눌러 주세요', 'error');
-  } finally {
-    btn.disabled = false;
-  }
-});
-
-$('leave').addEventListener('click', showLogin);
 
 /* ---------- 내 기록 ---------- */
 function open(data) {
   me = data;
   wearing = normalize(data.avatar);
   draft = { ...wearing };
-  $('login').classList.add('hidden');
   $('me').classList.remove('hidden');
-  $('leave').classList.remove('hidden');
-  $('back').href = `class.html?c=${data.class_id}`;
   // 순위표에서 내 줄을 표시하려고 (이 탭에서만)
   try {
     if (data.month_rank) sessionStorage.setItem('me-mark', JSON.stringify({ c: data.class_id, r: data.month_rank, xp: data.month_xp }));
@@ -167,10 +98,10 @@ $('nick-form').addEventListener('submit', async (e) => {
   const btn = e.currentTarget.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
-    const res = await requestNickname(cred.classId, cred.number, cred.code, nick);
+    const res = await requestNickname(login.token, nick);
     if (!res?.ok) {
+      if (res?.error === 'NO_SESSION') return goLogin();
       toast(ERR[res?.error] || '신청하지 못했어요', 'error');
-      if (res?.error === 'BAD_CODE' || res?.error === 'LOCKED') showLogin();
       return;
     }
     me.nickname_request = res.nickname_request;
@@ -306,10 +237,10 @@ $('wear-save').addEventListener('click', async () => {
   const btn = $('wear-save');
   btn.disabled = true;
   try {
-    const res = await saveAvatar(cred.classId, cred.number, cred.code, draft);
+    const res = await saveAvatar(login.token, draft);
     if (!res?.ok) {
+      if (res?.error === 'NO_SESSION') return goLogin();
       toast(ERR[res?.error] || '저장하지 못했어요', 'error');
-      if (res?.error === 'BAD_CODE' || res?.error === 'LOCKED') return showLogin();
       updateWearButtons();
       return;
     }
@@ -377,4 +308,16 @@ $('lvup-ok').addEventListener('click', () => {
 });
 
 /* ---------- 시작 ---------- */
-showLogin();
+async function load() {
+  if (!login) return goLogin();
+  try {
+    const res = await getMyPage(login.token);
+    if (!res?.ok) return goLogin();
+    open(res);
+  } catch (err) {
+    console.error(err);
+    toast('불러오지 못했어요. 새로고침해 주세요', 'error');
+  }
+}
+
+load();

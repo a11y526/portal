@@ -11,7 +11,7 @@ create table if not exists public.teachers (
   created_at timestamptz not null default now()
 );
 
--- 반 (6~12반)
+-- 반 (7~12반)
 create table if not exists public.classes (
   id             smallint primary key check (id between 1 and 20),
   label          text not null,
@@ -54,12 +54,11 @@ create table if not exists public.settings (
 -- 발표 결과(순위, 모둠별 지급 포인트)를 보드에 남겨 둔다
 alter table public.boards add column if not exists result jsonb null;
 
--- 학생 명단 (이름 없음: 반·번호·모둠·코드 해시만)
+-- 학생 명단 (이름 없음: 반·번호·코드 해시만. 모둠은 수업마다 board_groups에)
 create table if not exists public.students (
   id              uuid primary key default gen_random_uuid(),
   class_id        smallint not null references public.classes(id) on delete cascade,
   number          smallint not null check (number between 1 and 99),
-  group_no        smallint not null check (group_no between 1 and 20),
   code_hash       text null,
   has_code        boolean generated always as (code_hash is not null) stored,
   nickname        text null,
@@ -69,7 +68,17 @@ create table if not exists public.students (
   created_at      timestamptz not null default now(),
   unique (class_id, number)
 );
-create index if not exists students_class_group_idx on public.students (class_id, group_no);
+-- 모둠을 명단에 고정하던 열은 쓰지 않는다 (예전에 만들어졌으면 지움)
+alter table public.students drop column if exists group_no;
+
+-- 그날(보드)의 모둠 편성. 결석으로 뺀 학생은 행이 없다
+create table if not exists public.board_groups (
+  board_id   uuid not null references public.boards(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  group_no   smallint not null check (group_no between 1 and 20),
+  primary key (board_id, student_id)
+);
+create index if not exists board_groups_board_group_idx on public.board_groups (board_id, group_no);
 
 -- 모둠 제출
 create table if not exists public.submissions (

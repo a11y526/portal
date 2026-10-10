@@ -3,9 +3,9 @@
 -- 이미 있는 값은 덮어쓰지 않는다(관리 화면에서 바꾼 값 보존).
 -- =========================================================
 
--- 반 7개
+-- 반 6개 (7~12반)
 insert into public.classes (id, label)
-select n, '1-' || n from generate_series(6, 12) as n
+select n, '1-' || n from generate_series(7, 12) as n
 on conflict (id) do nothing;
 
 -- 포인트 규칙 (7절)

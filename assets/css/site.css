@@ -346,18 +346,66 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .roster-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 8px 6px 16px; border-radius: 16px; background: rgba(255,255,255,.55); }
 .roster-row > b { width: 48px; font-size: 16px; font-weight: 900; }
 .roster-row.off { opacity: .6; }
-.roster-row .grp { display: inline-flex; align-items: center; gap: 6px; font-size: 14px; color: var(--ink-2); }
-.roster-row .grp .input { width: 72px; height: 40px; text-align: center; padding: 0 6px; }
 .roster-btns { margin-left: auto; display: flex; gap: 6px; }
-.csv-box { border-radius: 18px; background: rgba(255,255,255,.45); padding: 0 16px; }
-.csv-box summary { min-height: 48px; display: flex; align-items: center; font-weight: 700; cursor: pointer; }
-.csv-body { display: flex; flex-direction: column; gap: 10px; padding-bottom: 16px; }
-.csv-text { height: auto; padding: 12px 14px; font-family: ui-monospace, Menlo, monospace; font-size: 14px; line-height: 1.5; resize: vertical; }
-.file-btn { cursor: pointer; }
-.csv-preview { font-size: 14px; color: var(--ink-2); display: flex; flex-direction: column; gap: 4px; }
-.csv-preview .bad { color: var(--returned-fg); font-weight: 700; }
 .codes-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px 14px; max-height: 50vh; overflow-y: auto; font-size: 15px; }
 .codes-preview b { font-weight: 900; letter-spacing: .06em; }
+
+/* ---------- 관리: 반별 마지막 번호 ---------- */
+.roster-size { display: flex; flex-direction: column; gap: 10px; padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,.45); }
+.roster-size-label { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.roster-size-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(118px, 1fr)); gap: 8px; }
+.roster-size-item { display: flex; align-items: center; gap: 8px; font-weight: 700; }
+.roster-size-item span { width: 40px; }
+.roster-size-item .input { width: 72px; height: 44px; text-align: center; padding: 0 6px; }
+
+/* ---------- 모둠 편성 (teacher/groups.html) ---------- */
+.groups-wrap { max-width: 1280px; padding: 28px 24px 64px; gap: 18px; }
+.groups-top { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; }
+.groups-top h1 { margin: 0; font-size: 32px; font-weight: 900; letter-spacing: -0.03em; }
+.groups-top .cls-tabs { margin-left: auto; }
+.groups-lesson { margin: -6px 0 0 62px; min-height: 22px; font-size: 15px; color: var(--ink-2); }
+.groups-panel { gap: 14px; }
+.groups-controls { display: flex; align-items: center; gap: 12px 20px; flex-wrap: wrap; }
+.gcount { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.gcount .input { width: 72px; height: 44px; text-align: center; font-size: 18px; font-weight: 900; padding: 0 6px; }
+.mode-row { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.mode-label { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.gstats { margin-left: auto; font-size: 14px; color: var(--ink-2); }
+.roll { display: grid; grid-template-columns: repeat(auto-fill, minmax(52px, 1fr)); gap: 8px; }
+.roll-chip {
+  height: 48px; border-radius: 14px; border: 1.5px solid rgba(78,88,104,.2); background: rgba(255,255,255,.75);
+  font: inherit; font-size: 18px; font-weight: 900; color: var(--ink); cursor: pointer; transition: transform .15s, background .15s, border-color .15s;
+}
+.roll-chip:active { transform: scale(.94); }
+.roll-chip:hover { border-color: var(--accent); }
+.roll-chip.off { background: var(--returned-bg); border-color: var(--returned-solid); color: var(--returned-fg); text-decoration: line-through; }
+.roll-chip.tied { background: var(--c); border-color: transparent; color: #fff; }
+.roll-chip.picking { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(36,87,230,.25); }
+.roll-chip[disabled] { cursor: default; }
+.cluster-bar { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+.cluster-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.cluster-list:empty { display: none; }
+.cluster-item { display: inline-flex; align-items: center; gap: 8px; min-height: 40px; padding: 0 4px 0 14px; border-radius: var(--r-pill); background: rgba(255,255,255,.7); border: 1.5px solid var(--c); font-size: 15px; font-weight: 700; }
+.cluster-item .dot { width: 10px; height: 10px; border-radius: 999px; background: var(--c); }
+.groups-actions { margin-top: 4px; }
+.groups-actions .btn { min-height: 52px; padding: 0 28px; font-size: 17px; }
+.groups-state { font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.groups-state.is-saved { color: var(--passed-fg); }
+.warn-note { margin: 0; padding: 10px 16px; border-radius: var(--r-sm); background: var(--pending-bg); color: var(--pending-fg); font-size: 14px; font-weight: 700; }
+.group-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; scroll-margin-top: 16px; }
+.gcard { border-radius: var(--r-lg); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
+.gcard header { display: flex; align-items: baseline; justify-content: space-between; }
+.gcard header b { font-size: 28px; font-weight: 900; letter-spacing: -0.03em; }
+.gcard header span { font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.gmembers { display: flex; flex-wrap: wrap; gap: 8px; }
+.gm { min-width: 50px; padding: 8px 10px; border-radius: 14px; background: var(--accent-tint); text-align: center; font-size: 24px; font-weight: 900; color: var(--ink); }
+.gm.tied { box-shadow: inset 4px 0 0 var(--c); }
+@media (max-width: 600px) {
+  .groups-wrap { padding: 20px 16px 48px; }
+  .groups-top .cls-tabs { margin-left: 0; }
+  .groups-lesson { margin-left: 0; }
+  .gstats { margin-left: 0; }
+}
 
 /* ---------- 관리: 빠른 피드백 버튼 ---------- */
 .preset-list { display: flex; flex-wrap: wrap; gap: 8px; }

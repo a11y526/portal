@@ -83,3 +83,12 @@ drop policy if exists code_attempts_teacher_all on public.code_attempts;
 create policy code_attempts_teacher_all on public.code_attempts
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 모둠 편성 (보드마다)
+alter table public.board_groups enable row level security;
+revoke all on public.board_groups from anon;
+
+drop policy if exists board_groups_teacher_all on public.board_groups;
+create policy board_groups_teacher_all on public.board_groups
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -80,6 +80,7 @@ const SUBMIT_ERR = {
   LOCKED: '여러 번 틀렸어요. 10분 뒤에 다시 해 주세요',
   CLOSED: '제출이 마감됐어요',
   BOARD_CHANGED: '오늘 수업이 바뀌었어요',
+  NO_GROUP: '오늘 모둠 명단에 없어요',
   ALREADY: '이미 제출했어요',
 };
 
@@ -166,14 +167,14 @@ function renderMine(data) {
   const board = data?.board;
   const groups = data?.groups ?? [];
   const card = $('mine');
-  if (!board || !groups.length) {
+  if (!board || !data.has_roster) {
     card.classList.add('hidden');
     mineKey = mineState = undefined;
     return;
   }
   card.classList.remove('hidden');
 
-  if (myNumber && data.my_group == null) {
+  if (myNumber && data.my_known === false) {
     numError = '명단에 없는 번호예요';
     myNumber = null;
     saveNum(null);
@@ -185,6 +186,15 @@ function renderMine(data) {
 
   if (!myNumber) {
     setMine('num|' + numError, null, numberForm());
+    return;
+  }
+  // 모둠은 수업마다 선생님이 편성한다
+  if (!groups.length) {
+    setMine('nogroups|' + board.id, 'nogroups', closedBox('아직 모둠이 정해지지 않았어요'));
+    return;
+  }
+  if (myGroup == null) {
+    setMine('absent|' + board.id, 'absent', closedBox('오늘 모둠 명단에 없어요'));
     return;
   }
 

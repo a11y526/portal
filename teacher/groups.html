@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>모둠 편성</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/design.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body>
+<main class="wrap groups-wrap">
+  <div id="app" class="groups-app">
+    <div class="groups-top">
+      <a class="icon-btn glass lift" href="index.html" aria-label="관리로 돌아가기">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+      </a>
+      <h1>모둠 편성</h1>
+      <div class="cls-tabs" id="cls-tabs" role="tablist" aria-label="반"></div>
+    </div>
+    <p class="groups-lesson" id="lesson"></p>
+    <div class="glass check-note hidden" id="note"></div>
+
+    <section class="card glass groups-panel hidden" id="panel" aria-label="출석부">
+      <div class="groups-controls">
+        <label class="gcount"><span>모둠 수</span><input class="input num" type="number" id="gcount" min="2" max="20" value="7"></label>
+        <div class="mode-row">
+          <span class="mode-label">번호를 누르면</span>
+          <button type="button" class="cls-tab press on" data-mode="exclude" aria-pressed="true">결석/조퇴</button>
+          <button type="button" class="cls-tab press" data-mode="cluster" aria-pressed="false">함께 묶기</button>
+        </div>
+        <div class="gstats num" id="stats"></div>
+      </div>
+
+      <div class="roll" id="roll"></div>
+
+      <div class="cluster-bar hidden" id="cluster-bar">
+        <button type="button" class="btn btn-line btn-small" id="make-cluster" disabled>선택한 학생 묶기</button>
+        <span class="muted num" id="sel-text"></span>
+      </div>
+      <div class="cluster-list" id="cluster-list"></div>
+
+      <div class="row-actions groups-actions">
+        <button type="button" class="btn btn-primary" id="shuffle">모둠 편성</button>
+        <button type="button" class="btn btn-pass hidden" id="save">확정</button>
+        <span class="groups-state" id="state-text"></span>
+      </div>
+    </section>
+
+    <p class="warn-note hidden" id="adjusted">묶음이 모둠 인원보다 커서 일부 모둠 인원이 조정됐어요</p>
+    <section class="group-results" id="results" aria-live="polite"></section>
+  </div>
+</main>
+<script type="module" src="../assets/js/pages/groups.js"></script>
+</body>
+</html>

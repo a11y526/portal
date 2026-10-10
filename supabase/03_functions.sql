@@ -88,8 +88,9 @@ revoke all on function public._new_code() from public, anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 반 페이지 (누구나)
--- 오늘 보드 + 모둠별 상태·교사 메모. 제출 시각·순서는 주지 않는다.
--- p_number를 넘기면 그 번호의 모둠(my_group)도 준다. 명단에 없으면 null.
+-- 오늘 보드 + 그날 모둠별 상태·교사 메모. 제출 시각·순서는 주지 않는다.
+-- has_roster: 이 반에 명단이 있는지
+-- p_number를 넘기면 my_known(명단에 있는 번호인지), my_group(그날 모둠, 없으면 null)도 준다.
 -- 보드가 발표됐으면 모둠 순위(rank)도 준다.
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
@@ -104,6 +105,7 @@ as $$
 declare
   c        public.classes;
   b        public.boards;
+  v_sid    uuid;
   v_my     smallint;
   v_groups jsonb;
   v_result jsonb;
@@ -118,8 +120,11 @@ begin
   end if;
 
   if p_number is not null then
-    select group_no into v_my from public.students
+    select id into v_sid from public.students
     where class_id = p_class_id and number = p_number and active;
+    if v_sid is not null and b.id is not null then
+      select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
+    end if;
   end if;
 
   v_result := case when b.status = 'revealed' then coalesce(b.result -> 'ranking', '[]'::jsonb) else '[]'::jsonb end;
@@ -134,8 +139,8 @@ begin
   into v_groups
   from (
     select group_no, count(*)::int as members
-    from public.students
-    where class_id = p_class_id and active
+    from public.board_groups
+    where board_id = b.id
     group by group_no
   ) g
   left join lateral (
@@ -162,8 +167,10 @@ begin
       'sim_links',   b.sim_links,
       'status',      b.status
     ) end,
-    'groups',   v_groups,
-    'my_group', v_my
+    'groups',     v_groups,
+    'has_roster', exists (select 1 from public.students where class_id = p_class_id and active),
+    'my_known',   case when p_number is null then null else v_sid is not null end,
+    'my_group',   v_my
   );
 end;
 $$;
@@ -177,6 +184,7 @@ grant execute on function public.get_class_page(int, int) to anon, authenticated
 --   BAD_CODE      반, 번호 또는 코드가 맞지 않음
 --   BOARD_CHANGED 오늘 보드가 아님
 --   CLOSED        보드가 열려 있지 않음
+--   NO_GROUP      그날 모둠에 없음 (아직 편성 전이거나 결석)
 --   ALREADY       이미 검사 대기 중이거나 통과함
 -- (틀린 시도 기록이 지워지지 않도록 오류를 raise하지 않고 돌려준다)
 -- ---------------------------------------------------------
@@ -211,7 +219,10 @@ begin
     return jsonb_build_object('ok', false, 'error', 'CLOSED');
   end if;
 
-  select group_no into v_group from public.students where id = v_sid;
+  select group_no into v_group from public.board_groups where board_id = b.id and student_id = v_sid;
+  if v_group is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
+  end if;
 
   if exists (
     select 1 from public.submissions
@@ -273,8 +284,55 @@ revoke all on function public.review_submission(uuid, text, text) from public, a
 grant execute on function public.review_submission(uuid, text, text) to authenticated;
 
 -- ---------------------------------------------------------
+-- 모둠 편성 저장 (교사)
+-- p_groups: 모둠 순서대로 번호 배열. 예: [[3, 12, 20], [5, 7, 9], ...] → 1모둠, 2모둠, ...
+-- 그 보드에 제출이 하나라도 있으면 바꿀 수 없다(순위가 꼬이지 않게). 빈 배열이면 편성을 지운다.
+-- ---------------------------------------------------------
+create or replace function public.set_board_groups(p_board_id uuid, p_groups jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  b       public.boards;
+  v_count int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+
+  select * into b from public.boards where id = p_board_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if b.status = 'revealed' then
+    raise exception 'BOARD_REVEALED';
+  end if;
+  if exists (select 1 from public.submissions where board_id = b.id) then
+    raise exception 'HAS_SUBMISSIONS';
+  end if;
+
+  delete from public.board_groups where board_id = b.id;
+
+  insert into public.board_groups (board_id, student_id, group_no)
+  select b.id, s.id, g.ord::smallint
+  from jsonb_array_elements(coalesce(p_groups, '[]'::jsonb)) with ordinality as g(nums, ord)
+  cross join lateral jsonb_array_elements_text(g.nums) as n(num)
+  join public.students s on s.class_id = b.class_id and s.number = n.num::int and s.active
+  on conflict (board_id, student_id) do nothing;
+
+  get diagnostics v_count = row_count;
+  return jsonb_build_object('ok', true, 'count', v_count, 'class_id', b.class_id);
+end;
+$$;
+revoke all on function public.set_board_groups(uuid, jsonb) from public, anon;
+grant execute on function public.set_board_groups(uuid, jsonb) to authenticated;
+
+-- ---------------------------------------------------------
 -- 순위 발표 (교사)
--- 'passed' 제출을 제출 시각 순서로 순위를 매기고, 통과 모둠의 현재 모둠원 전원에게 포인트 지급.
+-- 'passed' 제출을 제출 시각 순서로 순위를 매기고, 그날 편성된 통과 모둠의 모둠원 전원에게 포인트 지급.
 -- 이미 발표한 보드면 저장된 결과만 돌려준다(already: true). 포인트는 다시 주지 않는다.
 -- point_events의 (student_id, board_id) 유일 조건이 중복 지급을 한 번 더 막는다.
 -- ---------------------------------------------------------
@@ -326,14 +384,14 @@ begin
     v_reason := b.lesson_code || '차시 통과' || case when v_extra > 0 then ' · ' || r.rn || '위' else '' end;
 
     insert into public.point_events (student_id, xp, coins, reason, board_id)
-    select s.id, v_pass_xp + v_extra, v_pass_co + v_extra, v_reason, b.id
-    from public.students s
-    where s.class_id = b.class_id and s.group_no = r.group_no and s.active
+    select g.student_id, v_pass_xp + v_extra, v_pass_co + v_extra, v_reason, b.id
+    from public.board_groups g
+    where g.board_id = b.id and g.group_no = r.group_no
     on conflict (student_id, board_id) where board_id is not null do nothing;
 
     select count(*)::int into v_members
-    from public.students
-    where class_id = b.class_id and group_no = r.group_no and active;
+    from public.board_groups
+    where board_id = b.id and group_no = r.group_no;
 
     v_ranking := v_ranking || jsonb_build_array(jsonb_build_object(
       'rank',     r.rn,
@@ -380,7 +438,7 @@ begin
   end if;
 
   for r in
-    select id, number, group_no from public.students
+    select id, number from public.students
     where class_id = p_class_id and active and (not p_only_missing or code_hash is null)
     order by number
   loop
@@ -388,7 +446,7 @@ begin
     update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = r.id;
     delete from public.code_attempts where student_key = p_class_id || '-' || r.number;
     v_out := v_out || jsonb_build_array(jsonb_build_object(
-      'class_id', p_class_id, 'number', r.number, 'group_no', r.group_no, 'code', v_code
+      'class_id', p_class_id, 'number', r.number, 'code', v_code
     ));
   end loop;
 
@@ -422,7 +480,7 @@ begin
   update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = s.id;
   delete from public.code_attempts where student_key = s.class_id || '-' || s.number;
 
-  return jsonb_build_object('class_id', s.class_id, 'number', s.number, 'group_no', s.group_no, 'code', v_code);
+  return jsonb_build_object('class_id', s.class_id, 'number', s.number, 'code', v_code);
 end;
 $$;
 revoke all on function public.reset_code(uuid) from public, anon;

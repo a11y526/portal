@@ -123,26 +123,16 @@ export async function getBoard(id) {
 
 export async function listStudents() {
   return unwrap(await need().from('students')
-    .select('id, class_id, number, group_no, has_code, active')
+    .select('id, class_id, number, has_code, active')
     .order('class_id').order('number'));
 }
 
-// rows: [{ class_id, number, group_no }]
-// deactivateMissing이면 CSV에 들어 있는 반에서 CSV에 없는 번호는 active=false
-export async function importRoster(rows, deactivateMissing) {
-  const payload = rows.map((r) => ({ ...r, active: true }));
-  unwrap(await need().from('students').upsert(payload, { onConflict: 'class_id,number' }));
-  if (deactivateMissing) {
-    const byClass = new Map();
-    for (const r of rows) {
-      if (!byClass.has(r.class_id)) byClass.set(r.class_id, []);
-      byClass.get(r.class_id).push(r.number);
-    }
-    for (const [classId, nums] of byClass) {
-      unwrap(await need().from('students').update({ active: false })
-        .eq('class_id', classId).eq('active', true).not('number', 'in', `(${nums.join(',')})`));
-    }
-  }
+// 반 명단을 1~last번으로: 없는 번호는 새로 넣고(이미 있으면 그대로), last보다 큰 번호는 명단에서 뺀다
+export async function setRosterSize(classId, last) {
+  const rows = Array.from({ length: last }, (_, i) => ({ class_id: classId, number: i + 1 }));
+  unwrap(await need().from('students').upsert(rows, { onConflict: 'class_id,number', ignoreDuplicates: true }));
+  unwrap(await need().from('students').update({ active: false })
+    .eq('class_id', classId).eq('active', true).gt('number', last));
 }
 
 export async function updateStudent(id, patch) {
@@ -179,6 +169,27 @@ export async function listSubmissions(boardId) {
     .select('id, group_no, submitted_at, status, feedback, reviewed_at, student:students(number)')
     .eq('board_id', boardId)
     .order('submitted_at'));
+}
+
+export async function countSubmissions(boardId) {
+  const { count, error } = await need().from('submissions').select('id', { count: 'exact', head: true }).eq('board_id', boardId);
+  if (error) throw error;
+  return count ?? 0;
+}
+
+/* ---------- 교사: 모둠 편성 (보드마다) ---------- */
+
+// 결과: [{ group_no, number }]
+export async function getBoardGroups(boardId) {
+  const rows = unwrap(await need().from('board_groups')
+    .select('group_no, student:students(number)')
+    .eq('board_id', boardId));
+  return rows.map((r) => ({ group_no: r.group_no, number: r.student?.number })).filter((r) => r.number);
+}
+
+// groups: [[번호, ...], [번호, ...], ...]  (1모둠부터 차례로)
+export async function setBoardGroups(boardId, groups) {
+  return unwrap(await need().rpc('set_board_groups', { p_board_id: boardId, p_groups: groups }));
 }
 
 export async function reviewSubmission(id, status, feedback = null) {

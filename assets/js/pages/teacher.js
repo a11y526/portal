@@ -1,9 +1,9 @@
-// 관리 화면: 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정, 명단·코드 발급, 빠른 피드백 버튼
+// 관리 화면: 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정, 명단(반별 마지막 번호)·코드 발급, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setTodayBoard, toPadletEmbed,
-  listStudents, importRoster, updateStudent, issueCodes, resetCode,
+  listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset,
 } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -87,6 +87,7 @@ function renderToday() {
         </select>
         <div class="today-links">
           <a class="btn btn-line btn-small" href="../class.html?c=${c.id}" target="_blank" rel="noopener">보기 ↗</a>
+          <a class="btn btn-line btn-small" href="groups.html?c=${c.id}">모둠</a>
           <a class="btn btn-line btn-small" href="reveal.html?c=${c.id}">발표</a>
         </div>
       </div>`;
@@ -301,18 +302,13 @@ function renderRoster() {
     .sort((a, b) => (b.active - a.active) || (a.number - b.number));
   const active = list.filter((s) => s.active);
   const missing = active.filter((s) => !s.has_code).length;
-  const groupCount = new Set(active.map((s) => s.group_no)).size;
-  $('roster-count').textContent = active.length ? `${active.length}명 · ${groupCount}모둠 · 코드 없음 ${missing}명` : '';
+  $('roster-count').textContent = active.length ? `${active.length}명 · 코드 없음 ${missing}명` : '';
   $('issue-missing').disabled = !missing;
   $('issue-all').disabled = !active.length;
 
   $('roster-list').innerHTML = list.length ? list.map((s) => `
     <div class="roster-row${s.active ? '' : ' off'}" data-sid="${s.id}">
       <b class="num">${s.number}번</b>
-      <label class="grp">
-        <input class="input num" type="number" min="1" max="20" value="${s.group_no}" data-grp aria-label="${s.number}번 모둠" ${s.active ? '' : 'disabled'}>
-        <span>모둠</span>
-      </label>
       ${s.active
         ? `<span class="tag ${s.has_code ? 'tag-today' : 'tag-warn'}">${s.has_code ? '코드 있음' : '코드 없음'}</span>
            <span class="roster-btns">
@@ -327,34 +323,60 @@ function renderRoster() {
 async function refreshStudents() {
   students = await listStudents();
   renderRoster();
+  renderRosterSize();
 }
+
+/* ---------- 반별 마지막 번호 ---------- */
+function renderRosterSize() {
+  $('roster-size-grid').innerHTML = CLASSES.map((n) => {
+    const last = students.filter((s) => s.class_id === n && s.active).reduce((m, s) => Math.max(m, s.number), 0);
+    return `
+      <label class="roster-size-item">
+        <span>${n}반</span>
+        <input class="input num" type="number" min="1" max="99" value="${last || ''}" data-last="${n}" aria-label="${n}반 마지막 번호">
+      </label>`;
+  }).join('');
+}
+
+$('roster-size').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const changes = [];
+  for (const input of $('roster-size-grid').querySelectorAll('[data-last]')) {
+    const n = Number(input.dataset.last);
+    const raw = input.value.trim();
+    if (!raw) continue;
+    const last = Number(raw);
+    if (!Number.isInteger(last) || last < 1 || last > 99) {
+      toast(`${n}반 마지막 번호를 확인해 주세요`, 'error');
+      input.focus();
+      return;
+    }
+    const current = students.filter((s) => s.class_id === n && s.active).reduce((m, s) => Math.max(m, s.number), 0);
+    if (last !== current) changes.push({ n, last, current });
+  }
+  if (!changes.length) { toast('바뀐 반이 없어요'); return; }
+  const shrink = changes.filter((c) => c.last < c.current);
+  if (shrink.length && !confirm(shrink.map((c) => `${c.n}반 ${c.last + 1}~${c.current}번`).join(', ') + '을(를) 명단에서 뺄까요?')) return;
+
+  const btn = e.currentTarget.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    for (const c of changes) await setRosterSize(c.n, c.last);
+    toast(`${changes.map((c) => c.n + '반').join(', ')} 명단을 저장했어요`, 'ok');
+    rosterClass = changes[0].n;
+    await refreshStudents();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
 
 $('roster-tabs').addEventListener('click', (e) => {
   const tab = e.target.closest('[data-tab]');
   if (!tab) return;
   rosterClass = Number(tab.dataset.tab);
   renderRoster();
-});
-
-$('roster-list').addEventListener('change', async (e) => {
-  const input = e.target.closest('[data-grp]');
-  if (!input) return;
-  const s = students.find((x) => x.id === input.closest('[data-sid]').dataset.sid);
-  const g = Number(input.value);
-  if (!s || !Number.isInteger(g) || g < 1 || g > 20) {
-    toast('모둠은 1~20 사이 숫자로 넣어 주세요', 'error');
-    if (s) input.value = s.group_no;
-    return;
-  }
-  try {
-    await updateStudent(s.id, { group_no: g });
-    s.group_no = g;
-    toast(`${s.number}번을 ${g}모둠으로 바꿨어요`, 'ok');
-    renderRoster();
-  } catch (err) {
-    toast(errMsg(err), 'error');
-    input.value = s.group_no;
-  }
 });
 
 $('roster-list').addEventListener('click', async (e) => {
@@ -412,7 +434,7 @@ function showCodes(list, title) {
   const site = esc(siteAddress());
   $('print-sheet').innerHTML = list.map((c) => `
     <div class="code-card">
-      <div class="cc-top"><b>${GRADE}학년 ${c.class_id}반 ${c.number}번</b><span>${c.group_no}모둠</span></div>
+      <div class="cc-top"><b>${GRADE}학년 ${c.class_id}반 ${c.number}번</b></div>
       <div class="cc-code">${esc(c.code.slice(0, 3))} ${esc(c.code.slice(3))}</div>
       <div class="cc-bottom"><span class="cc-name">이름</span><span class="cc-url">${site}</span></div>
     </div>`).join('');
@@ -427,86 +449,6 @@ $('codes-dlg').addEventListener('cancel', (e) => e.preventDefault());
 $('codes-dlg').addEventListener('close', () => {
   $('codes-preview').innerHTML = '';
   $('print-sheet').innerHTML = '';
-});
-
-/* ---------- CSV 가져오기 (반,번호,모둠) ---------- */
-let csvRows = null;
-
-// "6반", "1번" 처럼 글자가 붙어 있어도 숫자만 읽는다
-const toNum = (cell) => {
-  const d = String(cell ?? '').replace(/[^\d]/g, '');
-  return d ? Number(d) : NaN;
-};
-
-function parseCsv(text) {
-  const rows = [];
-  const errors = [];
-  const seen = new Set();
-  let first = true;
-  text.replace(/^\uFEFF/, '').split(/\r?\n/).forEach((line, i) => {
-    if (!line.trim()) return;
-    const cells = line.split(/[,\t;]/).map((c) => c.trim().replace(/^"|"$/g, ''));
-    const isHeader = first && !/\d/.test(cells[0]);
-    first = false;
-    if (isHeader) return;
-    const [c, n, g] = cells.map(toNum);
-    const key = `${c}-${n}`;
-    if (cells.length < 3 || !CLASSES.includes(c) || !(n >= 1 && n <= 99) || !(g >= 1 && g <= 20) || seen.has(key)) {
-      errors.push(i + 1);
-      return;
-    }
-    seen.add(key);
-    rows.push({ class_id: c, number: n, group_no: g });
-  });
-  return { rows, errors };
-}
-
-function previewCsv() {
-  const text = $('csv-text').value;
-  if (!text.trim()) {
-    csvRows = null;
-    $('csv-preview').innerHTML = '';
-    $('csv-import').disabled = true;
-    return;
-  }
-  const { rows, errors } = parseCsv(text);
-  const byClass = new Map();
-  for (const r of rows) byClass.set(r.class_id, (byClass.get(r.class_id) || 0) + 1);
-  const summary = [...byClass].sort((a, b) => a[0] - b[0]).map(([c, n]) => `${c}반 ${n}명`).join(' · ');
-  const bad = errors.length
-    ? `<div class="bad">잘못되었거나 겹치는 줄: ${errors.slice(0, 12).join(', ')}번째 줄${errors.length > 12 ? ` 외 ${errors.length - 12}개` : ''}</div>`
-    : '';
-  $('csv-preview').innerHTML = `<div>${summary || '가져올 줄이 없어요'}</div>${bad}`;
-  csvRows = errors.length || !rows.length ? null : rows;
-  $('csv-import').disabled = !csvRows;
-}
-
-$('csv-text').addEventListener('input', previewCsv);
-$('csv-file').addEventListener('change', async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-  $('csv-text').value = await file.text();
-  e.target.value = '';
-  previewCsv();
-});
-
-$('csv-import').addEventListener('click', async () => {
-  if (!csvRows) return;
-  const deact = $('csv-deact').checked;
-  const btn = $('csv-import');
-  btn.disabled = true;
-  try {
-    await importRoster(csvRows, deact);
-    toast(`${csvRows.length}명을 가져왔어요`, 'ok');
-    rosterClass = csvRows[0].class_id;
-    $('csv-text').value = '';
-    previewCsv();
-    $('csv-box').open = false;
-    await refreshStudents();
-  } catch (err) {
-    toast(errMsg(err), 'error');
-    btn.disabled = false;
-  }
 });
 
 /* ---------- 빠른 피드백 버튼 ---------- */
@@ -556,8 +498,5 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([
-    refreshStudents().then(() => { if (!students.length) $('csv-box').open = true; }),
-    refreshPresets(),
-  ]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets()]).catch((err) => toast(errMsg(err), 'error'));
 });

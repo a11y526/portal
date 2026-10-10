@@ -141,3 +141,14 @@ drop policy if exists purchases_teacher_all on public.purchases;
 create policy purchases_teacher_all on public.purchases
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 5단계: 수업자료 (교사만. 학생 함수에도 내보내지 않는다)
+-- ---------------------------------------------------------
+alter table public.lessons enable row level security;
+revoke all on public.lessons from anon;
+
+drop policy if exists lessons_teacher_all on public.lessons;
+create policy lessons_teacher_all on public.lessons
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -189,7 +189,9 @@ a:hover { color: var(--accent-hover); }
 @keyframes av-spark { 0% { opacity: 0; transform: scale(0) rotate(0); } 40% { opacity: 1; transform: scale(1.2) rotate(45deg); } 100% { opacity: 0; transform: scale(.4) rotate(90deg); } }
 
 /* ---------- 저사양 대체 (ui.js가 <html class="lite">) ---------- */
-.lite .av .av-body, .lite .av .av-head, .lite .av--dance, .lite .av .av-hourglass { animation: none; }
+/* 캐릭터는 움직이지 않는 그림 (숨쉬기·깜빡임·반응 모션 모두 끔) */
+.lite .av, .lite .av g, .lite .av .av-fx { animation: none !important; }
+.lite .av .av-arm { display: none; }
 .lite .glass, .lite .glass-strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.92); }
 .lite .orb { filter: none; opacity: .18; animation: none; }
 .lite .orb-wrap { transform: none; transition: none; }

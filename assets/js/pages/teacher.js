@@ -1,5 +1,5 @@
-// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#boards #roster #nick #buys #shopset #grant #points #lock #presets)
-// 보드 만들기(여러 반 한 번에)·오늘 보드 지정, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정, 반별 잠금, 빠른 피드백 버튼
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #roster #nick #buys #shopset #grant #points #lock #presets)
+// 수업 시작(차시 창 → 반 → 수업 모드), 보드 만들기(여러 반 한 번에)·오늘 보드 지정, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
@@ -8,6 +8,7 @@ import {
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
   getPointRules, savePointRules, grantPoints, listGrants,
+  listLessons, saveLesson, deleteLesson, sendClassRefresh,
 } from '../db.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -833,6 +834,164 @@ $('preset-form').addEventListener('submit', async (e) => {
   } catch (err) { toast(errMsg(err), 'error'); }
 });
 
+/* ---------- 수업 시작: 차시 창 (611, 612, …) ---------- */
+// 창마다 수업자료 주소를 미리 저장해 두고, [수업 시작] → 반을 고르면 수업 모드(live.html)가 열린다.
+// 보드에는 있는데 lessons 표에 없는 차시는 빈 주소의 창으로 보여 준다(saved: false, 저장하면 표에 들어감).
+let lessons = [];
+let startOpen = null; // 반 버튼을 펼친 차시
+let lessonsShown = false; // 처음 그릴 때만 등장 모션
+const LIVE_CLASS = 'liveClass';
+const byCode = (a, b) => String(a.code).localeCompare(String(b.code), 'ko', { numeric: true });
+
+function lessonWindows() {
+  const list = lessons.map((l) => ({ ...l, saved: true }));
+  const known = new Set(list.map((l) => l.code));
+  for (const b of boards) { // 최근 보드부터
+    if (!b.lesson_code || known.has(b.lesson_code)) continue;
+    known.add(b.lesson_code);
+    list.push({ code: b.lesson_code, title: b.title || '', lesson_src: null, saved: false });
+  }
+  return list.sort(byCode);
+}
+
+// 이 반의 이 차시 보드 (여러 개면 가장 최근 것)
+const lessonBoard = (classId, code) => boards.find((b) => b.class_id === classId && b.lesson_code === code) ?? null;
+
+function renderLessons() {
+  const wins = lessonWindows();
+  const last = Number(localStorage.getItem(LIVE_CLASS)) || null;
+  $('lesson-list').innerHTML = wins.length ? wins.map((l, i) => {
+    const ready = !!l.lesson_src;
+    const open = startOpen === l.code && ready;
+    return `
+      <article class="card glass${lessonsShown ? '' : ' rise'} lesson-win${open ? ' is-open' : ''}" style="--d:${Math.min(i, 8) * 0.04}s" data-code="${esc(l.code)}">
+        <header class="lesson-win-top">
+          <b class="lesson-code num">${esc(l.code)}</b>
+          <input class="input lesson-title" value="${esc(l.title)}" maxlength="60" aria-label="${esc(l.code)}차시 제목">
+          ${l.saved ? `<button type="button" class="preset-del" data-lesson-del aria-label="${esc(l.code)}차시 창 삭제">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+          </button>` : ''}
+        </header>
+        <div class="lesson-src-row">
+          <input class="input lesson-src" value="${esc(readableUrl(l.lesson_src))}" placeholder="lessons/${esc(l.code)}.html" aria-label="${esc(l.code)}차시 수업자료 주소">
+          <button type="button" class="btn btn-line btn-small" data-lesson-save>저장</button>
+        </div>
+        <div class="lesson-chips">
+          ${classes.map((c) => {
+            const has = !!lessonBoard(c.id, l.code);
+            return `<span class="tag ${has ? 'tag-done' : 'tag-off'}" title="${c.id}반 ${esc(l.code)}차시 보드 ${has ? '있음' : '없음'}">${c.id}반 ${has ? '있음' : '없음'}</span>`;
+          }).join('')}
+        </div>
+        <div class="lesson-go">
+          <button type="button" class="btn btn-primary" data-lesson-start ${ready ? '' : 'disabled'}>${open ? '닫기' : '수업 시작'}</button>
+          ${ready ? '' : '<span class="muted lesson-need">수업자료 주소를 먼저 저장해 주세요</span>'}
+        </div>
+        ${open ? `<div class="lesson-classes" role="group" aria-label="반 고르기">
+          ${classes.map((c, j) => `<button type="button" class="lesson-cls press pop${c.id === last ? ' is-last' : ''}" style="--d:${j * 0.03}s" data-live="${c.id}">${c.id}반</button>`).join('')}
+        </div>` : ''}
+      </article>`;
+  }).join('') : '<div class="empty"><strong>아직 차시가 없어요</strong></div>';
+  if (wins.length && !$('lesson-list').closest('.hidden')) lessonsShown = true;
+  updateHub();
+}
+
+async function refreshLessons() {
+  lessons = await listLessons();
+  renderLessons();
+}
+
+// 수업자료 주소: 'lessons/611.html'처럼 써도 포털 주소 기준으로 바꾼다
+function lessonUrl(input) {
+  let v = input.trim();
+  if (!v) return null;
+  if (/^[a-z0-9.-]+\.[a-z]{2,}\//i.test(v)) v = 'https://' + v;
+  try { return new URL(v, new URL('../', location.href)).href; } catch { return undefined; }
+}
+
+$('lesson-list').addEventListener('click', async (e) => {
+  const win = e.target.closest('[data-code]');
+  if (!win) return;
+  const code = win.dataset.code;
+  const l = lessonWindows().find((x) => x.code === code);
+
+  if (e.target.closest('[data-lesson-save]')) {
+    const btn = e.target.closest('[data-lesson-save]');
+    const input = win.querySelector('.lesson-src');
+    const url = lessonUrl(input.value);
+    if (url === undefined) { toast('주소를 확인해 주세요', 'error'); input.focus(); return; }
+    btn.disabled = true;
+    try {
+      let src = null;
+      if (url) {
+        const chk = await checkSimUrl(url);
+        if (chk.ok === false && !confirm(`이 주소가 열리지 않아요(404). 그래도 저장할까요?\n${url}`)) return;
+        if (new URL(chk.url).origin !== location.origin &&
+            !confirm('다른 사이트의 수업자료예요. G키가 수업자료 안에서는 먹지 않고, 화면 오른쪽 아래 [모둠활동] 버튼으로만 전환돼요. 저장할까요?')) return;
+        src = chk.url;
+      }
+      await saveLesson({ code, title: win.querySelector('.lesson-title').value.trim(), lesson_src: src, sort: parseInt(code, 10) || 0 });
+      toast(`${code}차시를 저장했어요`, 'ok');
+      await refreshLessons();
+    } catch (err) {
+      toast(errMsg(err), 'error');
+    } finally {
+      btn.disabled = false;
+    }
+    return;
+  }
+
+  if (e.target.closest('[data-lesson-del]')) {
+    if (!confirm(`${code}차시 창을 삭제할까요? 보드는 지워지지 않아요.`)) return;
+    try {
+      await deleteLesson(code);
+      if (startOpen === code) startOpen = null;
+      toast('삭제했어요', 'ok');
+      await refreshLessons();
+    } catch (err) { toast(errMsg(err), 'error'); }
+    return;
+  }
+
+  if (e.target.closest('[data-lesson-start]')) {
+    startOpen = startOpen === code ? null : code;
+    renderLessons();
+    return;
+  }
+
+  const clsBtn = e.target.closest('[data-live]');
+  if (clsBtn && l?.lesson_src) {
+    const classId = Number(clsBtn.dataset.live);
+    win.querySelectorAll('[data-live]').forEach((b) => { b.disabled = true; });
+    try {
+      // 그 반에 이 차시 보드가 있으면 오늘 보드로 (학생 반 페이지도 바로 그 차시 패들렛으로)
+      const b = lessonBoard(classId, code);
+      const c = classes.find((x) => x.id === classId);
+      if (b && c?.today_board_id !== b.id) {
+        await setTodayBoard(classId, b.id);
+        sendClassRefresh(classId);
+      }
+      localStorage.setItem(LIVE_CLASS, String(classId));
+      location.href = `live.html?c=${classId}&l=${encodeURIComponent(code)}`;
+    } catch (err) {
+      toast(errMsg(err), 'error');
+      win.querySelectorAll('[data-live]').forEach((x) => { x.disabled = false; });
+    }
+  }
+});
+
+$('lesson-add').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const f = e.currentTarget;
+  const code = f.code.value.trim();
+  if (!/^[0-9A-Za-z-]{1,10}$/.test(code)) { toast('차시는 영어·숫자로 써 주세요', 'error'); return; }
+  if (lessonWindows().some((l) => l.code === code)) { toast(`${code}차시 창이 이미 있어요`, 'error'); return; }
+  try {
+    await saveLesson({ code, title: f.title.value.trim(), lesson_src: null, sort: parseInt(code, 10) || 0 });
+    f.reset();
+    toast(`${code}차시 창을 만들었어요`, 'ok');
+    await refreshLessons();
+  } catch (err) { toast(errMsg(err), 'error'); }
+});
+
 /* ---------- 반별 잠금 ---------- */
 function renderLocks() {
   $('lock-list').innerHTML = classes.map((c) => `
@@ -865,6 +1024,8 @@ $('lock-list').addEventListener('click', async (e) => {
 /* ---------- 첫 화면 항목 ---------- */
 function updateHub() {
   const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
+  const ready = lessonWindows().filter((l) => l.lesson_src).length;
+  if (lessons.length || boards.length) set('hub-lessons', `수업자료 준비 ${ready}차시`);
   const today = classes.filter((c) => c.today_board_id).length;
   if (classes.length) set('hub-boards', `오늘 보드 ${today}/${classes.length}반`);
   const active = students.filter((s) => s.active);
@@ -898,6 +1059,7 @@ function route() {
 
 // 항목을 열 때 그 항목의 최신 내용 (로그인 전이면 조용히 넘어가고, 로그인 뒤 다시 부른다)
 function loadPanel(key) {
+  if (key === 'lessons') refreshLessons().catch(() => {});
   if (key === 'buys') refreshBuys(true).catch(() => {});
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
@@ -912,11 +1074,12 @@ async function refresh() {
   renderToday();
   renderBoards();
   renderLocks();
+  renderLessons();
 }
 
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons()]).catch((err) => toast(errMsg(err), 'error'));
   loadPanel(location.hash.slice(1));
 });

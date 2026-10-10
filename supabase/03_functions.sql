@@ -198,6 +198,7 @@ grant execute on function public.set_class_lock(int, boolean) to authenticated;
 -- p_token(로그인 출입증)을 넘기면 session('ok' 또는 'none'), my_group(그날 모둠, 없으면 null),
 -- my_members(그날 우리 모둠원의 승인된 닉네임·캐릭터, 번호는 주지 않음)도 준다. 다른 반 출입증은 'none'.
 -- 보드가 발표됐으면 모둠 순위(rank)도 준다.
+-- 발표 전에는 내 모둠이 아닌 모둠(출입증이 없으면 모든 모둠)의 'passed'를 'pending'으로 내보낸다.
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
 drop function if exists public.get_class_page(int, int);
@@ -252,7 +253,10 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object(
            'no',       g.group_no,
            'members',  g.members,
-           'state',    coalesce(s.status, 'idle'),
+           'state',    case
+                         when s.status = 'passed' and b.status <> 'revealed' and g.group_no is distinct from v_my then 'pending'
+                         else coalesce(s.status, 'idle')
+                       end,
            'feedback', case when s.status = 'returned' then s.feedback end,
            'rank',     r.rn
          ) order by g.group_no), '[]'::jsonb)

@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>수업 모드</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/design.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body class="live-body">
+<div id="app" class="live-app">
+  <!-- 바닥층: 수업자료 (live.js가 한 번만 만든다) -->
+  <div class="live-lesson" id="lesson-slot"></div>
+
+  <!-- 다른 사이트 수업자료일 때만: 오른쪽 아래 [모둠활동] (마우스를 움직이면 잠깐 보임) -->
+  <div class="live-corner hidden" id="corner">
+    <button type="button" class="btn btn-primary press" id="corner-btn">모둠활동</button>
+  </div>
+
+  <!-- 덮개: G키로 열고 닫는다 -->
+  <section class="cover" id="cover" tabindex="-1" aria-hidden="true" aria-labelledby="cover-title">
+    <header class="cover-top">
+      <h1 class="cover-title" id="cover-title"></h1>
+      <div class="timer glass-strong" id="timer" aria-label="타이머">
+        <button type="button" class="timer-step press" id="timer-minus" aria-label="1분 줄이기">−</button>
+        <span class="timer-num num" id="timer-num" role="timer">10:00</span>
+        <button type="button" class="timer-step press" id="timer-plus" aria-label="1분 늘리기">+</button>
+        <button type="button" class="btn btn-primary btn-small" id="timer-go">시작</button>
+        <button type="button" class="btn btn-line btn-small" id="timer-reset">초기화</button>
+      </div>
+    </header>
+
+    <div class="cover-body">
+      <div class="cover-pane" data-pane="groups">
+        <div class="lg-grid" id="lg-grid" aria-live="polite"></div>
+        <div class="cover-embed hidden" id="groups-embed"></div>
+        <div class="cover-msg hidden" id="groups-msg"></div>
+        <div class="lg-foot hidden" id="lg-foot">
+          <button type="button" class="btn btn-line btn-small" id="regroup">편성 다시 하기</button>
+        </div>
+      </div>
+      <div class="cover-pane hidden" data-pane="padlet">
+        <div class="cover-embed" id="padlet-embed"></div>
+        <div class="cover-msg hidden" id="padlet-msg"></div>
+      </div>
+      <div class="cover-pane hidden" data-pane="reveal">
+        <div class="cover-embed" id="reveal-embed"></div>
+        <div class="cover-msg hidden" id="reveal-msg"></div>
+      </div>
+    </div>
+
+    <nav class="cover-tabs glass-strong" aria-label="모둠활동">
+      <button type="button" class="cover-tab press" data-tab="groups"><span>모둠</span><kbd>1</kbd></button>
+      <button type="button" class="cover-tab press" data-tab="padlet"><span>패들렛</span><kbd>2</kbd></button>
+      <button type="button" class="cover-tab press" data-tab="reveal"><span>순위 발표</span><kbd>3</kbd></button>
+      <button type="button" class="cover-tab cover-close press" id="cover-close"><span>수업자료로</span><kbd>G</kbd></button>
+    </nav>
+  </section>
+</div>
+<script type="module" src="../assets/js/pages/live.js"></script>
+</body>
+</html>

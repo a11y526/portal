@@ -1,4 +1,6 @@
 // 반 페이지: 오늘 보드(패들렛 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
+// 학생 기기가 느리고 와이파이가 약해서: 패들렛은 [패들렛 열기]를 눌러야 불러오고,
+// 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw } from '../ui.js';
 import { sb, getClassPage, submitGroup, onClassRefresh, sendClassRefresh } from '../db.js';
@@ -9,6 +11,9 @@ initUI();
 bindReactions();
 
 const REFRESH_MS = 15000;
+const JITTER_MS = 3000;     // 15초 갱신에 더하는 0~3초 무작위 지연 (한 반 30대가 같은 순간에 요청하지 않게)
+const RETRY_MS = 5000;      // 연결이 끊겼을 때는 더 자주 다시 시도
+const SUBMIT_WAIT_MS = 10000;
 const classId = Number(new URLSearchParams(location.search).get('c'));
 if (!CLASSES.includes(classId)) location.replace('index.html');
 
@@ -45,9 +50,28 @@ function showEmpty(message, withRetry = false) {
   if (withRetry) $('retry').addEventListener('click', load);
 }
 
+// 이 탭에서 한 번 열면 갱신 때 닫거나 다시 불러오지 않는다
+let padletOpen = false;
+
 function renderPadlet(src) {
   if (!isHttp(src)) {
     showEmpty('패들렛이 아직 연결되지 않았어요');
+    return;
+  }
+  if (!padletOpen) {
+    const key = 'closed:' + src;
+    if (key === shown.padlet) return;
+    shown.padlet = key;
+    $('padlet-actions').classList.add('hidden');
+    $('padlet-slot').innerHTML = `
+      <div class="empty padlet-empty padlet-closed">
+        ${ICON_BOARD}
+        <button type="button" class="btn btn-primary btn-big press" id="padlet-go">패들렛 열기</button>
+      </div>`;
+    $('padlet-go').addEventListener('click', () => {
+      padletOpen = true;
+      renderPadlet(src);
+    });
     return;
   }
   if (src === shown.padlet) return;
@@ -80,6 +104,7 @@ function renderSims(list) {
 
 const LABEL = { idle: '진행 중', pending: '검사 대기', returned: '다시 확인', passed: '통과' };
 const SUBMIT_ERR = {
+  TIMEOUT: '응답이 없어요. 다시 보내 주세요',
   NO_SESSION: '다시 로그인해 주세요',
   CLOSED: '제출이 마감됐어요',
   BOARD_CHANGED: '오늘 수업이 바뀌었어요',
@@ -236,29 +261,50 @@ $('mine-body').addEventListener('click', (e) => {
   if (e.target.closest('#submit-btn')) onSubmit(e.target.closest('#submit-btn'));
 });
 
+// 버튼 하나에 요청 하나: 누르면 바로 '보내는 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 보내기]
+let sending = false;
+
+function withTimeout(promise, ms) {
+  let t;
+  return Promise.race([
+    promise.finally(() => clearTimeout(t)),
+    new Promise((_, reject) => { t = setTimeout(() => reject(new Error('TIMEOUT')), ms); }),
+  ]);
+}
+
 async function onSubmit(btn) {
-  if (!page?.board || !login) return;
+  if (sending || !page?.board || !login) return;
+  sending = true;
+  const label = btn.textContent.trim();
   btn.disabled = true;
+  btn.textContent = '보내는 중';
+  let res;
   try {
-    const res = await submitGroup(page.board.id, login.token);
-    if (res?.ok) {
-      sendClassRefresh(classId);
-      await load();
-      return;
-    }
-    toast(SUBMIT_ERR[res?.error] || '제출하지 못했어요', 'error');
-    if (res?.error === 'NO_SESSION') {
-      clearLogin();
-      login = null;
-      mineKey = undefined;
-    }
-    await load();
+    res = await withTimeout(submitGroup(page.board.id, login.token), SUBMIT_WAIT_MS);
   } catch (err) {
     console.error(err);
-    toast('제출하지 못했어요. 다시 눌러 주세요', 'error');
-  } finally {
+    sending = false;
+    toast(SUBMIT_ERR[err.message] || '보내지 못했어요. 다시 보내 주세요', 'error');
+    btn.textContent = '다시 보내기';
     btn.disabled = false;
+    return;
   }
+  sending = false;
+  // 앞서 보낸 요청이 늦게 들어갔으면 ALREADY: 이미 제출된 것이니 화면만 새로
+  if (res?.ok || res?.error === 'ALREADY') {
+    if (res.ok) sendClassRefresh(classId);
+    await load();
+    return;
+  }
+  toast(SUBMIT_ERR[res?.error] || '제출하지 못했어요', 'error');
+  if (res?.error === 'NO_SESSION') {
+    clearLogin();
+    login = null;
+    mineKey = undefined;
+  }
+  btn.textContent = label;
+  btn.disabled = false;
+  await load();
 }
 
 /* ---------- 모둠 현황 ---------- */
@@ -328,6 +374,15 @@ fullBtn.addEventListener('click', () => {
 document.addEventListener('fullscreenchange', () => setMax(!!document.fullscreenElement));
 document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && maxed && !document.fullscreenElement) setMax(false); });
 
+/* ---------- 연결 끊김: 마지막 화면을 그대로 두고 위쪽에 작은 표시만 ---------- */
+let netDown = false;
+function setNetDown(on) {
+  if (on === netDown) return;
+  netDown = on;
+  $('net').classList.toggle('hidden', !on);
+  if (!on) schedule(); // 다시 이어지면 원래 간격으로
+}
+
 let loading = false;
 let again = false;
 async function load() {
@@ -344,20 +399,38 @@ async function load() {
     updateSide();
     if (!board) showEmpty('오늘 수업이 아직 없어요');
     else renderPadlet(board.padlet_src);
+    setNetDown(false);
   } catch (err) {
     console.error(err);
     if (err.message === 'NOT_CONFIGURED') showEmpty('config.js에 Supabase 주소와 키를 넣어야 해요');
-    else if (shown.padlet === undefined) showEmpty('불러오지 못했어요', true);
-    // 이미 보이는 패들렛이 있으면 그대로 둔다
+    else {
+      if (shown.padlet === undefined) showEmpty('불러오지 못했어요', true);
+      // 이미 보이는 화면은 그대로 둔다
+      setNetDown(true);
+    }
   } finally {
     loading = false;
     if (again) { again = false; load(); }
   }
 }
 
-load();
+// 선생님이 검사·발표하면 "새로고침" 신호가 온다. 신호를 놓쳐도 15초(+0~3초)마다 다시 읽는다 (화면이 숨겨져 있으면 멈춤)
+let timer;
+function schedule() {
+  clearTimeout(timer);
+  timer = setTimeout(async () => {
+    if (!document.hidden) await load();
+    schedule();
+  }, (netDown ? RETRY_MS : REFRESH_MS) + Math.random() * JITTER_MS);
+}
 
-// 선생님이 검사·발표하면 "새로고침" 신호가 온다. 신호를 놓쳐도 15초마다 다시 읽는다 (화면이 숨겨져 있으면 멈춤)
-if (sb) onClassRefresh(classId, () => { if (!document.hidden) load(); });
-setInterval(() => { if (!document.hidden) load(); }, REFRESH_MS);
+load();
+schedule();
+
+if (sb) onClassRefresh(classId, () => {
+  // 신호는 모든 학생 기기에 한꺼번에 가므로 0~2초 흩어서 읽는다
+  if (!document.hidden) setTimeout(load, Math.random() * 2000);
+});
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+addEventListener('online', () => load());
+addEventListener('offline', () => setNetDown(true));

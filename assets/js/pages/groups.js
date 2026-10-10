@@ -11,6 +11,9 @@ import { teacherGate, errMsg } from '../gate.js';
 initUI();
 
 const $ = (id) => document.getElementById(id);
+// embed=1: 수업 모드(live.html) 덮개 안. 뒤로 가기·반 고르기를 숨기고, 확정하면 바깥에 알린다
+const embed = new URLSearchParams(location.search).get('embed') === '1';
+if (embed) document.documentElement.classList.add('embed');
 const COLORS = ['#8A4B9E', '#0F8A5F', '#C2410C', '#B88600', '#2E8B7A', '#B23A5C', '#3B6E8F'];
 
 let classId;
@@ -58,7 +61,7 @@ $('cls-tabs').addEventListener('click', (e) => {
 async function pickClass(n) {
   classId = n;
   store.set('groupsClass', String(n));
-  history.replaceState(null, '', `?c=${n}`);
+  history.replaceState(null, '', `?c=${n}${embed ? '&embed=1' : ''}`);
   renderTabs();
   excluded = new Set();
   clusters = [];
@@ -340,6 +343,7 @@ async function save() {
     preview = null;
     sendClassRefresh(classId);
     toast(`${classId}반 모둠을 확정했어요`, 'ok');
+    if (embed) parent.postMessage({ type: 'groups-saved', classId }, location.origin);
   } catch (err) {
     toast(errMsg(err), 'error');
     if (/HAS_SUBMISSIONS|BOARD_REVEALED/.test(err?.message || '')) { locked = true; renderRoll(); }

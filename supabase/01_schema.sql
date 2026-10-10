@@ -219,3 +219,16 @@ create table if not exists public.purchases (
 );
 create index if not exists purchases_student_idx on public.purchases (student_id, requested_at desc);
 create index if not exists purchases_status_idx on public.purchases (status, requested_at);
+
+-- ---------------------------------------------------------
+-- 5단계: 수업 모드
+-- ---------------------------------------------------------
+
+-- 차시별 수업자료 (반과 상관없이 차시마다 1개). boards.lesson_code와 같은 값으로 잇는다(외래 키 없음)
+create table if not exists public.lessons (
+  code       text primary key,
+  title      text not null default '',
+  lesson_src text null,
+  sort       int  not null default 0,
+  created_at timestamptz not null default now()
+);

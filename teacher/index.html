@@ -25,7 +25,10 @@
 
     <!-- 첫 화면: 항목 -->
     <nav class="hub" id="hub" aria-label="관리 항목">
-      <a class="hub-item glass glass-live lift rise" href="#boards">
+      <a class="hub-item hub-start glass glass-live lift rise" href="#lessons">
+        <b>수업 시작</b><span id="hub-lessons">차시 고르기 · 수업 모드</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.02s" href="#boards">
         <b>보드</b><span id="hub-boards">오늘 보드 · 보드 만들기 · 목록</span>
       </a>
       <a class="hub-item glass glass-live lift rise" style="--d:.04s" href="#roster">
@@ -65,6 +68,18 @@
         <b>학생 화면</b><span>새 탭에서 열기 ↗</span>
       </a>
     </nav>
+
+    <div class="panel hidden" data-panel="lessons" data-title="수업 시작">
+      <div class="lesson-list" id="lesson-list"></div>
+      <form class="card glass rise lesson-add" id="lesson-add" autocomplete="off" aria-labelledby="h-lesson-add">
+        <h2 id="h-lesson-add">차시 추가</h2>
+        <div class="grid-2">
+          <label class="field"><span>차시</span><input class="input num" name="code" placeholder="612" maxlength="10" required></label>
+          <label class="field"><span>제목</span><input class="input" name="title" maxlength="60"></label>
+        </div>
+        <div><button class="btn btn-line" type="submit">+ 차시 추가</button></div>
+      </form>
+    </div>
 
     <div class="panel hidden" data-panel="boards" data-title="보드">
     <section class="card glass rise" aria-labelledby="h-today">

@@ -321,6 +321,15 @@ export async function setBoardGroups(boardId, groups) {
   return unwrap(await need().rpc('set_board_groups', { p_board_id: boardId, p_groups: groups }));
 }
 
+// 수업 모드 모둠 카드용: [{ group_no, number, nickname, avatar }]
+export async function getBoardGroupMembers(boardId) {
+  const rows = unwrap(await need().from('board_groups')
+    .select('group_no, student:students(number, nickname, avatar)')
+    .eq('board_id', boardId));
+  return rows.filter((r) => r.student)
+    .map((r) => ({ group_no: r.group_no, number: r.student.number, nickname: r.student.nickname, avatar: r.student.avatar }));
+}
+
 export async function reviewSubmission(id, status, feedback = null) {
   return unwrap(await need().rpc('review_submission', { p_id: id, p_status: status, p_feedback: feedback }));
 }
@@ -340,6 +349,25 @@ export function onSubmissionsChange(fn) {
   need().channel('submissions-watch')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions' }, fn)
     .subscribe();
+}
+
+/* ---------- 교사: 차시별 수업자료 (수업 모드) ---------- */
+
+export async function listLessons() {
+  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, created_at').order('sort').order('code'));
+}
+
+export async function getLesson(code) {
+  return unwrap(await need().from('lessons').select('code, title, lesson_src').eq('code', code).maybeSingle());
+}
+
+// { code, title, lesson_src, sort }
+export async function saveLesson(row) {
+  return unwrap(await need().from('lessons').upsert(row, { onConflict: 'code' }).select().single());
+}
+
+export async function deleteLesson(code) {
+  unwrap(await need().from('lessons').delete().eq('code', code));
 }
 
 /* ---------- 패들렛 주소 ---------- */

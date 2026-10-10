@@ -21,10 +21,13 @@ export function normalize(avatar) {
   return out;
 }
 
+// 가벼운 화면(<html class="lite">): 움직이지 않는 그림, 망점은 점 간격을 가장 넓게
+const lite = () => document.documentElement.classList.contains('lite');
+
 /* ---------- 크기에 맞춘 그리기 도구 ---------- */
 function makeKit(size) {
   const id = 'av' + SALT + (++seq).toString(36);
-  const cellPx = Math.min(4.2, Math.max(2.4, size / 50)); // 화면에서 점 한 칸 크기(px)
+  const cellPx = lite() ? 4.2 : Math.min(4.2, Math.max(2.4, size / 50)); // 화면에서 점 한 칸 크기(px)
   return {
     id,
     cell: (cellPx * 120) / size,
@@ -153,7 +156,7 @@ function addFx(svg, markup, ms) {
 // kind: 'jump' 점프 · 'tilt' 고개 갸웃 · 'wave' 손 흔들기 · 'levelup' 회전 점프+반짝 · 'returned' 갸웃+물음표
 //       'sparkle' 반짝임만 (아이템을 산 뒤)
 export function react(svg, kind, { delay = 0 } = {}) {
-  if (!svg) return;
+  if (!svg || lite()) return;
   if (delay) { setTimeout(() => react(svg, kind), delay); return; }
   if (kind === 'returned') {
     replay(svg, 'av--tilt', DURATION.tilt);
@@ -178,6 +181,7 @@ export function setWaiting(svg, on) {
   if (!svg) return;
   const cur = svg.querySelector('.av-hourglass');
   if (!on) { cur?.parentNode.remove(); return; }
+  // 가벼운 화면에서도 모래시계는 보이고(상태 표시), 돌지만 않는다 (CSS)
   if (cur) return;
   addFx(svg,
     `<g class="av-fx av-hourglass">` +

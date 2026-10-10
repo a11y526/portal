@@ -4,18 +4,47 @@ const root = document.documentElement;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
 /* ---------- 저사양 감지 ---------- */
-export const isLite = (() => {
+// 처음 2초 프레임이 30fps 미만이었던 기기는 localStorage 'lite'='1'로 기억해 다음부터 처음부터 가볍게
+const store = {
+  get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+};
+
+export let isLite = (() => {
   const blurOK = CSS.supports('backdrop-filter', 'blur(1px)') || CSS.supports('-webkit-backdrop-filter', 'blur(1px)');
   const lite =
     (navigator.hardwareConcurrency && navigator.hardwareConcurrency <= 4) ||
     (navigator.deviceMemory && navigator.deviceMemory <= 4) ||
     !blurOK ||
-    matchMedia('(prefers-reduced-transparency: reduce)').matches;
+    matchMedia('(prefers-reduced-transparency: reduce)').matches ||
+    store.get('lite') === '1';
   if (lite) root.classList.add('lite');
   return !!lite;
 })();
 
-const calm = isLite || reduceMotion;
+function goLite() {
+  isLite = true;
+  root.classList.add('lite');
+  store.set('lite', '1');
+}
+
+// 페이지가 뜬 뒤 처음 2초 동안 requestAnimationFrame 간격을 재서 평균 30fps 미만이면 .lite
+function measureFrames() {
+  if (isLite || document.hidden) return;
+  let start = null;
+  let frames = 0;
+  const tick = (now) => {
+    if (document.hidden) return; // 화면이 숨겨지면 잴 수 없으니 그만
+    if (start === null) start = now;
+    else frames++;
+    const elapsed = now - start;
+    if (elapsed < 2000) { requestAnimationFrame(tick); return; }
+    if ((frames * 1000) / elapsed < 30) goLite();
+  };
+  requestAnimationFrame(tick);
+}
+
+const calm = () => isLite || reduceMotion;
 
 /* ---------- 배경 오브 ---------- */
 const DEFAULT_ORBS = [
@@ -48,10 +77,11 @@ function mountBackground(orbs = DEFAULT_ORBS) {
 
 /* ---------- 시차 + 유리 하이라이트 ---------- */
 function bindPointer(bg) {
-  if (calm) return;
+  if (calm()) return;
   let px = 0, py = 0, queued = false, liveEl = null, mx = 0, my = 0;
   const flush = () => {
     queued = false;
+    if (isLite) return; // 재 보니 느린 기기면 시차·하이라이트를 멈춘다
     bg.style.setProperty('--px', px.toFixed(3));
     bg.style.setProperty('--py', py.toFixed(3));
     if (liveEl) {
@@ -140,8 +170,10 @@ export function esc(s) {
 }
 
 /* ---------- 시작 ---------- */
-export function initUI({ orbs } = {}) {
+// measure: 처음 2초 프레임 재기 (교사 화면은 끔. 프로젝터 PC가 수업자료를 불러오는 동안 느려져도 가볍게 바뀌지 않게)
+export function initUI({ orbs, measure = !location.pathname.includes('/teacher/') } = {}) {
   const bg = mountBackground(orbs);
   bindPointer(bg);
   prepareDraw();
+  if (measure) measureFrames();
 }

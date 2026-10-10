@@ -22,6 +22,10 @@ const RING = { 1: 'var(--gold)', 2: 'var(--silver)', 3: 'var(--bronze)' };
 const CROWN = `<svg class="crown" width="72" height="54" viewBox="0 0 40 30" fill="#F2B705" stroke="#B88600" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true"><path d="M3 26 L6 7 L14 15 L20 3 L26 15 L34 7 L37 26 Z"/></svg>`;
 
 const classId = Number(new URLSearchParams(location.search).get('c'));
+// embed=1: 수업 모드(live.html) 덮개 안. 뒤로 가기를 숨기고, 전체 화면은 바깥(live.html)이 맡는다
+const embed = new URLSearchParams(location.search).get('embed') === '1';
+if (embed) document.documentElement.classList.add('embed');
+const tellParent = (type) => { if (embed) parent.postMessage({ type, classId }, location.origin); };
 let board = null;
 let queue = [];
 
@@ -66,6 +70,7 @@ $('unreveal').addEventListener('click', async () => {
   try {
     const res = await unrevealBoard(board.id);
     sendClassRefresh(classId);
+    tellParent('unrevealed');
     toast(res?.removed ? `발표를 취소하고 포인트 ${res.removed}건을 거둬들였어요` : '발표를 취소했어요', 'ok');
     await loadReady();
   } catch (err) {
@@ -101,7 +106,8 @@ $('start').addEventListener('click', async () => {
     return;
   }
   sendClassRefresh(classId);
-  document.documentElement.requestFullscreen?.().catch(() => {});
+  tellParent('revealed');
+  if (!embed) document.documentElement.requestFullscreen?.().catch(() => {});
   buildStage(result.ranking || []);
   $('ready').classList.add('hidden');
   $('stage').classList.remove('hidden');
@@ -218,7 +224,7 @@ function next() {
 $('next').addEventListener('click', (e) => { e.stopPropagation(); next(); });
 $('home').addEventListener('click', (e) => {
   e.stopPropagation();
-  if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+  if (!embed && document.fullscreenElement) document.exitFullscreen().catch(() => {});
   location.reload();
 });
 $('stage').addEventListener('click', (e) => { if (!e.target.closest('a, button')) next(); });

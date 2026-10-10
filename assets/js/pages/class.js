@@ -1,9 +1,11 @@
-// 반 페이지: 오늘 보드(패들렛 + 시뮬레이션), 우리 모둠 제출, 모둠 현황
+// 반 페이지: 오늘 보드(패들렛 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw } from '../ui.js';
 import { sb, getClassPage, submitGroup, onClassRefresh, sendClassRefresh } from '../db.js';
+import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 
 initUI();
+bindReactions();
 
 const REFRESH_MS = 15000;
 const classId = Number(new URLSearchParams(location.search).get('c'));
@@ -13,6 +15,7 @@ const $ = (id) => document.getElementById(id);
 const titleText = `${GRADE}학년 ${classId}반`;
 $('title').textContent = titleText;
 document.title = titleText;
+$('me-link').href = `me.html?c=${classId}`;
 try { localStorage.setItem('lastClass', String(classId)); } catch {}
 
 const isHttp = (u) => typeof u === 'string' && /^https?:\/\//i.test(u);
@@ -163,6 +166,37 @@ function setMine(key, state, html) {
   swapTimer = setTimeout(swap, 250);
 }
 
+// 우리 모둠원 캐릭터: 검사 대기면 모래시계, 다시 받으면 갸웃+물음표, 통과하면 차례로 점프
+let matesKey;
+let matesState;
+function renderMates(members, state) {
+  const box = $('mine-mates');
+  const list = members ?? [];
+  const key = JSON.stringify(list);
+  if (!list.length) {
+    box.innerHTML = '';
+    box.classList.add('hidden');
+    matesKey = matesState = undefined;
+    return;
+  }
+  if (key !== matesKey) {
+    matesKey = key;
+    box.innerHTML = list.map((m) => `
+      <figure class="mate${m.me ? ' me' : ''}">
+        ${avatarSVG(m.avatar, 48, { label: m.nickname || '모둠원' })}
+        <figcaption>${m.me ? '나' : (m.nickname ? esc(m.nickname) : '닉네임 미정')}</figcaption>
+      </figure>`).join('');
+    box.classList.remove('hidden');
+  }
+  const svgs = [...box.querySelectorAll('svg.av')];
+  svgs.forEach((s) => setWaiting(s, state === 'pending'));
+  if (matesState && state !== matesState) {
+    if (state === 'passed') svgs.forEach((s, i) => react(s, 'jump', { delay: 200 + i * 120 }));
+    if (state === 'returned') svgs.forEach((s, i) => react(s, 'returned', { delay: i * 80 }));
+  }
+  matesState = state;
+}
+
 function renderMine(data) {
   const board = data?.board;
   const groups = data?.groups ?? [];
@@ -170,6 +204,7 @@ function renderMine(data) {
   if (!board || !data.has_roster) {
     card.classList.add('hidden');
     mineKey = mineState = undefined;
+    renderMates(null);
     return;
   }
   card.classList.remove('hidden');
@@ -185,20 +220,24 @@ function renderMine(data) {
   if (myNumber) $('num-change').textContent = `${myNumber}번 · 바꾸기`;
 
   if (!myNumber) {
+    renderMates(null);
     setMine('num|' + numError, null, numberForm());
     return;
   }
   // 모둠은 수업마다 선생님이 편성한다
   if (!groups.length) {
+    renderMates(null);
     setMine('nogroups|' + board.id, 'nogroups', closedBox('아직 모둠이 정해지지 않았어요'));
     return;
   }
   if (myGroup == null) {
+    renderMates(null);
     setMine('absent|' + board.id, 'absent', closedBox('오늘 모둠 명단에 없어요'));
     return;
   }
 
   const g = groups.find((x) => x.no === myGroup) ?? { state: 'idle' };
+  renderMates(data.my_members, g.state);
   const open = board.status === 'open';
   const key = [board.id, board.status, g.state, g.feedback ?? '', g.rank ?? ''].join('|');
   let html;

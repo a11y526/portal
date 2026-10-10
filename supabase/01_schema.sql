@@ -137,3 +137,31 @@ begin
     alter publication supabase_realtime add table public.submissions;
   end if;
 end $$;
+
+-- ---------------------------------------------------------
+-- 3단계: 캐릭터, 닉네임, 순위 변화
+-- ---------------------------------------------------------
+
+-- 닉네임: nickname = 승인된 닉네임(공개 화면에 쓰는 것), nickname_request = 신청 중이거나 거절된 닉네임
+-- 바꾸려고 신청해도 승인될 때까지는 원래 닉네임이 그대로 보인다
+alter table public.students add column if not exists nickname_request text null;
+
+-- 캐릭터 부품: 그림은 assets/js/avatar-parts.js에 있고, 이 표는 가격·판매 여부만 관리
+create table if not exists public.avatar_items (
+  id        text primary key,
+  slot      text not null check (slot in ('face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg')),
+  name      text not null,
+  price     int  not null default 0 check (price >= 0),
+  rarity    text not null default 'common' check (rarity in ('common', 'rare', 'legend')),
+  min_level int  not null default 1,
+  active    boolean not null default true,
+  sort      int  not null default 0
+);
+
+-- 순위 변화(▲▼)용: 마지막 발표 바로 전의 이번 달 순위. 발표할 때마다 새로 찍고, 그 발표를 취소하면 지운다
+create table if not exists public.rank_snapshots (
+  student_id uuid primary key references public.students(id) on delete cascade,
+  rank       int  not null,
+  month      text not null,  -- 'YYYY-MM' (한국 시간)
+  board_id   uuid null references public.boards(id) on delete set null
+);

@@ -187,7 +187,7 @@ export function setDance(svg, on) {
 export function bindReactions(scope = document) {
   const fire = (e) => {
     const svg = e.target.closest?.('svg.av');
-    if (!svg || svg.dataset.still != null) return;
+    if (!svg || svg.closest('[data-still]')) return; // data-still 안쪽 캐릭터는 반응하지 않음
     const now = performance.now();
     if (now - (svg._last || 0) < 1500) return;
     svg._last = now;

@@ -90,7 +90,8 @@ revoke all on function public._new_code() from public, anon, authenticated;
 -- 반 페이지 (누구나)
 -- 오늘 보드 + 그날 모둠별 상태·교사 메모. 제출 시각·순서는 주지 않는다.
 -- has_roster: 이 반에 명단이 있는지
--- p_number를 넘기면 my_known(명단에 있는 번호인지), my_group(그날 모둠, 없으면 null)도 준다.
+-- p_number를 넘기면 my_known(명단에 있는 번호인지), my_group(그날 모둠, 없으면 null),
+-- my_members(그날 우리 모둠원의 승인된 닉네임·캐릭터, 번호는 주지 않음)도 준다.
 -- 보드가 발표됐으면 모둠 순위(rank)도 준다.
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
@@ -109,6 +110,7 @@ declare
   v_my     smallint;
   v_groups jsonb;
   v_result jsonb;
+  v_members jsonb;
 begin
   select * into c from public.classes where id = p_class_id;
   if not found then
@@ -125,6 +127,18 @@ begin
     if v_sid is not null and b.id is not null then
       select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
     end if;
+  end if;
+
+  if v_my is not null then
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'nickname', s.nickname,
+             'avatar',   s.avatar,
+             'me',       s.id = v_sid
+           ) order by s.number), '[]'::jsonb)
+    into v_members
+    from public.board_groups g
+    join public.students s on s.id = g.student_id
+    where g.board_id = b.id and g.group_no = v_my;
   end if;
 
   v_result := case when b.status = 'revealed' then coalesce(b.result -> 'ranking', '[]'::jsonb) else '[]'::jsonb end;
@@ -170,7 +184,8 @@ begin
     'groups',     v_groups,
     'has_roster', exists (select 1 from public.students where class_id = p_class_id and active),
     'my_known',   case when p_number is null then null else v_sid is not null end,
-    'my_group',   v_my
+    'my_group',   v_my,
+    'my_members', v_members
   );
 end;
 $$;
@@ -374,6 +389,13 @@ begin
   v_pass_co := coalesce((v_pts ->> 'pass_coins')::int, 10);
   v_bonus   := coalesce(v_pts -> 'rank_bonus', '[10, 6, 3]'::jsonb);
 
+  -- 순위 변화(▲▼)용: 이번 발표로 포인트가 나갈 때만, 주기 직전의 이번 달 순위를 찍어 둔다
+  if exists (select 1 from public.submissions where board_id = b.id and status = 'passed') then
+    delete from public.rank_snapshots where true;
+    insert into public.rank_snapshots (student_id, rank, month, board_id)
+    select m.student_id, m.rnk, public._month_key(), b.id from public._month_ranks() m;
+  end if;
+
   for r in
     select x.group_no, (row_number() over (order by x.submitted_at, x.id))::int as rn
     from public.submissions x
@@ -448,6 +470,7 @@ begin
 
   delete from public.point_events where board_id = b.id;
   get diagnostics v_removed = row_count;
+  delete from public.rank_snapshots where board_id = b.id;
 
   update public.boards set status = 'open', result = null where id = b.id;
 
@@ -526,3 +549,413 @@ end;
 $$;
 revoke all on function public.reset_code(uuid) from public, anon;
 grant execute on function public.reset_code(uuid) to authenticated;
+
+-- =========================================================
+-- 3단계: 캐릭터, 내 기록, 레벨, 닉네임, 이번 달 TOP 20
+-- =========================================================
+
+-- ---------------------------------------------------------
+-- 내부용 도우미 (학생·교사가 직접 부를 수 없음)
+-- ---------------------------------------------------------
+
+-- 이번 달 1일 0시 (한국 시간)
+create or replace function public._month_start()
+returns timestamptz
+language sql
+stable
+set search_path = public
+as $$
+  select date_trunc('month', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+
+-- 이번 달 이름 'YYYY-MM' (한국 시간)
+create or replace function public._month_key()
+returns text
+language sql
+stable
+set search_path = public
+as $$
+  select to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM');
+$$;
+
+-- 이번 달 XP와 순위 (XP가 0보다 큰 학생만, 명단에서 뺀 학생 제외, 동점은 같은 순위)
+create or replace function public._month_ranks()
+returns table (student_id uuid, xp int, rnk int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select t.sid, t.total, (rank() over (order by t.total desc))::int
+  from (
+    select e.student_id as sid, sum(e.xp)::int as total
+    from public.point_events e
+    join public.students s on s.id = e.student_id and s.active
+    where e.created_at >= public._month_start()
+    group by e.student_id
+  ) t
+  where t.total > 0;
+$$;
+
+-- 지난번 발표 대비 순위 변화: 숫자(+면 올라감), 'new'(지난번엔 순위 밖), null(비교할 기록 없음)
+create or replace function public._rank_move(p_student_id uuid, p_rank int)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_rank is null then null
+    when not exists (select 1 from public.rank_snapshots where month = public._month_key()) then null
+    else coalesce(
+      (select to_jsonb(r.rank - p_rank) from public.rank_snapshots r
+       where r.student_id = p_student_id and r.month = public._month_key()),
+      to_jsonb('new'::text))
+  end;
+$$;
+
+-- 누적 XP → 레벨. settings.level_thresholds를 쓰고, 표가 끝나면 마지막 간격에 10씩 더해 이어 간다
+-- 결과: { level, floor(이 레벨 시작 XP), next(다음 레벨 XP) }
+create or replace function public._level_info(p_xp int)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_t    jsonb;
+  v_arr  int[];
+  v_n    int;
+  v_step int;
+  v_lv   int := 1;
+begin
+  select value into v_t from public.settings where key = 'level_thresholds';
+  if jsonb_typeof(v_t) = 'array' and jsonb_array_length(v_t) > 0 then
+    select array_agg(x::int order by o) into v_arr
+    from jsonb_array_elements_text(v_t) with ordinality as a(x, o);
+  else
+    v_arr := array[0, 30, 70, 120, 180, 250, 330, 420, 520, 630];
+  end if;
+  v_n := array_length(v_arr, 1);
+  v_step := case when v_n >= 2 then greatest(v_arr[v_n] - v_arr[v_n - 1], 10) else 30 end;
+  while v_arr[v_n] <= greatest(p_xp, 0) loop
+    v_step := v_step + 10;
+    v_arr := v_arr || (v_arr[v_n] + v_step);
+    v_n := v_n + 1;
+  end loop;
+  for i in 1 .. v_n loop
+    if v_arr[i] <= p_xp then
+      v_lv := i;
+    end if;
+  end loop;
+  return jsonb_build_object('level', v_lv, 'floor', v_arr[v_lv], 'next', v_arr[v_lv + 1]);
+end;
+$$;
+
+-- 무료 부품 무작위 조합
+create or replace function public._random_avatar()
+returns jsonb
+language sql
+volatile
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_object_agg(x.slot, x.id), '{}'::jsonb)
+  from (
+    select distinct on (slot) slot, id
+    from public.avatar_items
+    where active and price = 0
+    order by slot, random()
+  ) x;
+$$;
+
+revoke all on function public._month_start() from public, anon, authenticated;
+revoke all on function public._month_key() from public, anon, authenticated;
+revoke all on function public._month_ranks() from public, anon, authenticated;
+revoke all on function public._rank_move(uuid, int) from public, anon, authenticated;
+revoke all on function public._level_info(int) from public, anon, authenticated;
+revoke all on function public._random_avatar() from public, anon, authenticated;
+
+-- 새 학생은 캐릭터를 무작위로 받는다
+create or replace function public._students_default_avatar()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.avatar is null or new.avatar = '{}'::jsonb then
+    new.avatar := public._random_avatar();
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists students_default_avatar on public.students;
+create trigger students_default_avatar
+  before insert on public.students
+  for each row execute function public._students_default_avatar();
+
+-- ---------------------------------------------------------
+-- 내 기록 (학생)
+-- 결과: {ok: true, ...} 또는 {ok: false, error: 'LOCKED' | 'BAD_CODE'}
+-- wardrobe: 지금 입을 수 있는 부품 (무료 기본. 4단계에서 산 아이템이 더해짐)
+-- ---------------------------------------------------------
+create or replace function public.get_my_page(p_class_id int, p_number int, p_code text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  s       public.students;
+  v_total int;
+  v_coins int;
+  v_month int;
+  v_rank  int;
+  v_hist  jsonb;
+  v_wear  jsonb;
+  v_board uuid;
+  v_group smallint;
+begin
+  if public._code_locked(p_class_id, p_number) then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
+  end if;
+  v_sid := public._check_code(p_class_id, p_number, p_code);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+  end if;
+
+  select * into s from public.students where id = v_sid;
+
+  select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int
+  into v_total, v_coins
+  from public.point_events where student_id = v_sid;
+
+  select m.xp, m.rnk into v_month, v_rank from public._month_ranks() m where m.student_id = v_sid;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'at', e.created_at, 'reason', e.reason, 'xp', e.xp, 'coins', e.coins
+         ) order by e.created_at desc, e.id desc), '[]'::jsonb)
+  into v_hist
+  from (
+    select * from public.point_events
+    where student_id = v_sid
+    order by created_at desc, id desc
+    limit 50
+  ) e;
+
+  select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'slot', i.slot) order by i.slot, i.sort, i.id), '[]'::jsonb)
+  into v_wear
+  from public.avatar_items i
+  where i.active and i.price = 0;
+
+  select today_board_id into v_board from public.classes where id = s.class_id;
+  if v_board is not null then
+    select group_no into v_group from public.board_groups where board_id = v_board and student_id = v_sid;
+  end if;
+
+  return jsonb_build_object(
+    'ok',               true,
+    'class_id',         s.class_id,
+    'number',           s.number,
+    'nickname',         s.nickname,
+    'nickname_request', s.nickname_request,
+    'nickname_status',  s.nickname_status,
+    'avatar',           s.avatar,
+    'total_xp',         v_total,
+    'level',            public._level_info(v_total),
+    'month_xp',         coalesce(v_month, 0),
+    'month_rank',       v_rank,
+    'month_move',       public._rank_move(v_sid, v_rank),
+    'coins',            v_coins,
+    'history',          v_hist,
+    'wardrobe',         v_wear,
+    'today_group',      v_group
+  );
+end;
+$$;
+revoke all on function public.get_my_page(int, int, text) from public;
+grant execute on function public.get_my_page(int, int, text) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 닉네임 신청 (학생)
+-- 2~8자, 한글·영문·숫자만. 승인 전까지는 원래 닉네임(있으면)이 그대로 보인다.
+-- 오류: LOCKED, BAD_CODE, BAD_NICK(규칙에 안 맞음), SAME(지금 닉네임과 같음), TAKEN(다른 학생이 쓰거나 신청 중)
+-- ---------------------------------------------------------
+create or replace function public.request_nickname(p_class_id int, p_number int, p_code text, p_nickname text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid;
+  v_nick text := btrim(coalesce(p_nickname, ''));
+  s      public.students;
+begin
+  if public._code_locked(p_class_id, p_number) then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
+  end if;
+  v_sid := public._check_code(p_class_id, p_number, p_code);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+  end if;
+
+  if char_length(v_nick) not between 2 and 8 or v_nick !~ '^[가-힣A-Za-z0-9]+$' then
+    return jsonb_build_object('ok', false, 'error', 'BAD_NICK');
+  end if;
+
+  select * into s from public.students where id = v_sid for update;
+  if s.nickname = v_nick then
+    return jsonb_build_object('ok', false, 'error', 'SAME');
+  end if;
+  if exists (
+    select 1 from public.students x
+    where x.id <> v_sid and x.active
+      and (lower(x.nickname) = lower(v_nick)
+           or (x.nickname_status = 'pending' and lower(x.nickname_request) = lower(v_nick)))
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'TAKEN');
+  end if;
+
+  update public.students
+  set nickname_request = v_nick, nickname_status = 'pending'
+  where id = v_sid;
+
+  return jsonb_build_object('ok', true, 'nickname_request', v_nick, 'nickname_status', 'pending');
+end;
+$$;
+revoke all on function public.request_nickname(int, int, text, text) from public;
+grant execute on function public.request_nickname(int, int, text, text) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 캐릭터 저장 (학생)
+-- 7칸(face, hair, eyes, mouth, outfit, acc, bg)이 모두 있어야 하고, 판매 중인 무료 부품만 허용
+-- (4단계에서 산 아이템도 허용하도록 바꾼다)
+-- 오류: LOCKED, BAD_CODE, BAD_ITEM
+-- ---------------------------------------------------------
+create or replace function public.save_avatar(p_class_id int, p_number int, p_code text, p_avatar jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid;
+  v_out  jsonb := '{}'::jsonb;
+  v_slot text;
+  v_id   text;
+begin
+  if public._code_locked(p_class_id, p_number) then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
+  end if;
+  v_sid := public._check_code(p_class_id, p_number, p_code);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+  end if;
+
+  foreach v_slot in array array['face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg'] loop
+    v_id := case when jsonb_typeof(p_avatar) = 'object' then p_avatar ->> v_slot end;
+    if v_id is null or not exists (
+      select 1 from public.avatar_items
+      where id = v_id and slot = v_slot and active and price = 0
+    ) then
+      return jsonb_build_object('ok', false, 'error', 'BAD_ITEM');
+    end if;
+    v_out := v_out || jsonb_build_object(v_slot, v_id);
+  end loop;
+
+  update public.students set avatar = v_out where id = v_sid;
+  return jsonb_build_object('ok', true, 'avatar', v_out);
+end;
+$$;
+revoke all on function public.save_avatar(int, int, text, jsonb) from public;
+grant execute on function public.save_avatar(int, int, text, jsonb) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 이번 달 TOP 20 (누구나)
+-- 반, 승인된 닉네임(없으면 null), 캐릭터, 이번 달 XP, 순위 변화. 번호는 주지 않는다.
+-- 동점은 같은 순위라서 20줄보다 많을 수 있다.
+-- ---------------------------------------------------------
+create or replace function public.get_month_top20()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_key  text := public._month_key();
+  v_snap boolean;
+  v_rows jsonb;
+begin
+  v_snap := exists (select 1 from public.rank_snapshots where month = v_key);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'rank',     m.rnk,
+           'class_id', s.class_id,
+           'nickname', s.nickname,
+           'avatar',   s.avatar,
+           'xp',       m.xp,
+           'move',     case when not v_snap then null
+                            when p.rank is null then to_jsonb('new'::text)
+                            else to_jsonb(p.rank - m.rnk) end
+         ) order by m.rnk, s.class_id, s.number), '[]'::jsonb)
+  into v_rows
+  from public._month_ranks() m
+  join public.students s on s.id = m.student_id
+  left join public.rank_snapshots p on p.student_id = m.student_id and p.month = v_key
+  where m.rnk <= 20;
+
+  return jsonb_build_object('month', v_key, 'rows', v_rows);
+end;
+$$;
+revoke all on function public.get_month_top20() from public;
+grant execute on function public.get_month_top20() to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 닉네임 승인·거절 (교사)
+-- 승인: 신청한 닉네임이 공개 닉네임이 된다. 거절: 원래 닉네임(있으면)은 그대로, 상태만 'rejected'
+-- ---------------------------------------------------------
+create or replace function public.decide_nickname(p_student_id uuid, p_approve boolean)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  s public.students;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+
+  select * into s from public.students where id = p_student_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if s.nickname_status <> 'pending' or s.nickname_request is null then
+    raise exception 'NOT_PENDING';
+  end if;
+
+  if p_approve then
+    update public.students
+    set nickname = nickname_request, nickname_request = null, nickname_status = 'approved'
+    where id = s.id;
+  else
+    update public.students set nickname_status = 'rejected' where id = s.id;
+  end if;
+
+  return jsonb_build_object('ok', true, 'class_id', s.class_id);
+end;
+$$;
+revoke all on function public.decide_nickname(uuid, boolean) from public, anon;
+grant execute on function public.decide_nickname(uuid, boolean) to authenticated;

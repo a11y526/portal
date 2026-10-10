@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>이번 달 TOP 20</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap rank-wrap">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">내 기록 보기</a>
+  </div>
+
+  <header class="rank-head">
+    <span class="glass rank-chip" id="scope"></span>
+    <h1 id="month-title">TOP 20</h1>
+    <span class="muted" id="reset-note"></span>
+  </header>
+
+  <div class="podium-row" id="podium" aria-label="1~3위"></div>
+  <ol class="rank-list glass hidden" id="rows" aria-label="4~20위"></ol>
+  <div class="empty hidden" id="empty"><strong>아직 이번 달 기록이 없어요</strong></div>
+</main>
+<script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>
+<script type="module" src="assets/js/pages/rank.js"></script>
+</body>
+</html>

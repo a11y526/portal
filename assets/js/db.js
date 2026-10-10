@@ -29,6 +29,30 @@ export async function submitGroup(boardId, classId, number, code) {
   }));
 }
 
+// 아래 학생 함수의 결과: { ok: true, ... } 또는 { ok: false, error }
+
+// 내 기록: 레벨, XP, 순위, 코인, 받은 기록, 닉네임, 캐릭터, 입을 수 있는 부품
+export async function getMyPage(classId, number, code) {
+  return unwrap(await need().rpc('get_my_page', { p_class_id: classId, p_number: number, p_code: code }));
+}
+
+export async function requestNickname(classId, number, code, nickname) {
+  return unwrap(await need().rpc('request_nickname', {
+    p_class_id: classId, p_number: number, p_code: code, p_nickname: nickname,
+  }));
+}
+
+export async function saveAvatar(classId, number, code, avatar) {
+  return unwrap(await need().rpc('save_avatar', {
+    p_class_id: classId, p_number: number, p_code: code, p_avatar: avatar,
+  }));
+}
+
+// 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
+export async function getMonthTop20() {
+  return unwrap(await need().rpc('get_month_top20'));
+}
+
 /* ---------- 실시간: 반 채널 "새로고침" 신호 ----------
    신호에는 데이터를 싣지 않는다. 받은 쪽은 RPC로 다시 읽는다. */
 
@@ -133,6 +157,18 @@ export async function setRosterSize(classId, last) {
   unwrap(await need().from('students').upsert(rows, { onConflict: 'class_id,number', ignoreDuplicates: true }));
   unwrap(await need().from('students').update({ active: false })
     .eq('class_id', classId).eq('active', true).gt('number', last));
+}
+
+// 닉네임 승인을 기다리는 학생
+export async function listNicknameRequests() {
+  return unwrap(await need().from('students')
+    .select('id, class_id, number, nickname, nickname_request')
+    .eq('nickname_status', 'pending').eq('active', true)
+    .order('class_id').order('number'));
+}
+
+export async function decideNickname(studentId, approve) {
+  return unwrap(await need().rpc('decide_nickname', { p_student_id: studentId, p_approve: approve }));
 }
 
 export async function updateStudent(id, patch) {

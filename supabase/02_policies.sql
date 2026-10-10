@@ -92,3 +92,20 @@ drop policy if exists board_groups_teacher_all on public.board_groups;
 create policy board_groups_teacher_all on public.board_groups
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 3단계: 캐릭터 부품, 순위 스냅샷
+-- ---------------------------------------------------------
+alter table public.avatar_items   enable row level security;
+alter table public.rank_snapshots enable row level security;
+revoke all on public.avatar_items, public.rank_snapshots from anon;
+
+drop policy if exists avatar_items_teacher_all on public.avatar_items;
+create policy avatar_items_teacher_all on public.avatar_items
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists rank_snapshots_teacher_all on public.rank_snapshots;
+create policy rank_snapshots_teacher_all on public.rank_snapshots
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

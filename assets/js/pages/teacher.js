@@ -1,10 +1,10 @@
-// 관리 화면: 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정, 명단(반별 마지막 번호)·코드 발급, 빠른 피드백 버튼
+// 관리 화면: 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정, 닉네임 승인, 명단(반별 마지막 번호)·코드 발급, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setTodayBoard, toPadletEmbed,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
-  listPresets, addPreset, deletePreset,
+  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname,
 } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
 
@@ -451,6 +451,45 @@ $('codes-dlg').addEventListener('close', () => {
   $('print-sheet').innerHTML = '';
 });
 
+/* ---------- 닉네임 승인 ---------- */
+let nickReqs = [];
+
+function renderNicks() {
+  $('nick-count').textContent = nickReqs.length ? String(nickReqs.length) : '';
+  $('nick-list').innerHTML = nickReqs.length ? nickReqs.map((s) => `
+    <div class="nick-row" data-nid="${s.id}">
+      <b class="num">${s.class_id}반 ${s.number}번</b>
+      <span class="new">${esc(s.nickname_request)}</span>
+      ${s.nickname ? `<span class="old">지금: ${esc(s.nickname)}</span>` : ''}
+      <span class="roster-btns">
+        <button type="button" class="btn btn-pass btn-small" data-approve>승인</button>
+        <button type="button" class="btn btn-danger btn-small" data-reject>거절</button>
+      </span>
+    </div>`).join('') : '<p class="muted" style="margin:0">기다리는 신청이 없어요</p>';
+}
+
+async function refreshNicks() {
+  nickReqs = await listNicknameRequests();
+  renderNicks();
+}
+
+$('nick-refresh').addEventListener('click', () => refreshNicks().catch((err) => toast(errMsg(err), 'error')));
+
+$('nick-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-approve], [data-reject]');
+  if (!btn) return;
+  const row = btn.closest('[data-nid]');
+  row.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  try {
+    await decideNickname(row.dataset.nid, btn.hasAttribute('data-approve'));
+    nickReqs = nickReqs.filter((s) => s.id !== row.dataset.nid);
+    renderNicks();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    await refreshNicks().catch(() => {});
+  }
+});
+
 /* ---------- 빠른 피드백 버튼 ---------- */
 function renderPresets() {
   $('preset-list').innerHTML = presets.map((p) => `
@@ -498,5 +537,5 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks()]).catch((err) => toast(errMsg(err), 'error'));
 });

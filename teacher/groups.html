@@ -44,16 +44,32 @@
       <div class="cluster-list" id="cluster-list"></div>
 
       <div class="row-actions groups-actions">
-        <button type="button" class="btn btn-primary" id="shuffle">모둠 편성</button>
-        <button type="button" class="btn btn-pass hidden" id="save">확정</button>
-        <span class="groups-state" id="state-text"></span>
+        <button type="button" class="btn btn-primary" id="shuffle" data-shuffle>모둠 편성</button>
+        <button type="button" class="btn btn-line hidden" id="show">크게 보기</button>
+        <button type="button" class="btn btn-pass hidden" data-save>확정</button>
+        <span class="groups-state" data-state></span>
       </div>
     </section>
-
-    <p class="warn-note hidden" id="adjusted">묶음이 모둠 인원보다 커서 일부 모둠 인원이 조정됐어요</p>
-    <section class="group-results" id="results" aria-live="polite"></section>
   </div>
 </main>
+
+<!-- 편성 결과: 화면 전체를 덮는 큰 창 (프로젝터) -->
+<section class="gstage hidden" id="stage" role="dialog" aria-modal="true" aria-labelledby="stage-title">
+  <header class="gstage-top">
+    <h2 id="stage-title">모둠</h2>
+    <span class="gstage-sub" id="stage-sub"></span>
+    <button type="button" class="icon-btn glass press gstage-close" id="stage-close" aria-label="닫기">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+    </button>
+  </header>
+  <div class="gstage-grid" id="results" aria-live="polite"></div>
+  <footer class="gstage-bottom">
+    <p class="warn-note hidden" id="adjusted">묶음이 모둠 인원보다 커서 일부 모둠 인원이 조정됐어요</p>
+    <button type="button" class="btn btn-line" data-shuffle>다시 섞기</button>
+    <button type="button" class="btn btn-pass hidden" data-save>확정</button>
+    <span class="groups-state" data-state></span>
+  </footer>
+</section>
 <script type="module" src="../assets/js/pages/groups.js"></script>
 </body>
 </html>

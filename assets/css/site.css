@@ -392,14 +392,38 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .groups-state { font-size: 15px; font-weight: 700; color: var(--ink-2); }
 .groups-state.is-saved { color: var(--passed-fg); }
 .warn-note { margin: 0; padding: 10px 16px; border-radius: var(--r-sm); background: var(--pending-bg); color: var(--pending-fg); font-size: 14px; font-weight: 700; }
-.group-results { display: grid; grid-template-columns: repeat(auto-fill, minmax(270px, 1fr)); gap: 16px; scroll-margin-top: 16px; }
-.gcard { border-radius: var(--r-lg); padding: 20px; display: flex; flex-direction: column; gap: 14px; }
-.gcard header { display: flex; align-items: baseline; justify-content: space-between; }
-.gcard header b { font-size: 28px; font-weight: 900; letter-spacing: -0.03em; }
-.gcard header span { font-size: 15px; font-weight: 700; color: var(--ink-2); }
-.gmembers { display: flex; flex-wrap: wrap; gap: 8px; }
-.gm { min-width: 50px; padding: 8px 10px; border-radius: 14px; background: var(--accent-tint); text-align: center; font-size: 24px; font-weight: 900; color: var(--ink); }
-.gm.tied { box-shadow: inset 4px 0 0 var(--c); }
+/* 편성 결과: 화면 전체를 덮는 창. 모둠 카드는 같은 크기(격자 칸을 똑같이 나눔), 글자는 카드 크기에 맞춰 커짐 */
+.gstage {
+  position: fixed; inset: 0; z-index: 40; display: flex; flex-direction: column; gap: 2vh;
+  padding: 3vh 3vw; background: rgba(237,241,247,.82);
+  -webkit-backdrop-filter: blur(24px) saturate(160%); backdrop-filter: blur(24px) saturate(160%);
+  animation: fade-in .3s var(--ease) both;
+}
+.lite .gstage { -webkit-backdrop-filter: none; backdrop-filter: none; background: var(--bg); }
+.gstage-top { display: flex; align-items: baseline; gap: 16px; }
+.gstage-top h2 { margin: 0; font-size: clamp(28px, 4.4vh, 48px); font-weight: 900; letter-spacing: -0.03em; }
+.gstage-sub { font-size: clamp(15px, 2vh, 20px); font-weight: 500; color: var(--ink-2); }
+.gstage-close { margin-left: auto; align-self: center; border: 0; cursor: pointer; }
+.gstage-grid {
+  flex: 1; min-height: 0; display: grid; gap: 2vh 1.6vw;
+  grid-template-columns: repeat(var(--cols, 4), minmax(0, 1fr));
+  grid-template-rows: repeat(var(--rows, 2), minmax(0, 1fr));
+}
+.gstage-bottom { display: flex; align-items: center; justify-content: center; gap: 12px; flex-wrap: wrap; }
+.gstage-bottom .btn { min-height: 52px; padding: 0 28px; font-size: 17px; }
+.gcard { container-type: size; min-width: 0; min-height: 0; border-radius: var(--r-lg); padding: clamp(14px, 2.6vh, 30px) clamp(16px, 1.8vw, 34px); display: flex; flex-direction: column; gap: 1vh; overflow: hidden; }
+.gcard header { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.gcard header b { font-size: clamp(20px, 13cqmin, 64px); font-weight: 900; letter-spacing: -0.03em; line-height: 1.1; }
+.gcard header span { font-size: clamp(13px, 6cqmin, 26px); font-weight: 700; color: var(--ink-2); }
+/* --fs: 번호 글자 크기(모든 카드 같게), --per: 이 카드의 한 줄 인원. 둘 다 groups.js가 카드 크기를 재서 정한다 */
+.gmembers { flex: 1; min-height: 0; display: grid; grid-template-columns: repeat(var(--per, 4), auto); align-content: center; justify-content: center; gap: .2em; font-size: var(--fs, 32px); }
+.gm {
+  min-width: 1.9em; padding: 0 .3em; border-radius: .3em; background: var(--accent-tint); text-align: center;
+  font-size: 1em; font-weight: 900; line-height: 1.25; color: var(--ink);
+}
+.gm-empty { grid-column: 1 / -1; }
+.gm.tied { box-shadow: inset .14em 0 0 var(--c); }
+.gm-empty { font-size: clamp(14px, 6cqmin, 22px); color: var(--ink-2); }
 @media (max-width: 600px) {
   .groups-wrap { padding: 20px 16px 48px; }
   .groups-top .cls-tabs { margin-left: 0; }

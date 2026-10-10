@@ -57,6 +57,7 @@ async function pickClass(n) {
   $('gcount').value = store.get('gcount-' + n) || 7;
   $('results').innerHTML = '';
   $('adjusted').classList.add('hidden');
+  closeStage();
   try {
     await load();
   } catch (err) {
@@ -85,7 +86,7 @@ async function load() {
     const inGroups = new Set(rows.map((r) => r.number));
     excluded = new Set(numbers.filter((n) => !inGroups.has(n)));
     $('gcount').value = max;
-    renderResults(saved, new Map());
+    renderResults(saved, new Map(), false);
   }
   renderRoll();
   renderState();
@@ -210,33 +211,89 @@ function assignGroups(count) {
   return { groups: shuffle(groups).map((g) => g.sort((a, b) => a - b)), adjusted };
 }
 
-/* ---------- 결과 ---------- */
-function renderResults(groups, tiedColor) {
-  $('results').innerHTML = groups.map((members, i) => `
-    <article class="gcard glass-strong rise" style="--d:${(i * 0.06).toFixed(2)}s">
+/* ---------- 결과: 화면을 덮는 큰 창, 모둠 카드는 모두 같은 크기 ---------- */
+function gridShape(count) {
+  const cols = count <= 4 ? count : count <= 10 ? Math.ceil(count / 2) : Math.ceil(count / 3);
+  return { cols, rows: Math.ceil(count / cols) };
+}
+
+function renderResults(groups, tiedColor, animate = true) {
+  const { cols, rows } = gridShape(groups.length);
+  const grid = $('results');
+  grid.style.setProperty('--cols', cols);
+  grid.style.setProperty('--rows', rows);
+
+  grid.innerHTML = groups.map((members, i) => `
+    <article class="gcard glass-strong${animate ? ' pop' : ''}" style="--d:${(i * 0.07).toFixed(2)}s">
       <header><b>${i + 1}모둠</b><span class="num">${members.length}명</span></header>
-      <div class="gmembers">
+      <div class="gmembers" data-m="${members.length}">
         ${members.length ? members.map((n, j) => {
           const c = tiedColor.get(n);
-          return `<span class="gm num pop${c ? ' tied' : ''}" style="--d:${(0.15 + i * 0.06 + j * 0.04).toFixed(2)}s${c ? `;--c:${c}` : ''}">${n}</span>`;
-        }).join('') : '<span class="muted">배정된 학생 없음</span>'}
+          return `<span class="gm num${animate ? ' pop' : ''}${c ? ' tied' : ''}" style="--d:${(0.25 + i * 0.07 + j * 0.05).toFixed(2)}s${c ? `;--c:${c}` : ''}">${n}</span>`;
+        }).join('') : '<span class="gm-empty">배정된 학생 없음</span>'}
       </div>
     </article>`).join('');
+  $('stage-title').textContent = `${classId}반 모둠`;
+  $('stage-sub').textContent = $('lesson').textContent;
+  fitMembers();
 }
+
+// 번호 글자 크기: 모든 모둠에서 같게, 카드 안에 들어가는 가장 큰 크기.
+// 모둠마다 한 줄에 몇 명 놓을지(--per)는 그 크기에서 가장 넓게 들어가는 배치로 고른다.
+// 번호 칸 너비 1.9em, 높이 1.25em, 칸 사이 0.2em (CSS와 같게)
+function fitMembers() {
+  const boxes = [...$('results').querySelectorAll('.gmembers')];
+  if (!boxes.length || !boxes[0].clientWidth) return; // 창이 닫혀 있으면 열 때 다시
+  const W = boxes[0].clientWidth;
+  const H = boxes[0].clientHeight;
+  const sizeFor = (m, per) => Math.min(W / (2.1 * per - 0.2), H / (1.45 * Math.ceil(m / per) - 0.2));
+  const best = (m) => {
+    let top = { per: 1, size: 0 };
+    for (let per = 1; per <= Math.max(1, m); per++) {
+      const size = sizeFor(m, per);
+      if (size > top.size + 0.5) top = { per, size };
+    }
+    return top;
+  };
+  const fs = Math.max(16, Math.min(96, ...boxes.map((b) => best(Number(b.dataset.m)).size)));
+  $('results').style.setProperty('--fs', `${Math.floor(fs)}px`);
+  boxes.forEach((b) => b.style.setProperty('--per', best(Number(b.dataset.m)).per));
+}
+addEventListener('resize', fitMembers);
+
+function openStage() {
+  if (!$('results').children.length) return;
+  $('stage').classList.remove('hidden');
+  document.body.style.overflow = 'hidden';
+  fitMembers();
+}
+
+function closeStage() {
+  $('stage').classList.add('hidden');
+  document.body.style.overflow = '';
+}
+
+$('stage-close').addEventListener('click', closeStage);
+$('show').addEventListener('click', openStage);
+addEventListener('keydown', (e) => { if (e.key === 'Escape' && !$('stage').classList.contains('hidden')) closeStage(); });
 
 function renderState() {
   $('shuffle').textContent = preview || saved ? '다시 섞기' : '모둠 편성';
-  $('shuffle').disabled = locked;
-  $('save').classList.toggle('hidden', !preview || locked);
+  document.querySelectorAll('[data-shuffle]').forEach((b) => { b.disabled = locked; b.classList.toggle('hidden', b !== $('shuffle') && locked); });
+  document.querySelectorAll('[data-save]').forEach((b) => b.classList.toggle('hidden', !preview || locked));
+  $('show').classList.toggle('hidden', !preview && !saved);
   $('gcount').disabled = locked;
   document.querySelectorAll('[data-mode]').forEach((b) => { b.disabled = locked; });
-  $('state-text').textContent = locked
+  const text = locked
     ? (board?.status === 'revealed' ? '발표한 수업이에요' : '제출이 시작돼서 다시 섞을 수 없어요')
     : preview ? '확정 전' : saved ? '확정됨' : '';
-  $('state-text').classList.toggle('is-saved', !preview && !!saved);
+  document.querySelectorAll('[data-state]').forEach((el) => {
+    el.textContent = text;
+    el.classList.toggle('is-saved', !preview && !!saved);
+  });
 }
 
-$('shuffle').addEventListener('click', () => {
+function doShuffle() {
   if (locked) return;
   if (numbers.length - excluded.size < 1) { toast('편성할 학생이 없어요', 'error'); return; }
   const count = groupCount();
@@ -247,13 +304,16 @@ $('shuffle').addEventListener('click', () => {
   renderResults(preview.groups, tiedColor);
   $('adjusted').classList.toggle('hidden', !preview.adjusted);
   renderState();
-  $('results').scrollIntoView({ behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth', block: 'start' });
-});
+  openStage();
+}
 
-$('save').addEventListener('click', async () => {
+document.querySelectorAll('[data-shuffle]').forEach((b) => b.addEventListener('click', doShuffle));
+document.querySelectorAll('[data-save]').forEach((b) => b.addEventListener('click', save));
+
+async function save() {
   if (!preview || !board) return;
-  const btn = $('save');
-  btn.disabled = true;
+  const btns = document.querySelectorAll('[data-save]');
+  btns.forEach((b) => { b.disabled = true; });
   try {
     await setBoardGroups(board.id, preview.groups);
     saved = preview.groups;
@@ -264,10 +324,10 @@ $('save').addEventListener('click', async () => {
     toast(errMsg(err), 'error');
     if (/HAS_SUBMISSIONS|BOARD_REVEALED/.test(err?.message || '')) { locked = true; renderRoll(); }
   } finally {
-    btn.disabled = false;
+    btns.forEach((b) => { b.disabled = false; });
     renderState();
   }
-});
+}
 
 addEventListener('beforeunload', (e) => { if (preview) e.preventDefault(); });
 

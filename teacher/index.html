@@ -13,32 +13,12 @@
 </head>
 <body>
 <main class="wrap admin-wrap">
-
-  <!-- 설정 안 됨 -->
-  <section id="v-config" class="card glass-strong login-card hidden">
-    <h2>설정이 필요해요</h2>
-    <p class="muted" style="margin:0">assets/js/config.js에 Supabase Project URL과 anon 키를 넣어 주세요.</p>
-  </section>
-
-  <!-- 로그인 -->
-  <form id="v-login" class="card glass-strong login-card rise hidden">
-    <h2>교사 로그인</h2>
-    <label class="field"><span>이메일</span><input class="input" type="email" name="email" autocomplete="username" required></label>
-    <label class="field"><span>비밀번호</span><input class="input" type="password" name="password" autocomplete="current-password" required></label>
-    <button class="btn btn-primary" type="submit">로그인</button>
-  </form>
-
-  <!-- 교사 아님 -->
-  <section id="v-denied" class="card glass-strong login-card hidden">
-    <h2>교사로 등록되지 않은 계정이에요</h2>
-    <button class="btn btn-line" type="button" data-logout>로그아웃</button>
-  </section>
-
-  <!-- 관리 -->
-  <div id="v-admin" class="hidden" style="display:flex;flex-direction:column;gap:24px">
+  <!-- 관리 (로그인과 교사 확인은 gate.js) -->
+  <div id="v-admin" style="display:flex;flex-direction:column;gap:24px">
     <div class="admin-top">
       <h1>관리</h1>
       <div class="row-actions">
+        <a class="nav-link glass lift" href="check.html">검사</a>
         <a class="nav-link glass lift" href="../index.html" target="_blank" rel="noopener">학생 화면</a>
         <button class="btn btn-line" type="button" data-logout>로그아웃</button>
       </div>
@@ -76,7 +56,53 @@
       <h2 id="h-boards">보드 목록</h2>
       <div class="board-groups" id="board-groups"></div>
     </section>
+
+    <section class="card glass rise" style="--d:.18s" aria-labelledby="h-roster">
+      <h2 id="h-roster">명단과 코드</h2>
+      <div class="cls-tabs" id="roster-tabs" role="tablist" aria-label="반"></div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary btn-small" id="issue-missing">코드 없는 학생 발급</button>
+        <button type="button" class="btn btn-line btn-small" id="issue-all">반 전체 다시 발급</button>
+        <span class="muted roster-count num" id="roster-count"></span>
+      </div>
+      <div class="roster" id="roster-list"></div>
+
+      <details class="csv-box" id="csv-box">
+        <summary>CSV 가져오기</summary>
+        <div class="csv-body">
+          <textarea class="input csv-text" id="csv-text" rows="7" spellcheck="false" placeholder="반,번호,모둠&#10;6,1,1&#10;6,2,1" aria-label="CSV 내용"></textarea>
+          <div class="row-actions">
+            <label class="btn btn-line btn-small file-btn">파일 고르기<input type="file" id="csv-file" accept=".csv,text/csv,text/plain" hidden></label>
+            <label class="check"><input type="checkbox" id="csv-deact"> CSV에 없는 번호는 명단에서 빼기</label>
+          </div>
+          <div class="csv-preview" id="csv-preview"></div>
+          <div><button type="button" class="btn btn-primary" id="csv-import" disabled>가져오기</button></div>
+        </div>
+      </details>
+    </section>
+
+    <section class="card glass rise" style="--d:.24s" aria-labelledby="h-presets">
+      <h2 id="h-presets">빠른 피드백 버튼</h2>
+      <div class="preset-list" id="preset-list"></div>
+      <form class="preset-add" id="preset-form">
+        <input class="input" name="text" maxlength="30" required aria-label="새 피드백 버튼 문구">
+        <button class="btn btn-line" type="submit">추가</button>
+      </form>
+    </section>
   </div>
+
+  <!-- 발급한 코드 (이 창에서만 볼 수 있음) -->
+  <dialog class="sheet" id="codes-dlg">
+    <div class="card glass-strong">
+      <h2 id="codes-title">코드</h2>
+      <p class="muted" style="margin:0">이 창을 닫으면 코드를 다시 볼 수 없어요</p>
+      <div class="codes-preview num" id="codes-preview"></div>
+      <div class="row-actions">
+        <button class="btn btn-primary" type="button" id="codes-print">A4로 인쇄</button>
+        <button class="btn btn-line" type="button" id="codes-close">닫기</button>
+      </div>
+    </div>
+  </dialog>
 
   <!-- 보드 수정 -->
   <dialog class="sheet" id="edit">
@@ -100,6 +126,7 @@
     </form>
   </dialog>
 </main>
+<div class="print-sheet" id="print-sheet" aria-hidden="true"></div>
 <script type="module" src="../assets/js/pages/teacher.js"></script>
 </body>
 </html>

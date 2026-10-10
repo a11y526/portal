@@ -18,8 +18,43 @@ function unwrap({ data, error }) {
 
 /* ---------- 학생 ---------- */
 
-export async function getClassPage(classId) {
-  return unwrap(await need().rpc('get_class_page', { p_class_id: classId }));
+export async function getClassPage(classId, number = null) {
+  return unwrap(await need().rpc('get_class_page', { p_class_id: classId, p_number: number }));
+}
+
+// 결과: { ok: true, group_no } 또는 { ok: false, error }
+export async function submitGroup(boardId, classId, number, code) {
+  return unwrap(await need().rpc('submit_group', {
+    p_board_id: boardId, p_class_id: classId, p_number: number, p_code: code,
+  }));
+}
+
+/* ---------- 실시간: 반 채널 "새로고침" 신호 ----------
+   신호에는 데이터를 싣지 않는다. 받은 쪽은 RPC로 다시 읽는다. */
+
+const classChannels = new Map();
+
+function classChannel(classId) {
+  let ch = classChannels.get(classId);
+  if (!ch) {
+    ch = need().channel('class-' + classId);
+    classChannels.set(classId, ch);
+  }
+  return ch;
+}
+
+export function onClassRefresh(classId, fn) {
+  const ch = classChannel(classId);
+  ch.on('broadcast', { event: 'refresh' }, () => fn());
+  if (ch.state === 'closed') ch.subscribe();
+}
+
+export function sendClassRefresh(classId) {
+  if (!sb) return Promise.resolve();
+  const ch = classChannel(classId);
+  if (ch.state === 'closed') ch.subscribe();
+  // 아직 연결 전이면 supabase-js가 HTTP로 보낸다
+  return ch.send({ type: 'broadcast', event: 'refresh', payload: {} }).catch(() => {});
 }
 
 /* ---------- 교사 ---------- */
@@ -78,6 +113,88 @@ export async function deleteBoard(id) {
 
 export async function setTodayBoard(classId, boardId) {
   unwrap(await need().from('classes').update({ today_board_id: boardId }).eq('id', classId));
+}
+
+export async function getBoard(id) {
+  return unwrap(await need().from('boards').select('*').eq('id', id).maybeSingle());
+}
+
+/* ---------- 교사: 명단·코드 ---------- */
+
+export async function listStudents() {
+  return unwrap(await need().from('students')
+    .select('id, class_id, number, group_no, has_code, active')
+    .order('class_id').order('number'));
+}
+
+// rows: [{ class_id, number, group_no }]
+// deactivateMissing이면 CSV에 들어 있는 반에서 CSV에 없는 번호는 active=false
+export async function importRoster(rows, deactivateMissing) {
+  const payload = rows.map((r) => ({ ...r, active: true }));
+  unwrap(await need().from('students').upsert(payload, { onConflict: 'class_id,number' }));
+  if (deactivateMissing) {
+    const byClass = new Map();
+    for (const r of rows) {
+      if (!byClass.has(r.class_id)) byClass.set(r.class_id, []);
+      byClass.get(r.class_id).push(r.number);
+    }
+    for (const [classId, nums] of byClass) {
+      unwrap(await need().from('students').update({ active: false })
+        .eq('class_id', classId).eq('active', true).not('number', 'in', `(${nums.join(',')})`));
+    }
+  }
+}
+
+export async function updateStudent(id, patch) {
+  unwrap(await need().from('students').update(patch).eq('id', id));
+}
+
+// 결과: [{ class_id, number, group_no, code }]  (평문 코드는 이 응답에서만)
+export async function issueCodes(classId, onlyMissing) {
+  return unwrap(await need().rpc('issue_codes', { p_class_id: classId, p_only_missing: onlyMissing }));
+}
+
+export async function resetCode(studentId) {
+  return unwrap(await need().rpc('reset_code', { p_student_id: studentId }));
+}
+
+/* ---------- 교사: 빠른 피드백 버튼 ---------- */
+
+export async function listPresets() {
+  return unwrap(await need().from('feedback_presets').select('id, text, sort').order('sort').order('id'));
+}
+
+export async function addPreset(text, sort) {
+  unwrap(await need().from('feedback_presets').insert({ text, sort }));
+}
+
+export async function deletePreset(id) {
+  unwrap(await need().from('feedback_presets').delete().eq('id', id));
+}
+
+/* ---------- 교사: 검사·발표 ---------- */
+
+export async function listSubmissions(boardId) {
+  return unwrap(await need().from('submissions')
+    .select('id, group_no, submitted_at, status, feedback, reviewed_at, student:students(number)')
+    .eq('board_id', boardId)
+    .order('submitted_at'));
+}
+
+export async function reviewSubmission(id, status, feedback = null) {
+  return unwrap(await need().rpc('review_submission', { p_id: id, p_status: status, p_feedback: feedback }));
+}
+
+// 결과: { board_id, class_id, ranking: [{ rank, group_no, xp, coins, members }], already }
+export async function revealBoard(boardId) {
+  return unwrap(await need().rpc('reveal_board', { p_board_id: boardId }));
+}
+
+// submissions 표가 바뀌면 fn(payload)
+export function onSubmissionsChange(fn) {
+  need().channel('submissions-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'submissions' }, fn)
+    .subscribe();
 }
 
 /* ---------- 패들렛 주소 ---------- */

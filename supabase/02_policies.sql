@@ -46,3 +46,40 @@ drop policy if exists settings_teacher_all on public.settings;
 create policy settings_teacher_all on public.settings
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 2단계: 명단, 제출, 포인트, 피드백 버튼, 코드 시도 기록
+-- ---------------------------------------------------------
+alter table public.students         enable row level security;
+alter table public.submissions      enable row level security;
+alter table public.point_events     enable row level security;
+alter table public.feedback_presets enable row level security;
+alter table public.code_attempts    enable row level security;
+
+revoke all on public.students, public.submissions, public.point_events,
+              public.feedback_presets, public.code_attempts from anon;
+
+drop policy if exists students_teacher_all on public.students;
+create policy students_teacher_all on public.students
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists submissions_teacher_all on public.submissions;
+create policy submissions_teacher_all on public.submissions
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists point_events_teacher_all on public.point_events;
+create policy point_events_teacher_all on public.point_events
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists feedback_presets_teacher_all on public.feedback_presets;
+create policy feedback_presets_teacher_all on public.feedback_presets
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists code_attempts_teacher_all on public.code_attempts;
+create policy code_attempts_teacher_all on public.code_attempts
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -1,33 +1,27 @@
-// 관리 화면: 교사 로그인, 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정
-import { CLASSES } from '../config.js';
+// 관리 화면: 보드 만들기(여러 반 한 번에), 반별 오늘 보드 지정, 명단·코드 발급, 빠른 피드백 버튼
+import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
-  sb, isConfigured, getSession, signIn, signOut, amITeacher,
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setTodayBoard, toPadletEmbed,
+  listStudents, importRoster, updateStudent, issueCodes, resetCode,
+  listPresets, addPreset, deletePreset,
 } from '../db.js';
+import { teacherGate, errMsg } from '../gate.js';
 
 initUI();
 
 const $ = (id) => document.getElementById(id);
-const VIEWS = ['v-config', 'v-login', 'v-denied', 'v-admin'];
-const show = (id) => VIEWS.forEach((v) => $(v).classList.toggle('hidden', v !== id));
 
 let classes = [];
 let boards = [];
+let students = [];
+let presets = [];
 
 const fmtDate = (iso) => {
   const d = new Date(iso);
   return `${d.getMonth() + 1}/${d.getDate()}`;
 };
 const boardLabel = (b) => [`${b.lesson_code}차시`, b.title, fmtDate(b.created_at)].filter(Boolean).join(' · ');
-
-function errMsg(err) {
-  console.error(err);
-  const m = err?.message || '';
-  if (/Invalid login/i.test(m)) return '이메일 또는 비밀번호가 맞지 않아요';
-  if (/fetch|network/i.test(m)) return '인터넷 연결을 확인해 주세요';
-  return '저장하지 못했어요: ' + m;
-}
 
 /* ---------- 시뮬레이션 링크 줄 ---------- */
 function addSimRow(container, sim = { name: '', url: '' }) {
@@ -91,7 +85,10 @@ function renderToday() {
         <select class="input" data-today="${c.id}" aria-label="${c.id}반 오늘 보드">
           <option value="" ${c.today_board_id ? '' : 'selected'}>없음</option>${opts}
         </select>
-        <a class="btn btn-line btn-small open" href="../class.html?c=${c.id}" target="_blank" rel="noopener">보기 ↗</a>
+        <div class="today-links">
+          <a class="btn btn-line btn-small" href="../class.html?c=${c.id}" target="_blank" rel="noopener">보기 ↗</a>
+          <a class="btn btn-line btn-small" href="reveal.html?c=${c.id}">발표</a>
+        </div>
       </div>`;
   }).join('');
 }
@@ -140,6 +137,7 @@ function renderBoards() {
           <div class="board-item">
             <span class="cls">${b.class_id}반</span>
             ${todayIds.has(b.id) ? '<span class="tag tag-today">오늘</span>' : ''}
+            ${b.status === 'revealed' ? '<span class="tag tag-done">발표함</span>' : ''}
             ${b.padlet_src ? '' : '<span class="tag tag-warn">패들렛 없음</span>'}
             <span class="src">${esc(b.padlet_src || '')}</span>
             <button type="button" class="btn btn-line btn-small" data-edit="${b.id}">수정</button>
@@ -288,27 +286,264 @@ editForm.addEventListener('submit', async (e) => {
   }
 });
 
-/* ---------- 로그인 ---------- */
-$('v-login').addEventListener('submit', async (e) => {
-  e.preventDefault();
-  const f = e.currentTarget;
-  const btn = f.querySelector('[type="submit"]');
-  btn.disabled = true;
+/* ---------- 명단 ---------- */
+let rosterClass = CLASSES[0];
+
+function renderRoster() {
+  const counts = new Map(CLASSES.map((n) => [n, 0]));
+  for (const s of students) if (s.active) counts.set(s.class_id, (counts.get(s.class_id) || 0) + 1);
+  $('roster-tabs').innerHTML = CLASSES.map((n) => `
+    <button type="button" role="tab" class="cls-tab press${n === rosterClass ? ' on' : ''}" aria-selected="${n === rosterClass}" data-tab="${n}">
+      ${n}반 <span class="num">${counts.get(n)}</span>
+    </button>`).join('');
+
+  const list = students.filter((s) => s.class_id === rosterClass)
+    .sort((a, b) => (b.active - a.active) || (a.number - b.number));
+  const active = list.filter((s) => s.active);
+  const missing = active.filter((s) => !s.has_code).length;
+  const groupCount = new Set(active.map((s) => s.group_no)).size;
+  $('roster-count').textContent = active.length ? `${active.length}명 · ${groupCount}모둠 · 코드 없음 ${missing}명` : '';
+  $('issue-missing').disabled = !missing;
+  $('issue-all').disabled = !active.length;
+
+  $('roster-list').innerHTML = list.length ? list.map((s) => `
+    <div class="roster-row${s.active ? '' : ' off'}" data-sid="${s.id}">
+      <b class="num">${s.number}번</b>
+      <label class="grp">
+        <input class="input num" type="number" min="1" max="20" value="${s.group_no}" data-grp aria-label="${s.number}번 모둠" ${s.active ? '' : 'disabled'}>
+        <span>모둠</span>
+      </label>
+      ${s.active
+        ? `<span class="tag ${s.has_code ? 'tag-today' : 'tag-warn'}">${s.has_code ? '코드 있음' : '코드 없음'}</span>
+           <span class="roster-btns">
+             <button type="button" class="btn btn-line btn-small" data-reset>코드 다시 발급</button>
+             <button type="button" class="btn btn-danger btn-small" data-off>빼기</button>
+           </span>`
+        : `<span class="tag tag-off">명단에서 뺌</span>
+           <span class="roster-btns"><button type="button" class="btn btn-line btn-small" data-on>되살리기</button></span>`}
+    </div>`).join('') : '<div class="empty"><strong>명단이 없어요</strong></div>';
+}
+
+async function refreshStudents() {
+  students = await listStudents();
+  renderRoster();
+}
+
+$('roster-tabs').addEventListener('click', (e) => {
+  const tab = e.target.closest('[data-tab]');
+  if (!tab) return;
+  rosterClass = Number(tab.dataset.tab);
+  renderRoster();
+});
+
+$('roster-list').addEventListener('change', async (e) => {
+  const input = e.target.closest('[data-grp]');
+  if (!input) return;
+  const s = students.find((x) => x.id === input.closest('[data-sid]').dataset.sid);
+  const g = Number(input.value);
+  if (!s || !Number.isInteger(g) || g < 1 || g > 20) {
+    toast('모둠은 1~20 사이 숫자로 넣어 주세요', 'error');
+    if (s) input.value = s.group_no;
+    return;
+  }
   try {
-    await signIn(f.email.value.trim(), f.password.value);
-    f.reset();
-    await route();
+    await updateStudent(s.id, { group_no: g });
+    s.group_no = g;
+    toast(`${s.number}번을 ${g}모둠으로 바꿨어요`, 'ok');
+    renderRoster();
   } catch (err) {
     toast(errMsg(err), 'error');
-  } finally {
+    input.value = s.group_no;
+  }
+});
+
+$('roster-list').addEventListener('click', async (e) => {
+  const row = e.target.closest('[data-sid]');
+  if (!row) return;
+  const s = students.find((x) => x.id === row.dataset.sid);
+  if (!s) return;
+  const label = `${s.class_id}반 ${s.number}번`;
+  try {
+    if (e.target.closest('[data-reset]')) {
+      if (!confirm(`${label} 코드를 새로 만들까요? 지금 코드는 더 이상 쓸 수 없어요.`)) return;
+      const code = await resetCode(s.id);
+      showCodes([code], `${label} 새 코드`);
+      await refreshStudents();
+    } else if (e.target.closest('[data-off]')) {
+      if (!confirm(`${label}을(를) 명단에서 뺄까요? 지금까지의 점수는 남아 있어요.`)) return;
+      await updateStudent(s.id, { active: false });
+      await refreshStudents();
+    } else if (e.target.closest('[data-on]')) {
+      await updateStudent(s.id, { active: true });
+      await refreshStudents();
+    }
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  }
+});
+
+/* ---------- 코드 발급 + A4 인쇄 ---------- */
+async function issue(onlyMissing) {
+  const n = rosterClass;
+  if (!onlyMissing && !confirm(`${n}반 학생 전체의 코드를 새로 만들까요? 지금 코드는 더 이상 쓸 수 없어요.`)) return;
+  const btn = $(onlyMissing ? 'issue-missing' : 'issue-all');
+  btn.disabled = true;
+  try {
+    const list = await issueCodes(n, onlyMissing);
+    if (!list.length) toast('발급할 학생이 없어요', 'error');
+    else showCodes(list, `${n}반 코드 ${list.length}장`);
+    await refreshStudents();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    btn.disabled = false;
+  }
+}
+$('issue-missing').addEventListener('click', () => issue(true));
+$('issue-all').addEventListener('click', () => issue(false));
+
+function siteAddress() {
+  const base = new URL('../', location.href);
+  return (base.host + base.pathname).replace(/\/$/, '');
+}
+
+function showCodes(list, title) {
+  $('codes-title').textContent = title;
+  $('codes-preview').innerHTML = list.map((c) => `<span>${c.number}번 <b>${esc(c.code)}</b></span>`).join('');
+  const site = esc(siteAddress());
+  $('print-sheet').innerHTML = list.map((c) => `
+    <div class="code-card">
+      <div class="cc-top"><b>${GRADE}학년 ${c.class_id}반 ${c.number}번</b><span>${c.group_no}모둠</span></div>
+      <div class="cc-code">${esc(c.code.slice(0, 3))} ${esc(c.code.slice(3))}</div>
+      <div class="cc-bottom"><span class="cc-name">이름</span><span class="cc-url">${site}</span></div>
+    </div>`).join('');
+  $('codes-dlg').showModal();
+}
+
+$('codes-print').addEventListener('click', () => window.print());
+$('codes-close').addEventListener('click', () => $('codes-dlg').close());
+// Esc로 실수로 닫지 않게
+$('codes-dlg').addEventListener('cancel', (e) => e.preventDefault());
+// 닫으면 화면에서 평문 코드를 지운다
+$('codes-dlg').addEventListener('close', () => {
+  $('codes-preview').innerHTML = '';
+  $('print-sheet').innerHTML = '';
+});
+
+/* ---------- CSV 가져오기 (반,번호,모둠) ---------- */
+let csvRows = null;
+
+// "6반", "1번" 처럼 글자가 붙어 있어도 숫자만 읽는다
+const toNum = (cell) => {
+  const d = String(cell ?? '').replace(/[^\d]/g, '');
+  return d ? Number(d) : NaN;
+};
+
+function parseCsv(text) {
+  const rows = [];
+  const errors = [];
+  const seen = new Set();
+  let first = true;
+  text.replace(/^\uFEFF/, '').split(/\r?\n/).forEach((line, i) => {
+    if (!line.trim()) return;
+    const cells = line.split(/[,\t;]/).map((c) => c.trim().replace(/^"|"$/g, ''));
+    const isHeader = first && !/\d/.test(cells[0]);
+    first = false;
+    if (isHeader) return;
+    const [c, n, g] = cells.map(toNum);
+    const key = `${c}-${n}`;
+    if (cells.length < 3 || !CLASSES.includes(c) || !(n >= 1 && n <= 99) || !(g >= 1 && g <= 20) || seen.has(key)) {
+      errors.push(i + 1);
+      return;
+    }
+    seen.add(key);
+    rows.push({ class_id: c, number: n, group_no: g });
+  });
+  return { rows, errors };
+}
+
+function previewCsv() {
+  const text = $('csv-text').value;
+  if (!text.trim()) {
+    csvRows = null;
+    $('csv-preview').innerHTML = '';
+    $('csv-import').disabled = true;
+    return;
+  }
+  const { rows, errors } = parseCsv(text);
+  const byClass = new Map();
+  for (const r of rows) byClass.set(r.class_id, (byClass.get(r.class_id) || 0) + 1);
+  const summary = [...byClass].sort((a, b) => a[0] - b[0]).map(([c, n]) => `${c}반 ${n}명`).join(' · ');
+  const bad = errors.length
+    ? `<div class="bad">잘못되었거나 겹치는 줄: ${errors.slice(0, 12).join(', ')}번째 줄${errors.length > 12 ? ` 외 ${errors.length - 12}개` : ''}</div>`
+    : '';
+  $('csv-preview').innerHTML = `<div>${summary || '가져올 줄이 없어요'}</div>${bad}`;
+  csvRows = errors.length || !rows.length ? null : rows;
+  $('csv-import').disabled = !csvRows;
+}
+
+$('csv-text').addEventListener('input', previewCsv);
+$('csv-file').addEventListener('change', async (e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+  $('csv-text').value = await file.text();
+  e.target.value = '';
+  previewCsv();
+});
+
+$('csv-import').addEventListener('click', async () => {
+  if (!csvRows) return;
+  const deact = $('csv-deact').checked;
+  const btn = $('csv-import');
+  btn.disabled = true;
+  try {
+    await importRoster(csvRows, deact);
+    toast(`${csvRows.length}명을 가져왔어요`, 'ok');
+    rosterClass = csvRows[0].class_id;
+    $('csv-text').value = '';
+    previewCsv();
+    $('csv-box').open = false;
+    await refreshStudents();
+  } catch (err) {
+    toast(errMsg(err), 'error');
     btn.disabled = false;
   }
 });
 
-document.addEventListener('click', async (e) => {
-  if (!e.target.closest('[data-logout]')) return;
-  await signOut();
-  show('v-login');
+/* ---------- 빠른 피드백 버튼 ---------- */
+function renderPresets() {
+  $('preset-list').innerHTML = presets.map((p) => `
+    <span class="preset-item">
+      ${esc(p.text)}
+      <button type="button" class="preset-del" data-pdel="${p.id}" aria-label="${esc(p.text)} 지우기">
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+      </button>
+    </span>`).join('');
+}
+
+async function refreshPresets() {
+  presets = await listPresets();
+  renderPresets();
+}
+
+$('preset-list').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-pdel]');
+  if (!del) return;
+  try {
+    await deletePreset(Number(del.dataset.pdel));
+    await refreshPresets();
+  } catch (err) { toast(errMsg(err), 'error'); }
+});
+
+$('preset-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const input = e.currentTarget.elements.text;
+  const text = input.value.trim();
+  if (!text) return;
+  try {
+    await addPreset(text, presets.reduce((m, p) => Math.max(m, p.sort), 0) + 1);
+    input.value = '';
+    await refreshPresets();
+  } catch (err) { toast(errMsg(err), 'error'); }
 });
 
 /* ---------- 시작 ---------- */
@@ -318,15 +553,11 @@ async function refresh() {
   renderBoards();
 }
 
-async function route() {
-  if (!isConfigured) return show('v-config');
-  const session = await getSession();
-  if (!session) return show('v-login');
-  if (!(await amITeacher())) return show('v-denied');
-  show('v-admin');
-  try { await refresh(); } catch (err) { toast(errMsg(err), 'error'); }
-}
-
 renderCreateForm();
-route();
-sb?.auth.onAuthStateChange((event) => { if (event === 'SIGNED_OUT') show('v-login'); });
+teacherGate($('v-admin'), async () => {
+  await refresh();
+  await Promise.all([
+    refreshStudents().then(() => { if (!students.length) $('csv-box').open = true; }),
+    refreshPresets(),
+  ]).catch((err) => toast(errMsg(err), 'error'));
+});

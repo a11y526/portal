@@ -34,6 +34,18 @@
       <a class="hub-item glass glass-live lift rise" style="--d:.08s" href="#nick">
         <b>닉네임 승인</b><span id="hub-nick"></span><em class="hub-badge hidden" id="hub-nick-badge"></em>
       </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.1s" href="#buys">
+        <b>구매 승인</b><span id="hub-buys"></span><em class="hub-badge hidden" id="hub-buys-badge"></em>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.11s" href="#shopset">
+        <b>상점 설정</b><span id="hub-shopset">가격 · 판매 여부 · 레벨 조건</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.115s" href="#grant">
+        <b>점수 주기</b><span>XP · 코인 직접 주기</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.118s" href="#points">
+        <b>포인트 규칙</b><span id="hub-points">통과 · 순위 보너스</span>
+      </a>
       <a class="hub-item glass glass-live lift rise" style="--d:.12s" href="#lock">
         <b>반별 잠금</b><span id="hub-lock"></span>
       </a>
@@ -97,6 +109,78 @@
       </div>
       <div class="nick-list" id="nick-list"></div>
     </section>
+
+    <div class="panel hidden" data-panel="buys" data-title="구매 승인">
+      <section class="card glass rise" aria-labelledby="h-buys">
+        <div class="card-head">
+          <h2 id="h-buys">기다리는 신청 <span class="muted num" id="buys-count"></span></h2>
+          <button type="button" class="btn btn-line btn-small" id="buys-refresh">새로 고침</button>
+        </div>
+        <div class="nick-list" id="buys-list"></div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-buys-done">
+        <h2 id="h-buys-done">최근 처리</h2>
+        <div class="nick-list" id="buys-done"></div>
+      </section>
+    </div>
+
+    <div class="panel hidden" data-panel="shopset" data-title="상점 설정">
+      <section class="card glass rise" aria-labelledby="h-rewards">
+        <h2 id="h-rewards">보상</h2>
+        <div class="set-list" id="set-rewards"></div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-items">
+        <h2 id="h-items">꾸미기 아이템</h2>
+        <p class="muted" style="margin:0">가격 0은 누구나 입을 수 있는 기본 부품이에요.</p>
+        <div class="cls-tabs" id="set-slot-tabs" role="tablist" aria-label="부품"></div>
+        <div class="set-list" id="set-items"></div>
+      </section>
+    </div>
+
+    <div class="panel hidden" data-panel="grant" data-title="점수 주기">
+      <form class="card glass rise" id="grant-form" autocomplete="off" aria-labelledby="h-grant">
+        <h2 id="h-grant">학생 고르기</h2>
+        <div class="cls-tabs" id="grant-tabs" role="tablist" aria-label="반"></div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-line btn-small" id="grant-all">반 전체</button>
+          <button type="button" class="btn btn-line btn-small" id="grant-none">선택 해제</button>
+          <span class="muted num" id="grant-count"></span>
+        </div>
+        <div class="roll" id="grant-roll"></div>
+        <div class="grant-fields">
+          <label class="set-num"><span>XP</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-xp" value="0"></label>
+          <label class="set-num"><span>코인</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-coins" value="0"></label>
+          <label class="field grant-reason"><span>사유</span><input class="input" id="grant-reason" maxlength="40" required></label>
+        </div>
+        <div><button class="btn btn-primary" type="submit" id="grant-go">주기</button></div>
+      </form>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-grant-log">
+        <h2 id="h-grant-log">최근 준 점수</h2>
+        <div class="nick-list" id="grant-log"></div>
+      </section>
+    </div>
+
+    <form class="card glass rise panel hidden" data-panel="points" data-title="포인트 규칙" id="points-form" aria-labelledby="h-points">
+      <h2 id="h-points">포인트 규칙</h2>
+      <p class="muted" style="margin:0">순위 발표 때 통과한 모둠의 모둠원 모두에게 줘요. 이미 발표한 보드에는 적용되지 않아요.</p>
+      <div class="points-grid">
+        <span></span><b>XP</b><b>코인</b>
+        <span>모둠활동 통과</span>
+        <input class="input num" type="number" min="0" max="1000" name="pass_xp" aria-label="통과 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="pass_coins" aria-label="통과 코인" required>
+        <span>1위 보너스</span>
+        <input class="input num" type="number" min="0" max="1000" name="bx0" aria-label="1위 보너스 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc0" aria-label="1위 보너스 코인" required>
+        <span>2위 보너스</span>
+        <input class="input num" type="number" min="0" max="1000" name="bx1" aria-label="2위 보너스 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc1" aria-label="2위 보너스 코인" required>
+        <span>3위 보너스</span>
+        <input class="input num" type="number" min="0" max="1000" name="bx2" aria-label="3위 보너스 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc2" aria-label="3위 보너스 코인" required>
+      </div>
+      <p class="muted num" style="margin:0" id="points-sum"></p>
+      <div><button class="btn btn-primary" type="submit">저장</button></div>
+    </form>
 
     <section class="card glass rise panel hidden" data-panel="lock" data-title="반별 잠금" aria-labelledby="h-lock">
       <h2 id="h-lock">반별 잠금</h2>

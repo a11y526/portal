@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상점</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <div class="me-body hidden" id="shop">
+    <section class="glass-strong me-hero rise">
+      <div class="me-avatar" id="hero-av"></div>
+      <div class="me-main">
+        <div class="me-name-row">
+          <h1 class="me-name">상점</h1>
+          <span class="chip" id="lv-chip"></span>
+        </div>
+        <div class="shop-coins">
+          <svg width="32" height="32" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#F2B705"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#B88600" stroke-width="1.6"/></svg>
+          <b class="num" id="coins">0</b><span>코인</span>
+        </div>
+        <div class="try-bar hidden" id="try-bar">
+          <div class="try-info">
+            <span class="try-k">입어 보는 중</span>
+            <b id="try-name"></b>
+            <span class="try-price" id="try-price"></span>
+          </div>
+          <div class="row-actions">
+            <button type="button" class="btn btn-line" id="try-undo">벗기</button>
+            <button type="button" class="btn btn-primary press" id="try-buy"></button>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <div class="cls-tabs" id="tabs" role="tablist" aria-label="상점">
+      <button type="button" role="tab" class="cls-tab press on" aria-selected="true" data-tab="deco">꾸미기</button>
+      <button type="button" role="tab" class="cls-tab press" aria-selected="false" data-tab="reward">보상</button>
+    </div>
+
+    <!-- 꾸미기 -->
+    <section class="glass me-card rise" id="p-deco" aria-label="꾸미기">
+      <div class="cls-tabs" id="slot-tabs" role="tablist" aria-label="부품"></div>
+      <div class="shop-grid" id="deco-grid" data-still></div>
+    </section>
+
+    <!-- 보상 -->
+    <section class="glass me-card hidden" id="p-reward" aria-labelledby="reward-h">
+      <h2 id="reward-h">보상</h2>
+      <div class="reward-grid" id="reward-grid"></div>
+      <h2 class="reward-sub">신청 내역</h2>
+      <div class="hist" id="buy-list"></div>
+    </section>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/shop.js"></script>
+</body>
+</html>

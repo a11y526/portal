@@ -442,6 +442,7 @@ begin
   on conflict (board_id, student_id) do nothing;
 
   get diagnostics v_count = row_count;
+  perform public._mark_pair_tickets(b.id);
   return jsonb_build_object('ok', true, 'count', v_count, 'class_id', b.class_id);
 end;
 $$;
@@ -467,7 +468,9 @@ declare
   v_pass_xp  int;
   v_pass_co  int;
   v_bonus    jsonb;
+  v_bonus_co jsonb;
   v_extra    int;
+  v_extra_co int;
   v_members  int;
   v_reason   text;
   v_ranking  jsonb := '[]'::jsonb;
@@ -490,7 +493,8 @@ begin
   select value into v_pts from public.settings where key = 'points';
   v_pass_xp := coalesce((v_pts ->> 'pass_xp')::int, 10);
   v_pass_co := coalesce((v_pts ->> 'pass_coins')::int, 10);
-  v_bonus   := coalesce(v_pts -> 'rank_bonus', '[10, 6, 3]'::jsonb);
+  v_bonus   := coalesce(v_pts -> 'rank_bonus', '[10, 6, 3]'::jsonb);        -- 순위 보너스 XP
+  v_bonus_co := coalesce(v_pts -> 'rank_bonus_coins', v_bonus);          -- 순위 보너스 코인 (없으면 XP와 같게)
 
   -- 순위 변화(▲▼)용: 이번 발표로 포인트가 나갈 때만, 주기 직전의 이번 달 순위를 찍어 둔다
   if exists (select 1 from public.submissions where board_id = b.id and status = 'passed') then
@@ -505,11 +509,12 @@ begin
     where x.board_id = b.id and x.status = 'passed'
     order by x.submitted_at, x.id
   loop
-    v_extra  := coalesce((v_bonus ->> (r.rn - 1))::int, 0);
-    v_reason := b.lesson_code || '차시 통과' || case when v_extra > 0 then ' · ' || r.rn || '위' else '' end;
+    v_extra    := coalesce((v_bonus ->> (r.rn - 1))::int, 0);
+    v_extra_co := coalesce((v_bonus_co ->> (r.rn - 1))::int, 0);
+    v_reason := b.lesson_code || '차시 통과' || case when v_extra > 0 or v_extra_co > 0 then ' · ' || r.rn || '위' else '' end;
 
     insert into public.point_events (student_id, xp, coins, reason, board_id)
-    select g.student_id, v_pass_xp + v_extra, v_pass_co + v_extra, v_reason, b.id
+    select g.student_id, v_pass_xp + v_extra, v_pass_co + v_extra_co, v_reason, b.id
     from public.board_groups g
     where g.board_id = b.id and g.group_no = r.group_no
     on conflict (student_id, board_id) where board_id is not null do nothing;
@@ -522,7 +527,7 @@ begin
       'rank',     r.rn,
       'group_no', r.group_no,
       'xp',       v_pass_xp + v_extra,
-      'coins',    v_pass_co + v_extra,
+      'coins',    v_pass_co + v_extra_co,
       'members',  v_members
     ));
   end loop;
@@ -806,7 +811,8 @@ create trigger students_default_avatar
 -- ---------------------------------------------------------
 -- 내 기록 (학생)
 -- 결과: {ok: true, ...} 또는 {ok: false, error: 'NO_SESSION'}
--- wardrobe: 지금 입을 수 있는 부품 (무료 기본. 4단계에서 산 아이템이 더해짐)
+-- wardrobe: 지금 입을 수 있는 부품 (판매 중인 무료 기본 + 산 아이템)
+-- coins: 코인 잔액(보상 신청 중·승인된 가격은 뺌), purchases: 보상 신청 내역(최근 20개)
 -- ---------------------------------------------------------
 drop function if exists public.get_my_page(int, int, text);
 create or replace function public.get_my_page(p_token text)
@@ -825,6 +831,7 @@ declare
   v_rank  int;
   v_hist  jsonb;
   v_wear  jsonb;
+  v_buys  jsonb;
   v_board uuid;
   v_group smallint;
 begin
@@ -835,9 +842,9 @@ begin
 
   select * into s from public.students where id = v_sid;
 
-  select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int
-  into v_total, v_coins
+  select coalesce(sum(xp), 0)::int into v_total
   from public.point_events where student_id = v_sid;
+  v_coins := public._coin_balance(v_sid);
 
   select m.xp, m.rnk into v_month, v_rank from public._month_ranks() m where m.student_id = v_sid;
 
@@ -855,7 +862,10 @@ begin
   select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'slot', i.slot) order by i.slot, i.sort, i.id), '[]'::jsonb)
   into v_wear
   from public.avatar_items i
-  where i.active and i.price = 0;
+  where (i.active and i.price = 0)
+     or exists (select 1 from public.student_items o where o.student_id = v_sid and o.item_id = i.id);
+
+  v_buys := public._my_purchases(v_sid);
 
   select today_board_id into v_board from public.classes where id = s.class_id;
   if v_board is not null then
@@ -878,6 +888,7 @@ begin
     'coins',            v_coins,
     'history',          v_hist,
     'wardrobe',         v_wear,
+    'purchases',        v_buys,
     'today_group',      v_group
   );
 end;
@@ -937,8 +948,7 @@ grant execute on function public.request_nickname(text, text) to anon, authentic
 
 -- ---------------------------------------------------------
 -- 캐릭터 저장 (학생)
--- 7칸(face, hair, eyes, mouth, outfit, acc, bg)이 모두 있어야 하고, 판매 중인 무료 부품만 허용
--- (4단계에서 산 아이템도 허용하도록 바꾼다)
+-- 7칸(face, hair, eyes, mouth, outfit, acc, bg)이 모두 있어야 하고, 판매 중인 무료 부품이나 산 부품만 허용
 -- 오류: NO_SESSION, BAD_ITEM
 -- ---------------------------------------------------------
 drop function if exists public.save_avatar(int, int, text, jsonb);
@@ -962,10 +972,7 @@ begin
 
   foreach v_slot in array array['face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg'] loop
     v_id := case when jsonb_typeof(p_avatar) = 'object' then p_avatar ->> v_slot end;
-    if v_id is null or not exists (
-      select 1 from public.avatar_items
-      where id = v_id and slot = v_slot and active and price = 0
-    ) then
+    if v_id is null or not public._can_wear(v_sid, v_id, v_slot) then
       return jsonb_build_object('ok', false, 'error', 'BAD_ITEM');
     end if;
     v_out := v_out || jsonb_build_object(v_slot, v_id);
@@ -1058,3 +1065,343 @@ end;
 $$;
 revoke all on function public.decide_nickname(uuid, boolean) from public, anon;
 grant execute on function public.decide_nickname(uuid, boolean) to authenticated;
+
+-- =========================================================
+-- 4단계: 포인트 상점
+-- 코인 잔액 = point_events.coins 합 − purchases.cost 합('requested', 'approved')
+-- 꾸미기 아이템은 사는 순간 point_events에 coins = -가격으로 남는다
+-- =========================================================
+
+-- 코인 잔액 (내부용)
+create or replace function public._coin_balance(p_student_id uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select (
+    coalesce((select sum(coins) from public.point_events where student_id = p_student_id), 0)
+    - coalesce((select sum(cost) from public.purchases
+                where student_id = p_student_id and status in ('requested', 'approved')), 0)
+  )::int;
+$$;
+
+-- 이 부품을 입을 수 있는지: 판매 중인 무료 부품이거나 산 부품 (내부용)
+create or replace function public._can_wear(p_student_id uuid, p_item_id text, p_slot text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1 from public.avatar_items i
+    where i.id = p_item_id and i.slot = p_slot
+      and ((i.active and i.price = 0)
+           or exists (select 1 from public.student_items o where o.student_id = p_student_id and o.item_id = i.id))
+  );
+$$;
+
+-- 보상 신청 내역 최근 20개 (내부용). used: 모둠 선택권을 이미 썼는지
+create or replace function public._my_purchases(p_student_id uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', x.id, 'item_id', x.item_id, 'name', x.name, 'kind', x.kind, 'cost', x.cost,
+           'status', x.status, 'partner_number', x.partner_number, 'used', x.used_board_id is not null,
+           'requested_at', x.requested_at, 'decided_at', x.decided_at
+         ) order by x.requested_at desc), '[]'::jsonb)
+  from (
+    select p.*, i.name, i.kind
+    from public.purchases p
+    join public.shop_items i on i.id = p.item_id
+    where p.student_id = p_student_id
+    order by p.requested_at desc
+    limit 20
+  ) x;
+$$;
+
+-- 모둠 선택권 사용 표시 (내부용, set_board_groups가 부른다)
+-- 이 보드 편성에서 산 학생과 고른 친구가 같은 모둠이면 그 선택권을 이 보드에서 쓴 것으로 한다.
+-- 같은 보드를 다시 편성하면 먼저 이 보드의 표시를 지우고 새로 매긴다.
+create or replace function public._mark_pair_tickets(p_board_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  update public.purchases set used_board_id = null where used_board_id = p_board_id;
+
+  update public.purchases p
+  set used_board_id = p_board_id
+  where p.id in (
+    select distinct on (p2.student_id, p2.partner_number) p2.id
+    from public.purchases p2
+    join public.shop_items i on i.id = p2.item_id and i.kind = 'pair'
+    join public.board_groups g1 on g1.board_id = p_board_id and g1.student_id = p2.student_id
+    join public.students me on me.id = p2.student_id
+    join public.students pt on pt.class_id = me.class_id and pt.number = p2.partner_number
+    join public.board_groups g2 on g2.board_id = p_board_id and g2.student_id = pt.id
+    where p2.status = 'approved' and p2.used_board_id is null and g1.group_no = g2.group_no
+    order by p2.student_id, p2.partner_number, p2.requested_at
+  );
+end;
+$$;
+
+revoke all on function public._coin_balance(uuid) from public, anon, authenticated;
+revoke all on function public._can_wear(uuid, text, text) from public, anon, authenticated;
+revoke all on function public._my_purchases(uuid) from public, anon, authenticated;
+revoke all on function public._mark_pair_tickets(uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 상점 (학생)
+-- 결과: {ok: true, coins, level, avatar, wardrobe, items, rewards, purchases, classmates} 또는 {ok: false, error: 'NO_SESSION'}
+-- items: 판매 중인 꾸미기 아이템(가격 > 0) + 이미 산 아이템. owned/locked(레벨 부족) 표시
+-- classmates: 모둠 선택권에서 고를 수 있는 같은 반 번호(나 빼고)
+-- ---------------------------------------------------------
+create or replace function public.get_shop(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  s       public.students;
+  v_total int;
+  v_lv    jsonb;
+  v_items jsonb;
+  v_rew   jsonb;
+  v_wear  jsonb;
+  v_mates jsonb;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+
+  select * into s from public.students where id = v_sid;
+  select coalesce(sum(xp), 0)::int into v_total from public.point_events where student_id = v_sid;
+  v_lv := public._level_info(v_total);
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id', i.id, 'slot', i.slot, 'name', i.name, 'price', i.price, 'rarity', i.rarity,
+           'min_level', i.min_level, 'owned', o.item_id is not null,
+           'locked', o.item_id is null and i.min_level > (v_lv ->> 'level')::int
+         ) order by i.slot, i.sort, i.id), '[]'::jsonb)
+  into v_items
+  from public.avatar_items i
+  left join public.student_items o on o.student_id = v_sid and o.item_id = i.id
+  where (i.active and i.price > 0) or o.item_id is not null;
+
+  select coalesce(jsonb_agg(jsonb_build_object('id', i.id, 'slot', i.slot) order by i.slot, i.sort, i.id), '[]'::jsonb)
+  into v_wear
+  from public.avatar_items i
+  where (i.active and i.price = 0)
+     or exists (select 1 from public.student_items o where o.student_id = v_sid and o.item_id = i.id);
+
+  select coalesce(jsonb_agg(jsonb_build_object('id', id, 'name', name, 'cost', cost, 'kind', kind)
+         order by sort, id), '[]'::jsonb)
+  into v_rew
+  from public.shop_items where active;
+
+  select coalesce(jsonb_agg(number order by number), '[]'::jsonb)
+  into v_mates
+  from public.students where class_id = s.class_id and active and id <> v_sid;
+
+  return jsonb_build_object(
+    'ok',         true,
+    'class_id',   s.class_id,
+    'number',     s.number,
+    'nickname',   s.nickname,
+    'avatar',     s.avatar,
+    'level',      v_lv,
+    'coins',      public._coin_balance(v_sid),
+    'items',      v_items,
+    'wardrobe',   v_wear,
+    'rewards',    v_rew,
+    'purchases',  public._my_purchases(v_sid),
+    'classmates', v_mates
+  );
+end;
+$$;
+revoke all on function public.get_shop(text) from public;
+grant execute on function public.get_shop(text) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 꾸미기 아이템 사기 (학생). 교사 승인 없이 바로 내 것이 된다
+-- 오류: NO_SESSION, NOT_FOR_SALE(판매 안 함), OWNED(이미 가짐), LEVEL(레벨 부족), NO_COINS(코인 부족)
+-- ---------------------------------------------------------
+drop function if exists public.buy_avatar_item(int, int, text, text);
+create or replace function public.buy_avatar_item(p_token text, p_item_id text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  it      public.avatar_items;
+  v_total int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  -- 같은 학생의 구매·신청을 한 줄로 세운다(두 번 눌러도 잔액이 꼬이지 않게)
+  perform 1 from public.students where id = v_sid for update;
+
+  select * into it from public.avatar_items where id = p_item_id and active and price > 0;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'NOT_FOR_SALE');
+  end if;
+  if exists (select 1 from public.student_items where student_id = v_sid and item_id = it.id) then
+    return jsonb_build_object('ok', false, 'error', 'OWNED');
+  end if;
+  select coalesce(sum(xp), 0)::int into v_total from public.point_events where student_id = v_sid;
+  if (public._level_info(v_total) ->> 'level')::int < it.min_level then
+    return jsonb_build_object('ok', false, 'error', 'LEVEL', 'min_level', it.min_level);
+  end if;
+  if public._coin_balance(v_sid) < it.price then
+    return jsonb_build_object('ok', false, 'error', 'NO_COINS');
+  end if;
+
+  insert into public.student_items (student_id, item_id) values (v_sid, it.id);
+  insert into public.point_events (student_id, xp, coins, reason)
+  values (v_sid, 0, -it.price, '아이템: ' || it.name);
+
+  return jsonb_build_object('ok', true, 'item_id', it.id, 'coins', public._coin_balance(v_sid));
+end;
+$$;
+revoke all on function public.buy_avatar_item(text, text) from public;
+grant execute on function public.buy_avatar_item(text, text) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 보상 신청 (학생). 교사가 승인하거나 거절한다. 신청하는 순간 코인에서 빠지고, 거절되면 돌아온다
+-- 모둠 선택권(kind = 'pair')은 같은 반 친구 번호(p_partner)가 필요하다
+-- 오류: NO_SESSION, NOT_FOR_SALE, BAD_PARTNER(친구 번호가 맞지 않음), NO_COINS
+-- ---------------------------------------------------------
+drop function if exists public.request_purchase(int, int, text, text);
+create or replace function public.request_purchase(p_token text, p_item_id text, p_partner int default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid uuid;
+  s     public.students;
+  it    public.shop_items;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid for update;
+
+  select * into it from public.shop_items where id = p_item_id and active;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'NOT_FOR_SALE');
+  end if;
+  if it.kind = 'pair' and (
+       p_partner is null or p_partner = s.number
+       or not exists (select 1 from public.students where class_id = s.class_id and number = p_partner and active)
+     ) then
+    return jsonb_build_object('ok', false, 'error', 'BAD_PARTNER');
+  end if;
+  if public._coin_balance(v_sid) < it.cost then
+    return jsonb_build_object('ok', false, 'error', 'NO_COINS');
+  end if;
+
+  insert into public.purchases (student_id, item_id, cost, partner_number)
+  values (v_sid, it.id, it.cost, case when it.kind = 'pair' then p_partner end);
+
+  return jsonb_build_object('ok', true, 'coins', public._coin_balance(v_sid), 'purchases', public._my_purchases(v_sid));
+end;
+$$;
+revoke all on function public.request_purchase(text, text, int) from public;
+grant execute on function public.request_purchase(text, text, int) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 보상 승인·거절 (교사). 'requested'만 바꿀 수 있다
+-- ---------------------------------------------------------
+create or replace function public.decide_purchase(p_id uuid, p_approve boolean)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  p public.purchases;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into p from public.purchases where id = p_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if p.status <> 'requested' then
+    raise exception 'NOT_PENDING';
+  end if;
+  update public.purchases
+  set status = case when p_approve then 'approved' else 'rejected' end, decided_at = now()
+  where id = p.id;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.decide_purchase(uuid, boolean) from public, anon;
+grant execute on function public.decide_purchase(uuid, boolean) to authenticated;
+
+-- ---------------------------------------------------------
+-- 점수 직접 주기 (교사)
+-- 고른 학생들에게 XP·코인을 사유와 함께 준다. 빼야 하면 음수(정정 기록). 발표 지급과 달리 board_id 없음
+-- 오류: BAD_AMOUNT(둘 다 0이거나 범위 밖), BAD_REASON(사유 없음), NO_STUDENTS
+-- ---------------------------------------------------------
+create or replace function public.grant_points(p_student_ids uuid[], p_xp int, p_coins int, p_reason text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_reason text := btrim(coalesce(p_reason, ''));
+  v_count  int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  if coalesce(p_xp, 0) = 0 and coalesce(p_coins, 0) = 0
+     or abs(coalesce(p_xp, 0)) > 1000 or abs(coalesce(p_coins, 0)) > 1000 then
+    raise exception 'BAD_AMOUNT';
+  end if;
+  if char_length(v_reason) not between 1 and 40 then
+    raise exception 'BAD_REASON';
+  end if;
+
+  insert into public.point_events (student_id, xp, coins, reason)
+  select s.id, coalesce(p_xp, 0), coalesce(p_coins, 0), v_reason
+  from public.students s
+  where s.id = any(coalesce(p_student_ids, '{}')) and s.active;
+  get diagnostics v_count = row_count;
+  if v_count = 0 then
+    raise exception 'NO_STUDENTS';
+  end if;
+
+  return jsonb_build_object('ok', true, 'count', v_count);
+end;
+$$;
+revoke all on function public.grant_points(uuid[], int, int, text) from public, anon;
+grant execute on function public.grant_points(uuid[], int, int, text) to authenticated;

@@ -1,7 +1,8 @@
 // 캐릭터 부품 정의 (모두 이 프로젝트에서 새로 그린 도형)
 // 좌표는 120×120 칸 기준. 얼굴 중심 x=60, 눈 높이 y=55, 입 y=67, 어깨 y≈88.
 // k(그리기 도구): k.L / k.M / k.D = 망점 밝음·중간·어두움, k.ink = 검정, k.paper = 흰색,
-//                 k.sw = 선 굵기, k.detail = 큰 크기에서만 그리는 잔선 여부
+//                 k.sw = 선 굵기, k.detail = 큰 크기에서만 그리는 잔선 여부,
+//                 k.accent / k.gold = 강조색·금색 (희귀·전설 부품에만)
 // 가격·등급·판매 여부는 Supabase avatar_items 표에서 관리한다.
 
 export const SLOTS = ['face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg'];
@@ -9,6 +10,10 @@ export const SLOTS = ['face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg'];
 export const SLOT_NAMES = {
   face: '얼굴', hair: '머리', eyes: '눈', mouth: '입', outfit: '옷', acc: '소품', bg: '배경',
 };
+
+// 네 꼭짓점 반짝이 (x, y 중심, r 반지름)
+const spark = (x, y, r, fill) =>
+  `<path d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r} Z" fill="${fill}"/>`;
 
 const line = (k, d, w = 1) =>
   `<path d="${d}" fill="none" stroke="${k.ink}" stroke-width="${(k.sw * w).toFixed(2)}"/>`;
@@ -77,6 +82,32 @@ export const PARTS = {
         shape(k, 'M34.5 56 C31.5 36 43 22 60 22 C77 22 88.5 36 85.5 56 C84.5 49 82 43.5 77 39.5 C70.5 34.5 59 34 52 38.5 C47.5 35 41 37.5 38 42 C36 46 35 51 34.5 56 Z', k.D) +
         `<rect x="73" y="25.5" width="8" height="6" rx="2.5" transform="rotate(38 77 28.5)" fill="${k.paper}" stroke="${k.ink}" stroke-width="${k.sw.toFixed(2)}"/>`,
     },
+    /* 상점 */
+    hair_spiky: {
+      name: '삐죽 머리',
+      front: (k) =>
+        shape(k, 'M34.5 56 C33 45 34 38 37 33 L30.5 27.5 L41.5 26.5 L39.5 16.5 L50 22 L54 11 L60.5 20 L68 11 L70.5 22 L80.5 16.5 L78.5 26.5 L89.5 27.5 L83 33 C86 38 87 45 85.5 56 C84 49 82.5 45 79 42 C74 44 69 43.5 66 40 C62 43 56 43 53 40 C49 43.5 43 44 40 42 C37.5 45.5 35.5 50 34.5 56 Z', k.D) +
+        (k.detail ? line(k, 'M58 24 C56 29 55 33 54.5 37 M69 25.5 C68 30 67.5 34 66.5 37.5', 0.6) : ''),
+    },
+    hair_long: {
+      name: '긴 생머리',
+      ears: false,
+      back: (k) =>
+        shape(k, 'M31 58 C29 33 42 20 60 20 C78 20 91 33 89 58 L92.5 100 C93 104.5 88.5 106.5 84.5 104.5 L80.5 75 C72 70 48 70 39.5 75 L35.5 104.5 C31.5 106.5 27 104.5 27.5 100 Z', k.D) +
+        (k.detail ? line(k, 'M33 66 L31.5 98 M87 66 L88.5 98', 0.6) : ''),
+      front: (k) =>
+        shape(k, 'M35 54 C33.5 34 44 24.5 60 24.5 C76 24.5 86.5 34 85 54 C83 47 80 42 75 39 C69 37 63.5 33.5 60 29 C56.5 33.5 51 37 45 39 C40 42 37 47 35 54 Z', k.D),
+    },
+    hair_einstein: {
+      name: '아인슈타인 머리',
+      ears: false,
+      front: (k) => blob(k, [
+        [30.5, 52, 7], [28, 42, 8], [32.5, 32, 8], [41.5, 23.5, 8], [52, 18.5, 7.5], [63, 17.5, 8],
+        [74, 21, 8], [84, 28.5, 8], [90.5, 39.5, 8], [91.5, 50.5, 7], [88.5, 59.5, 5], [31.5, 60, 5],
+        [44, 31, 5], [56, 27.5, 5], [67, 28, 5], [77, 32, 5],
+      ], k.L) +
+        (k.detail ? line(k, 'M24 36 L19 33 M23 47 L18 47 M96 34 L101 31 M97 46 L102 46 M49 11 L47 6 M66 10 L68 5', 0.7) : ''),
+    },
   },
 
   /* ---------- 눈 (왼눈 x=50, 오른눈 x=70) ---------- */
@@ -100,6 +131,15 @@ export const PARTS = {
         line(k, `M${x - 6} 54.5 H${x + 6}`, 1) +
         (k.detail ? `<circle cx="${x + 1.8}" cy="56.6" r=".9" fill="${k.paper}"/>` : '')).join(''),
     },
+    /* 상점 */
+    eyes_sparkle: {
+      name: '반짝 눈',
+      draw: (k) => [50, 70].map((x) =>
+        `<ellipse cx="${x}" cy="55" rx="6" ry="7" fill="${k.ink}"/>` +
+        spark(x - 1.4, 53, k.detail ? 3.6 : 3, k.paper) +
+        (k.detail ? `<circle cx="${x + 2.4}" cy="58.2" r="1.1" fill="${k.paper}"/>` : '')).join('') +
+        spark(97, 42, k.detail ? 6 : 7.5, k.accent) + (k.detail ? spark(104, 53, 3.2, k.accent) : ''),
+    },
   },
 
   /* ---------- 입 (중심 x=60, y≈67) ---------- */
@@ -117,6 +157,14 @@ export const PARTS = {
     mouth_flat: {
       name: '일자',
       draw: (k) => line(k, 'M55 67.5 H65', 1),
+    },
+    /* 상점 */
+    mouth_tongue: {
+      name: '혀 내밀기',
+      draw: (k) =>
+        shape(k, 'M56.5 67.2 V70.5 C56.5 73.5 58 75.2 60 75.2 C62 75.2 63.5 73.5 63.5 70.5 V67.2 Z', k.M, 0.8) +
+        (k.detail ? line(k, 'M60 68.5 V72', 0.5) : '') +
+        line(k, 'M53.5 65.5 Q60 70.5 66.5 65.5', 1),
     },
   },
 
@@ -141,11 +189,78 @@ export const PARTS = {
         `<path d="M54 94 L53 107 M66 94 L67 107" stroke="${k.ink}" stroke-width="${(k.sw * 2.4).toFixed(2)}" fill="none"/>` +
         `<path d="M54 94 L53 107 M66 94 L67 107" stroke="${k.paper}" stroke-width="${(k.sw * 1.1).toFixed(2)}" fill="none"/>`,
     },
+    /* 상점 */
+    outfit_labcoat: {
+      name: '실험복',
+      sleeve: 'L',
+      draw: (k) =>
+        shape(k, 'M18 124 C18 102 30 91.5 47 88 L60 113 L73 88 C90 91.5 102 102 102 124 Z', k.L) +
+        shape(k, 'M47 88 C51 94.5 69 94.5 73 88 L60 113 Z', k.M, 0.7) +
+        line(k, 'M47 88 L50.5 101 L56 104.5 M73 88 L69.5 101 L64 104.5 M60 113 V124', 0.8) +
+        (k.detail
+          ? line(k, 'M77 106 H88 V113 H77 Z', 0.6) + `<path d="M80 101.5 V108" stroke="${k.ink}" stroke-width="${(k.sw * 1.4).toFixed(2)}"/>`
+          : ''),
+    },
+    outfit_space: {
+      name: '우주복',
+      sleeve: 'L',
+      draw: (k) =>
+        shape(k, 'M16 124 C16 101 29 91 45 87.5 H75 C91 91 104 101 104 124 Z', k.L) +
+        shape(k, 'M41.5 90.5 C41.5 84 78.5 84 78.5 90.5 C78.5 96.5 41.5 96.5 41.5 90.5 Z', k.M) +
+        `<rect x="50" y="101" width="20" height="13" rx="3" fill="${k.paper}" stroke="${k.ink}" stroke-width="${(k.sw * 0.8).toFixed(2)}"/>` +
+        `<circle cx="55.5" cy="107.5" r="2.4" fill="${k.accent}"/>` +
+        `<rect x="60" y="105.8" width="6.5" height="3.4" rx="1.2" fill="${k.ink}"/>` +
+        (k.detail ? line(k, 'M30 104 C31.5 110 31.5 116 30.5 122 M90 104 C88.5 110 88.5 116 89.5 122', 0.6) : ''),
+    },
   },
 
-  /* ---------- 소품 (상점 품목은 4단계에서 추가) ---------- */
+  /* ---------- 소품: layer 'body' = 몸통 위, 없으면 머리 위(머리카락보다 앞) ---------- */
   acc: {
     acc_none: { name: '없음' },
+    /* 상점 */
+    acc_glasses: {
+      name: '보안경',
+      draw: (k) =>
+        [50, 70].map((x) =>
+          `<circle cx="${x}" cy="55" r="7.6" fill="${k.paper}" fill-opacity=".25" stroke="${k.ink}" stroke-width="${k.sw.toFixed(2)}"/>`).join('') +
+        line(k, 'M57.6 54 Q60 51.8 62.4 54 M42.4 53.5 L35.5 51.5 M77.6 53.5 L84.5 51.5', 1) +
+        (k.detail ? line(k, 'M45 51 Q47 49 49.5 48.8 M65 51 Q67 49 69.5 48.8', 0.5) : ''),
+    },
+    acc_headphones: {
+      name: '헤드폰',
+      draw: (k) =>
+        shape(k, 'M30.5 56 C26.5 27 41 12.5 60 12.5 C79 12.5 93.5 27 89.5 56 L85.5 56 C87.5 31 76 17.5 60 17.5 C44 17.5 32.5 31 34.5 56 Z', k.D) +
+        [[26.5, 47], [82.5, 47]].map(([x, y]) =>
+          `<rect x="${x}" y="${y}" width="11" height="19" rx="5" fill="${k.M}" stroke="${k.ink}" stroke-width="${k.sw.toFixed(2)}"/>`).join(''),
+    },
+    acc_goggles: {
+      name: '실험 고글',
+      draw: (k) =>
+        `<path d="M33 53 H29.5 M87 53 H90.5" stroke="${k.ink}" stroke-width="${(k.sw * 2.6).toFixed(2)}"/>` +
+        shape(k, 'M38 46.5 H82 Q86.5 46.5 86.5 51.5 V58 Q86.5 64.5 80 64.5 H67.5 Q63 64.5 60 60.5 Q57 64.5 52.5 64.5 H40 Q33.5 64.5 33.5 58 V51.5 Q33.5 46.5 38 46.5 Z', k.M) +
+        [49, 71].map((x) =>
+          `<ellipse cx="${x}" cy="55.5" rx="8.3" ry="5.6" fill="${k.paper}" fill-opacity=".55" stroke="${k.ink}" stroke-width="${(k.sw * 0.8).toFixed(2)}"/>`).join('') +
+        (k.detail ? line(k, 'M43.5 53 Q45.5 51.2 48 51 M65.5 53 Q67.5 51.2 70 51', 0.5) : ''),
+    },
+    acc_atom: {
+      name: '원자 배지',
+      layer: 'body',
+      draw: (k) =>
+        `<circle cx="83" cy="106" r="9" fill="${k.paper}" stroke="${k.ink}" stroke-width="${k.sw.toFixed(2)}"/>` +
+        [0, 60, 120].map((r) =>
+          `<ellipse cx="83" cy="106" rx="6.6" ry="2.5" transform="rotate(${r} 83 106)" fill="none" stroke="${k.ink}" stroke-width="${(k.sw * 0.55).toFixed(2)}"/>`).join('') +
+        `<circle cx="83" cy="106" r="1.7" fill="${k.ink}"/>`,
+    },
+    acc_crown: {
+      name: '왕관',
+      draw: (k) =>
+        shape(k, 'M43.5 23 L41 7.5 L51 15 L60 3.5 L69 15 L79 7.5 L76.5 23 Z', k.gold) +
+        shape(k, 'M43 22 H77 V27.5 H43 Z', k.gold) +
+        [[41, 7.5], [60, 3.5], [79, 7.5]].map(([x, y]) =>
+          `<circle cx="${x}" cy="${y}" r="2.4" fill="${k.paper}" stroke="${k.ink}" stroke-width="${(k.sw * 0.7).toFixed(2)}"/>`).join('') +
+        `<circle cx="60" cy="24.7" r="1.8" fill="${k.paper}"/>` +
+        (k.detail ? line(k, 'M47 19 L46 13', 0.5) : ''),
+    },
   },
 
   /* ---------- 배경 ---------- */
@@ -153,6 +268,22 @@ export const PARTS = {
     bg_circle: {
       name: '연한 원',
       draw: (k) => `<circle cx="60" cy="60" r="58" fill="${k.L}" opacity=".5"/>`,
+    },
+    /* 상점 */
+    bg_stars: {
+      name: '별 무늬',
+      draw: (k) =>
+        `<circle cx="60" cy="60" r="58" fill="${k.L}" opacity=".5"/>` +
+        [[22, 32, 6], [97, 26, 7], [104, 64, 4.5], [15, 66, 4.5], [38, 12, 4], [84, 8, 3.5]]
+          .map(([x, y, r]) => spark(x, y, k.detail ? r : r * 1.3, k.ink)).join(''),
+    },
+    bg_elements: {
+      name: '원소 기호',
+      draw: (k) =>
+        `<circle cx="60" cy="60" r="58" fill="${k.L}" opacity=".5"/>` +
+        [[9, 26, 'H'], [94, 15, 'He'], [99, 52, 'C'], [6, 60, 'O']].map(([x, y, t]) =>
+          `<rect x="${x}" y="${y}" width="16" height="16" rx="3" fill="${k.paper}" stroke="${k.accent}" stroke-width="${(k.sw * 0.8).toFixed(2)}"/>` +
+          `<text x="${x + 8}" y="${y + 11.6}" text-anchor="middle" font-family="'Noto Sans KR', sans-serif" font-weight="900" font-size="${t.length > 1 ? 7.5 : 9}" fill="${k.accent}">${t}</text>`).join(''),
     },
   },
 };

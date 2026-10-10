@@ -10,9 +10,14 @@ on conflict (id) do nothing;
 
 -- 포인트 규칙 (7절)
 insert into public.settings (key, value) values
-  ('points', '{"pass_xp": 10, "pass_coins": 10, "rank_bonus": [10, 6, 3]}'::jsonb),
+  ('points', '{"pass_xp": 10, "pass_coins": 10, "rank_bonus": [10, 6, 3], "rank_bonus_coins": [10, 6, 3]}'::jsonb),
   ('level_thresholds', '[0, 30, 70, 120, 180, 250, 330, 420, 520, 630]'::jsonb)
 on conflict (key) do nothing;
+
+-- 순위 보너스 코인을 XP와 따로 정할 수 있게 (예전에 만든 설정이면 XP 보너스와 같은 값으로 채움)
+update public.settings
+set value = value || jsonb_build_object('rank_bonus_coins', coalesce(value -> 'rank_bonus', '[10, 6, 3]'::jsonb))
+where key = 'points' and not (value ? 'rank_bonus_coins');
 
 -- 검사 화면 빠른 피드백 버튼 (표가 비어 있을 때만)
 insert into public.feedback_presets (text, sort)
@@ -43,3 +48,27 @@ on conflict (id) do nothing;
 
 -- 캐릭터가 아직 없는 학생에게 무료 부품을 무작위로 (새 학생은 03의 트리거가 채움)
 update public.students set avatar = public._random_avatar() where avatar = '{}'::jsonb;
+
+-- 4단계: 상점 꾸미기 아이템 (가격·등급·레벨 조건·판매 여부는 관리 화면에서 바꾼다)
+insert into public.avatar_items (id, slot, name, price, rarity, min_level, sort) values
+  ('hair_spiky',     'hair',   '삐죽 머리',     30, 'common', 1,  11),
+  ('hair_long',      'hair',   '긴 생머리',     30, 'common', 1,  12),
+  ('hair_einstein',  'hair',   '아인슈타인 머리', 80, 'rare',   1,  13),
+  ('eyes_sparkle',   'eyes',   '반짝 눈',       80, 'rare',   1,  11),
+  ('mouth_tongue',   'mouth',  '혀 내밀기',     30, 'common', 1,  11),
+  ('outfit_labcoat', 'outfit', '실험복',       30, 'common', 1,  11),
+  ('outfit_space',   'outfit', '우주복',       80, 'rare',   1,  12),
+  ('acc_glasses',    'acc',    '보안경',       30, 'common', 1,  11),
+  ('acc_headphones', 'acc',    '헤드폰',       30, 'common', 1,  12),
+  ('acc_goggles',    'acc',    '실험 고글',     30, 'common', 1,  13),
+  ('acc_atom',       'acc',    '원자 배지',     30, 'common', 1,  14),
+  ('acc_crown',      'acc',    '왕관',        200, 'legend', 10, 15),
+  ('bg_stars',       'bg',     '별 무늬',       30, 'common', 1,  11),
+  ('bg_elements',    'bg',     '원소 기호',     80, 'rare',   1,  12)
+on conflict (id) do nothing;
+
+-- 4단계: 보상 (교사 승인 필요)
+insert into public.shop_items (id, name, cost, kind, sort) values
+  ('pair_ticket', '모둠 선택권', 50,  'pair',  1),
+  ('store',       '상점',       100, 'plain', 2)
+on conflict (id) do nothing;

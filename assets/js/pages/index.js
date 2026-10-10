@@ -113,7 +113,8 @@ async function showHome(login) {
     $('home-nick').textContent = me.nickname || '닉네임 미정';
     $('home-nick').classList.toggle('muted', !me.nickname);
     $('home-cls').textContent = `${me.class_id}반 · ${me.number}번 · Lv.${me.level.level}`;
-    $('go-me-sub').textContent = `레벨 ${me.level.level} · 코인 ${me.coins}`;
+    $('go-me-sub').textContent = `레벨 ${me.level.level}`;
+    $('go-shop-sub').textContent = `코인 ${me.coins}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
     try {
       if (me.month_rank) sessionStorage.setItem('me-mark', JSON.stringify({ c: me.class_id, r: me.month_rank, xp: me.month_xp }));

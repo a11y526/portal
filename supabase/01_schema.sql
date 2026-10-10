@@ -180,3 +180,42 @@ create table if not exists public.student_sessions (
   created_at timestamptz not null default now()
 );
 create index if not exists student_sessions_student_idx on public.student_sessions (student_id);
+
+-- ---------------------------------------------------------
+-- 4단계: 포인트 상점
+-- ---------------------------------------------------------
+
+-- 산 꾸미기 아이템 (사는 순간 point_events에 coins = -가격이 남는다)
+create table if not exists public.student_items (
+  student_id  uuid not null references public.students(id) on delete cascade,
+  item_id     text not null references public.avatar_items(id) on delete cascade,
+  acquired_at timestamptz not null default now(),
+  primary key (student_id, item_id)
+);
+
+-- 보상 품목 (교사 승인 필요). kind = 'pair'는 모둠 선택권(같이 할 친구 1명을 고름)
+create table if not exists public.shop_items (
+  id     text primary key,
+  name   text not null,
+  cost   int  not null default 0 check (cost >= 0),
+  kind   text not null default 'plain' check (kind in ('plain', 'pair')),
+  active boolean not null default true,
+  sort   int  not null default 0
+);
+
+-- 보상 신청. 신청할 때의 가격을 복사해 둔다. 'requested'·'approved'면 코인에서 빠지고, 거절되면 돌아온다
+-- partner_number: 모둠 선택권으로 고른 같은 반 친구 번호
+-- used_board_id: 모둠 선택권을 쓴 보드(그 보드 편성에서 두 학생이 같은 모둠으로 저장됨). null이면 아직 안 씀
+create table if not exists public.purchases (
+  id             uuid primary key default gen_random_uuid(),
+  student_id     uuid not null references public.students(id) on delete cascade,
+  item_id        text not null references public.shop_items(id) on delete cascade,
+  cost           int  not null check (cost >= 0),
+  status         text not null default 'requested' check (status in ('requested', 'approved', 'rejected')),
+  partner_number smallint null,
+  used_board_id  uuid null references public.boards(id) on delete set null,
+  requested_at   timestamptz not null default now(),
+  decided_at     timestamptz null
+);
+create index if not exists purchases_student_idx on public.purchases (student_id, requested_at desc);
+create index if not exists purchases_status_idx on public.purchases (status, requested_at);

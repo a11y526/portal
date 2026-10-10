@@ -6,6 +6,8 @@ import { PARTS, SLOTS, DEFAULTS } from './avatar-parts.js';
 
 const INK = '#15171C';
 const PAPER = '#fff';
+const ACCENT = '#2457E6'; // 희귀·전설 부품만
+const GOLD = '#D19A00';
 const SALT = Math.random().toString(36).slice(2, 6); // 무늬 id가 다른 캐릭터와 겹치지 않게
 let seq = 0;
 
@@ -30,6 +32,8 @@ function makeKit(size) {
     detail: size >= 64,
     ink: INK,
     paper: PAPER,
+    accent: ACCENT,
+    gold: GOLD,
     L: `url(#${id}-l)`,
     M: `url(#${id}-m)`,
     D: `url(#${id}-d)`,
@@ -87,13 +91,15 @@ function drawArm(k, sleeve) {
 }
 
 /* ---------- 조합 ---------- */
-export function avatarSVG(avatar, size = 96, { label = '캐릭터' } = {}) {
+// fresh: 방금 산 부품의 칸('hair' 등). 그 부품이 위에서 떨어지며 착용된다
+export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null } = {}) {
   const a = normalize(avatar);
   const k = makeKit(size);
   const P = (slot) => PARTS[slot][a[slot]];
   const face = P('face'), hair = P('hair'), eyes = P('eyes'), mouth = P('mouth');
   const outfit = P('outfit'), acc = P('acc'), bg = P('bg');
   const call = (fn) => (fn ? fn(k) : '');
+  const drop = (slot, markup) => (fresh === slot && markup ? `<g class="av-item-new">${markup}</g>` : markup);
 
   const blink = (4 + Math.random() * 3).toFixed(2);
   const blinkD = (-Math.random() * 6).toFixed(2);
@@ -103,18 +109,18 @@ export function avatarSVG(avatar, size = 96, { label = '캐릭터' } = {}) {
     ` stroke-linejoin="round" stroke-linecap="round" role="img" aria-label="${label}"` +
     ` style="--blink:${blink}s;--blink-d:${blinkD}s">` +
     `<defs>${patterns(k)}<clipPath id="${k.id}-clip"><path d="${clip}"/></clipPath></defs>` +
-    `<g class="av-bg">${call(bg.draw)}</g>` +
+    `<g class="av-bg">${drop('bg', call(bg.draw))}</g>` +
     `<g clip-path="url(#${k.id}-clip)">` +
-      `<g class="av-body">${call(outfit.behind)}${drawNeck(k)}${call(outfit.draw)}${acc.layer === 'body' ? call(acc.draw) : ''}</g>` +
+      `<g class="av-body">${call(outfit.behind)}${drawNeck(k)}${drop('outfit', call(outfit.draw))}${acc.layer === 'body' ? drop('acc', call(acc.draw)) : ''}</g>` +
       drawArm(k, outfit.sleeve) +
     `</g>` +
     `<g class="av-head">` +
-      call(hair.back) +
+      drop('hair', call(hair.back)) +
       drawFace(k, face, hair.ears !== false) +
-      `<g class="av-eyes">${call(eyes.draw)}</g>` +
-      call(mouth.draw) +
-      call(hair.front) +
-      (acc.layer !== 'body' ? call(acc.draw) : '') +
+      `<g class="av-eyes">${drop('eyes', call(eyes.draw))}</g>` +
+      drop('mouth', call(mouth.draw)) +
+      drop('hair', call(hair.front)) +
+      (acc.layer !== 'body' ? drop('acc', call(acc.draw)) : '') +
     `</g>` +
     `</svg>`;
 }
@@ -145,6 +151,7 @@ function addFx(svg, markup, ms) {
 }
 
 // kind: 'jump' 점프 · 'tilt' 고개 갸웃 · 'wave' 손 흔들기 · 'levelup' 회전 점프+반짝 · 'returned' 갸웃+물음표
+//       'sparkle' 반짝임만 (아이템을 산 뒤)
 export function react(svg, kind, { delay = 0 } = {}) {
   if (!svg) return;
   if (delay) { setTimeout(() => react(svg, kind), delay); return; }
@@ -156,8 +163,8 @@ export function react(svg, kind, { delay = 0 } = {}) {
       `<circle cx="97" cy="24.2" r="1.9" fill="${INK}"/></g>`, 1900);
     return;
   }
-  if (kind === 'levelup') {
-    replay(svg, 'av--levelup', DURATION.levelup);
+  if (kind === 'levelup' || kind === 'sparkle') {
+    if (kind === 'levelup') replay(svg, 'av--levelup', DURATION.levelup);
     const star = (x, y, r, d) =>
       `<path class="av-fx av-spark" style="--d:${d}s" d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r} Z" fill="${INK}"/>`;
     addFx(svg, star(18, 30, 7, 0.15) + star(104, 22, 9, 0.3) + star(108, 70, 6, 0.45) + star(12, 78, 8, 0.55), 1900);

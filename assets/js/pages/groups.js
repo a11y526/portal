@@ -4,6 +4,7 @@ import { CLASSES } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, getBoard, listStudents, getBoardGroups, setBoardGroups, countSubmissions, sendClassRefresh,
+  listPairTickets,
 } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
 
@@ -17,6 +18,7 @@ let board = null;
 let numbers = [];        // 이 반 명단 번호
 let excluded = new Set();
 let clusters = [];       // [[3, 12], [5, 9, 20]]
+let tickets = 0;         // 묶음에 자동으로 넣은 모둠 선택권 수
 let pending = new Set(); // 묶으려고 고른 번호
 let mode = 'exclude';
 let preview = null;      // 확정 전 편성 { groups, adjusted }
@@ -29,6 +31,15 @@ const store = {
 };
 
 const clusterOf = (n) => clusters.findIndex((c) => c.includes(n));
+
+// 두 번호를 같은 묶음으로 (이미 다른 묶음에 있으면 두 묶음을 합친다)
+function tie(a, b) {
+  const ia = clusterOf(a), ib = clusterOf(b);
+  if (ia !== -1 && ia === ib) return;
+  const merged = [...new Set([...(clusters[ia] ?? [a]), ...(clusters[ib] ?? [b])])].sort((x, y) => x - y);
+  clusters = clusters.filter((_, i) => i !== ia && i !== ib);
+  clusters.push(merged);
+}
 const groupCount = () => Math.min(20, Math.max(2, Number($('gcount').value) || 7));
 
 /* ---------- 반 고르기 ---------- */
@@ -51,6 +62,7 @@ async function pickClass(n) {
   renderTabs();
   excluded = new Set();
   clusters = [];
+  tickets = 0;
   pending = new Set();
   preview = null;
   saved = null;
@@ -80,6 +92,13 @@ async function load() {
 
   const [rows, subCount] = await Promise.all([getBoardGroups(board.id), countSubmissions(board.id)]);
   locked = subCount > 0 || board.status === 'revealed';
+  // 승인된 모둠 선택권(아직 안 썼거나 이 보드에서 쓴 것)은 함께 묶기에 자동으로
+  if (!locked) {
+    const pairs = (await listPairTickets(classId, board.id).catch(() => []))
+      .filter((t) => numbers.includes(t.number) && numbers.includes(t.partner_number) && t.number !== t.partner_number);
+    pairs.forEach((t) => tie(t.number, t.partner_number));
+    tickets = pairs.length;
+  }
   if (rows.length) {
     const max = rows.reduce((m, r) => Math.max(m, r.group_no), 0);
     saved = Array.from({ length: max }, (_, i) => rows.filter((r) => r.group_no === i + 1).map((r) => r.number).sort((a, b) => a - b));
@@ -106,7 +125,8 @@ function renderRoll() {
   }).join('');
 
   const active = numbers.length - excluded.size;
-  $('stats').textContent = `전체 ${numbers.length} · 결석 ${excluded.size} · 편성 ${active} · 묶음 ${clusters.length}`;
+  $('stats').textContent = `전체 ${numbers.length} · 결석 ${excluded.size} · 편성 ${active} · 묶음 ${clusters.length}` +
+    (tickets ? ` (모둠 선택권 ${tickets})` : '');
 
   $('cluster-bar').classList.toggle('hidden', mode !== 'cluster' || locked);
   const picked = [...pending].sort((a, b) => a - b);

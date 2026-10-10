@@ -52,6 +52,21 @@ export async function saveAvatar(token, avatar) {
   return unwrap(await need().rpc('save_avatar', { p_token: token, p_avatar: avatar }));
 }
 
+// 상점: 코인, 레벨, 캐릭터, 꾸미기 아이템(owned/locked), 입을 수 있는 부품, 보상, 신청 내역, 같은 반 번호
+export async function getShop(token) {
+  return unwrap(await need().rpc('get_shop', { p_token: token }));
+}
+
+// 꾸미기 아이템 사기: { ok: true, item_id, coins } 또는 error = 'NOT_FOR_SALE' | 'OWNED' | 'LEVEL' | 'NO_COINS'
+export async function buyAvatarItem(token, itemId) {
+  return unwrap(await need().rpc('buy_avatar_item', { p_token: token, p_item_id: itemId }));
+}
+
+// 보상 신청: { ok: true, coins, purchases } 또는 error = 'NOT_FOR_SALE' | 'BAD_PARTNER' | 'NO_COINS'
+export async function requestPurchase(token, itemId, partner = null) {
+  return unwrap(await need().rpc('request_purchase', { p_token: token, p_item_id: itemId, p_partner: partner }));
+}
+
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
 export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
@@ -191,6 +206,75 @@ export async function issueCodes(classId, onlyMissing) {
 
 export async function resetCode(studentId) {
   return unwrap(await need().rpc('reset_code', { p_student_id: studentId }));
+}
+
+/* ---------- 교사: 상점 ---------- */
+
+// 보상 신청 (status: 'requested'만, 또는 null이면 최근 것 전부)
+export async function listPurchases(status = 'requested', limit = 100) {
+  let q = need().from('purchases')
+    .select('id, item_id, cost, status, partner_number, used_board_id, requested_at, decided_at, item:shop_items(name, kind), student:students(class_id, number, nickname)')
+    .order('requested_at', { ascending: status === 'requested' })
+    .limit(limit);
+  if (status) q = q.eq('status', status);
+  return unwrap(await q);
+}
+
+export async function decidePurchase(id, approve) {
+  return unwrap(await need().rpc('decide_purchase', { p_id: id, p_approve: approve }));
+}
+
+// 그 반에서 승인됐고 아직 안 쓴 모둠 선택권 (boardId를 주면 그 보드에서 쓴 것도): [{ number, partner_number }]
+export async function listPairTickets(classId, boardId = null) {
+  const rows = unwrap(await need().from('purchases')
+    .select('partner_number, used_board_id, item:shop_items!inner(kind), student:students!inner(class_id, number, active)')
+    .eq('status', 'approved').eq('item.kind', 'pair').eq('student.class_id', classId).eq('student.active', true));
+  return rows
+    .filter((r) => r.partner_number && (!r.used_board_id || r.used_board_id === boardId))
+    .map((r) => ({ number: r.student.number, partner_number: r.partner_number }));
+}
+
+export async function listAvatarItems() {
+  return unwrap(await need().from('avatar_items')
+    .select('id, slot, name, price, rarity, min_level, active, sort')
+    .order('slot').order('sort').order('id'));
+}
+
+export async function updateAvatarItem(id, patch) {
+  unwrap(await need().from('avatar_items').update(patch).eq('id', id));
+}
+
+export async function listShopItems() {
+  return unwrap(await need().from('shop_items').select('id, name, cost, kind, active, sort').order('sort').order('id'));
+}
+
+export async function updateShopItem(id, patch) {
+  unwrap(await need().from('shop_items').update(patch).eq('id', id));
+}
+
+/* ---------- 교사: 포인트 규칙, 점수 직접 주기 ---------- */
+
+// { pass_xp, pass_coins, rank_bonus: [1위, 2위, 3위](XP), rank_bonus_coins: [...](코인) }
+export async function getPointRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'points'));
+  return rows[0]?.value ?? null;
+}
+
+export async function savePointRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'points', value }, { onConflict: 'key' }));
+}
+
+// 고른 학생들에게 XP·코인 (음수면 빼기). 결과: { ok, count }
+export async function grantPoints(studentIds, xp, coins, reason) {
+  return unwrap(await need().rpc('grant_points', { p_student_ids: studentIds, p_xp: xp, p_coins: coins, p_reason: reason }));
+}
+
+// 최근 직접 준 점수 (발표 지급·아이템 구매 제외)
+export async function listGrants(limit = 40) {
+  return unwrap(await need().from('point_events')
+    .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
+    .is('board_id', null).not('reason', 'like', '아이템:%')
+    .order('created_at', { ascending: false }).limit(limit));
 }
 
 /* ---------- 교사: 빠른 피드백 버튼 ---------- */

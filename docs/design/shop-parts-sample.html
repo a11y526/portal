@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상점 부품 예시</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/css/design.css">
+<link rel="stylesheet" href="../../assets/css/site.css">
+<style>
+  .s-wrap { max-width: 1120px; padding: 40px 24px 72px; gap: 28px; }
+  .s-wrap h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: -.02em; }
+  .s-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .s-card { border-radius: var(--r-lg); padding: 20px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .s-name { font-weight: 900; }
+  .s-meta { font-size: 13px; color: var(--ink-2); }
+  .s-sizes { display: flex; align-items: flex-end; gap: 12px; }
+</style>
+</head>
+<body>
+<main class="wrap s-wrap">
+  <h1>상점 부품 예시</h1>
+  <section class="s-grid" id="grid"></section>
+</main>
+<script type="module">
+  import { initUI } from '../../assets/js/ui.js';
+  import { avatarSVG, bindReactions } from '../../assets/js/avatar.js';
+  import { PARTS, SLOT_NAMES } from '../../assets/js/avatar-parts.js';
+
+  initUI();
+  bindReactions();
+
+  const base = { face: 'face_round', hair: 'hair_short', eyes: 'eyes_round', mouth: 'mouth_smile', outfit: 'outfit_tee', acc: 'acc_none', bg: 'bg_circle' };
+  const items = [
+    ['hair', 'hair_spiky', '일반'], ['hair', 'hair_long', '일반'], ['hair', 'hair_einstein', '희귀'],
+    ['eyes', 'eyes_sparkle', '희귀'], ['mouth', 'mouth_tongue', '일반'],
+    ['outfit', 'outfit_labcoat', '일반'], ['outfit', 'outfit_space', '희귀'],
+    ['acc', 'acc_glasses', '일반'], ['acc', 'acc_headphones', '일반'], ['acc', 'acc_goggles', '일반'],
+    ['acc', 'acc_atom', '일반'], ['acc', 'acc_crown', '전설 · Lv.10'],
+    ['bg', 'bg_stars', '일반'], ['bg', 'bg_elements', '희귀'],
+  ];
+
+  document.getElementById('grid').innerHTML = items.map(([slot, id, tier], i) => {
+    const a = { ...base, [slot]: id };
+    return `
+    <article class="s-card glass rise" style="--d:${i * 0.03}s">
+      ${avatarSVG(a, 200)}
+      <div class="s-name">${PARTS[slot][id].name}</div>
+      <div class="s-meta">${SLOT_NAMES[slot]} · ${tier}</div>
+      <div class="s-sizes">${avatarSVG(a, 96)}${avatarSVG(a, 48)}${avatarSVG(a, 40)}</div>
+    </article>`;
+  }).join('');
+</script>
+</body>
+</html>

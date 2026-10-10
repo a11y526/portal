@@ -54,6 +54,7 @@ function open(data) {
   renderLevel();
   renderStats();
   renderHistory();
+  renderPurchases();
   slot = null;
   renderWardrobe();
   checkLevelUp();
@@ -181,6 +182,28 @@ function renderHistory() {
         </span>
       </div>`;
   }).join('') : '<div class="empty"><strong>아직 받은 기록이 없어요</strong></div>';
+}
+
+const BUY_STATUS = {
+  requested: ['tag-pending', '승인 대기'],
+  approved: ['tag-done', '승인'],
+  rejected: ['tag-warn', '거절 · 코인 돌려받음'],
+};
+
+function renderPurchases() {
+  const list = me.purchases ?? [];
+  $('buys').classList.toggle('hidden', !list.length);
+  $('buy-list').innerHTML = list.map((p) => {
+    const [cls, label] = BUY_STATUS[p.status] ?? ['tag-off', p.status];
+    const extra = p.kind === 'pair' && p.partner_number ? ` · ${p.partner_number}번과 함께` : '';
+    const used = p.status === 'approved' && p.kind === 'pair' && p.used ? ' · 사용함' : '';
+    return `
+      <div class="hist-row">
+        <span class="hist-d num">${fmtDay(p.requested_at)}</span>
+        <span class="hist-w">${esc(p.name)}${esc(extra)}</span>
+        <span class="tag ${cls} buy-tag">${label}${used}</span>
+      </div>`;
+  }).join('');
 }
 
 /* ---------- 꾸미기 ---------- */

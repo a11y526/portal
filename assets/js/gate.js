@@ -11,8 +11,11 @@ export function errMsg(err) {
   if (/BOARD_REVEALED/.test(m)) return '이미 순위를 발표한 보드예요';
   if (/HAS_SUBMISSIONS/.test(m)) return '제출이 시작돼서 모둠을 바꿀 수 없어요';
   if (/NOT_REVEALED/.test(m)) return '아직 발표하지 않은 보드예요';
-  if (/NOT_PENDING/.test(m)) return '이미 처리한 닉네임 신청이에요';
+  if (/NOT_PENDING/.test(m)) return '이미 처리한 신청이에요';
   if (/NOT_TEACHER/.test(m)) return '교사 계정으로 로그인해 주세요';
+  if (/BAD_AMOUNT/.test(m)) return 'XP나 코인을 -1000~1000 사이로 넣어 주세요';
+  if (/BAD_REASON/.test(m)) return '사유를 1~40자로 써 주세요';
+  if (/NO_STUDENTS/.test(m)) return '학생을 골라 주세요';
   return '처리하지 못했어요: ' + m;
 }
 

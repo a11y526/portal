@@ -118,3 +118,26 @@ drop policy if exists student_sessions_teacher_all on public.student_sessions;
 create policy student_sessions_teacher_all on public.student_sessions
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 4단계: 포인트 상점 (학생은 03의 함수로만)
+-- ---------------------------------------------------------
+alter table public.student_items enable row level security;
+alter table public.shop_items    enable row level security;
+alter table public.purchases     enable row level security;
+revoke all on public.student_items, public.shop_items, public.purchases from anon;
+
+drop policy if exists student_items_teacher_all on public.student_items;
+create policy student_items_teacher_all on public.student_items
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists shop_items_teacher_all on public.shop_items;
+create policy shop_items_teacher_all on public.shop_items
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists purchases_teacher_all on public.purchases;
+create policy purchases_teacher_all on public.purchases
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

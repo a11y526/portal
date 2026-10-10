@@ -1,12 +1,15 @@
-// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#boards #roster #nick #lock #presets)
-// 보드 만들기(여러 반 한 번에)·오늘 보드 지정, 명단·코드 발급, 닉네임 승인, 반별 잠금, 빠른 피드백 버튼
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#boards #roster #nick #buys #shopset #grant #points #lock #presets)
+// 보드 만들기(여러 반 한 번에)·오늘 보드 지정, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setTodayBoard, toPadletEmbed,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
+  listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
+  getPointRules, savePointRules, grantPoints, listGrants,
 } from '../db.js';
+import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
 
 initUI();
@@ -494,6 +497,276 @@ $('nick-list').addEventListener('click', async (e) => {
   }
 });
 
+/* ---------- 구매 승인 ---------- */
+let buyReqs = [];
+let buyDone = [];
+
+const who = (p) => `${p.student?.class_id ?? '?'}반 ${p.student?.number ?? '?'}번`;
+const buyWhat = (p) => esc(p.item?.name ?? p.item_id) +
+  (p.item?.kind === 'pair' && p.partner_number ? ` · ${p.partner_number}번과 함께` : '');
+
+function renderBuys() {
+  $('buys-count').textContent = buyReqs.length ? String(buyReqs.length) : '';
+  $('buys-list').innerHTML = buyReqs.length ? buyReqs.map((p) => `
+    <div class="nick-row" data-bid="${p.id}">
+      <b class="num">${who(p)}</b>
+      <span class="new">${buyWhat(p)}</span>
+      <span class="old num">${p.cost}코인 · ${fmtDate(p.requested_at)}</span>
+      <span class="roster-btns">
+        <button type="button" class="btn btn-pass btn-small" data-approve>승인</button>
+        <button type="button" class="btn btn-danger btn-small" data-reject>거절</button>
+      </span>
+    </div>`).join('') : '<p class="muted" style="margin:0">기다리는 신청이 없어요</p>';
+  $('buys-done').innerHTML = buyDone.length ? buyDone.map((p) => {
+    const ok = p.status === 'approved';
+    const used = ok && p.item?.kind === 'pair' ? (p.used_board_id ? ' · 사용함' : ' · 아직 안 씀') : '';
+    return `
+    <div class="nick-row">
+      <b class="num">${who(p)}</b>
+      <span>${buyWhat(p)}</span>
+      <span class="old num">${p.cost}코인 · ${fmtDate(p.decided_at || p.requested_at)}</span>
+      <span class="tag ${ok ? 'tag-done' : 'tag-warn'} buy-tag">${ok ? '승인' : '거절 · 코인 돌려줌'}${used}</span>
+    </div>`;
+  }).join('') : '<p class="muted" style="margin:0">아직 처리한 신청이 없어요</p>';
+  updateHub();
+}
+
+async function refreshBuys(withDone = false) {
+  const [req, all] = await Promise.all([listPurchases('requested'), withDone ? listPurchases(null, 60) : null]);
+  buyReqs = req;
+  if (all) buyDone = all.filter((p) => p.status !== 'requested').slice(0, 30);
+  renderBuys();
+}
+
+$('buys-refresh').addEventListener('click', () => refreshBuys(true).catch((err) => toast(errMsg(err), 'error')));
+
+$('buys-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-approve], [data-reject]');
+  if (!btn) return;
+  const row = btn.closest('[data-bid]');
+  row.querySelectorAll('button').forEach((b) => { b.disabled = true; });
+  try {
+    await decidePurchase(row.dataset.bid, btn.hasAttribute('data-approve'));
+    await refreshBuys(true);
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    await refreshBuys(true).catch(() => {});
+  }
+});
+
+/* ---------- 상점 설정: 보상과 꾸미기 아이템의 가격·판매 여부·등급·레벨 조건 ---------- */
+let avItems = [];
+let rewards = [];
+let setSlot = 'hair';
+
+const RARITY_OPTS = [['common', '일반'], ['rare', '희귀'], ['legend', '전설']];
+
+function renderRewardsSet() {
+  $('set-rewards').innerHTML = rewards.map((r) => `
+    <div class="set-row set-reward" data-rid="${esc(r.id)}">
+      <input class="input" data-f="name" value="${esc(r.name)}" maxlength="20" aria-label="보상 이름">
+      <label class="set-num"><input class="input num" type="number" min="0" max="9999" data-f="cost" value="${r.cost}" aria-label="${esc(r.name)} 가격"><span>코인</span></label>
+      <label class="check"><input type="checkbox" data-f="active"${r.active ? ' checked' : ''}> 판매</label>
+    </div>`).join('') || '<p class="muted" style="margin:0">보상이 없어요</p>';
+}
+
+function renderItemsSet() {
+  const slots = SLOTS.filter((sl) => avItems.some((it) => it.slot === sl));
+  if (!slots.includes(setSlot)) setSlot = slots[0];
+  $('set-slot-tabs').innerHTML = slots.map((sl) => `
+    <button type="button" role="tab" class="cls-tab press${sl === setSlot ? ' on' : ''}" aria-selected="${sl === setSlot}" data-sslot="${sl}">${SLOT_NAMES[sl]}</button>`).join('');
+  $('set-items').innerHTML = avItems.filter((it) => it.slot === setSlot).map((it) => `
+    <div class="set-row set-item" data-aid="${esc(it.id)}">
+      <b class="set-name">${esc(it.name)}${PARTS[it.slot]?.[it.id] ? '' : ' <span class="tag tag-off">그림 없음</span>'}</b>
+      <label class="set-num"><input class="input num" type="number" min="0" max="9999" data-f="price" value="${it.price}" aria-label="${esc(it.name)} 가격"><span>코인</span></label>
+      <select class="input set-sel" data-f="rarity" aria-label="${esc(it.name)} 등급">
+        ${RARITY_OPTS.map(([v, t]) => `<option value="${v}"${it.rarity === v ? ' selected' : ''}>${t}</option>`).join('')}
+      </select>
+      <label class="set-num"><span>Lv.</span><input class="input num" type="number" min="1" max="99" data-f="min_level" value="${it.min_level}" aria-label="${esc(it.name)} 레벨 조건"></label>
+      <label class="check"><input type="checkbox" data-f="active"${it.active ? ' checked' : ''}> 판매</label>
+    </div>`).join('');
+}
+
+async function refreshShopSet() {
+  [avItems, rewards] = await Promise.all([listAvatarItems(), listShopItems()]);
+  renderRewardsSet();
+  renderItemsSet();
+}
+
+$('set-slot-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sslot]');
+  if (!b) return;
+  setSlot = b.dataset.sslot;
+  renderItemsSet();
+});
+
+// 칸을 바꾸면 바로 저장
+function fieldValue(el) {
+  if (el.type === 'checkbox') return el.checked;
+  if (el.type === 'number') {
+    const n = Math.round(Number(el.value));
+    const min = Number(el.min), max = Number(el.max);
+    return Number.isFinite(n) && el.value !== '' ? Math.min(max, Math.max(min, n)) : null;
+  }
+  return el.value.trim();
+}
+
+async function saveField(el, list, idKey, update) {
+  const row = el.closest(`[${idKey}]`);
+  const item = list.find((x) => x.id === row.getAttribute(idKey));
+  const f = el.dataset.f;
+  const v = fieldValue(el);
+  if (!item || v === null || v === '') { toast('값을 확인해 주세요', 'error'); return 'reset'; }
+  if (item[f] === v) return;
+  el.disabled = true;
+  try {
+    await update(item.id, { [f]: v });
+    item[f] = v;
+    toast('저장했어요', 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    return 'reset';
+  } finally {
+    el.disabled = false;
+  }
+}
+
+$('set-rewards').addEventListener('change', async (e) => {
+  if (!e.target.dataset.f) return;
+  if (await saveField(e.target, rewards, 'data-rid', updateShopItem) === 'reset') renderRewardsSet();
+});
+$('set-items').addEventListener('change', async (e) => {
+  if (!e.target.dataset.f) return;
+  if (await saveField(e.target, avItems, 'data-aid', updateAvatarItem) === 'reset') renderItemsSet();
+});
+
+/* ---------- 점수 주기: 고른 학생에게 XP·코인 (음수면 빼기) ---------- */
+let grantClass = CLASSES[0];
+let grantPick = new Set(); // 고른 학생 id
+
+const signed = (n, unit) => (n ? `${n > 0 ? '+' : '−'}${Math.abs(n)} ${unit}` : '');
+
+function grantRoster() {
+  return students.filter((s) => s.class_id === grantClass && s.active);
+}
+
+function renderGrant() {
+  $('grant-tabs').innerHTML = CLASSES.map((n) => `
+    <button type="button" role="tab" class="cls-tab press${n === grantClass ? ' on' : ''}" aria-selected="${n === grantClass}" data-gcls="${n}">${n}반</button>`).join('');
+  const list = grantRoster();
+  $('grant-roll').innerHTML = list.length ? list.map((s) => `
+    <button type="button" class="roll-chip num${grantPick.has(s.id) ? ' on' : ''}" aria-pressed="${grantPick.has(s.id)}" data-gsid="${s.id}">${s.number}</button>`).join('')
+    : '<p class="muted" style="margin:0">명단이 없어요</p>';
+  $('grant-count').textContent = grantPick.size ? `${grantPick.size}명 고름` : '';
+}
+
+$('grant-tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-gcls]');
+  if (!b) return;
+  grantClass = Number(b.dataset.gcls);
+  grantPick = new Set();
+  renderGrant();
+});
+$('grant-roll').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-gsid]');
+  if (!b) return;
+  grantPick.has(b.dataset.gsid) ? grantPick.delete(b.dataset.gsid) : grantPick.add(b.dataset.gsid);
+  renderGrant();
+});
+$('grant-all').addEventListener('click', () => { grantPick = new Set(grantRoster().map((s) => s.id)); renderGrant(); });
+$('grant-none').addEventListener('click', () => { grantPick = new Set(); renderGrant(); });
+
+$('grant-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const xp = Math.round(Number($('grant-xp').value) || 0);
+  const coins = Math.round(Number($('grant-coins').value) || 0);
+  const reason = $('grant-reason').value.trim();
+  if (!grantPick.size) return toast('학생을 골라 주세요', 'error');
+  if (!xp && !coins) return toast('XP나 코인을 넣어 주세요', 'error');
+  const nums = grantRoster().filter((s) => grantPick.has(s.id)).map((s) => s.number);
+  const what = [signed(xp, 'XP'), signed(coins, '코인')].filter(Boolean).join(', ');
+  if (!confirm(`${grantClass}반 ${nums.length}명(${nums.join(', ')}번)에게 ${what}\n사유: ${reason}`)) return;
+  const btn = $('grant-go');
+  btn.disabled = true;
+  try {
+    const res = await grantPoints([...grantPick], xp, coins, reason);
+    toast(`${res.count}명에게 줬어요`, 'ok');
+    grantPick = new Set();
+    $('grant-xp').value = 0;
+    $('grant-coins').value = 0;
+    $('grant-reason').value = '';
+    renderGrant();
+    await refreshGrants();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
+async function refreshGrants() {
+  const rows = await listGrants();
+  $('grant-log').innerHTML = rows.length ? rows.map((g) => `
+    <div class="nick-row">
+      <b class="num">${g.student?.class_id ?? '?'}반 ${g.student?.number ?? '?'}번</b>
+      <span>${esc(g.reason)}</span>
+      <span class="old num">${fmtDate(g.created_at)}</span>
+      <span class="grant-amt num">${[signed(g.xp, 'XP'), signed(g.coins, '코인')].filter(Boolean).join(' · ')}</span>
+    </div>`).join('') : '<p class="muted" style="margin:0">아직 직접 준 점수가 없어요</p>';
+}
+
+/* ---------- 포인트 규칙: 통과 기본·순위 보너스 (XP와 코인 따로) ---------- */
+let pointRules = null;
+
+function rulesFromForm() {
+  const f = $('points-form').elements;
+  const v = (k) => Math.min(1000, Math.max(0, Math.round(Number(f[k].value) || 0)));
+  return {
+    ...(pointRules ?? {}),
+    pass_xp: v('pass_xp'),
+    pass_coins: v('pass_coins'),
+    rank_bonus: [v('bx0'), v('bx1'), v('bx2')],
+    rank_bonus_coins: [v('bc0'), v('bc1'), v('bc2')],
+  };
+}
+
+function renderPointsSum() {
+  const r = rulesFromForm();
+  $('points-sum').textContent = [0, 1, 2].map((i) =>
+    `${i + 1}위 ${r.pass_xp + r.rank_bonus[i]} XP · ${r.pass_coins + r.rank_bonus_coins[i]}코인`).join('  /  ') +
+    `  /  그 밖의 통과 ${r.pass_xp} XP · ${r.pass_coins}코인`;
+}
+
+async function refreshPoints() {
+  const r = (await getPointRules()) ?? {};
+  const bx = r.rank_bonus ?? [10, 6, 3];
+  const bc = r.rank_bonus_coins ?? bx;
+  pointRules = r;
+  const f = $('points-form').elements;
+  f.pass_xp.value = r.pass_xp ?? 10;
+  f.pass_coins.value = r.pass_coins ?? 10;
+  [0, 1, 2].forEach((i) => { f['bx' + i].value = bx[i] ?? 0; f['bc' + i].value = bc[i] ?? 0; });
+  renderPointsSum();
+  const hub = $('hub-points');
+  if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
+}
+
+$('points-form').addEventListener('input', renderPointsSum);
+$('points-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const btn = e.currentTarget.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    await savePointRules(rulesFromForm());
+    await refreshPoints();
+    toast('저장했어요', 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 /* ---------- 빠른 피드백 버튼 ---------- */
 function renderPresets() {
   $('preset-list').innerHTML = presets.map((p) => `
@@ -574,6 +847,9 @@ function updateHub() {
   const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
   set('hub-presets', `버튼 ${presets.length}개`);
+  set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
+  $('hub-buys-badge').textContent = buyReqs.length;
+  $('hub-buys-badge').classList.toggle('hidden', !buyReqs.length);
 }
 
 function route() {
@@ -589,6 +865,15 @@ function route() {
   $('admin-h').textContent = open ? open.dataset.title : '관리';
   scrollTo(0, 0);
   if (key === 'nick') refreshNicks().catch(() => {});
+  loadPanel(key);
+}
+
+// 항목을 열 때 그 항목의 최신 내용 (로그인 전이면 조용히 넘어가고, 로그인 뒤 다시 부른다)
+function loadPanel(key) {
+  if (key === 'buys') refreshBuys(true).catch(() => {});
+  if (key === 'shopset') refreshShopSet().catch(() => {});
+  if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
+  if (key === 'points') refreshPoints().catch(() => {});
 }
 addEventListener('hashchange', route);
 route();
@@ -604,5 +889,6 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints()]).catch((err) => toast(errMsg(err), 'error'));
+  loadPanel(location.hash.slice(1));
 });

@@ -28,12 +28,15 @@ const fmtDate = (iso) => {
 const boardLabel = (b) => [`${b.lesson_code}차시`, b.title, fmtDate(b.created_at)].filter(Boolean).join(' · ');
 
 /* ---------- 시뮬레이션 링크 줄 ---------- */
+// %EC%82... 처럼 바뀐 주소를 한글로 보여 준다 (저장할 때 다시 확인)
+const readableUrl = (url) => { try { return decodeURI(url || '').normalize('NFC'); } catch { return url || ''; } };
+
 function addSimRow(container, sim = { name: '', url: '' }) {
   const row = document.createElement('div');
   row.className = 'sim-row';
   row.innerHTML = `
     <input class="input sim-name" placeholder="이름" value="${esc(sim.name)}" aria-label="시뮬레이션 이름">
-    <input class="input sim-url" placeholder="https://" value="${esc(sim.url)}" aria-label="시뮬레이션 주소">
+    <input class="input sim-url" placeholder="https://" value="${esc(readableUrl(sim.url))}" aria-label="시뮬레이션 주소">
     <button type="button" class="btn btn-line icon-btn sim-del" style="width:44px;height:44px;padding:0" aria-label="이 링크 지우기">
       <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
     </button>`;
@@ -41,8 +44,28 @@ function addSimRow(container, sim = { name: '', url: '' }) {
   container.append(row);
 }
 
-// 반환: 링크 배열, 잘못된 주소가 있으면 null
-function readSims(container) {
+// 같은 사이트(a11y526.github.io)의 주소가 열리는지 확인하고, 안 열리면 한글 파일 이름을 다른 방식으로 바꿔 본다.
+// 맥에서 올린 파일은 한글이 자모로 나뉜 이름(NFD)으로 저장돼, 보통 입력한 주소(NFC)로는 404가 난다.
+// 결과: { url, ok } (ok: true 열림, false 안 열림, null 다른 사이트라 확인 못 함)
+async function checkSimUrl(url) {
+  const u = new URL(url);
+  if (u.origin !== location.origin) return { url, ok: null };
+  const opens = async (x) => {
+    try { return (await fetch(x, { method: 'HEAD', cache: 'no-store' })).ok; } catch { return false; }
+  };
+  if (await opens(url)) return { url, ok: true };
+  let path;
+  try { path = decodeURIComponent(u.pathname); } catch { return { url, ok: false }; }
+  for (const form of ['NFD', 'NFC']) {
+    const alt = new URL(url);
+    alt.pathname = path.normalize(form);
+    if (alt.href !== u.href && await opens(alt.href)) return { url: alt.href, ok: true };
+  }
+  return { url, ok: false };
+}
+
+// 반환: 링크 배열, 잘못된 주소가 있거나 저장을 그만두면 null
+async function readSims(container) {
   const out = [];
   for (const row of container.querySelectorAll('.sim-row')) {
     const name = row.querySelector('.sim-name').value.trim();
@@ -54,7 +77,12 @@ function readSims(container) {
       row.querySelector('.sim-url').focus();
       return null;
     }
-    out.push({ name: name || new URL(url).hostname, url });
+    const chk = await checkSimUrl(url);
+    if (chk.ok === false && !confirm(`이 주소가 열리지 않아요(404). 그래도 저장할까요?\n${url}`)) {
+      row.querySelector('.sim-url').focus();
+      return null;
+    }
+    out.push({ name: name || new URL(url).hostname, url: chk.url });
   }
   return out;
 }
@@ -216,7 +244,7 @@ $('create').addEventListener('submit', async (e) => {
   const f = e.currentTarget;
   const lesson_code = f.lesson_code.value.trim();
   const title = f.elements.title.value.trim();
-  const sim_links = readSims(f.querySelector('[data-sims]'));
+  const sim_links = await readSims(f.querySelector('[data-sims]'));
   if (!sim_links) return;
 
   const items = [];
@@ -275,7 +303,7 @@ editForm.addEventListener('submit', async (e) => {
   const raw = editForm.padlet.value.trim();
   const padlet_src = raw ? toPadletEmbed(raw) : null;
   if (raw && !padlet_src) { toast('패들렛 주소를 확인해 주세요', 'error'); return; }
-  const sim_links = readSims(editForm.querySelector('[data-sims]'));
+  const sim_links = await readSims(editForm.querySelector('[data-sims]'));
   if (!sim_links) return;
   try {
     await updateBoard(editing.id, {

@@ -3,81 +3,302 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>1학년 과학</title>
+<meta name="robots" content="noindex">
+<title>관리</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="assets/css/design.css">
-<link rel="stylesheet" href="assets/css/site.css">
+<link rel="stylesheet" href="../assets/css/design.css">
+<link rel="stylesheet" href="../assets/css/site.css">
 </head>
 <body>
-<main class="wrap main-wrap">
-  <div class="main-top">
-    <div class="glass pill brand">
-      <svg class="draw" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#2457E6" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7 15h10"/></svg>
-      1학년 과학
-    </div>
-    <div class="top-links">
-      <a class="nav-link glass lift" href="rank.html" id="top-rank">이번 달 순위</a>
-      <button type="button" class="nav-link glass lift hidden" id="logout">로그아웃</button>
-    </div>
-  </div>
-
-  <!-- 로그인 -->
-  <section class="login-view hidden" id="v-login" aria-labelledby="login-h">
-    <h1 class="main-title rise" id="login-h">로그인</h1>
-    <form class="login-box glass-strong rise" style="--d:.06s" id="login-form" autocomplete="off">
-      <div class="field">
-        <span>반</span>
-        <div class="login-classes" id="cls-pick" role="radiogroup" aria-label="반"></div>
+<main class="wrap admin-wrap">
+  <!-- 관리 (로그인과 교사 확인은 gate.js) -->
+  <div id="v-admin" style="display:flex;flex-direction:column;gap:24px">
+    <div class="admin-top">
+      <div class="admin-title">
+        <a class="icon-btn glass lift hidden" href="#" id="hub-back" aria-label="관리 첫 화면으로"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></a>
+        <h1 id="admin-h">관리</h1>
       </div>
-      <div class="login-row">
-        <label class="field"><span>번호</span>
-          <input id="num-in" class="code-input num-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="2" required>
-        </label>
-        <label class="field"><span>내 코드 6자리</span>
-          <input id="code-in" class="code-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="● ● ● ● ● ●" required>
-        </label>
-      </div>
-      <button class="btn btn-primary btn-big press" type="submit">로그인</button>
-    </form>
-    <div class="guest rise" style="--d:.12s">
-      <span class="guest-label">코드 없이 수업 보기</span>
-      <nav class="guest-links" id="guest" aria-label="코드 없이 수업 보기"></nav>
+      <button class="btn btn-line" type="button" data-logout>로그아웃</button>
     </div>
-  </section>
 
-  <!-- 로그인 뒤 -->
-  <section class="home hidden" id="v-home">
-    <div class="home-me glass-strong rise">
-      <div class="home-av" id="home-av"></div>
-      <h1 class="home-nick" id="home-nick"></h1>
-      <span class="chip" id="home-cls"></span>
-    </div>
-    <nav class="home-menu" aria-label="메뉴">
-      <a class="home-item glass glass-live lift rise" style="--d:.06s" id="go-class" href="#">
-        <span class="home-ic" aria-hidden="true"><svg class="draw" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></span>
-        <span class="home-txt"><b>수업</b><span id="go-class-sub"></span></span>
-        <span class="home-go" aria-hidden="true">›</span>
+    <!-- 첫 화면: 항목 -->
+    <nav class="hub" id="hub" aria-label="관리 항목">
+      <a class="hub-item hub-start glass glass-live lift rise" href="#lessons">
+        <b>수업 시작</b><span id="hub-lessons">차시 고르기 · 수업 모드</span>
       </a>
-      <a class="home-item glass glass-live lift rise" style="--d:.12s" href="me.html">
-        <span class="home-ic" aria-hidden="true"><svg class="draw" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
-        <span class="home-txt"><b>마이페이지</b><span id="go-me-sub"></span></span>
-        <span class="home-go" aria-hidden="true">›</span>
+      <a class="hub-item glass glass-live lift rise" style="--d:.02s" href="#boards">
+        <b>보드</b><span id="hub-boards">오늘 보드 · 보드 만들기 · 목록</span>
       </a>
-      <a class="home-item glass glass-live lift rise" style="--d:.18s" href="shop.html">
-        <span class="home-ic" aria-hidden="true"><svg class="draw" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16l-1.2 10.2A2 2 0 0 1 16.8 21H7.2a2 2 0 0 1-2-1.8z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></svg></span>
-        <span class="home-txt"><b>상점</b><span id="go-shop-sub"></span></span>
-        <span class="home-go" aria-hidden="true">›</span>
+      <a class="hub-item glass glass-live lift rise" style="--d:.04s" href="#roster">
+        <b>명단과 코드</b><span id="hub-roster"></span>
       </a>
-      <a class="home-item glass glass-live lift rise" style="--d:.24s" href="rank.html">
-        <span class="home-ic" aria-hidden="true"><svg class="draw" width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h3v1a3 3 0 0 1-3 3"/><path d="M7 6H4v1a3 3 0 0 0 3 3"/></svg></span>
-        <span class="home-txt"><b>이번 달 순위</b><span id="go-rank-sub"></span></span>
-        <span class="home-go" aria-hidden="true">›</span>
+      <a class="hub-item glass glass-live lift rise" style="--d:.08s" href="#nick">
+        <b>닉네임 승인</b><span id="hub-nick"></span><em class="hub-badge hidden" id="hub-nick-badge"></em>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.1s" href="#buys">
+        <b>구매 승인</b><span id="hub-buys"></span><em class="hub-badge hidden" id="hub-buys-badge"></em>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.11s" href="#shopset">
+        <b>상점 설정</b><span id="hub-shopset">가격 · 판매 여부 · 레벨 조건</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.115s" href="#grant">
+        <b>점수 주기</b><span>XP · 코인 직접 주기</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.118s" href="#points">
+        <b>포인트 규칙</b><span id="hub-points">통과 · 순위 보너스</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.119s" href="#data">
+        <b>기록 내보내기 · 정리</b><span>CSV · 학기말 보드 보관</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.12s" href="#lock">
+        <b>반별 잠금</b><span id="hub-lock"></span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.16s" href="#presets">
+        <b>빠른 피드백 버튼</b><span id="hub-presets"></span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.2s" href="groups.html">
+        <b>모둠 편성</b><span>그날 모둠 무작위</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.24s" href="check.html">
+        <b>검사</b><span>제출 확인 · 통과 · 다시</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.28s" href="reveal.html">
+        <b>순위 발표</b><span>프로젝터 화면</span>
+      </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.32s" href="../index.html" target="_blank" rel="noopener">
+        <b>학생 화면</b><span>새 탭에서 열기 ↗</span>
       </a>
     </nav>
-  </section>
+
+    <div class="panel hidden" data-panel="lessons" data-title="수업 시작">
+      <div class="lesson-list" id="lesson-list"></div>
+      <form class="card glass rise lesson-add" id="lesson-add" autocomplete="off" aria-labelledby="h-lesson-add">
+        <h2 id="h-lesson-add">차시 추가</h2>
+        <div class="grid-2">
+          <label class="field"><span>차시</span><input class="input num" name="code" placeholder="612" maxlength="10" required></label>
+          <label class="field"><span>제목</span><input class="input" name="title" maxlength="60"></label>
+        </div>
+        <div><button class="btn btn-line" type="submit">+ 차시 추가</button></div>
+      </form>
+    </div>
+
+    <div class="panel hidden" data-panel="boards" data-title="보드">
+    <section class="card glass rise" aria-labelledby="h-today">
+      <h2 id="h-today">오늘 보드</h2>
+      <div class="today-list" id="today-list"></div>
+    </section>
+
+
+    <form class="card glass rise" style="--d:.06s" id="create" aria-labelledby="h-create">
+      <h2 id="h-create">보드 만들기</h2>
+      <div class="grid-2">
+        <label class="field"><span>차시</span><input class="input" name="lesson_code" placeholder="523" required></label>
+        <label class="field"><span>제목</span><input class="input" name="title"></label>
+      </div>
+
+      <div class="field">
+        <span>시뮬레이션 링크</span>
+        <div class="sim-rows" data-sims></div>
+        <div><button type="button" class="btn btn-line btn-small" data-add-sim>+ 링크 추가</button></div>
+      </div>
+
+      <div class="field">
+        <span>반별 패들렛 주소</span>
+        <div class="padlet-rows" id="padlet-rows"></div>
+        <div><button type="button" class="btn btn-line btn-small" id="copy-first">첫 주소를 모든 반에 복사</button></div>
+      </div>
+
+      <label class="check"><input type="checkbox" name="set_today" checked> 만들고 바로 오늘 보드로 지정</label>
+      <div><button class="btn btn-primary" type="submit">보드 만들기</button></div>
+    </form>
+
+    <section class="card glass rise" style="--d:.12s" aria-labelledby="h-boards">
+      <h2 id="h-boards">보드 목록</h2>
+      <div class="board-groups" id="board-groups"></div>
+    </section>
+    </div>
+
+    <section class="card glass rise panel hidden" data-panel="nick" data-title="닉네임 승인" aria-labelledby="h-nick">
+      <div class="card-head">
+        <h2 id="h-nick">닉네임 승인 <span class="muted num" id="nick-count"></span></h2>
+        <button type="button" class="btn btn-line btn-small" id="nick-refresh">새로 고침</button>
+      </div>
+      <div class="nick-list" id="nick-list"></div>
+    </section>
+
+    <div class="panel hidden" data-panel="buys" data-title="구매 승인">
+      <section class="card glass rise" aria-labelledby="h-buys">
+        <div class="card-head">
+          <h2 id="h-buys">기다리는 신청 <span class="muted num" id="buys-count"></span></h2>
+          <button type="button" class="btn btn-line btn-small" id="buys-refresh">새로 고침</button>
+        </div>
+        <div class="nick-list" id="buys-list"></div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-buys-done">
+        <h2 id="h-buys-done">최근 처리</h2>
+        <div class="nick-list" id="buys-done"></div>
+      </section>
+    </div>
+
+    <div class="panel hidden" data-panel="shopset" data-title="상점 설정">
+      <section class="card glass rise" aria-labelledby="h-rewards">
+        <h2 id="h-rewards">보상</h2>
+        <div class="set-list" id="set-rewards"></div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-items">
+        <h2 id="h-items">꾸미기 아이템</h2>
+        <p class="muted" style="margin:0">가격 0은 누구나 입을 수 있는 기본 부품이에요.</p>
+        <div class="cls-tabs" id="set-slot-tabs" role="tablist" aria-label="부품"></div>
+        <div class="set-list" id="set-items"></div>
+      </section>
+    </div>
+
+    <div class="panel hidden" data-panel="grant" data-title="점수 주기">
+      <form class="card glass rise" id="grant-form" autocomplete="off" aria-labelledby="h-grant">
+        <h2 id="h-grant">학생 고르기</h2>
+        <div class="cls-tabs" id="grant-tabs" role="tablist" aria-label="반"></div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-line btn-small" id="grant-all">반 전체</button>
+          <button type="button" class="btn btn-line btn-small" id="grant-none">선택 해제</button>
+          <span class="muted num" id="grant-count"></span>
+        </div>
+        <div class="roll" id="grant-roll"></div>
+        <div class="grant-fields">
+          <label class="set-num"><span>XP</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-xp" value="0"></label>
+          <label class="set-num"><span>코인</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-coins" value="0"></label>
+          <label class="field grant-reason"><span>사유</span><input class="input" id="grant-reason" maxlength="40" required></label>
+        </div>
+        <div><button class="btn btn-primary" type="submit" id="grant-go">주기</button></div>
+      </form>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-grant-log">
+        <h2 id="h-grant-log">최근 준 점수</h2>
+        <div class="nick-list" id="grant-log"></div>
+      </section>
+    </div>
+
+    <form class="card glass rise panel hidden" data-panel="points" data-title="포인트 규칙" id="points-form" aria-labelledby="h-points">
+      <h2 id="h-points">포인트 규칙</h2>
+      <p class="muted" style="margin:0">순위 발표 때 통과한 모둠의 모둠원 모두에게 줘요. 이미 발표한 보드에는 적용되지 않아요.</p>
+      <div class="points-grid">
+        <span></span><b>XP</b><b>코인</b>
+        <span>모둠활동 통과</span>
+        <input class="input num" type="number" min="0" max="1000" name="pass_xp" aria-label="통과 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="pass_coins" aria-label="통과 코인" required>
+        <span>1위 보너스</span>
+        <input class="input num" type="number" min="0" max="1000" name="bx0" aria-label="1위 보너스 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc0" aria-label="1위 보너스 코인" required>
+        <span>2위 보너스</span>
+        <input class="input num" type="number" min="0" max="1000" name="bx1" aria-label="2위 보너스 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc1" aria-label="2위 보너스 코인" required>
+        <span>3위 보너스</span>
+        <input class="input num" type="number" min="0" max="1000" name="bx2" aria-label="3위 보너스 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc2" aria-label="3위 보너스 코인" required>
+      </div>
+      <p class="muted num" style="margin:0" id="points-sum"></p>
+      <h2 id="h-levels" style="margin-top:8px">레벨 기준</h2>
+      <p class="muted" style="margin:0">누적 XP가 이 값 이상이면 그 레벨이에요. 마지막 레벨 다음은 마지막 간격에 10씩 더해 이어져요.</p>
+      <div class="level-grid" id="level-grid" aria-labelledby="h-levels"></div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-line btn-small" id="level-add">+ 레벨 추가</button>
+        <button type="button" class="btn btn-line btn-small" id="level-del">마지막 레벨 빼기</button>
+      </div>
+      <div><button class="btn btn-primary" type="submit">저장</button></div>
+    </form>
+
+    <div class="panel hidden" data-panel="data" data-title="기록 내보내기 · 정리">
+      <section class="card glass rise" aria-labelledby="h-csv">
+        <h2 id="h-csv">CSV 내보내기</h2>
+        <p class="muted" style="margin:0">학생은 반·번호·닉네임으로 나와요.</p>
+        <div class="row-actions">
+          <button type="button" class="btn btn-primary btn-small" id="csv-points">점수 원장 CSV</button>
+          <button type="button" class="btn btn-line btn-small" id="csv-buys">구매 내역 CSV</button>
+        </div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-archive">
+        <h2 id="h-archive">학기말 정리</h2>
+        <p class="muted" style="margin:0">보관한 보드는 보드 목록과 수업 시작에서 빠져요. 제출과 점수 기록은 그대로 남고, 언제든 되돌릴 수 있어요. 오늘 보드는 보관하지 않아요.</p>
+        <div class="row-actions">
+          <button type="button" class="btn btn-primary btn-small" id="archive-all">오늘 보드 말고 모두 보관</button>
+          <span class="muted num" id="archive-count"></span>
+        </div>
+      </section>
+      <section class="card glass rise" style="--d:.12s" aria-labelledby="h-archived">
+        <h2 id="h-archived">보관한 보드 <span class="muted num" id="archived-count"></span></h2>
+        <div class="board-groups" id="archived-groups"></div>
+      </section>
+    </div>
+
+    <section class="card glass rise panel hidden" data-panel="lock" data-title="반별 잠금" aria-labelledby="h-lock">
+      <h2 id="h-lock">반별 잠금</h2>
+      <p class="muted" style="margin:0">잠긴 반은 로그인할 수 없고, 잠그면 로그인해 있던 학생도 모두 로그아웃돼요.</p>
+      <div class="lock-list" id="lock-list"></div>
+    </section>
+
+    <section class="card glass rise panel hidden" data-panel="roster" data-title="명단과 코드" aria-labelledby="h-roster">
+      <h2 id="h-roster">명단과 코드</h2>
+      <form class="roster-size" id="roster-size">
+        <span class="roster-size-label">반별 마지막 번호</span>
+        <div class="roster-size-grid" id="roster-size-grid"></div>
+        <div><button class="btn btn-line btn-small" type="submit">명단 저장</button></div>
+      </form>
+      <div class="cls-tabs" id="roster-tabs" role="tablist" aria-label="반"></div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary btn-small" id="issue-missing">코드 없는 학생 발급</button>
+        <button type="button" class="btn btn-line btn-small" id="issue-all">반 전체 다시 발급</button>
+        <span class="muted roster-count num" id="roster-count"></span>
+      </div>
+      <div class="roster" id="roster-list"></div>
+
+    </section>
+
+    <section class="card glass rise panel hidden" data-panel="presets" data-title="빠른 피드백 버튼" aria-labelledby="h-presets">
+      <h2 id="h-presets">빠른 피드백 버튼</h2>
+      <div class="preset-list" id="preset-list"></div>
+      <form class="preset-add" id="preset-form">
+        <input class="input" name="text" maxlength="30" required aria-label="새 피드백 버튼 문구">
+        <button class="btn btn-line" type="submit">추가</button>
+      </form>
+    </section>
+  </div>
+
+  <!-- 발급한 코드 (이 창에서만 볼 수 있음) -->
+  <dialog class="sheet" id="codes-dlg">
+    <div class="card glass-strong">
+      <h2 id="codes-title">코드</h2>
+      <p class="muted" style="margin:0">이 창을 닫으면 코드를 다시 볼 수 없어요</p>
+      <div class="codes-preview num" id="codes-preview"></div>
+      <div class="row-actions">
+        <button class="btn btn-primary" type="button" id="codes-print">A4로 인쇄</button>
+        <button class="btn btn-line" type="button" id="codes-close">닫기</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 보드 수정 -->
+  <dialog class="sheet" id="edit">
+    <form class="card glass-strong" method="dialog" id="edit-form">
+      <h2 id="edit-title">보드 수정</h2>
+      <div class="grid-2">
+        <label class="field"><span>차시</span><input class="input" name="lesson_code" required></label>
+        <label class="field"><span>제목</span><input class="input" name="title"></label>
+      </div>
+      <label class="field"><span>패들렛 주소</span><input class="input" name="padlet"></label>
+      <div class="hint muted" id="edit-hint" style="font-size:13px;word-break:break-all"></div>
+      <div class="field">
+        <span>시뮬레이션 링크</span>
+        <div class="sim-rows" data-sims></div>
+        <div><button type="button" class="btn btn-line btn-small" data-add-sim>+ 링크 추가</button></div>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-primary" type="submit" value="save">저장</button>
+        <button class="btn btn-line" type="button" id="edit-cancel">취소</button>
+      </div>
+    </form>
+  </dialog>
 </main>
-<script type="module" src="assets/js/pages/index.js"></script>
+<div class="print-sheet" id="print-sheet" aria-hidden="true"></div>
+<script type="module" src="../assets/js/pages/teacher.js"></script>
 </body>
 </html>

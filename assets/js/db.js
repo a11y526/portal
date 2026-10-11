@@ -126,8 +126,21 @@ export async function listClasses() {
   return unwrap(await need().from('classes').select('id, label, today_board_id, locked').order('id'));
 }
 
+// 쓰는 중인 보드 (보관한 보드는 빠짐)
 export async function listBoards() {
-  return unwrap(await need().from('boards').select('*').order('created_at', { ascending: false }).limit(300));
+  return unwrap(await need().from('boards').select('*').is('archived_at', null)
+    .order('created_at', { ascending: false }).limit(300));
+}
+
+export async function listArchivedBoards() {
+  return unwrap(await need().from('boards').select('id, class_id, lesson_code, title, status, created_at, archived_at')
+    .not('archived_at', 'is', null).order('created_at', { ascending: false }).limit(500));
+}
+
+// 보관(on = true) 또는 되돌리기
+export async function archiveBoards(ids, on = true) {
+  if (!ids.length) return;
+  unwrap(await need().from('boards').update({ archived_at: on ? new Date().toISOString() : null }).in('id', ids));
 }
 
 // items: [{ class_id, padlet_src }]
@@ -264,6 +277,16 @@ export async function savePointRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'points', value }, { onConflict: 'key' }));
 }
 
+// 레벨 기준(누적 XP): [0, 30, 70, …] = Lv.1부터
+export async function getLevelThresholds() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'level_thresholds'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveLevelThresholds(value) {
+  unwrap(await need().from('settings').upsert({ key: 'level_thresholds', value }, { onConflict: 'key' }));
+}
+
 // 고른 학생들에게 XP·코인 (음수면 빼기). 결과: { ok, count }
 export async function grantPoints(studentIds, xp, coins, reason) {
   return unwrap(await need().rpc('grant_points', { p_student_ids: studentIds, p_xp: xp, p_coins: coins, p_reason: reason }));
@@ -275,6 +298,29 @@ export async function listGrants(limit = 40) {
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
     .is('board_id', null).not('reason', 'like', '아이템:%')
     .order('created_at', { ascending: false }).limit(limit));
+}
+
+/* ---------- 교사: CSV 내보내기용 전체 기록 (1000줄씩 나눠 읽음) ---------- */
+
+async function readAll(build) {
+  const out = [];
+  for (let from = 0; ; from += 1000) {
+    const rows = unwrap(await build().range(from, from + 999));
+    out.push(...rows);
+    if (rows.length < 1000) return out;
+  }
+}
+
+export async function exportPointEvents() {
+  return readAll(() => need().from('point_events')
+    .select('id, xp, coins, reason, board_id, created_at, student:students(class_id, number, nickname)')
+    .order('created_at').order('id'));
+}
+
+export async function exportPurchases() {
+  return readAll(() => need().from('purchases')
+    .select('id, cost, status, partner_number, requested_at, decided_at, item:shop_items(name), student:students(class_id, number, nickname)')
+    .order('requested_at').order('id'));
 }
 
 /* ---------- 교사: 빠른 피드백 버튼 ---------- */

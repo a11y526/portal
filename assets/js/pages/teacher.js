@@ -1,5 +1,6 @@
-// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #roster #nick #buys #shopset #grant #points #lock #presets)
-// 수업 시작(차시 창 → 반 → 수업 모드), 보드 만들기(여러 반 한 번에)·오늘 보드 지정, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정, 반별 잠금, 빠른 피드백 버튼
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #roster #nick #buys #shopset #grant #points #data #lock #presets)
+// 수업 시작(차시 창 → 반 → 수업 모드), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정,
+// 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
@@ -7,7 +8,8 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, grantPoints, listGrants,
+  getPointRules, savePointRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
 } from '../db.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
@@ -144,6 +146,8 @@ $('today-list').addEventListener('change', async (e) => {
 });
 
 /* ---------- 보드 목록 ---------- */
+const isToday = (b) => classes.some((c) => c.today_board_id === b.id);
+
 function renderBoards() {
   const todayIds = new Set(classes.map((c) => c.today_board_id).filter(Boolean));
   const groups = new Map();
@@ -159,6 +163,7 @@ function renderBoards() {
   $('board-groups').innerHTML = [...groups.entries()].map(([key, list]) => {
     list.sort((a, b) => a.class_id - b.class_id);
     const allToday = list.every((b) => todayIds.has(b.id));
+    const anyToday = list.some((b) => todayIds.has(b.id));
     return `
       <div class="board-group">
         <header>
@@ -167,6 +172,8 @@ function renderBoards() {
           <button type="button" class="btn btn-line btn-small" style="margin-left:auto" data-group-today="${esc(key)}" ${allToday ? 'disabled' : ''}>
             ${allToday ? '모두 오늘 보드' : '이 차시를 오늘 보드로'}
           </button>
+          <button type="button" class="btn btn-line btn-small" data-group-archive="${esc(key)}" ${allToday ? 'disabled' : ''}
+            ${anyToday ? 'title="오늘 보드는 빼고 보관해요"' : ''}>보관</button>
         </header>
         ${list.map((b) => `
           <div class="board-item">
@@ -184,6 +191,7 @@ function renderBoards() {
 
 $('board-groups').addEventListener('click', async (e) => {
   const groupBtn = e.target.closest('[data-group-today]');
+  const archiveBtn = e.target.closest('[data-group-archive]');
   const editBtn = e.target.closest('[data-edit]');
   const delBtn = e.target.closest('[data-del]');
 
@@ -197,6 +205,18 @@ $('board-groups').addEventListener('click', async (e) => {
       for (const b of list) if (!latest.has(b.class_id)) latest.set(b.class_id, b);
       for (const b of latest.values()) await setTodayBoard(b.class_id, b.id);
       toast(`${[...latest.keys()].sort((a, b) => a - b).join(', ')}반 오늘 보드를 바꿨어요`, 'ok');
+    } catch (err) { toast(errMsg(err), 'error'); }
+    await refresh();
+  }
+
+  if (archiveBtn) {
+    const key = archiveBtn.dataset.groupArchive;
+    const ids = boards.filter((b) => `${b.lesson_code}|${b.title}` === key && !isToday(b)).map((b) => b.id);
+    if (!ids.length) return;
+    archiveBtn.disabled = true;
+    try {
+      await archiveBoards(ids);
+      toast(`보드 ${ids.length}개를 보관했어요`, 'ok');
     } catch (err) { toast(errMsg(err), 'error'); }
     await refresh();
   }
@@ -766,7 +786,34 @@ function renderPointsSum() {
     `  /  그 밖의 통과 ${r.pass_xp} XP · ${r.pass_coins}코인`;
 }
 
+/* 레벨 기준: Lv.1은 0 고정, 다음 레벨은 앞 레벨보다 커야 한다 */
+const DEFAULT_LEVELS = [0, 30, 70, 120, 180, 250, 330, 420, 520, 630];
+let savedLevels = DEFAULT_LEVELS;
+
+function renderLevels(list) {
+  $('level-grid').innerHTML = list.map((v, i) => `
+    <label class="set-num"><span>Lv.${i + 1}</span><input class="input num" type="number" min="0" max="100000" step="1"
+      data-lv="${i}" value="${v}" ${i === 0 ? 'disabled' : 'required'} aria-label="레벨 ${i + 1} 시작 XP"></label>`).join('');
+  $('level-del').disabled = list.length <= 2;
+}
+
+const levelsFromForm = () => [...$('level-grid').querySelectorAll('[data-lv]')]
+  .map((el, i) => (i === 0 ? 0 : Math.max(0, Math.round(Number(el.value) || 0))));
+
+$('level-add').addEventListener('click', () => {
+  const l = levelsFromForm();
+  const gap = l.length >= 2 ? l[l.length - 1] - l[l.length - 2] + 10 : 30;
+  renderLevels([...l, l[l.length - 1] + gap]);
+});
+$('level-del').addEventListener('click', () => {
+  const l = levelsFromForm();
+  if (l.length > 2) renderLevels(l.slice(0, -1));
+});
+
 async function refreshPoints() {
+  const lv = await getLevelThresholds();
+  savedLevels = Array.isArray(lv) && lv.length >= 2 ? lv.map(Number) : DEFAULT_LEVELS;
+  renderLevels(savedLevels);
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -784,9 +831,20 @@ $('points-form').addEventListener('input', renderPointsSum);
 $('points-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const btn = e.currentTarget.querySelector('[type="submit"]');
+  const levels = levelsFromForm();
+  const bad = levels.findIndex((v, i) => i > 0 && v <= levels[i - 1]);
+  if (bad > 0) {
+    toast(`Lv.${bad + 1}은 Lv.${bad}보다 커야 해요`, 'error');
+    $('level-grid').querySelector(`[data-lv="${bad}"]`).focus();
+    return;
+  }
+  // 기준을 올리면 지금 레벨이 내려가는 학생이 생길 수 있다 (레벨은 누적 XP로 그때그때 계산)
+  const raised = levels.some((v, i) => i < savedLevels.length && v > savedLevels[i]) || levels.length < savedLevels.length;
+  if (raised && !confirm('레벨 기준을 올리거나 줄이면 지금 레벨이 내려가는 학생이 생길 수 있어요. 저장할까요?')) return;
   btn.disabled = true;
   try {
     await savePointRules(rulesFromForm());
+    if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
     toast('저장했어요', 'ok');
   } catch (err) {
@@ -794,6 +852,114 @@ $('points-form').addEventListener('submit', async (e) => {
   } finally {
     btn.disabled = false;
   }
+});
+
+/* ---------- CSV 내보내기 ---------- */
+// 시각은 한국 시간 'YYYY-MM-DD HH:MM'. 엑셀에서 한글이 깨지지 않게 맨 앞에 BOM
+const KST = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Seoul', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' });
+const kst = (iso) => (iso ? KST.format(new Date(iso)) : '');
+const cell = (v) => {
+  if (typeof v === 'number') return String(v);
+  let t = String(v ?? '');
+  if (/^[=+\-@]/.test(t)) t = "'" + t; // 시트가 수식으로 읽지 않게
+  return /[",\r\n]/.test(t) ? `"${t.replace(/"/g, '""')}"` : t;
+};
+
+function downloadCSV(name, header, rows) {
+  const text = '\uFEFF' + [header, ...rows].map((r) => r.map(cell).join(',')).join('\r\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([text], { type: 'text/csv;charset=utf-8' }));
+  a.download = name;
+  document.body.append(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+const todayKST = () => kst(new Date().toISOString()).slice(0, 10);
+const studentCols = (st) => [st?.class_id ?? '', st?.number ?? '', st?.nickname ?? ''];
+
+function eventKind(e) {
+  if (e.board_id) return '순위 발표';
+  if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
+  return '직접 줌';
+}
+
+async function runExport(btn, job) {
+  btn.disabled = true;
+  try { await job(); } catch (err) { toast(errMsg(err), 'error'); } finally { btn.disabled = false; }
+}
+
+$('csv-points').addEventListener('click', (e) => runExport(e.currentTarget, async () => {
+  const rows = await exportPointEvents();
+  downloadCSV(`점수원장_${todayKST()}.csv`, ['시각', '반', '번호', '닉네임', 'XP', '코인', '종류', '사유'],
+    rows.map((r) => [kst(r.created_at), ...studentCols(r.student), r.xp, r.coins, eventKind(r), r.reason]));
+  toast(`${rows.length}줄을 내보냈어요`, 'ok');
+}));
+
+const BUY_STATUS = { requested: '신청', approved: '승인', rejected: '거절' };
+$('csv-buys').addEventListener('click', (e) => runExport(e.currentTarget, async () => {
+  const rows = await exportPurchases();
+  downloadCSV(`구매내역_${todayKST()}.csv`, ['신청 시각', '반', '번호', '닉네임', '품목', '코인', '상태', '함께할 친구 번호', '처리 시각'],
+    rows.map((r) => [kst(r.requested_at), ...studentCols(r.student), r.item?.name ?? '', r.cost, BUY_STATUS[r.status] ?? r.status, r.partner_number ?? '', kst(r.decided_at)]));
+  toast(`${rows.length}줄을 내보냈어요`, 'ok');
+}));
+
+/* ---------- 학기말 정리: 보드 보관 ---------- */
+let archived = [];
+
+function renderArchive() {
+  const left = boards.filter((b) => !isToday(b)).length;
+  $('archive-count').textContent = left ? `보관할 보드 ${left}개` : '보관할 보드가 없어요';
+  $('archive-all').disabled = !left;
+  $('archived-count').textContent = archived.length ? `${archived.length}개` : '';
+  const groups = new Map();
+  for (const b of archived) {
+    const key = `${b.lesson_code}|${b.title}`;
+    if (!groups.has(key)) groups.set(key, []);
+    groups.get(key).push(b);
+  }
+  $('archived-groups').innerHTML = groups.size ? [...groups.values()].map((list) => {
+    list.sort((a, b) => a.class_id - b.class_id);
+    return `
+      <div class="board-group">
+        <header>
+          <b>${esc(list[0].lesson_code)}차시${list[0].title ? ' · ' + esc(list[0].title) : ''}</b>
+          <span class="muted num" style="font-size:13px">${fmtDate(list[0].created_at)} · ${list.map((b) => b.class_id + '반').join(', ')}</span>
+          <button type="button" class="btn btn-line btn-small" style="margin-left:auto" data-unarchive="${list.map((b) => b.id).join(',')}">되돌리기</button>
+        </header>
+      </div>`;
+  }).join('') : '<p class="muted" style="margin:0">보관한 보드가 없어요</p>';
+}
+
+async function refreshArchive() {
+  archived = await listArchivedBoards();
+  renderArchive();
+}
+
+$('archive-all').addEventListener('click', async (e) => {
+  const ids = boards.filter((b) => !isToday(b)).map((b) => b.id);
+  if (!ids.length || !confirm(`오늘 보드를 뺀 보드 ${ids.length}개를 보관할까요?`)) return;
+  const btn = e.currentTarget;
+  btn.disabled = true;
+  try {
+    await archiveBoards(ids);
+    toast(`보드 ${ids.length}개를 보관했어요`, 'ok');
+  } catch (err) { toast(errMsg(err), 'error'); }
+  await refresh();
+  await refreshArchive().catch(() => {});
+});
+
+$('archived-groups').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-unarchive]');
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    await archiveBoards(btn.dataset.unarchive.split(','), false);
+    toast('보드 목록으로 되돌렸어요', 'ok');
+  } catch (err) { toast(errMsg(err), 'error'); }
+  await refresh();
+  await refreshArchive().catch(() => {});
 });
 
 /* ---------- 빠른 피드백 버튼 ---------- */
@@ -1064,6 +1230,7 @@ function loadPanel(key) {
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
   if (key === 'points') refreshPoints().catch(() => {});
+  if (key === 'data') refreshArchive().catch(() => {});
 }
 addEventListener('hashchange', route);
 route();
@@ -1075,6 +1242,7 @@ async function refresh() {
   renderBoards();
   renderLocks();
   renderLessons();
+  if (location.hash === '#data') renderArchive();
 }
 
 renderCreateForm();

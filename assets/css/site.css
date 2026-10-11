@@ -806,6 +806,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .points-grid { display: grid; grid-template-columns: minmax(96px, auto) minmax(0, 120px) minmax(0, 120px); gap: 8px 12px; align-items: center; justify-content: start; }
 .points-grid > b { font-size: 14px; color: var(--ink-2); }
 .points-grid > span { font-weight: 700; }
+.level-grid { display: flex; flex-wrap: wrap; gap: 8px 16px; }
 
 /* ---------- 수업 모드 덮개 안(embed=1)의 모둠 편성·순위 발표 ---------- */
 .embed .groups-top > a.icon-btn, .embed #cls-tabs, .embed .ready-top { display: none; }

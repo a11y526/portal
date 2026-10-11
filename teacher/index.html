@@ -49,6 +49,9 @@
       <a class="hub-item glass glass-live lift rise" style="--d:.118s" href="#points">
         <b>포인트 규칙</b><span id="hub-points">통과 · 순위 보너스</span>
       </a>
+      <a class="hub-item glass glass-live lift rise" style="--d:.119s" href="#data">
+        <b>기록 내보내기 · 정리</b><span>CSV · 학기말 보드 보관</span>
+      </a>
       <a class="hub-item glass glass-live lift rise" style="--d:.12s" href="#lock">
         <b>반별 잠금</b><span id="hub-lock"></span>
       </a>
@@ -194,8 +197,38 @@
         <input class="input num" type="number" min="0" max="1000" name="bc2" aria-label="3위 보너스 코인" required>
       </div>
       <p class="muted num" style="margin:0" id="points-sum"></p>
+      <h2 id="h-levels" style="margin-top:8px">레벨 기준</h2>
+      <p class="muted" style="margin:0">누적 XP가 이 값 이상이면 그 레벨이에요. 마지막 레벨 다음은 마지막 간격에 10씩 더해 이어져요.</p>
+      <div class="level-grid" id="level-grid" aria-labelledby="h-levels"></div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-line btn-small" id="level-add">+ 레벨 추가</button>
+        <button type="button" class="btn btn-line btn-small" id="level-del">마지막 레벨 빼기</button>
+      </div>
       <div><button class="btn btn-primary" type="submit">저장</button></div>
     </form>
+
+    <div class="panel hidden" data-panel="data" data-title="기록 내보내기 · 정리">
+      <section class="card glass rise" aria-labelledby="h-csv">
+        <h2 id="h-csv">CSV 내보내기</h2>
+        <p class="muted" style="margin:0">학생은 반·번호·닉네임으로 나와요.</p>
+        <div class="row-actions">
+          <button type="button" class="btn btn-primary btn-small" id="csv-points">점수 원장 CSV</button>
+          <button type="button" class="btn btn-line btn-small" id="csv-buys">구매 내역 CSV</button>
+        </div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-archive">
+        <h2 id="h-archive">학기말 정리</h2>
+        <p class="muted" style="margin:0">보관한 보드는 보드 목록과 수업 시작에서 빠져요. 제출과 점수 기록은 그대로 남고, 언제든 되돌릴 수 있어요. 오늘 보드는 보관하지 않아요.</p>
+        <div class="row-actions">
+          <button type="button" class="btn btn-primary btn-small" id="archive-all">오늘 보드 말고 모두 보관</button>
+          <span class="muted num" id="archive-count"></span>
+        </div>
+      </section>
+      <section class="card glass rise" style="--d:.12s" aria-labelledby="h-archived">
+        <h2 id="h-archived">보관한 보드 <span class="muted num" id="archived-count"></span></h2>
+        <div class="board-groups" id="archived-groups"></div>
+      </section>
+    </div>
 
     <section class="card glass rise panel hidden" data-panel="lock" data-title="반별 잠금" aria-labelledby="h-lock">
       <h2 id="h-lock">반별 잠금</h2>

@@ -108,7 +108,7 @@ async function showHome(login) {
       toast('다시 로그인해 주세요', 'error');
       return showLogin();
     }
-    const svg = mountAvatar($('home-av'), me.avatar, 240, { label: '내 캐릭터' });
+    const svg = mountAvatar($('home-av'), me.avatar, 240, { label: '내 캐릭터', live: true });
     react(svg, 'wave', { delay: 500 });
     $('home-nick').textContent = me.nickname || '닉네임 미정';
     $('home-nick').classList.toggle('muted', !me.nickname);

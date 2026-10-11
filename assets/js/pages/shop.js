@@ -52,7 +52,7 @@ const lockedOf = (it) => !it.owned && it.min_level > level();
 /* ---------- 위쪽: 내 캐릭터 + 코인 + 입어 보기 ---------- */
 function renderHero(fresh = null) {
   const look = trying ? { ...wearing, [trying.slot]: trying.id } : wearing;
-  heroSvg = mountAvatar($('hero-av'), look, 200, { label: '내 캐릭터', fresh });
+  heroSvg = mountAvatar($('hero-av'), look, 200, { label: '내 캐릭터', fresh, live: true });
 }
 
 function renderTryBar() {

@@ -95,7 +95,8 @@ function drawArm(k, sleeve) {
 
 /* ---------- 조합 ---------- */
 // fresh: 방금 산 부품의 칸('hair' 등). 그 부품이 위에서 떨어지며 착용된다
-export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null } = {}) {
+// live: 숨쉬기·눈 깜빡임을 하는 캐릭터(내 캐릭터, 1~3위). 여러 명이 한꺼번에 보이는 곳은 끄고 반응 모션만
+export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null, live = false } = {}) {
   const a = normalize(avatar);
   const k = makeKit(size);
   const P = (slot) => PARTS[slot][a[slot]];
@@ -104,13 +105,12 @@ export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null
   const call = (fn) => (fn ? fn(k) : '');
   const drop = (slot, markup) => (fresh === slot && markup ? `<g class="av-item-new">${markup}</g>` : markup);
 
-  const blink = (4 + Math.random() * 3).toFixed(2);
-  const blinkD = (-Math.random() * 6).toFixed(2);
+  if (live) startBlinking();
   const clip = `M-30 -40 H150 V60 H118 A58 58 0 0 1 2 60 H-30 Z`; // 위는 열고 아래는 배경 원을 따라 자름
 
-  return `<svg class="av" viewBox="0 0 120 120" width="${size}" height="${size}" overflow="visible"` +
+  return `<svg class="av${live ? ' av-live' : ''}" viewBox="0 0 120 120" width="${size}" height="${size}" overflow="visible"` +
     ` stroke-linejoin="round" stroke-linecap="round" role="img" aria-label="${label}"` +
-    ` style="--blink:${blink}s;--blink-d:${blinkD}s">` +
+    (live ? ` style="--breathe-d:${(-Math.random() * 3).toFixed(2)}s"` : '') + `>` +
     `<defs>${patterns(k)}<clipPath id="${k.id}-clip"><path d="${clip}"/></clipPath></defs>` +
     `<g class="av-bg">${drop('bg', call(bg.draw))}</g>` +
     `<g clip-path="url(#${k.id}-clip)">` +
@@ -131,6 +131,25 @@ export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null
 export function mountAvatar(host, avatar, size = 96, opts = {}) {
   host.innerHTML = avatarSVG(avatar, size, opts);
   return host.querySelector('svg.av');
+}
+
+/* ---------- 눈 깜빡임 ----------
+   무한 CSS 애니메이션 대신, 1초마다 살펴서 차례가 된 캐릭터(.av-live)만 4~7초에 한 번 짧게 깜빡인다 */
+let blinkTimer = null;
+const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
+
+function startBlinking() {
+  if (blinkTimer || reduceMotion) return;
+  blinkTimer = setInterval(() => {
+    if (document.hidden || lite()) return;
+    const now = performance.now();
+    document.querySelectorAll('svg.av-live').forEach((svg) => {
+      if (!svg._blinkAt) { svg._blinkAt = now + 1000 + Math.random() * 5000; return; }
+      if (now < svg._blinkAt) return;
+      svg._blinkAt = now + 4000 + Math.random() * 3000;
+      replay(svg, 'av--blink', 200);
+    });
+  }, 1000);
 }
 
 /* ---------- 반응 모션 ---------- */

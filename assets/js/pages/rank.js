@@ -6,9 +6,9 @@ import { avatarSVG, react, setDance, bindReactions } from '../avatar.js';
 
 initUI({
   orbs: [
-    { color: 'blue',  size: 600, left: '-200px', top: '-220px', depth: 28 },
-    { color: 'peach', size: 520, right: '-180px', top: '80px', depth: -22 },
-    { color: 'violet', size: 480, left: '25%', top: '640px', depth: 16 },
+    { color: 'blue',  size: 600, left: '-200px', top: '-220px' },
+    { color: 'peach', size: 520, right: '-180px', top: '80px' },
+    { color: 'violet', size: 480, left: '25%', top: '640px' },
   ],
 });
 bindReactions();
@@ -41,7 +41,7 @@ function podiumSlot(r) {
     <div class="pod" data-rank="${top}" style="--ring:${RING[top]}">
       <div class="pod-top">
         ${top === 1 ? CROWN : ''}
-        <span class="pod-av">${avatarSVG(r.avatar, top === 1 ? 96 : 80, { label: r.nickname || '캐릭터' })}</span>
+        <span class="pod-av">${avatarSVG(r.avatar, top === 1 ? 96 : 80, { label: r.nickname || '캐릭터', live: true })}</span>
         <span class="pod-name">${nameOf(r)}</span>
         <span class="chip">${r.class_id}반</span>
         <span class="pod-xp"><span class="num" data-xp="${r.xp}">0</span><small> XP</small></span>

@@ -7,9 +7,9 @@ import { teacherGate, errMsg } from '../gate.js';
 
 initUI({
   orbs: [
-    { color: 'blue',   size: 600, left: '-200px', top: '-220px', depth: 24 },
-    { color: 'peach',  size: 520, right: '-180px', top: '80px', depth: -18 },
-    { color: 'violet', size: 480, left: '25%', bottom: '-260px', depth: 12 },
+    { color: 'blue',   size: 600, left: '-200px', top: '-220px' },
+    { color: 'peach',  size: 520, right: '-180px', top: '80px' },
+    { color: 'violet', size: 480, left: '25%', bottom: '-260px' },
   ],
 });
 

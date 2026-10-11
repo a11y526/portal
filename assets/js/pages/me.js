@@ -61,7 +61,7 @@ function open(data) {
 }
 
 function renderHero() {
-  heroSvg = mountAvatar($('hero-av'), draft, 200, { label: '내 캐릭터' });
+  heroSvg = mountAvatar($('hero-av'), draft, 200, { label: '내 캐릭터', live: true });
 }
 
 function renderNick() {

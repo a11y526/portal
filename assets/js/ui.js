@@ -1,4 +1,4 @@
-// 공통 UI: 저사양 감지, 배경 오브 + 시차, 유리 하이라이트, 아이콘 그리기, 토스트, 카운트업
+// 공통 UI: 저사양 감지, 배경 오브, 유리 하이라이트, 아이콘 그리기, 토스트, 카운트업
 
 const root = document.documentElement;
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
@@ -48,9 +48,9 @@ const calm = () => isLite || reduceMotion;
 
 /* ---------- 배경 오브 ---------- */
 const DEFAULT_ORBS = [
-  { color: 'blue',   size: 540, left: '-160px', top: '-180px', depth: 28 },
-  { color: 'violet', size: 470, right: '-140px', top: '160px', depth: -22 },
-  { color: 'mint',   size: 430, left: '28%', bottom: '-230px', depth: 16 },
+  { color: 'blue',   size: 540, left: '-160px', top: '-180px' },
+  { color: 'violet', size: 470, right: '-140px', top: '160px' },
+  { color: 'mint',   size: 430, left: '28%', bottom: '-230px' },
 ];
 
 function mountBackground(orbs = DEFAULT_ORBS) {
@@ -65,7 +65,6 @@ function mountBackground(orbs = DEFAULT_ORBS) {
       width: o.size + 'px', height: o.size + 'px',
       left: o.left ?? '', right: o.right ?? '', top: o.top ?? '', bottom: o.bottom ?? '',
     });
-    wrap.style.setProperty('--depth', o.depth + 'px');
     const orb = document.createElement('div');
     orb.className = 'orb ' + o.color;
     wrap.append(orb);
@@ -75,46 +74,27 @@ function mountBackground(orbs = DEFAULT_ORBS) {
   return bg;
 }
 
-/* ---------- 시차 + 유리 하이라이트 ---------- */
-function bindPointer(bg) {
+/* ---------- 유리 하이라이트 ----------
+   배경 시차는 쓰지 않는다: 배경이 움직이면 위의 유리 카드가 매번 다시 흐려진다(6단계) */
+function bindPointer() {
   if (calm()) return;
-  let px = 0, py = 0, queued = false, liveEl = null, mx = 0, my = 0;
+  let queued = false, liveEl = null, mx = 0, my = 0;
   const flush = () => {
     queued = false;
-    if (isLite) return; // 재 보니 느린 기기면 시차·하이라이트를 멈춘다
-    bg.style.setProperty('--px', px.toFixed(3));
-    bg.style.setProperty('--py', py.toFixed(3));
-    if (liveEl) {
-      liveEl.style.setProperty('--mx', mx + '%');
-      liveEl.style.setProperty('--my', my + '%');
-    }
+    if (isLite || !liveEl) return; // 재 보니 느린 기기면 하이라이트를 멈춘다
+    liveEl.style.setProperty('--mx', mx + '%');
+    liveEl.style.setProperty('--my', my + '%');
   };
-  const queue = () => { if (!queued) { queued = true; requestAnimationFrame(flush); } };
 
   addEventListener('pointermove', (e) => {
-    if (e.pointerType === 'mouse') {
-      px = (e.clientX / innerWidth) * 2 - 1;
-      py = (e.clientY / innerHeight) * 2 - 1;
-    }
     const el = e.target.closest?.('.glass-live');
     liveEl = el;
-    if (el) {
-      const r = el.getBoundingClientRect();
-      mx = Math.round(((e.clientX - r.left) / r.width) * 100);
-      my = Math.round(((e.clientY - r.top) / r.height) * 100);
-    }
-    queue();
+    if (!el) return;
+    const r = el.getBoundingClientRect();
+    mx = Math.round(((e.clientX - r.left) / r.width) * 100);
+    my = Math.round(((e.clientY - r.top) / r.height) * 100);
+    if (!queued) { queued = true; requestAnimationFrame(flush); }
   }, { passive: true });
-
-  // 휴대폰·태블릿 기울기 (권한이 필요 없는 기기에서만)
-  if ('DeviceOrientationEvent' in window && typeof DeviceOrientationEvent.requestPermission !== 'function') {
-    addEventListener('deviceorientation', (e) => {
-      if (e.gamma == null) return;
-      px = Math.max(-1, Math.min(1, e.gamma / 30));
-      py = Math.max(-1, Math.min(1, (e.beta - 45) / 30));
-      queue();
-    }, { passive: true });
-  }
 }
 
 /* ---------- 아이콘 선 그리기 ---------- */
@@ -172,8 +152,8 @@ export function esc(s) {
 /* ---------- 시작 ---------- */
 // measure: 처음 2초 프레임 재기 (교사 화면은 끔. 프로젝터 PC가 수업자료를 불러오는 동안 느려져도 가볍게 바뀌지 않게)
 export function initUI({ orbs, measure = !location.pathname.includes('/teacher/') } = {}) {
-  const bg = mountBackground(orbs);
-  bindPointer(bg);
+  mountBackground(orbs);
+  bindPointer();
   prepareDraw();
   if (measure) measureFrames();
 }

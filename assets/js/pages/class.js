@@ -192,7 +192,7 @@ function renderMates(members, state) {
     matesKey = key;
     box.innerHTML = list.map((m) => `
       <figure class="mate${m.me ? ' me' : ''}">
-        ${avatarSVG(m.avatar, 48, { label: m.nickname || '모둠원' })}
+        ${avatarSVG(m.avatar, 48, { label: m.nickname || '모둠원', live: !!m.me })}
         <figcaption>${m.me ? '나' : (m.nickname ? esc(m.nickname) : '닉네임 미정')}</figcaption>
       </figure>`).join('');
     box.classList.remove('hidden');

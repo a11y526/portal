@@ -9,9 +9,9 @@ import { teacherGate, errMsg } from '../gate.js';
 
 initUI({
   orbs: [
-    { color: 'blue',   size: 320, left: '-120px', top: '-100px', depth: 18 },
-    { color: 'violet', size: 300, right: '-140px', top: '360px', depth: -14 },
-    { color: 'mint',   size: 260, left: '40px', bottom: '-120px', depth: 10 },
+    { color: 'blue',   size: 320, left: '-120px', top: '-100px' },
+    { color: 'violet', size: 300, right: '-140px', top: '360px' },
+    { color: 'mint',   size: 260, left: '40px', bottom: '-120px' },
   ],
 });
 

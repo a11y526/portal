@@ -232,3 +232,56 @@ create table if not exists public.lessons (
   sort       int  not null default 0,
   created_at timestamptz not null default now()
 );
+
+-- ---------------------------------------------------------
+-- 6단계: 학기말 정리
+-- ---------------------------------------------------------
+
+-- 보관한 보드: 관리 화면 목록·수업 시작에서 빠진다. 제출·점수 기록은 그대로 남는다(null = 쓰는 중)
+alter table public.boards add column if not exists archived_at timestamptz null;
+
+-- ---------------------------------------------------------
+-- 7단계: 수업 중 빈칸 답 → XP
+-- ---------------------------------------------------------
+
+-- 수업 모드에서 연 질문 (수업자료 한 쪽의 빈칸 전부). 같은 보드·같은 쪽을 다시 열면 새 행
+-- items: [{key, no, kind: 'auto'|'teacher', type: 'blank'|'choice'|'sym'|'text', prompt, options?, answers: [정답, 허용 답…]}]
+create table if not exists public.quizzes (
+  id        uuid primary key default gen_random_uuid(),
+  board_id  uuid not null references public.boards(id) on delete cascade,
+  slide_no  smallint not null,
+  items     jsonb not null default '[]'::jsonb,
+  status    text not null default 'open' check (status in ('open', 'closed', 'graded')),
+  opened_at timestamptz not null default now(),
+  closed_at timestamptz null
+);
+create index if not exists quizzes_board_time_idx on public.quizzes (board_id, opened_at desc);
+-- 열린 질문은 보드마다 1개
+create unique index if not exists quizzes_one_open_idx on public.quizzes (board_id) where status = 'open';
+
+-- 학생 답. result: {key: true/false} (자동 채점은 낼 때, 교사 체크는 검사 화면에서)
+create table if not exists public.quiz_answers (
+  quiz_id      uuid not null references public.quizzes(id) on delete cascade,
+  student_id   uuid not null references public.students(id) on delete cascade,
+  answers      jsonb not null default '{}'::jsonb,
+  result       jsonb null,
+  submitted_at timestamptz not null default now(),
+  updated_at   timestamptz not null default now(),
+  primary key (quiz_id, student_id)
+);
+
+-- 빈칸 XP는 board_id를 비우고 quiz_id로 묶는다 (발표 지급·발표 취소와 섞이지 않게). 한 질문에 한 학생 한 번
+alter table public.point_events add column if not exists quiz_id uuid null references public.quizzes(id) on delete set null;
+create unique index if not exists point_events_quiz_once_idx on public.point_events (student_id, quiz_id) where quiz_id is not null;
+
+-- 수업 모드 제출 수가 실시간으로 바뀌도록
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'quiz_answers'
+     ) then
+    alter publication supabase_realtime add table public.quiz_answers;
+  end if;
+end $$;

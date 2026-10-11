@@ -24,7 +24,23 @@
     </header>
     <p class="check-lesson" id="lesson"></p>
 
-    <div class="check-list">
+    <nav class="check-tabs glass" aria-label="검사 종류">
+      <button type="button" class="check-tab press on" data-tab="subs" aria-pressed="true">모둠 제출</button>
+      <button type="button" class="check-tab press" data-tab="quiz" aria-pressed="false">빈칸 <span class="num qz-badge hidden" id="qz-badge"></span></button>
+    </nav>
+
+    <!-- 빈칸: 마감된 질문의 답을 같은 답끼리 묶어 맞음/틀림 → XP 주기 -->
+    <div class="check-list hidden" id="quiz-pane">
+      <label class="class-pick glass press qz-pick hidden" id="qz-pick-wrap">
+        <select id="qz-pick" aria-label="질문 선택"></select>
+        <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+      </label>
+      <div class="glass check-note hidden" id="qz-note"></div>
+      <div class="qc-list" id="qz-items"></div>
+      <div class="qc-foot hidden" id="qz-foot"></div>
+    </div>
+
+    <div class="check-list" id="subs-pane">
       <div class="glass check-note hidden" id="note"></div>
       <div class="pending-list" id="pending"></div>
       <div class="glass check-note hidden" id="no-pending">기다리는 제출이 없어요</div>

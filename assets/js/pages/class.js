@@ -3,7 +3,7 @@
 // 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw } from '../ui.js';
-import { sb, getClassPage, submitGroup, onClassRefresh, sendClassRefresh } from '../db.js';
+import { sb, getClassPage, submitGroup, submitQuiz, onClassRefresh, sendClassRefresh } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 
@@ -307,6 +307,209 @@ async function onSubmit(btn) {
   await load();
 }
 
+/* ---------- 빈칸 질문 (수업 중 선생님이 열면 맨 위에) ----------
+   쓰는 중인 답은 기기에 임시 저장(quiz-<id>). 보내다 실패하면 연결되면 자동으로 다시 보낸다.
+   맞았는지는 선생님이 XP를 준 뒤('graded')에만 온다. 이 화면에서 질문을 본 적이 있을 때만 결과를 띄운다
+   (새로고침하거나 다음 질문이 열리면 사라짐) */
+
+const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
+const circled = (n) => CIRCLED[n - 1] ?? `(${n})`;
+const QUIZ_ERR = {
+  TIMEOUT: '응답이 없어요. 다시 내 주세요',
+  NO_SESSION: '다시 로그인해 주세요',
+  CLOSED: '마감됐어요',
+  GONE: '질문이 바뀌었어요',
+};
+
+const store = {
+  get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch {} },
+  del(k) { try { localStorage.removeItem(k); } catch {} },
+};
+
+const quizSeen = new Set();   // 이 화면에서 열려 있거나 마감된 상태로 본 질문
+let quizKey;
+let quizNow = null;
+let quizDraft = {};           // { k1: '답', ... } 지금 입력칸의 답
+let quizSending = false;
+let quizLeveled = new Set();
+
+const draftOf = (id) => store.get(`quiz-${id}`);   // { answers, pending: 보내다 실패해 다시 보낼 것 }
+const saveDraft = (id, pending) => store.set(`quiz-${id}`, { answers: quizDraft, pending });
+
+// 같은 문장의 빈칸(단어)은 문장 하나 아래에 칸을 나란히
+function quizGroups(items) {
+  const out = [];
+  items.forEach((it) => {
+    const last = out[out.length - 1];
+    if (it.type === 'blank' && last?.type === 'blank' && last.prompt === it.prompt) last.items.push(it);
+    else out.push({ type: it.type, prompt: it.prompt, items: [it] });
+  });
+  return out;
+}
+
+function quizField(it, locked, graded) {
+  const v = quizDraft[it.key] ?? '';
+  const mark = graded ? (graded.result?.[it.key] ? '<span class="qa-mark is-ok" aria-label="맞음">○</span>' : '<span class="qa-mark is-no" aria-label="틀림">✕</span>') : '';
+  if (it.type === 'choice' || it.type === 'sym') {
+    return `
+      <div class="qa-opts${it.type === 'sym' ? ' is-sym' : ''}" role="group" aria-label="${circled(it.no)}">
+        <b class="qa-no">${circled(it.no)}</b>
+        ${(it.options ?? []).map((o) => `<button type="button" class="qa-opt press" data-key="${it.key}" data-val="${esc(o)}"
+          aria-pressed="${v === o}" ${locked ? 'disabled' : ''}>${esc(o)}</button>`).join('')}
+        ${mark}
+      </div>`;
+  }
+  const tag = it.type === 'text'
+    ? `<textarea class="input qa-in" rows="2" maxlength="200" data-key="${it.key}" ${locked ? 'disabled' : ''}>${esc(v)}</textarea>`
+    : `<input class="input qa-in" type="text" maxlength="200" data-key="${it.key}" value="${esc(v)}" autocomplete="off" ${locked ? 'disabled' : ''}>`;
+  return `<label class="qa-field"><b>${circled(it.no)}</b>${tag}${mark}</label>`;
+}
+
+function renderQuiz(data) {
+  const box = $('quiz');
+  const q = data?.board ? data.quiz : null;
+  if (q && q.status !== 'graded') quizSeen.add(q.id);
+  const show = q && (q.status !== 'graded' || quizSeen.has(q.id));
+  if (!show) {
+    if (q?.status === 'graded') store.del(`quiz-${q.id}`);
+    box.classList.add('hidden');
+    quizKey = undefined;
+    quizNow = null;
+    return;
+  }
+  const graded = q.status === 'graded' ? q.graded : null;
+  const key = [q.id, q.status, login ? 'in' : 'out', q.mine?.submitted_at ?? '', graded ? JSON.stringify(graded) : ''].join('|');
+  if (key === quizKey) return;
+  const fresh = quizNow?.id !== q.id;
+  quizKey = key;
+  quizNow = q;
+
+  if (fresh) {
+    const d = draftOf(q.id);
+    quizDraft = { ...(q.mine?.answers ?? {}), ...(d?.answers ?? {}) };
+  }
+  if (q.status !== 'open') quizDraft = { ...(q.mine?.answers ?? {}) };
+  const locked = !login || q.status !== 'open';
+  const sent = !!q.mine;
+  const state = q.status === 'open'
+    ? (sent ? '<span class="chip qa-chip is-sent">냈어요</span>' : '')
+    : q.status === 'closed' ? '<span class="chip qa-chip is-closed">마감</span>' : '';
+
+  let foot;
+  if (!login) {
+    foot = `<div class="state-box is-idle login-need"><span class="state-title">로그인하면 낼 수 있어요</span><a class="btn btn-primary press" href="index.html">로그인</a></div>`;
+  } else if (graded) {
+    const right = Object.values(graded.result ?? {}).filter(Boolean).length;
+    foot = `<div class="state-box is-passed qa-result">
+      <span class="state-title">${q.items.length}개 중 ${right}개 맞음</span>
+      ${graded.xp || graded.coins ? `<span class="qa-gain num">+${graded.xp} XP · +${graded.coins}코인</span>` : ''}
+    </div>`;
+  } else if (q.status === 'open') {
+    foot = `<button type="button" class="btn btn-primary btn-big press" id="quiz-send">${sent ? '고쳐서 다시 내기' : '내기'}</button>`;
+  } else {
+    foot = '';
+  }
+
+  box.innerHTML = `
+    <div class="quiz-head">
+      <h2 id="quiz-h">빈칸 · ${q.slide_no}쪽</h2>${state}
+    </div>
+    <div class="quiz-items">
+      ${quizGroups(q.items).map((g) => `
+        <div class="qa-q">
+          ${g.prompt ? `<p class="qa-prompt">${esc(g.prompt)}</p>` : ''}
+          <div class="qa-row${g.type === 'blank' ? ' is-inline' : ''}">${g.items.map((it) => quizField(it, locked, graded)).join('')}</div>
+        </div>`).join('')}
+    </div>
+    ${foot}`;
+  box.classList.remove('hidden');
+  if (fresh) { box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise'); }
+
+  if (graded) {
+    store.del(`quiz-${q.id}`);
+    if (graded.level_after > graded.level_before && !quizLeveled.has(q.id)) {
+      quizLeveled.add(q.id);
+      showLevelUp(graded.level_after, graded.total_xp, data.my_members?.find((m) => m.me)?.avatar);
+    }
+  }
+}
+
+// 보내다 실패한 답은 연결되면 자동으로 다시
+function retryQuiz() {
+  if (quizNow?.status === 'open' && login && draftOf(quizNow.id)?.pending) sendQuiz();
+}
+
+$('quiz').addEventListener('input', (e) => {
+  const el = e.target.closest('.qa-in');
+  if (!el || !quizNow) return;
+  quizDraft[el.dataset.key] = el.value;
+  saveDraft(quizNow.id, !!draftOf(quizNow.id)?.pending);
+});
+
+$('quiz').addEventListener('click', (e) => {
+  const opt = e.target.closest('.qa-opt');
+  if (opt && quizNow && !opt.disabled) {
+    const k = opt.dataset.key;
+    quizDraft[k] = quizDraft[k] === opt.dataset.val ? '' : opt.dataset.val;
+    opt.parentElement.querySelectorAll('.qa-opt').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.val === quizDraft[k])));
+    saveDraft(quizNow.id, !!draftOf(quizNow.id)?.pending);
+    return;
+  }
+  if (e.target.closest('#quiz-send')) sendQuiz();
+});
+
+// 버튼 하나에 요청 하나: 누르면 '보내는 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 보내기]
+async function sendQuiz() {
+  if (quizSending || !quizNow || !login || quizNow.status !== 'open') return;
+  const q = quizNow;
+  quizSending = true;
+  saveDraft(q.id, true);
+  const btn = $('quiz-send');
+  if (btn) { btn.disabled = true; btn.textContent = '보내는 중'; }
+  let res;
+  try {
+    res = await withTimeout(submitQuiz(login.token, q.id, quizDraft), SUBMIT_WAIT_MS);
+  } catch (err) {
+    console.error(err);
+    quizSending = false;
+    toast(QUIZ_ERR[err.message] || '보내지 못했어요. 연결되면 다시 보낼게요', 'error');
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = '다시 보내기'; }
+    return;
+  }
+  quizSending = false;
+  if (res?.ok) {
+    saveDraft(q.id, false);
+    toast('냈어요', 'ok');
+  } else {
+    store.del(`quiz-${q.id}`);
+    toast(QUIZ_ERR[res?.error] || '내지 못했어요', 'error');
+    if (res?.error === 'NO_SESSION') { clearLogin(); login = null; mineKey = undefined; }
+  }
+  quizKey = undefined;
+  await load();
+}
+
+/* ---------- 레벨업 (빈칸 XP로 레벨이 오르면) ---------- */
+function showLevelUp(lv, total, avatar) {
+  if (login) {
+    const k = `lv-${login.class_id}-${login.number}`;
+    try { localStorage.setItem(k, String(Math.max(Number(localStorage.getItem(k)) || 0, lv))); } catch {}
+  }
+  $('lvup-n').textContent = lv;
+  $('lvup-s').textContent = `누적 ${total} XP 달성`;
+  $('lvup-av').innerHTML = avatarSVG(avatar, 160, { label: '내 캐릭터' });
+  const av = $('lvup-av').querySelector('svg.av');
+  $('lvup').classList.add('lvup-plain');
+  $('lvup').classList.remove('hidden');
+  $('lvup-ok').focus();
+  if (av) setTimeout(() => react(av, 'levelup'), 300);
+}
+$('lvup-ok').addEventListener('click', () => {
+  $('lvup').classList.add('hidden');
+  $('lvup').classList.remove('lvup-plain');
+});
+
 /* ---------- 모둠 현황 ---------- */
 
 let groupStates = new Map();
@@ -395,11 +598,13 @@ async function load() {
     renderLesson(board);
     renderSims(board?.sim_links);
     renderMine(data);
+    renderQuiz(data);
     renderGroups(data);
     updateSide();
     if (!board) showEmpty('오늘 수업이 아직 없어요');
     else renderPadlet(board.padlet_src);
     setNetDown(false);
+    retryQuiz();
   } catch (err) {
     console.error(err);
     if (err.message === 'NOT_CONFIGURED') showEmpty('config.js에 Supabase 주소와 키를 넣어야 해요');
@@ -432,5 +637,5 @@ if (sb) onClassRefresh(classId, () => {
   if (!document.hidden) setTimeout(load, Math.random() * 2000);
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
-addEventListener('online', () => load());
+addEventListener('online', () => { quizKey = undefined; load(); });
 addEventListener('offline', () => setNetDown(true));

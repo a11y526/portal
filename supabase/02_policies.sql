@@ -152,3 +152,20 @@ drop policy if exists lessons_teacher_all on public.lessons;
 create policy lessons_teacher_all on public.lessons
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 7단계: 빈칸 질문 (교사만. 학생은 03의 함수로만, 정답은 학생에게 내보내지 않는다)
+-- ---------------------------------------------------------
+alter table public.quizzes      enable row level security;
+alter table public.quiz_answers enable row level security;
+revoke all on public.quizzes, public.quiz_answers from anon;
+
+drop policy if exists quizzes_teacher_all on public.quizzes;
+create policy quizzes_teacher_all on public.quizzes
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists quiz_answers_teacher_all on public.quiz_answers;
+create policy quiz_answers_teacher_all on public.quiz_answers
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -16,6 +16,9 @@ export function errMsg(err) {
   if (/BAD_AMOUNT/.test(m)) return 'XP나 코인을 -1000~1000 사이로 넣어 주세요';
   if (/BAD_REASON/.test(m)) return '사유를 1~40자로 써 주세요';
   if (/NO_STUDENTS/.test(m)) return '학생을 골라 주세요';
+  if (/QUIZ_OPEN/.test(m)) return '질문을 먼저 마감해 주세요';
+  if (/GRADED/.test(m)) return '이미 XP를 준 질문이에요';
+  if (/BAD_ITEMS/.test(m)) return '문항이 없어요';
   return '처리하지 못했어요: ' + m;
 }
 

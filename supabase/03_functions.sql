@@ -192,6 +192,33 @@ revoke all on function public.set_class_lock(int, boolean) from public, anon;
 grant execute on function public.set_class_lock(int, boolean) to authenticated;
 
 -- ---------------------------------------------------------
+-- 빈칸 질문 도우미 (7단계, 내부용)
+-- ---------------------------------------------------------
+
+-- 답 비교용: 앞뒤·사이 공백을 모두 빼고 영문은 소문자로
+create or replace function public._quiz_norm(p text)
+returns text
+language sql
+immutable
+set search_path = public
+as $$
+  select lower(regexp_replace(coalesce(p, ''), '\s+', '', 'g'));
+$$;
+
+-- 학생에게 보낼 문항: 정답(answers)을 뺀다
+create or replace function public._quiz_public_items(p_items jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(e - 'answers' order by o), '[]'::jsonb)
+  from jsonb_array_elements(coalesce(p_items, '[]'::jsonb)) with ordinality as x(e, o);
+$$;
+revoke all on function public._quiz_norm(text) from public, anon, authenticated;
+revoke all on function public._quiz_public_items(jsonb) from public, anon, authenticated;
+
+-- ---------------------------------------------------------
 -- 반 페이지 (누구나)
 -- 오늘 보드 + 그날 모둠별 상태·교사 메모. 제출 시각·순서는 주지 않는다.
 -- has_roster: 이 반에 명단이 있는지
@@ -199,6 +226,8 @@ grant execute on function public.set_class_lock(int, boolean) to authenticated;
 -- my_members(그날 우리 모둠원의 승인된 닉네임·캐릭터, 번호는 주지 않음)도 준다. 다른 반 출입증은 'none'.
 -- 보드가 발표됐으면 모둠 순위(rank)도 준다.
 -- 발표 전에는 내 모둠이 아닌 모둠(출입증이 없으면 모든 모둠)의 'passed'를 'pending'으로 내보낸다.
+-- quiz: 오늘 보드에서 마지막으로 연 빈칸 질문(7단계). 문제 글·종류·선택지만 주고 정답(answers)은 주지 않는다.
+--   mine: 내가 낸 답, graded: 'graded'이면 내 결과(문항별 맞음/틀림)·받은 XP·코인·레벨 변화
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
 drop function if exists public.get_class_page(int, int);
@@ -218,6 +247,12 @@ declare
   v_groups jsonb;
   v_result jsonb;
   v_members jsonb;
+  q        public.quizzes;
+  a        public.quiz_answers;
+  v_quiz   jsonb;
+  v_gxp    int;
+  v_gco    int;
+  v_total  int;
 begin
   select * into c from public.classes where id = p_class_id;
   if not found then
@@ -281,6 +316,37 @@ begin
     limit 1
   ) r on true;
 
+  if b.id is not null then
+    select * into q from public.quizzes where board_id = b.id order by opened_at desc limit 1;
+  end if;
+  if q.id is not null then
+    if v_sid is not null then
+      select * into a from public.quiz_answers where quiz_id = q.id and student_id = v_sid;
+    end if;
+    if q.status = 'graded' and v_sid is not null then
+      select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int into v_gxp, v_gco
+      from public.point_events where student_id = v_sid and quiz_id = q.id;
+      select coalesce(sum(xp), 0)::int into v_total from public.point_events where student_id = v_sid;
+    end if;
+    v_quiz := jsonb_build_object(
+      'id',       q.id,
+      'slide_no', q.slide_no,
+      'status',   q.status,
+      'items',    public._quiz_public_items(q.items),
+      'mine',     case when a.quiz_id is null then null
+                       else jsonb_build_object('answers', a.answers, 'submitted_at', a.submitted_at) end,
+      'graded',   case when q.status = 'graded' and v_sid is not null then jsonb_build_object(
+                    'result',       coalesce(a.result, '{}'::jsonb),
+                    'answered',     a.quiz_id is not null,
+                    'xp',           v_gxp,
+                    'coins',        v_gco,
+                    'level_before', (public._level_info(v_total - v_gxp) ->> 'level')::int,
+                    'level_after',  (public._level_info(v_total) ->> 'level')::int,
+                    'total_xp',     v_total
+                  ) end
+    );
+  end if;
+
   return jsonb_build_object(
     'class', jsonb_build_object('id', c.id, 'label', c.label),
     'board', case when b.id is null then null else jsonb_build_object(
@@ -295,7 +361,8 @@ begin
     'has_roster', exists (select 1 from public.students where class_id = p_class_id and active),
     'session',    case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'my_group',   v_my,
-    'my_members', v_members
+    'my_members', v_members,
+    'quiz',       v_quiz
   );
 end;
 $$;
@@ -1409,3 +1476,410 @@ end;
 $$;
 revoke all on function public.grant_points(uuid[], int, int, text) from public, anon;
 grant execute on function public.grant_points(uuid[], int, int, text) to authenticated;
+
+-- =========================================================
+-- 7단계: 수업 중 빈칸 답 → XP
+-- 교사가 수업 모드에서 한 쪽의 빈칸을 질문으로 열면, 학생이 반 페이지에서 답을 낸다.
+-- 자동 채점(단어·고르기·부등호)은 낼 때 서버에서, 문장 답은 교사가 검사 화면에서 체크한다.
+-- 결과와 정답은 'graded'가 되기 전에는 학생 쪽에 내보내지 않는다(다시 내며 맞혀 보기 막기).
+-- =========================================================
+
+-- 질문 열기 (교사)
+-- p_items: [{type: 'blank'|'choice'|'sym'|'text', prompt, options?, answers: [정답, 허용 답…]}]
+-- key('k1'…)와 번호(no)는 여기서 매긴다. 'text'이거나 정답이 비어 있으면 교사 체크.
+-- 그 보드에 열린 질문이 있으면 먼저 마감한다(열린 질문은 보드마다 1개).
+create or replace function public.open_quiz(p_board_id uuid, p_slide_no int, p_items jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  b       public.boards;
+  v_items jsonb;
+  v_id    uuid;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into b from public.boards where id = p_board_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if jsonb_typeof(p_items) <> 'array' or jsonb_array_length(p_items) not between 1 and 40 then
+    raise exception 'BAD_ITEMS';
+  end if;
+
+  select jsonb_agg(jsonb_build_object(
+           'key',     'k' || x.o,
+           'no',      x.o,
+           'kind',    case when x.t = 'text' or jsonb_array_length(x.ans) = 0 then 'teacher' else 'auto' end,
+           'type',    x.t,
+           'prompt',  left(btrim(coalesce(x.e ->> 'prompt', '')), 400),
+           'options', x.opts,
+           'answers', x.ans
+         ) order by x.o)
+  into v_items
+  from (
+    select e, o,
+           case when e ->> 'type' in ('blank', 'choice', 'sym', 'text') then e ->> 'type' else 'blank' end as t,
+           case when jsonb_typeof(e -> 'options') = 'array' then
+             (select coalesce(jsonb_agg(left(btrim(v), 100)), '[]'::jsonb)
+              from jsonb_array_elements_text(e -> 'options') as y(v) where btrim(v) <> '')
+           else '[]'::jsonb end as opts,
+           case when jsonb_typeof(e -> 'answers') = 'array' then
+             (select coalesce(jsonb_agg(left(btrim(v), 200)), '[]'::jsonb)
+              from jsonb_array_elements_text(e -> 'answers') as y(v) where btrim(v) <> '')
+           else '[]'::jsonb end as ans
+    from jsonb_array_elements(p_items) with ordinality as z(e, o)
+  ) x;
+
+  update public.quizzes set status = 'closed', closed_at = now()
+  where board_id = b.id and status = 'open';
+
+  insert into public.quizzes (board_id, slide_no, items)
+  values (b.id, p_slide_no, v_items)
+  returning id into v_id;
+
+  return jsonb_build_object('ok', true, 'id', v_id, 'class_id', b.class_id, 'items', v_items);
+end;
+$$;
+revoke all on function public.open_quiz(uuid, int, jsonb) from public, anon;
+grant execute on function public.open_quiz(uuid, int, jsonb) to authenticated;
+
+-- 질문 마감 (교사). 이미 마감했으면 그대로
+create or replace function public.close_quiz(p_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  q public.quizzes;
+  v_class int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.quizzes set status = 'closed', closed_at = now()
+  where id = p_id and status = 'open';
+  select * into q from public.quizzes where id = p_id;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  select class_id into v_class from public.boards where id = q.board_id;
+  return jsonb_build_object('ok', true, 'status', q.status, 'class_id', v_class);
+end;
+$$;
+revoke all on function public.close_quiz(uuid) from public, anon;
+grant execute on function public.close_quiz(uuid) to authenticated;
+
+-- 제출 현황 (교사, 프로젝터 띠). 학생 답·이름은 주지 않는다
+-- total: 그날 모둠 편성 인원(편성이 없으면 명단 인원)
+-- items: 문항별 맞은 수(correct)와 자동 채점 정답률(rate, %). pending_teacher: 아직 체크하지 않은 답이 남은 교사 체크 문항 수
+create or replace function public.get_quiz_stats(p_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  q       public.quizzes;
+  b       public.boards;
+  v_sub   int;
+  v_total int;
+  v_items jsonb;
+  v_left  int;
+  v_paid  int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into q from public.quizzes where id = p_id;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  select * into b from public.boards where id = q.board_id;
+
+  select count(*)::int into v_sub from public.quiz_answers where quiz_id = q.id;
+  select count(*)::int into v_total from public.board_groups where board_id = q.board_id;
+  if v_total = 0 then
+    select count(*)::int into v_total from public.students where class_id = b.class_id and active;
+  end if;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'key',     it ->> 'key',
+           'no',      (it ->> 'no')::int,
+           'kind',    it ->> 'kind',
+           'correct', c.n,
+           'rate',    case when it ->> 'kind' = 'auto' and v_sub > 0 then round(c.n * 100.0 / v_sub)::int end
+         ) order by o), '[]'::jsonb),
+         count(*) filter (where it ->> 'kind' = 'teacher' and c.unmarked > 0)::int
+  into v_items, v_left
+  from jsonb_array_elements(q.items) with ordinality as t(it, o)
+  cross join lateral (
+    select count(*) filter (where a.result ->> (it ->> 'key') = 'true')::int as n,
+           count(*) filter (where not (coalesce(a.result, '{}'::jsonb) ? (it ->> 'key')))::int as unmarked
+    from public.quiz_answers a
+    where a.quiz_id = q.id
+  ) c;
+
+  select count(*)::int into v_paid from public.point_events where quiz_id = q.id;
+
+  return jsonb_build_object(
+    'id',              q.id,
+    'status',          q.status,
+    'slide_no',        q.slide_no,
+    'submitted',       v_sub,
+    'total',           v_total,
+    'items',           v_items,
+    'pending_teacher', v_left,
+    'paid',            v_paid
+  );
+end;
+$$;
+revoke all on function public.get_quiz_stats(uuid) from public, anon;
+grant execute on function public.get_quiz_stats(uuid) to authenticated;
+
+-- 답 모아 보기 (교사, 검사 화면 [빈칸] 탭). 문항마다 같은 답끼리 묶어 개수와 함께
+-- correct: 그 답을 낸 학생이 모두 맞음이면 true, 모두 틀림이면 false, 아직 안 정했거나 섞였으면 null
+create or replace function public.get_quiz_answers(p_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  q        public.quizzes;
+  b        public.boards;
+  v_groups jsonb;
+  v_sub    int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into q from public.quizzes where id = p_id;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  select * into b from public.boards where id = q.board_id;
+  select count(*)::int into v_sub from public.quiz_answers where quiz_id = q.id;
+
+  select coalesce(jsonb_agg(jsonb_build_object('key', it ->> 'key', 'answers', g.list) order by o), '[]'::jsonb)
+  into v_groups
+  from jsonb_array_elements(q.items) with ordinality as t(it, o)
+  cross join lateral (
+    select coalesce(jsonb_agg(jsonb_build_object('text', x.txt, 'count', x.n, 'correct', x.c)
+                              order by x.txt = '', x.n desc, x.txt), '[]'::jsonb) as list
+    from (
+      select public._quiz_norm(a.answers ->> (it ->> 'key')) as k,
+             min(btrim(coalesce(a.answers ->> (it ->> 'key'), ''))) as txt,
+             count(*)::int as n,
+             case
+               when count(*) filter (where a.result ->> (it ->> 'key') is null) > 0 then null
+               when bool_and(a.result ->> (it ->> 'key') = 'true') then true
+               else case when bool_or(a.result ->> (it ->> 'key') = 'true') then null else false end
+             end as c
+      from public.quiz_answers a
+      where a.quiz_id = q.id
+      group by 1
+    ) x
+  ) g;
+
+  return jsonb_build_object(
+    'quiz', jsonb_build_object(
+      'id', q.id, 'board_id', q.board_id, 'slide_no', q.slide_no, 'status', q.status, 'items', q.items,
+      'opened_at', q.opened_at, 'class_id', b.class_id, 'lesson_code', b.lesson_code
+    ),
+    'submitted', v_sub,
+    'groups',    v_groups
+  );
+end;
+$$;
+revoke all on function public.get_quiz_answers(uuid) from public, anon;
+grant execute on function public.get_quiz_answers(uuid) to authenticated;
+
+-- 맞음/틀림 정하기 (교사). 같은 답을 낸 학생 모두 한 번에. 자동 채점 문항도 고칠 수 있다(허용 답 추가처럼)
+-- 마감된 질문만(열려 있으면 QUIZ_OPEN, XP를 준 뒤에는 GRADED)
+create or replace function public.mark_quiz(p_id uuid, p_key text, p_answer text, p_correct boolean)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  q       public.quizzes;
+  v_count int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into q from public.quizzes where id = p_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if q.status = 'open' then
+    raise exception 'QUIZ_OPEN';
+  end if;
+  if q.status = 'graded' then
+    raise exception 'GRADED';
+  end if;
+  if not exists (select 1 from jsonb_array_elements(q.items) it where it ->> 'key' = p_key) then
+    raise exception 'BAD_KEY';
+  end if;
+
+  update public.quiz_answers
+  set result = coalesce(result, '{}'::jsonb) || jsonb_build_object(p_key, coalesce(p_correct, false))
+  where quiz_id = q.id
+    and public._quiz_norm(answers ->> p_key) = public._quiz_norm(p_answer);
+  get diagnostics v_count = row_count;
+  return jsonb_build_object('ok', true, 'count', v_count);
+end;
+$$;
+revoke all on function public.mark_quiz(uuid, text, text, boolean) from public, anon;
+grant execute on function public.mark_quiz(uuid, text, text, boolean) to authenticated;
+
+-- XP 주기 (교사): 결과 확정 + 정답 1개당 settings.quiz의 XP·코인. 열려 있으면 먼저 마감한다.
+-- 아직 체크하지 않은 답은 틀림으로 확정한다. 두 번 눌러도 한 번만(already: true, point_events 유일 조건도 막음)
+create or replace function public.grade_quiz(p_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  q        public.quizzes;
+  b        public.boards;
+  v_set    jsonb;
+  v_xp     int;
+  v_co     int;
+  v_reason text;
+  v_paid   int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into q from public.quizzes where id = p_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  select * into b from public.boards where id = q.board_id;
+  if q.status = 'graded' then
+    select count(*)::int into v_paid from public.point_events where quiz_id = q.id;
+    return jsonb_build_object('ok', true, 'already', true, 'paid', v_paid, 'class_id', b.class_id);
+  end if;
+
+  select value into v_set from public.settings where key = 'quiz';
+  v_xp := coalesce((v_set ->> 'xp')::int, 2);
+  v_co := coalesce((v_set ->> 'coins')::int, 1);
+  v_reason := '빈칸 ' || b.lesson_code || '-' || q.slide_no;
+
+  -- 문항마다 맞음/틀림을 빠짐없이
+  update public.quiz_answers a
+  set result = (
+    select coalesce(jsonb_object_agg(it ->> 'key', coalesce(a.result ->> (it ->> 'key') = 'true', false)), '{}'::jsonb)
+    from jsonb_array_elements(q.items) it
+  )
+  where a.quiz_id = q.id;
+
+  insert into public.point_events (student_id, xp, coins, reason, quiz_id)
+  select x.student_id, x.n * v_xp, x.n * v_co, v_reason, q.id
+  from (
+    select a.student_id,
+           (select count(*) from jsonb_each_text(a.result) r where r.value = 'true')::int as n
+    from public.quiz_answers a
+    join public.students s on s.id = a.student_id and s.active
+    where a.quiz_id = q.id
+  ) x
+  where x.n > 0 and (v_xp <> 0 or v_co <> 0)
+  on conflict (student_id, quiz_id) where quiz_id is not null do nothing;
+  get diagnostics v_paid = row_count;
+
+  update public.quizzes
+  set status = 'graded', closed_at = coalesce(closed_at, now())
+  where id = q.id;
+
+  return jsonb_build_object('ok', true, 'already', false, 'paid', v_paid, 'class_id', b.class_id);
+end;
+$$;
+revoke all on function public.grade_quiz(uuid) from public, anon;
+grant execute on function public.grade_quiz(uuid) to authenticated;
+
+-- 답 내기 (학생). 열려 있는 동안 다시 내면 덮어쓴다. 자동 채점은 여기서 하지만 결과는 돌려주지 않는다
+-- 결과: {ok: true, submitted_at} 또는 {ok: false, error}
+--   NO_SESSION 로그인 안 됨 · GONE 이 반의 질문이 아님 · CLOSED 마감됨
+create or replace function public.submit_quiz(p_token text, p_quiz_id uuid, p_answers jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  v_class int;
+  q       public.quizzes;
+  b       public.boards;
+  v_ans   jsonb;
+  v_res   jsonb;
+  v_at    timestamptz;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select class_id into v_class from public.students where id = v_sid;
+  select * into q from public.quizzes where id = p_quiz_id;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'GONE');
+  end if;
+  select * into b from public.boards where id = q.board_id;
+  if b.class_id <> v_class then
+    return jsonb_build_object('ok', false, 'error', 'GONE');
+  end if;
+  if q.status <> 'open' then
+    return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+
+  select coalesce(jsonb_object_agg(x.k, x.v), '{}'::jsonb),
+         coalesce(jsonb_object_agg(x.k, x.ok) filter (where x.ok is not null), '{}'::jsonb)
+  into v_ans, v_res
+  from (
+    select y.k, y.v,
+           case
+             when y.kind = 'auto' then y.v <> '' and exists (
+               select 1 from jsonb_array_elements_text(y.it -> 'answers') as r(t)
+               where public._quiz_norm(r.t) = public._quiz_norm(y.v))
+             when y.v = '' then false
+           end as ok
+    from (
+      select it ->> 'key' as k, it ->> 'kind' as kind, it,
+             case
+               when it ->> 'type' in ('choice', 'sym') and not exists (
+                 select 1 from jsonb_array_elements_text(it -> 'options') as o(t)
+                 where o.t = btrim(coalesce(p_answers ->> (it ->> 'key'), '')))
+               then ''
+               else left(btrim(coalesce(
+                 case when jsonb_typeof(p_answers) = 'object' then p_answers ->> (it ->> 'key') end, '')), 200)
+             end as v
+      from jsonb_array_elements(q.items) it
+    ) y
+  ) x;
+
+  insert into public.quiz_answers (quiz_id, student_id, answers, result)
+  values (q.id, v_sid, v_ans, v_res)
+  on conflict (quiz_id, student_id) do update
+    set answers = excluded.answers, result = excluded.result, updated_at = now()
+  returning submitted_at into v_at;
+
+  return jsonb_build_object('ok', true, 'submitted_at', v_at);
+end;
+$$;
+revoke all on function public.submit_quiz(text, uuid, jsonb) from public;
+grant execute on function public.submit_quiz(text, uuid, jsonb) to anon, authenticated;

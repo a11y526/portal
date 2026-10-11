@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getQuizRules, saveQuizRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
 } from '../db.js';
@@ -814,6 +814,7 @@ async function refreshPoints() {
   const lv = await getLevelThresholds();
   savedLevels = Array.isArray(lv) && lv.length >= 2 ? lv.map(Number) : DEFAULT_LEVELS;
   renderLevels(savedLevels);
+  const qz = (await getQuizRules()) ?? {};
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -822,6 +823,8 @@ async function refreshPoints() {
   f.pass_xp.value = r.pass_xp ?? 10;
   f.pass_coins.value = r.pass_coins ?? 10;
   [0, 1, 2].forEach((i) => { f['bx' + i].value = bx[i] ?? 0; f['bc' + i].value = bc[i] ?? 0; });
+  f.quiz_xp.value = qz.xp ?? 2;
+  f.quiz_coins.value = qz.coins ?? 1;
   renderPointsSum();
   const hub = $('hub-points');
   if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
@@ -844,6 +847,9 @@ $('points-form').addEventListener('submit', async (e) => {
   btn.disabled = true;
   try {
     await savePointRules(rulesFromForm());
+    const f = $('points-form').elements;
+    const q = (k) => Math.min(100, Math.max(0, Math.round(Number(f[k].value) || 0)));
+    await saveQuizRules({ xp: q('quiz_xp'), coins: q('quiz_coins') });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
     toast('저장했어요', 'ok');
@@ -881,6 +887,7 @@ const studentCols = (st) => [st?.class_id ?? '', st?.number ?? '', st?.nickname 
 
 function eventKind(e) {
   if (e.board_id) return '순위 발표';
+  if (e.quiz_id || (e.reason || '').startsWith('빈칸 ')) return '빈칸';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   return '직접 줌';
 }

@@ -72,3 +72,8 @@ insert into public.shop_items (id, name, cost, kind, sort) values
   ('pair_ticket', '모둠 선택권', 50,  'pair',  1),
   ('store',       '상점',       100, 'plain', 2)
 on conflict (id) do nothing;
+
+-- 7단계: 빈칸 정답 1개당 XP·코인
+insert into public.settings (key, value) values
+  ('quiz', '{"xp": 2, "coins": 1}'::jsonb)
+on conflict (key) do nothing;

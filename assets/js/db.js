@@ -67,6 +67,12 @@ export async function requestPurchase(token, itemId, partner = null) {
   return unwrap(await need().rpc('request_purchase', { p_token: token, p_item_id: itemId, p_partner: partner }));
 }
 
+// 빈칸 답 내기: { ok: true, submitted_at } 또는 error = 'NO_SESSION' | 'GONE' | 'CLOSED'
+// answers: { k1: '답', ... }. 마감 전까지 다시 내면 덮어쓴다. 맞았는지는 'graded'가 된 뒤 get_class_page로 온다
+export async function submitQuiz(token, quizId, answers) {
+  return unwrap(await need().rpc('submit_quiz', { p_token: token, p_quiz_id: quizId, p_answers: answers }));
+}
+
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
 export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
@@ -292,11 +298,11 @@ export async function grantPoints(studentIds, xp, coins, reason) {
   return unwrap(await need().rpc('grant_points', { p_student_ids: studentIds, p_xp: xp, p_coins: coins, p_reason: reason }));
 }
 
-// 최근 직접 준 점수 (발표 지급·아이템 구매 제외)
+// 최근 직접 준 점수 (발표 지급·빈칸·아이템 구매 제외)
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).not('reason', 'like', '아이템:%')
+    .is('board_id', null).is('quiz_id', null).not('reason', 'like', '아이템:%')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -313,7 +319,7 @@ async function readAll(build) {
 
 export async function exportPointEvents() {
   return readAll(() => need().from('point_events')
-    .select('id, xp, coins, reason, board_id, created_at, student:students(class_id, number, nickname)')
+    .select('id, xp, coins, reason, board_id, quiz_id, created_at, student:students(class_id, number, nickname)')
     .order('created_at').order('id'));
 }
 
@@ -414,6 +420,65 @@ export async function saveLesson(row) {
 
 export async function deleteLesson(code) {
   unwrap(await need().from('lessons').delete().eq('code', code));
+}
+
+/* ---------- 교사: 수업 중 빈칸 질문 (7단계) ---------- */
+
+// items: [{ type, prompt, options, answers }]. 결과: { ok, id, class_id, items }
+export async function openQuiz(boardId, slideNo, items) {
+  return unwrap(await need().rpc('open_quiz', { p_board_id: boardId, p_slide_no: slideNo, p_items: items }));
+}
+
+export async function closeQuiz(id) {
+  return unwrap(await need().rpc('close_quiz', { p_id: id }));
+}
+
+// { id, status, slide_no, submitted, total, items: [{ key, no, kind, correct, rate }], pending_teacher, paid }
+export async function getQuizStats(id) {
+  return unwrap(await need().rpc('get_quiz_stats', { p_id: id }));
+}
+
+// { quiz: { id, slide_no, status, items, class_id, lesson_code }, submitted, groups: [{ key, answers: [{ text, count, correct }] }] }
+export async function getQuizAnswers(id) {
+  return unwrap(await need().rpc('get_quiz_answers', { p_id: id }));
+}
+
+export async function markQuiz(id, key, answer, correct) {
+  return unwrap(await need().rpc('mark_quiz', { p_id: id, p_key: key, p_answer: answer, p_correct: correct }));
+}
+
+// XP 주기: { ok, already, paid, class_id }
+export async function gradeQuiz(id) {
+  return unwrap(await need().rpc('grade_quiz', { p_id: id }));
+}
+
+// 그 보드에서 마지막으로 연 질문 (없으면 null)
+export async function getLatestQuiz(boardId) {
+  return unwrap(await need().from('quizzes').select('id, board_id, slide_no, status, items, opened_at')
+    .eq('board_id', boardId).order('opened_at', { ascending: false }).limit(1).maybeSingle());
+}
+
+// 검사 화면 [빈칸] 탭: 그 보드에서 아직 XP를 주지 않은 질문 + 최근 준 것
+export async function listQuizzes(boardId) {
+  return unwrap(await need().from('quizzes').select('id, slide_no, status, items, opened_at, closed_at')
+    .eq('board_id', boardId).order('opened_at', { ascending: false }).limit(30));
+}
+
+// quiz_answers 표가 바뀌면 fn(payload)
+export function onQuizAnswersChange(fn) {
+  need().channel('quiz-answers-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'quiz_answers' }, fn)
+    .subscribe();
+}
+
+// { xp, coins } 정답 1개당
+export async function getQuizRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'quiz'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveQuizRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'quiz', value }, { onConflict: 'key' }));
 }
 
 /* ---------- 패들렛 주소 ---------- */

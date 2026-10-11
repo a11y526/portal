@@ -21,22 +21,8 @@
     <button type="button" class="btn btn-primary press" id="corner-btn">모둠활동</button>
   </div>
 
-  <!-- 빈칸 질문: 오른쪽 아래 작은 띠 (제출 수 → 마감 뒤 정답률). 학생 답·이름은 보이지 않는다 -->
-  <div class="qz-band hidden" id="qz-band" aria-live="polite"></div>
-
-  <!-- 빈칸 질문 열기 전 확인 (Q) -->
-  <section class="qz-panel hidden" id="qz-panel" tabindex="-1" aria-labelledby="qz-h">
-    <div class="qz-box">
-      <header class="qz-head">
-        <h1 id="qz-h"></h1>
-        <div class="qz-actions">
-          <button type="button" class="btn btn-line press" id="qz-cancel">취소 <kbd>Esc</kbd></button>
-          <button type="button" class="btn btn-primary press" id="qz-open">열기 <kbd>Enter</kbd></button>
-        </div>
-      </header>
-      <ol class="qz-list" id="qz-list"></ol>
-    </div>
-  </section>
+  <!-- 학습지: 오른쪽 아래 작은 띠 (완료 수만. 학생 답·이름은 보이지 않는다) -->
+  <div class="ws-band hidden" id="ws-band" aria-live="polite"></div>
 
   <!-- 덮개: G키로 열고 닫는다 -->
   <section class="cover" id="cover" tabindex="-1" aria-hidden="true" aria-labelledby="cover-title">

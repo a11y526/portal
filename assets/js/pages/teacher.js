@@ -1,5 +1,5 @@
 // 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #roster #nick #buys #shopset #grant #points #data #lock #presets)
-// 수업 시작(차시 창 → 반 → 수업 모드), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정,
+// 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
@@ -8,12 +8,14 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getQuizRules, saveQuizRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
+  listWorksheets, saveWorksheet, countWorksheetAnswers,
 } from '../db.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
+import { parseWorksheet, renderPage, TYPE_NAME } from '../worksheet.js';
 
 initUI();
 
@@ -814,7 +816,7 @@ async function refreshPoints() {
   const lv = await getLevelThresholds();
   savedLevels = Array.isArray(lv) && lv.length >= 2 ? lv.map(Number) : DEFAULT_LEVELS;
   renderLevels(savedLevels);
-  const qz = (await getQuizRules()) ?? {};
+  const ws = (await getWorksheetRules()) ?? {};
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -823,8 +825,8 @@ async function refreshPoints() {
   f.pass_xp.value = r.pass_xp ?? 10;
   f.pass_coins.value = r.pass_coins ?? 10;
   [0, 1, 2].forEach((i) => { f['bx' + i].value = bx[i] ?? 0; f['bc' + i].value = bc[i] ?? 0; });
-  f.quiz_xp.value = qz.xp ?? 2;
-  f.quiz_coins.value = qz.coins ?? 1;
+  f.ws_xp.value = ws.xp ?? 10;
+  f.ws_coins.value = ws.coins ?? 5;
   renderPointsSum();
   const hub = $('hub-points');
   if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
@@ -848,8 +850,8 @@ $('points-form').addEventListener('submit', async (e) => {
   try {
     await savePointRules(rulesFromForm());
     const f = $('points-form').elements;
-    const q = (k) => Math.min(100, Math.max(0, Math.round(Number(f[k].value) || 0)));
-    await saveQuizRules({ xp: q('quiz_xp'), coins: q('quiz_coins') });
+    const q = (k) => Math.min(1000, Math.max(0, Math.round(Number(f[k].value) || 0)));
+    await saveWorksheetRules({ xp: q('ws_xp'), coins: q('ws_coins') });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
     toast('저장했어요', 'ok');
@@ -887,7 +889,7 @@ const studentCols = (st) => [st?.class_id ?? '', st?.number ?? '', st?.nickname 
 
 function eventKind(e) {
   if (e.board_id) return '순위 발표';
-  if (e.quiz_id || (e.reason || '').startsWith('빈칸 ')) return '빈칸';
+  if (e.worksheet_board_id || (e.reason || '').startsWith('학습지 ')) return '학습지';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   return '직접 줌';
 }
@@ -1011,6 +1013,7 @@ $('preset-form').addEventListener('submit', async (e) => {
 // 창마다 수업자료 주소를 미리 저장해 두고, [수업 시작] → 반을 고르면 수업 모드(live.html)가 열린다.
 // 보드에는 있는데 lessons 표에 없는 차시는 빈 주소의 창으로 보여 준다(saved: false, 저장하면 표에 들어감).
 let lessons = [];
+let sheets = new Map(); // 차시 → { title, page_count, field_count, updated_at }
 let startOpen = null; // 반 버튼을 펼친 차시
 let lessonsShown = false; // 처음 그릴 때만 등장 모션
 const LIVE_CLASS = 'liveClass';
@@ -1049,6 +1052,13 @@ function renderLessons() {
           <input class="input lesson-src" value="${esc(readableUrl(l.lesson_src))}" placeholder="lessons/${esc(l.code)}.html" aria-label="${esc(l.code)}차시 수업자료 주소">
           <button type="button" class="btn btn-line btn-small" data-lesson-save>저장</button>
         </div>
+        <div class="lesson-sheet">
+          ${sheets.has(l.code)
+            ? `<span class="tag tag-done num">학습지 ${sheets.get(l.code).page_count}쪽 · 칸 ${sheets.get(l.code).field_count}개 · ${fmtDate(sheets.get(l.code).updated_at)}</span>`
+            : '<span class="tag tag-off">학습지 없음</span>'}
+          <label class="btn btn-line btn-small ws-pick">${sheets.has(l.code) ? '다시 올리기' : '학습지 올리기'}
+            <input type="file" class="ws-file" accept=".html,.htm,text/html" data-sheet-file></label>
+        </div>
         <div class="lesson-chips">
           ${classes.map((c) => {
             const has = !!lessonBoard(c.id, l.code);
@@ -1069,9 +1079,108 @@ function renderLessons() {
 }
 
 async function refreshLessons() {
-  lessons = await listLessons();
+  const [ls, ws] = await Promise.all([listLessons(), listWorksheets()]);
+  lessons = ls;
+  sheets = new Map(ws.map((w) => [w.lesson_code, w]));
   renderLessons();
 }
+
+/* ---------- 학습지 올리기: 파일 고르기 → 브라우저에서 읽어 미리보기 → 저장 ----------
+   정답은 서버(worksheets.key)에만. 학생 쪽에는 정답을 뺀 화면용 html만 간다. GitHub에 올리지 않는다 */
+let sheetDraft = null; // { code, file, parsed }
+const BIG_BYTES = 1.5 * 1024 * 1024;
+
+$('lesson-list').addEventListener('change', async (e) => {
+  const input = e.target.closest('[data-sheet-file]');
+  if (!input?.files?.[0]) return;
+  const code = input.closest('[data-code]').dataset.code;
+  const file = input.files[0];
+  input.value = '';
+  let parsed;
+  try {
+    parsed = parseWorksheet(await file.text());
+  } catch (err) {
+    toast(err.message || '파일을 읽지 못했어요', 'error');
+    return;
+  }
+  sheetDraft = { code, file, parsed };
+  showSheetPreview();
+});
+
+function showSheetPreview() {
+  const { code, file, parsed } = sheetDraft;
+  const bytes = new Blob([JSON.stringify(parsed.pages)]).size;
+  const warns = parsed.report.reduce((n, r) => n + r.warn.length, 0);
+  $('ws-dlg-h').textContent = `${code}차시 학습지 미리보기`;
+  $('ws-dlg-meta').textContent = [file.name, `${parsed.pages.length}쪽`, `칸 ${parsed.fieldCount}개`,
+    bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))}KB` : `${(bytes / 1024 / 1024).toFixed(1)}MB`, warns ? `확인할 것 ${warns}개` : ''].filter(Boolean).join(' · ') +
+    (bytes > BIG_BYTES ? ' · 그림이 커서 학생 기기에서 느릴 수 있어요' : '');
+  $('ws-report').innerHTML = parsed.report.map((r, i) => {
+    const kinds = Object.entries(r.count).filter(([, n]) => n).map(([t, n]) => `${TYPE_NAME[t]} ${n}`).join(' · ') || '칸 없음';
+    return `
+      <li class="ws-rep${r.warn.length ? ' has-warn' : ''}">
+        <button type="button" class="ws-rep-btn" data-view="${i}">
+          <b class="num">${r.slide ?? '?'}쪽</b>
+          <span class="ws-rep-t">${esc(r.title || '')}</span>
+          <span class="ws-rep-k muted">${kinds}${r.open ? ` (정답 없는 고르기 ${r.open})` : ''}</span>
+        </button>
+        ${r.warn.map((w) => `<span class="ws-rep-w">${esc(w)}</span>`).join('')}
+      </li>`;
+  }).join('');
+  $('ws-dlg-view').classList.add('hidden');
+  $('ws-dlg-view').innerHTML = '';
+  $('ws-dlg-save').disabled = false;
+  $('ws-dlg').showModal();
+}
+
+// 쪽을 누르면 학생 화면처럼 보여 준다 (정답은 빠진 상태)
+$('ws-report').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-view]');
+  if (!b || !sheetDraft) return;
+  const view = $('ws-dlg-view');
+  const i = Number(b.dataset.view);
+  $('ws-report').querySelectorAll('.ws-rep').forEach((x, j) => x.classList.toggle('on', j === i));
+  renderPage(view, sheetDraft.parsed.pages[i], {}, { locked: true });
+  view.classList.remove('hidden');
+  view.scrollIntoView({ block: 'nearest' });
+});
+
+$('ws-dlg-cancel').addEventListener('click', () => { $('ws-dlg').close(); sheetDraft = null; });
+
+$('ws-dlg-save').addEventListener('click', async (e) => {
+  if (!sheetDraft) return;
+  const btn = e.currentTarget;
+  const { code, parsed } = sheetDraft;
+  btn.disabled = true;
+  try {
+    if (sheets.has(code)) {
+      const n = await countWorksheetAnswers(code);
+      if (n && !confirm(`이미 ${n}명이 이 학습지를 쓰기 시작했어요. 새 파일로 바꿀까요?\n칸이 바뀌면 쓰던 답이 맞지 않을 수 있어요. 이미 받은 XP는 그대로예요.`)) {
+        btn.disabled = false;
+        return;
+      }
+    }
+    const lesson = lessonWindows().find((l) => l.code === code);
+    await saveWorksheet({
+      lesson_code: code,
+      title: parsed.title || lesson?.title || '',
+      pages: parsed.pages,
+      key: parsed.key,
+      page_count: parsed.pages.length,
+      field_count: parsed.fieldCount,
+    });
+    $('ws-dlg').close();
+    sheetDraft = null;
+    toast(`${code}차시 학습지를 저장했어요`, 'ok');
+    // 그 차시가 오늘 보드인 반은 바로 새 학습지로
+    boards.filter((b) => b.lesson_code === code && classes.some((c) => c.today_board_id === b.id))
+      .forEach((b) => sendClassRefresh(b.class_id));
+    await refreshLessons();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    btn.disabled = false;
+  }
+});
 
 // 수업자료 주소: 'lessons/611.html'처럼 써도 포털 주소 기준으로 바꾼다
 function lessonUrl(input) {

@@ -714,6 +714,9 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .lesson-title { height: 40px; font-size: 15px; }
 .lesson-src-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; align-items: center; }
 .lesson-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.lesson-sheet { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+.ws-pick { position: relative; cursor: pointer; }
+.ws-pick:focus-within { outline: 2px solid var(--accent); outline-offset: 2px; }
 .lesson-go { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
 .lesson-need { font-size: 13px; }
 .lesson-classes { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
@@ -883,98 +886,109 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .lg-foot { display: flex; justify-content: flex-end; }
 .lite .lg-card.is-pending .lg-state { animation: none; }
 
-/* ---------- 7단계: 수업 모드 빈칸 질문 ---------- */
-/* 띠: 수업자료를 가리지 않게 오른쪽 아래에 작게. 마우스를 올리면 진하게 */
-.qz-band { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; align-items: center; gap: 12px; flex-wrap: wrap; justify-content: flex-end;
-  max-width: min(720px, calc(100% - 32px)); padding: 10px 12px 10px 18px; border-radius: 26px;
-  background: rgba(255,255,255,.92); box-shadow: var(--shadow); opacity: .6; transition: opacity .2s; font-weight: 700; }
-.qz-band:hover, .qz-band:focus-within { opacity: 1; }
-.qz-band-h { font-size: 14px; color: var(--ink-2); }
-.qz-count { font-size: 22px; }
-.qz-count b { font-size: 28px; font-weight: 900; color: var(--accent); }
-.qz-band kbd, .qz-actions kbd { font: inherit; font-size: 12px; font-weight: 700; padding: 2px 8px; border-radius: 6px; background: rgba(78,88,104,.12); color: var(--ink-2); }
-.qz-actions .btn-primary kbd { background: rgba(255,255,255,.22); color: #fff; }
-.qz-rates { display: flex; gap: 10px; flex-wrap: wrap; }
-.qz-rate { display: inline-flex; align-items: baseline; gap: 4px; font-size: 20px; }
-.qz-rate b { color: var(--ink-2); font-size: 18px; }
-.qz-rate .num { font-weight: 900; }
-.qz-left { font-size: 15px; color: var(--pending-fg); background: var(--pending-bg); padding: 4px 12px; border-radius: var(--r-pill); }
+/* ---------- 8단계: 수업 모드 학습지 띠 (오른쪽 아래, 수업자료를 가리지 않게 작게. 마우스를 올리면 진하게) ---------- */
+.ws-band { position: absolute; right: 16px; bottom: 16px; z-index: 6; display: flex; align-items: baseline; gap: 8px;
+  padding: 10px 18px; border-radius: 26px; background: rgba(255,255,255,.92); box-shadow: var(--shadow);
+  opacity: .6; transition: opacity .2s; font-weight: 700; }
+.ws-band:hover { opacity: 1; }
+.live-corner:not(.hidden) ~ .ws-band { bottom: 84px; }
+.ws-band-h { font-size: 15px; color: var(--ink-2); }
+.ws-band b { font-size: 28px; font-weight: 900; color: var(--accent); }
+.ws-band .num { font-size: 20px; }
+.ws-band.is-all b { color: var(--passed-solid); }
 
-/* 열기 전 확인 판: 불투명한 바탕 (아래에서 시뮬레이션이 돌 수 있으므로 흐림 없음) */
-.qz-panel { position: absolute; inset: 0; z-index: 12; background: var(--bg); display: flex; justify-content: center; padding: 24px; overflow: auto; }
-.qz-panel:focus { outline: none; }
-.qz-box { width: min(1100px, 100%); display: flex; flex-direction: column; gap: 16px; }
-.qz-head { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; }
-.qz-head h1 { margin: 0; font-size: clamp(22px, 3.2vh, 32px); font-weight: 900; letter-spacing: -0.03em; }
-.qz-actions { margin-left: auto; display: flex; gap: 8px; }
-.qz-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 10px; }
-.qz-item { display: grid; grid-template-columns: 170px 1fr; gap: 8px 16px; padding: 14px 18px; border-radius: var(--r-md); background: #fff; box-shadow: var(--shadow); }
-.qz-meta { grid-row: span 3; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; align-content: flex-start; }
-.qz-no { font-size: 24px; font-weight: 900; }
-.qz-kind { font-size: 13px; font-weight: 800; padding: 3px 10px; border-radius: var(--r-pill); }
-.qz-kind.is-auto { background: var(--accent-tint); color: var(--accent); }
-.qz-kind.is-teacher { background: var(--pending-bg); color: var(--pending-fg); }
-.qz-field, .qz-ans { display: grid; grid-template-columns: 76px 1fr; align-items: center; gap: 10px; font-size: 15px; }
-.qz-field > span, .qz-ans > span { color: var(--ink-2); font-weight: 700; }
-.qz-ans { display: flex; flex-wrap: wrap; }
-.qz-ans > span { width: 76px; }
-.qz-ans b { font-weight: 800; }
-.qz-opt { padding: 2px 12px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.2); }
-.qz-opt.on { border-color: var(--accent); background: var(--accent); color: #fff; }
+/* ---------- 8단계: 반 페이지 탭 [개인 학습지] [모둠활동] ---------- */
+.class-tabs { align-self: flex-start; max-width: 100%; display: flex; gap: 6px; padding: 6px; border-radius: var(--r-pill); }
+.class-tab { min-height: 48px; padding: 0 24px; border: 0; border-radius: var(--r-pill); background: transparent;
+  font: inherit; font-size: 17px; font-weight: 800; color: var(--ink-2); cursor: pointer; }
+.class-tab.on { background: var(--accent); color: #fff; }
 
-/* ---------- 7단계: 반 페이지 빈칸 질문 카드 (패들렛보다 위) ---------- */
-.quiz-card { border-radius: 32px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
-.quiz-head { display: flex; align-items: center; gap: 10px; }
-.quiz-head h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
-.qa-chip.is-sent { background: var(--passed-bg); color: var(--passed-fg); }
-.qa-chip.is-closed { background: var(--idle-bg); color: var(--idle-fg); }
-.quiz-items { display: flex; flex-direction: column; gap: 14px; }
-.qa-q { display: flex; flex-direction: column; gap: 8px; }
-.qa-prompt { margin: 0; font-size: 17px; line-height: 1.6; font-weight: 600; word-break: keep-all; }
-.qa-row { display: flex; flex-direction: column; gap: 8px; }
-.qa-row.is-inline { flex-direction: row; flex-wrap: wrap; }
-.qa-field { display: flex; align-items: flex-start; gap: 8px; flex: 1 1 200px; min-width: 0; }
-.qa-field > b, .qa-no { font-size: 18px; font-weight: 900; color: var(--ink-2); line-height: 44px; }
-.qa-in { flex: 1; min-width: 0; font-size: 17px; }
-textarea.qa-in { resize: vertical; font: inherit; font-size: 17px; line-height: 1.5; }
-.qa-opts { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-.qa-opt { min-height: 48px; padding: 0 18px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.22); background: rgba(255,255,255,.85);
-  font: inherit; font-size: 17px; font-weight: 700; color: var(--ink); cursor: pointer; }
-.qa-opts.is-sym .qa-opt { min-width: 64px; font-size: 24px; font-weight: 900; }
-.qa-opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
-.qa-opt[disabled] { cursor: default; opacity: .7; }
-.qa-opt[disabled][aria-pressed="true"] { opacity: 1; }
-.qa-mark { font-size: 22px; font-weight: 900; margin-left: 4px; line-height: 44px; }
-.qa-mark.is-ok { color: var(--passed-solid); }
-.qa-mark.is-no { color: var(--returned-solid); }
-.qa-result { justify-content: space-between; flex-wrap: wrap; }
-.qa-gain { font-size: 20px; font-weight: 900; color: var(--passed-fg); }
+/* ---------- 8단계: 개인 학습지 카드 ---------- */
+.ws-card { width: 100%; max-width: 960px; border-radius: 32px; padding: 24px; display: flex; flex-direction: column; gap: 16px; }
+.ws-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; }
+.ws-where { min-width: 0; }
+.ws-slide { font-size: 14px; font-weight: 800; color: var(--accent); }
+.ws-head h2 { margin: 2px 0 0; font-size: 24px; font-weight: 900; letter-spacing: -0.02em; word-break: keep-all; }
+.ws-chip { flex: none; background: var(--passed-bg); color: var(--passed-fg); }
+.ws-nav { display: flex; align-items: center; gap: 10px; }
+.ws-nav .icon-btn { border: 0; cursor: pointer; }
+.ws-nav .icon-btn[disabled] { opacity: .35; cursor: default; }
+.ws-dots { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
+.ws-dot { min-width: 44px; height: 44px; padding: 0 8px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.2); background: rgba(255,255,255,.7);
+  font: inherit; font-size: 14px; font-weight: 800; color: var(--ink-2); cursor: pointer; }
+.ws-dot.is-full { background: var(--passed-bg); border-color: transparent; color: var(--passed-fg); }
+.ws-dot.is-bad { background: var(--returned-bg); border-color: var(--returned-solid); color: var(--returned-fg); }
+.ws-dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ws-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.ws-foot:empty { display: none; }
+.ws-save { margin-right: auto; font-size: 14px; }
+.ws-badn { font-size: 15px; font-weight: 800; color: var(--returned-fg); }
+.ws-done { width: 100%; }
 
-/* ---------- 7단계: 검사 화면 [빈칸] 탭 ---------- */
-.check-tabs { margin: 8px 20px 0; display: flex; gap: 6px; padding: 6px; border-radius: var(--r-pill); }
-.check-tab { flex: 1; min-height: 44px; border: 0; border-radius: var(--r-pill); background: transparent; font: inherit; font-size: 16px; font-weight: 800; color: var(--ink-2); cursor: pointer;
-  display: inline-flex; align-items: center; justify-content: center; gap: 6px; }
-.check-tab.on { background: var(--accent); color: #fff; }
-.qz-badge { min-width: 22px; height: 22px; padding: 0 6px; border-radius: 999px; background: var(--pending-dot); color: #fff; font-size: 13px; display: inline-grid; place-items: center; }
-.qz-pick { align-self: flex-start; }
-.qc-list { display: flex; flex-direction: column; gap: 12px; }
-.qc-card { border-radius: var(--r-md); padding: 16px; display: flex; flex-direction: column; gap: 8px; }
-.qc-head { display: flex; align-items: center; gap: 8px; }
-.qc-no { font-size: 22px; font-weight: 900; }
-.qc-left { margin-left: auto; font-size: 13px; font-weight: 800; color: var(--pending-fg); background: var(--pending-bg); padding: 3px 10px; border-radius: var(--r-pill); }
-.qc-prompt { margin: 0; font-size: 15px; line-height: 1.5; word-break: keep-all; }
-.qc-key { margin: 0; font-size: 14px; color: var(--ink-2); }
-.qc-key span { font-weight: 800; margin-right: 4px; }
-.qc-answers { display: flex; flex-direction: column; gap: 6px; }
-.qc-row { display: grid; grid-template-columns: 1fr auto auto auto; align-items: center; gap: 8px; padding: 6px 6px 6px 12px; border-radius: var(--r-sm); background: rgba(255,255,255,.75); }
-.qc-text { font-size: 16px; font-weight: 700; word-break: break-word; }
-.qc-n { font-size: 14px; color: var(--ink-2); font-weight: 700; }
-.qc-btn { min-height: 40px; padding: 0 12px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.2); background: #fff; font: inherit; font-size: 14px; font-weight: 800; color: var(--ink-2); cursor: pointer; }
-.qc-btn.is-ok[aria-pressed="true"] { background: var(--passed-solid); border-color: var(--passed-solid); color: #fff; }
-.qc-btn.is-no[aria-pressed="true"] { background: var(--returned-solid); border-color: var(--returned-solid); color: #fff; }
-.qc-btn[disabled] { cursor: default; }
-.qc-none { margin: 0; font-size: 14px; }
-.qc-foot { display: flex; flex-direction: column; }
-.qc-grade { width: 100%; }
-/* 검사 화면은 휴대폰이라 kind 표시도 같이 쓴다 */
-.qc-card .qz-kind { font-size: 12px; font-weight: 800; padding: 3px 10px; border-radius: var(--r-pill); }
+/* 학습지 본문 (웹판의 class는 앞에 w-가 붙어 온다) */
+.ws-page { font-size: 17px; line-height: 1.9; word-break: keep-all; overflow-wrap: break-word; min-width: 0; }
+.ws-page > :first-child { margin-top: 0; }
+.ws-page h2, .ws-page h3, .ws-page h4 { margin: 18px 0 8px; font-size: 18px; font-weight: 900; line-height: 1.4; display: flex; align-items: center; gap: 8px; }
+.ws-page h3::before { content: ''; flex: none; width: 10px; height: 10px; background: var(--accent); }
+.ws-page p { margin: 8px 0; }
+.ws-page img { display: block; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(78,88,104,.15); }
+.ws-page table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 16px; background: rgba(255,255,255,.55); }
+.ws-page td, .ws-page th { border: 1px solid rgba(78,88,104,.18); padding: 10px 12px; text-align: left; vertical-align: middle; line-height: 1.8; }
+.ws-page th { background: rgba(78,88,104,.07); font-size: 14px; color: var(--ink-2); }
+.ws-page td small { display: block; color: var(--accent); font-size: 12.5px; font-weight: 700; }
+.ws-page .w-item { margin-top: 14px; }
+.ws-page .w-q { margin: 8px 0; }
+.ws-page .w-n { display: inline-block; min-width: 22px; margin-right: 4px; font-weight: 900; color: var(--accent); }
+.ws-page .w-n:empty { display: none; }
+.ws-page .w-qline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }
+.ws-page .w-pool { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 8px 0; padding: 8px 14px; border: 1.5px solid var(--ink); border-radius: 12px; font-size: 15px; }
+.ws-page .w-pool .w-tag { font-weight: 900; }
+.ws-page .w-two, .ws-page .w-defs, .ws-page .w-pair { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.ws-page .w-two > div { border: 1.5px dashed rgba(78,88,104,.35); border-radius: 14px; padding: 10px 12px; font-weight: 700; }
+.ws-page .w-row2 { display: grid; grid-template-columns: minmax(0, 230px) minmax(0, 1fr); gap: 16px; align-items: start; }
+.ws-page .w-ineq { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); gap: 10px; align-items: center; margin: 10px 0; font-size: 16px; }
+.ws-page .w-ineq > :first-child { text-align: right; }
+.ws-page .w-mine { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.ws-page .w-mine i, .ws-page .w-ox i { font-style: normal; border: 1.5px solid rgba(78,88,104,.4); border-radius: var(--r-pill); padding: 0 10px; }
+
+/* 칸 */
+.ws-in { font-weight: 700; }
+.ws-bl { display: inline-block; vertical-align: middle; width: 8em; height: 42px; margin: 2px 4px; padding: 0 8px; text-align: center; border-radius: 12px; font-size: 17px; }
+.ws-bl.ws-s { width: 5em; }
+.ws-bl.ws-l { width: 12em; }
+.ws-fill { display: block; height: auto; min-height: 76px; margin-top: 6px; padding: 10px 14px; line-height: 1.5; resize: vertical; font-size: 16px; font-weight: 500; }
+.ws-page .w-qline .ws-fill { flex: 1 1 100%; }
+.ws-ox { display: inline-flex; flex-wrap: wrap; gap: 6px; vertical-align: middle; margin: 2px 4px; border-radius: 26px; }
+.ws-opt { min-height: 44px; padding: 0 16px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.22); background: rgba(255,255,255,.9);
+  font: inherit; font-size: 16px; font-weight: 700; color: var(--ink); cursor: pointer; line-height: 1.3; }
+.ws-opt[aria-pressed="true"] { border-color: var(--accent); background: var(--accent); color: #fff; }
+.ws-sym .ws-opt { min-width: 52px; padding: 0; font-size: 22px; font-weight: 900; }
+.ws-opt[disabled] { cursor: default; opacity: .7; }
+.ws-opt[disabled][aria-pressed="true"] { opacity: 1; }
+.ws-in[disabled] { opacity: .85; background: rgba(255,255,255,.55); }
+.ws-in.is-wrong { border: 2px solid var(--returned-solid); background: var(--returned-bg); }
+.ws-in.is-empty { border: 2px dashed var(--pending-dot); background: var(--pending-bg); }
+.ws-ox.is-wrong { box-shadow: 0 0 0 3px var(--returned-solid); background: var(--returned-bg); }
+.ws-ox.is-empty { box-shadow: 0 0 0 3px var(--pending-dot); background: var(--pending-bg); }
+
+@media (max-width: 600px) {
+  .ws-card { padding: 16px; border-radius: var(--r-lg); }
+  .ws-page { font-size: 16px; }
+  .ws-page .w-two, .ws-page .w-defs, .ws-page .w-pair, .ws-page .w-row2 { grid-template-columns: 1fr; }
+  .ws-page .w-ineq { grid-template-columns: 1fr; }
+  .ws-page .w-ineq > :first-child { text-align: left; }
+  .class-tab { padding: 0 16px; }
+}
+
+/* ---------- 8단계: 관리 화면 학습지 미리보기 ---------- */
+.ws-file { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+dialog.ws-dlg { width: min(880px, calc(100vw - 32px)); }
+.ws-report { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.ws-rep-btn { width: 100%; display: grid; grid-template-columns: 56px minmax(0, 1fr); gap: 0 10px; align-items: baseline; text-align: left;
+  padding: 10px 12px; border-radius: var(--r-sm); border: 1.5px solid rgba(78,88,104,.15); background: rgba(255,255,255,.7); font: inherit; color: var(--ink); cursor: pointer; }
+.ws-rep-btn b { font-size: 16px; font-weight: 900; }
+.ws-rep-t { font-weight: 700; }
+.ws-rep-k { grid-column: 2; font-size: 13px; }
+.ws-rep.on .ws-rep-btn { border-color: var(--accent); }
+.ws-rep-w { display: block; margin: 4px 0 0 12px; font-size: 13px; font-weight: 700; color: var(--returned-fg); }
+.ws-preview { border-radius: var(--r-md); background: rgba(255,255,255,.75); padding: 16px; max-height: 50vh; overflow: auto; }

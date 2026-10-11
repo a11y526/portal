@@ -4,7 +4,6 @@ import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, getBoard, listSubmissions, listPresets, reviewSubmission,
   onSubmissionsChange, sendClassRefresh,
-  listQuizzes, getQuizAnswers, markQuiz, gradeQuiz, onQuizAnswersChange,
 } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
 
@@ -50,7 +49,6 @@ async function load() {
     board = c?.today_board_id ? await getBoard(c.today_board_id) : null;
     subs = board ? await listSubmissions(board.id) : [];
     render();
-    await loadQuizzes();
   } catch (err) {
     toast(errMsg(err), 'error');
   } finally {
@@ -203,158 +201,12 @@ async function review(card, status, feedback) {
   }
 }
 
-/* =========================================================
-   [빈칸] 탭: 마감된 질문의 답을 같은 답끼리 묶어 맞음/틀림 → XP 주기
-   자동 채점 문항도 여기서 고칠 수 있다(허용 답 추가처럼)
-   ========================================================= */
-const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
-const circled = (n) => CIRCLED[n - 1] ?? `(${n})`;
-const Q_STATUS = { open: '열려 있음', closed: '마감', graded: 'XP 줌' };
-
-let tab = 'subs';
-let quizzes = [];
-let quizId = null;    // 고른 질문
-let qa = null;        // get_quiz_answers 결과
-let grading = false;
-
-function setTab(next) {
-  tab = next;
-  try { localStorage.setItem('checkTab', next); } catch {}
-  document.querySelectorAll('[data-tab]').forEach((b) => {
-    b.classList.toggle('on', b.dataset.tab === next);
-    b.setAttribute('aria-pressed', String(b.dataset.tab === next));
-  });
-  $('subs-pane').classList.toggle('hidden', next !== 'subs');
-  document.querySelector('.check-bottom').classList.toggle('hidden', next !== 'subs');
-  $('quiz-pane').classList.toggle('hidden', next !== 'quiz');
-  if (next === 'quiz') loadQuizzes();
-}
-document.querySelector('.check-tabs').addEventListener('click', (e) => {
-  const b = e.target.closest('[data-tab]');
-  if (b) setTab(b.dataset.tab);
-});
-
-async function loadQuizzes() {
-  try {
-    quizzes = board ? await listQuizzes(board.id) : [];
-    // 아직 XP를 주지 않은 질문 수 (마감된 것)
-    const waiting = quizzes.filter((q) => q.status === 'closed').length;
-    $('qz-badge').textContent = waiting;
-    $('qz-badge').classList.toggle('hidden', !waiting);
-    if (!quizzes.some((q) => q.id === quizId)) {
-      quizId = (quizzes.find((q) => q.status === 'closed') ?? quizzes[0])?.id ?? null;
-    }
-    $('qz-pick').innerHTML = quizzes.map((q) => `
-      <option value="${q.id}" ${q.id === quizId ? 'selected' : ''}>${q.slide_no}쪽 · ${fmtTime(q.opened_at)} · ${Q_STATUS[q.status]}</option>`).join('');
-    $('qz-pick-wrap').classList.toggle('hidden', quizzes.length < 2);
-    if (tab !== 'quiz') return;
-    qa = quizId ? await getQuizAnswers(quizId) : null;
-    renderQuiz();
-  } catch (err) {
-    toast(errMsg(err), 'error');
-  }
-}
-
-$('qz-pick').addEventListener('change', (e) => {
-  quizId = e.target.value;
-  loadQuizzes();
-});
-
-function renderQuiz() {
-  const note = !board ? '오늘 보드가 없어요' : !qa ? '연 질문이 없어요' : '';
-  $('qz-note').textContent = note;
-  $('qz-note').classList.toggle('hidden', !note);
-  if (!qa) {
-    $('qz-items').innerHTML = '';
-    $('qz-foot').classList.add('hidden');
-    return;
-  }
-  const q = qa.quiz;
-  const editable = q.status === 'closed';
-  const groups = new Map(qa.groups.map((g) => [g.key, g.answers]));
-  $('qz-items').innerHTML = q.items.map((it) => {
-    const answers = groups.get(it.key) ?? [];
-    const left = answers.filter((a) => a.correct == null).length;
-    return `
-      <article class="qc-card glass-strong" data-key="${it.key}">
-        <header class="qc-head">
-          <b class="qc-no">${circled(it.no)}</b>
-          <span class="qz-kind ${it.kind === 'auto' ? 'is-auto' : 'is-teacher'}">${it.kind === 'auto' ? '자동' : '교사 체크'}</span>
-          ${left && editable ? `<span class="qc-left num">${left}개 남음</span>` : ''}
-        </header>
-        <p class="qc-prompt">${esc(it.prompt)}</p>
-        ${it.answers?.length ? `<p class="qc-key"><span>${it.kind === 'auto' ? '정답' : '예시 답안'}</span> ${it.answers.map(esc).join(' · ')}</p>` : ''}
-        <div class="qc-answers">
-          ${answers.length ? answers.map((a) => `
-            <div class="qc-row" data-text="${esc(a.text)}">
-              <span class="qc-text${a.text ? '' : ' muted'}">${a.text ? esc(a.text) : '(비움)'}</span>
-              <span class="qc-n num">${a.count}명</span>
-              <button type="button" class="qc-btn is-ok press" data-mark="1" aria-pressed="${a.correct === true}" ${editable ? '' : 'disabled'}>맞음</button>
-              <button type="button" class="qc-btn is-no press" data-mark="0" aria-pressed="${a.correct === false}" ${editable ? '' : 'disabled'}>틀림</button>
-            </div>`).join('') : '<p class="muted qc-none">낸 답이 없어요</p>'}
-        </div>
-      </article>`;
-  }).join('');
-
-  const foot = $('qz-foot');
-  foot.classList.remove('hidden');
-  if (q.status === 'open') {
-    foot.innerHTML = `<div class="glass check-note">열려 있음 · 제출 ${qa.submitted}명</div>`;
-  } else if (q.status === 'graded') {
-    foot.innerHTML = `<div class="glass check-note">XP를 줬어요</div>`;
-  } else {
-    foot.innerHTML = `<button type="button" class="act act-pass press qc-grade" id="qz-grade">XP 주기 · ${qa.submitted}명</button>`;
-  }
-}
-
-$('qz-items').addEventListener('click', async (e) => {
-  const btn = e.target.closest('[data-mark]');
-  if (!btn || btn.disabled || !qa) return;
-  const row = btn.closest('.qc-row');
-  const key = btn.closest('.qc-card').dataset.key;
-  const correct = btn.dataset.mark === '1';
-  const ans = qa.groups.find((g) => g.key === key)?.answers.find((a) => a.text === row.dataset.text);
-  row.querySelectorAll('[data-mark]').forEach((b) => { b.disabled = true; });
-  try {
-    await markQuiz(qa.quiz.id, key, row.dataset.text, correct);
-    if (ans) ans.correct = correct;
-  } catch (err) {
-    toast(errMsg(err), 'error');
-  }
-  renderQuiz();
-});
-
-$('qz-foot').addEventListener('click', async (e) => {
-  const btn = e.target.closest('#qz-grade');
-  if (!btn || grading || !qa) return;
-  const left = qa.groups.reduce((n, g) => n + g.answers.filter((a) => a.correct == null).length, 0);
-  if (left && !confirm(`아직 정하지 않은 답 ${left}개는 틀림으로 처리돼요. XP를 줄까요?`)) return;
-  grading = true;
-  btn.disabled = true;
-  btn.textContent = '주는 중';
-  try {
-    const res = await gradeQuiz(qa.quiz.id);
-    sendClassRefresh(classId);
-    toast(res.already ? '이미 XP를 준 질문이에요' : `${res.paid}명에게 XP를 줬어요`, 'ok');
-  } catch (err) {
-    toast(errMsg(err), 'error');
-  } finally {
-    grading = false;
-    await loadQuizzes();
-  }
-});
-
-let quizTimer;
-const scheduleQuizzes = () => { clearTimeout(quizTimer); quizTimer = setTimeout(loadQuizzes, 400); };
-
 /* ---------- 반 고르기 ---------- */
 function pickClass(n) {
   classId = n;
   try { localStorage.setItem('checkClass', String(n)); } catch {}
   firstPaint = true;
   lastWait = 0;
-  quizId = null;
-  qa = null;
   doneIds = new Set();
   $('pending').innerHTML = '';
   load();
@@ -368,16 +220,11 @@ teacherGate($('app'), async () => {
   $('cls').innerHTML = CLASSES.map((n) => `<option value="${n}" ${n === classId ? 'selected' : ''}>${n}반</option>`).join('');
   $('cls').addEventListener('change', (e) => pickClass(Number(e.target.value)));
 
-  let savedTab = null;
-  try { savedTab = localStorage.getItem('checkTab'); } catch {}
-  if (savedTab === 'quiz') setTab('quiz');
-
   presets = await listPresets().catch(() => []);
   await load();
 
   // 새 제출·검사가 생기면 바로, 놓쳐도 20초마다 다시 읽는다
   onSubmissionsChange(scheduleLoad);
-  onQuizAnswersChange(() => { if (tab === 'quiz') scheduleQuizzes(); });
   setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 });

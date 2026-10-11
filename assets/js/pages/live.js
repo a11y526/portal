@@ -5,8 +5,7 @@ import { CLASSES, GRADE } from '../config.js';
 import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh,
-  getBoardGroupMembers, listSubmissions, onSubmissionsChange,
-  openQuiz, closeQuiz, getQuizStats, gradeQuiz, getLatestQuiz, onQuizAnswersChange,
+  getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats,
 } from '../db.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -31,13 +30,8 @@ let tab = 'groups';
 
 /* =========================================================
    수업자료 iframe — 수업자료에 접근하는 코드는 여기에만 둔다
-   수업자료 HTML은 고치지 않는다. 같은 출처일 때만 지금 쪽의 빈칸을 읽는다
+   수업자료 HTML은 고치지 않는다. 같은 출처일 때만 키를 먼저 받는다
    ========================================================= */
-// 수업자료의 '답 보기'와 같은 선택자
-const ANS = '.bl, .choice span.right, .ans, .ineq-row .sym';
-const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
-const circled = (n) => CIRCLED[n - 1] ?? `(${n})`;
-const squash = (t) => String(t || '').replace(/\s+/g, ' ').trim();
 const lessonFrame = {
   el: null,
   sameOrigin: false,
@@ -74,73 +68,6 @@ const lessonFrame = {
     }
   },
 
-  // 지금 쪽의 빈칸 → { slideNo, items: [{ type, kind, prompt, options, answers }] }. 읽을 수 없으면 null
-  readQuiz() {
-    let doc, win;
-    try { doc = this.el?.contentDocument; win = this.el?.contentWindow; } catch { return null; }
-    if (!doc || !win) return null;
-    const slides = [...doc.querySelectorAll('.slide')];
-    const idx = slides.findIndex((x) => x.classList.contains('active'));
-    if (idx < 0) return null;
-    const slide = slides[idx];
-    const found = [...slide.querySelectorAll(ANS)].filter((el) => !el.parentElement.closest(ANS));
-    const no = new Map(found.map((el, i) => [el, i + 1]));
-
-    // 빈칸이 들어 있는 줄·칸: 글자 흐름(inline)이 아닌 가장 가까운 상자
-    const block = (el) => {
-      let n = el.parentElement;
-      while (n && n !== slide && win.getComputedStyle(n).display.startsWith('inline')) n = n.parentElement;
-      return n || slide;
-    };
-    // 상자 글자만 (답·번호·답 보기 버튼은 빼고, 빈칸은 ①②…로)
-    const textOf = (box, { drop = '' } = {}) => {
-      const c = box.cloneNode(true);
-      const orig = [...box.querySelectorAll('.bl')];
-      [...c.querySelectorAll('.bl')].forEach((b, i) => b.replaceWith(` ( ${no.has(orig[i]) ? circled(no.get(orig[i])) : ' '} ) `));
-      c.querySelectorAll(`.qnum, .reveal, .foot, svg, script, style, .ex${drop ? ', ' + drop : ''}`).forEach((x) => x.remove());
-      c.querySelectorAll('br, small, td, th, div, li').forEach((x) => x.after(' '));
-      return squash(c.textContent);
-    };
-    const title = squash(slide.querySelector('h1')?.textContent);
-
-    const items = found.map((el) => {
-      if (el.matches('.bl')) {
-        const box = block(el);
-        let prompt = textOf(box, { drop: '.choice, .ans' });
-        if (box.tagName === 'TD') {
-          const head = [...box.parentElement.children].filter((x) => x !== box && !x.querySelector('.bl')).map((x) => textOf(x, { drop: 'small' })).join(' ');
-          if (head) prompt = `${head} — ${prompt}`;
-        }
-        return { type: 'blank', kind: 'auto', prompt, options: [], answers: [squash(el.textContent)] };
-      }
-      if (el.matches('.choice span.right')) {
-        const choice = el.closest('.choice');
-        return {
-          type: 'choice', kind: 'auto',
-          prompt: textOf(block(choice), { drop: '.choice, .ans' }) || title,
-          options: [...choice.children].map((x) => squash(x.textContent)).filter(Boolean),
-          answers: [squash(el.textContent)],
-        };
-      }
-      if (el.matches('.ineq-row .sym')) {
-        const cells = [...el.closest('.ineq-row').children];
-        return {
-          type: 'sym', kind: 'auto',
-          prompt: `${squash(cells[0]?.textContent)}  (   )  ${squash(cells[2]?.textContent)}`,
-          options: ['<', '=', '>'],
-          answers: [squash(el.textContent)],
-        };
-      }
-      // 문장 답 (.ans-box, .hint-line, .items): 교사 체크. 정답 칸에는 예시 답안
-      const answer = el.matches('.items') ? [...el.children].map((x) => squash(x.textContent)).join(', ') : squash(el.textContent);
-      const parent = el.parentElement;
-      const prompt = parent && parent !== slide ? textOf(parent, { drop: `${ANS}, .choice` }) : '';
-      return { type: 'text', kind: 'teacher', prompt: prompt || title, options: [], answers: answer ? [answer] : [] };
-    });
-    items.forEach((it) => { it.prompt = it.prompt.slice(0, 300); });
-    return { slideNo: idx + 1, items };
-  },
-
   focus() {
     if (!this.el) return;
     this.el.focus();
@@ -156,15 +83,7 @@ const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contentedita
 
 function handleKey(e) {
   if (e.ctrlKey || e.metaKey || e.altKey || e.isComposing) return false;
-  // 질문 확인 판: Enter 열기, Esc 취소. 판이 떠 있는 동안 다른 키는 수업자료로 가지 않는다
-  if (quiz.panelOpen) {
-    if (e.key === 'Escape') { quiz.hidePanel(); return true; }
-    if (e.key === 'Enter' && e.target?.tagName !== 'BUTTON') { if (!e.repeat) quiz.open(); return true; }
-    if (isEditable(e.target)) return false;
-    return e.code === 'KeyQ' || e.code === 'KeyG' || e.code === 'KeyF';
-  }
   if (isEditable(e.target)) return false;
-  if (e.code === 'KeyQ' && !coverOpen) { if (!e.repeat) quiz.onQ(); return true; }
   switch (e.code) {
     case 'KeyG': if (!e.repeat) toggleCover(); return true;
     case 'KeyF': if (!e.repeat) toggleFullscreen(); return true;
@@ -183,7 +102,7 @@ const swallow = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
 
 // 수업자료 안: G·F만 가로채고 나머지는 수업자료가 처리. 덮개가 열려 있으면 모두 막는다(쪽이 넘어가지 않게)
 function onLessonKey(e) {
-  if (handleKey(e) || coverOpen || quiz.panelOpen) swallow(e);
+  if (handleKey(e) || coverOpen) swallow(e);
 }
 
 // 바깥 문서와 덮개 안 화면(모둠 편성·순위 발표): 우리 키만 가로채고 나머지(스페이스로 다음 등)는 그 화면이 처리
@@ -575,202 +494,29 @@ $('timer-minus').addEventListener('click', () => timer.step(-1));
 $('timer-plus').addEventListener('click', () => timer.step(1));
 
 /* =========================================================
-   빈칸 질문 (Q)
-   Q: 지금 쪽의 빈칸 → 확인 판 → 열기. 열려 있으면 Q로 마감.
-   띠에는 제출 수, 마감 뒤에는 문항별 정답률만 (학생 답·이름은 프로젝터에 보이지 않는다)
+   학습지 띠: 오른쪽 아래 "학습지 완료 18 / 28" (5초마다). 학생 답·이름은 보이지 않는다
+   이 차시에 학습지가 없으면 띄우지 않는다
    ========================================================= */
-const QUIZ_POLL_MS = 5000;
-const TYPE_NAME = { blank: '단어', choice: '고르기', sym: '부등호', text: '문장' };
-
-const quiz = {
-  cur: null,          // { id, slide_no, status, items }
-  stats: null,
-  draft: null,        // 확인 판에 띄운 { slideNo, items }
-  panelOpen: false,
-  busy: false,
-  poll: null,
-  hideTimer: null,
-
-  onQ() {
-    if (this.busy) return;
-    if (!board) return toast(`이 반의 ${code}차시 보드가 없어요`, 'error');
-    if (this.cur?.status === 'open') return this.close();
-    const read = lessonFrame.readQuiz();
-    if (!read) return toast('수업자료의 빈칸을 읽을 수 없어요', 'error');
-    if (!read.items.length) return toast(`${read.slideNo}쪽에는 빈칸이 없어요`);
-    this.showPanel(read);
-  },
-
-  showPanel(read) {
-    this.draft = read;
-    this.panelOpen = true;
-    const auto = read.items.filter((it) => it.kind === 'auto').length;
-    const teacher = read.items.length - auto;
-    $('qz-h').textContent = `${read.slideNo}쪽 빈칸 ${read.items.length}개` +
-      (teacher ? ` · 자동 ${auto} · 교사 체크 ${teacher}` : '');
-    $('qz-list').innerHTML = read.items.map((it, i) => `
-      <li class="qz-item" data-i="${i}">
-        <div class="qz-meta">
-          <b class="qz-no">${circled(i + 1)}</b>
-          <span class="qz-kind ${it.kind === 'auto' ? 'is-auto' : 'is-teacher'}">${it.kind === 'auto' ? '자동' : '교사 체크'}</span>
-          <span class="muted">${TYPE_NAME[it.type]}</span>
-        </div>
-        <label class="qz-field"><span>문제</span>
-          <input class="input" type="text" maxlength="300" data-f="prompt" value="${esc(it.prompt)}"></label>
-        ${it.type === 'blank' ? `
-          <div class="qz-ans"><span>정답</span><b>${esc(it.answers[0] ?? '')}</b></div>
-          <label class="qz-field"><span>허용 답</span>
-            <input class="input" type="text" maxlength="200" data-f="extra" placeholder="쉼표로 나눠 쓰기" autocomplete="off"></label>`
-        : it.type === 'text' ? `
-          <div class="qz-ans"><span>예시 답안</span><b>${esc(it.answers[0] ?? '')}</b></div>`
-        : `
-          <div class="qz-ans"><span>선택지</span>${it.options.map((o) => `<b class="qz-opt${it.answers.includes(o) ? ' on' : ''}">${esc(o)}</b>`).join('')}</div>`}
-      </li>`).join('');
-    $('qz-panel').classList.remove('hidden');
-    $('qz-panel').focus({ preventScroll: true });
-  },
-
-  hidePanel() {
-    this.panelOpen = false;
-    this.draft = null;
-    $('qz-panel').classList.add('hidden');
-    lessonFrame.focus();
-  },
-
-  // 확인 판에서 고친 문제 글·허용 답을 담는다
-  itemsFromPanel() {
-    return this.draft.items.map((it, i) => {
-      const row = $('qz-list').querySelector(`[data-i="${i}"]`);
-      const prompt = squash(row.querySelector('[data-f="prompt"]').value) || it.prompt;
-      const extra = (row.querySelector('[data-f="extra"]')?.value || '').split(/[,，]/).map(squash).filter(Boolean);
-      return { type: it.type, prompt, options: it.options, answers: [...new Set([...it.answers, ...extra])] };
-    });
-  },
-
-  async open() {
-    if (!this.panelOpen || this.busy) return;
-    this.busy = true;
-    $('qz-open').disabled = true;
-    try {
-      const items = this.itemsFromPanel();
-      const slideNo = this.draft.slideNo;
-      const res = await openQuiz(board.id, slideNo, items);
-      this.cur = { id: res.id, slide_no: slideNo, status: 'open', items: res.items };
-      this.stats = null;
-      this.hidePanel();
-      sendClassRefresh(classId);
-      this.render();
-      this.refresh();
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    } finally {
-      this.busy = false;
-      $('qz-open').disabled = false;
-    }
-  },
-
-  async close() {
-    if (!this.cur || this.busy) return;
-    this.busy = true;
-    try {
-      await closeQuiz(this.cur.id);
-      this.cur.status = 'closed';
-      sendClassRefresh(classId);
-      this.render();
-      await this.refresh();
-    } catch (err) {
-      toast(errMsg(err), 'error');
-    } finally {
-      this.busy = false;
-    }
-  },
-
-  async grade(btn) {
-    if (!this.cur || this.busy) return;
-    this.busy = true;
-    btn.disabled = true;
-    btn.textContent = '주는 중';
-    try {
-      const res = await gradeQuiz(this.cur.id);
-      this.cur.status = 'graded';
-      sendClassRefresh(classId);
-      toast(res.already ? '이미 XP를 준 질문이에요' : `${res.paid}명에게 XP를 줬어요`, 'ok');
-      await this.refresh();
-    } catch (err) {
-      toast(errMsg(err), 'error');
-      btn.disabled = false;
-      btn.textContent = 'XP 주기';
-    } finally {
-      this.busy = false;
-    }
-  },
-
+const SHEET_POLL_MS = 5000;
+const sheetBand = {
   async refresh() {
-    if (!this.cur) return;
+    if (!board) return;
     try {
-      this.stats = await getQuizStats(this.cur.id);
-      // 검사 화면(휴대폰)에서 XP를 줬을 수도 있다
-      if (this.stats?.status) this.cur.status = this.stats.status;
-      this.render();
+      const st = await getWorksheetStats(board.id);
+      const band = $('ws-band');
+      band.classList.toggle('hidden', !st?.has_sheet);
+      if (!st?.has_sheet) return;
+      band.innerHTML = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>`;
+      band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
     } catch (err) {
       console.error(err);
     }
   },
-
-  render() {
-    const band = $('qz-band');
-    const q = this.cur;
-    clearInterval(this.poll);
-    clearTimeout(this.hideTimer);
-    if (!q) { band.classList.add('hidden'); return; }
-    const st = this.stats;
-    const head = `<span class="qz-band-h">빈칸 ${q.slide_no}쪽</span>`;
-    let html;
-    if (q.status === 'open') {
-      html = `${head}<span class="qz-count">제출 <b class="num">${st?.submitted ?? 0}</b> / <span class="num">${st?.total ?? '–'}</span></span><kbd>Q 마감</kbd>`;
-    } else if (q.status === 'closed') {
-      const rates = (st?.items ?? []).filter((it) => it.kind === 'auto')
-        .map((it) => `<span class="qz-rate"><b>${circled(it.no)}</b><span class="num">${it.rate ?? 0}%</span></span>`).join('');
-      const left = st?.pending_teacher ?? 0;
-      html = `${head}<span class="qz-rates">${rates}</span>` +
-        (left ? `<span class="qz-left">교사 체크 ${left}문항 남음</span>`
-              : (st ? '<button type="button" class="btn btn-primary btn-small press" id="qz-grade">XP 주기</button>' : ''));
-    } else {
-      html = `${head}<span class="qz-count">XP 지급 · <b class="num">${st?.paid ?? 0}</b>명</span>`;
-      this.hideTimer = setTimeout(() => { band.classList.add('hidden'); }, 8000);
-    }
-    band.innerHTML = html;
-    band.classList.remove('hidden');
-    band.classList.toggle('is-closed', q.status !== 'open');
-    if (q.status !== 'graded') this.poll = setInterval(() => { if (!document.hidden) this.refresh(); }, QUIZ_POLL_MS);
-  },
-
-  async start() {
-    try {
-      const last = await getLatestQuiz(board.id);
-      if (last && last.status !== 'graded') {
-        this.cur = last;
-        await this.refresh();
-      }
-    } catch (err) {
-      console.error(err);
-    }
-    let t;
-    onQuizAnswersChange((p) => {
-      const row = p.new?.quiz_id ? p.new : p.old;
-      if (!this.cur || (row?.quiz_id && row.quiz_id !== this.cur.id)) return;
-      clearTimeout(t);
-      t = setTimeout(() => this.refresh(), 300);
-    });
+  start() {
+    this.refresh();
+    setInterval(() => { if (!document.hidden) this.refresh(); }, SHEET_POLL_MS);
   },
 };
-
-$('qz-open').addEventListener('click', () => quiz.open());
-$('qz-cancel').addEventListener('click', () => quiz.hidePanel());
-$('qz-band').addEventListener('click', (e) => {
-  const btn = e.target.closest('#qz-grade');
-  if (btn) quiz.grade(btn);
-});
 
 /* =========================================================
    시작
@@ -813,7 +559,7 @@ teacherGate($('app'), async () => {
     sendClassRefresh(classId);
   }
   await loadGroups();
-  quiz.start();
+  sheetBand.start();
   onSubmissionsChange((p) => {
     const row = p.new?.board_id ? p.new : p.old;
     if (!row?.board_id || row.board_id === board.id) scheduleGroups();

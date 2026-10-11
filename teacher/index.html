@@ -195,9 +195,9 @@
         <span>3위 보너스</span>
         <input class="input num" type="number" min="0" max="1000" name="bx2" aria-label="3위 보너스 XP" required>
         <input class="input num" type="number" min="0" max="1000" name="bc2" aria-label="3위 보너스 코인" required>
-        <span>빈칸 정답 1개당</span>
-        <input class="input num" type="number" min="0" max="100" name="quiz_xp" aria-label="빈칸 정답 1개당 XP" required>
-        <input class="input num" type="number" min="0" max="100" name="quiz_coins" aria-label="빈칸 정답 1개당 코인" required>
+        <span>학습지 완료</span>
+        <input class="input num" type="number" min="0" max="1000" name="ws_xp" aria-label="학습지 완료 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="ws_coins" aria-label="학습지 완료 코인" required>
       </div>
       <p class="muted num" style="margin:0" id="points-sum"></p>
       <h2 id="h-levels" style="margin-top:8px">레벨 기준</h2>
@@ -275,6 +275,20 @@
       <div class="row-actions">
         <button class="btn btn-primary" type="button" id="codes-print">A4로 인쇄</button>
         <button class="btn btn-line" type="button" id="codes-close">닫기</button>
+      </div>
+    </div>
+  </dialog>
+
+  <!-- 학습지 올리기: 미리보기 → 저장 -->
+  <dialog class="sheet ws-dlg" id="ws-dlg">
+    <div class="card glass-strong">
+      <h2 id="ws-dlg-h">학습지 미리보기</h2>
+      <p class="muted num" style="margin:0" id="ws-dlg-meta"></p>
+      <ol class="ws-report" id="ws-report"></ol>
+      <div class="ws-page ws-preview hidden" id="ws-dlg-view" aria-live="polite"></div>
+      <div class="row-actions">
+        <button class="btn btn-primary" type="button" id="ws-dlg-save">저장</button>
+        <button class="btn btn-line" type="button" id="ws-dlg-cancel">취소</button>
       </div>
     </div>
   </dialog>

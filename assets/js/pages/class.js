@@ -1,11 +1,12 @@
-// 반 페이지: 오늘 보드(패들렛 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
+// 반 페이지: [개인 학습지] [모둠활동] 탭. 모둠활동은 오늘 보드(패들렛 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
 // 학생 기기가 느리고 와이파이가 약해서: 패들렛은 [패들렛 열기]를 눌러야 불러오고,
 // 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw } from '../ui.js';
-import { sb, getClassPage, submitGroup, submitQuiz, onClassRefresh, sendClassRefresh } from '../db.js';
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheet, onClassRefresh, sendClassRefresh } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
+import { renderPage, markFields } from '../worksheet.js';
 
 initUI();
 bindReactions();
@@ -307,19 +308,8 @@ async function onSubmit(btn) {
   await load();
 }
 
-/* ---------- 빈칸 질문 (수업 중 선생님이 열면 맨 위에) ----------
-   쓰는 중인 답은 기기에 임시 저장(quiz-<id>). 보내다 실패하면 연결되면 자동으로 다시 보낸다.
-   맞았는지는 선생님이 XP를 준 뒤('graded')에만 온다. 이 화면에서 질문을 본 적이 있을 때만 결과를 띄운다
-   (새로고침하거나 다음 질문이 열리면 사라짐) */
-
-const CIRCLED = '①②③④⑤⑥⑦⑧⑨⑩⑪⑫⑬⑭⑮⑯⑰⑱⑲⑳';
-const circled = (n) => CIRCLED[n - 1] ?? `(${n})`;
-const QUIZ_ERR = {
-  TIMEOUT: '응답이 없어요. 다시 내 주세요',
-  NO_SESSION: '다시 로그인해 주세요',
-  CLOSED: '마감됐어요',
-  GONE: '질문이 바뀌었어요',
-};
+/* ---------- 탭: [개인 학습지] [모둠활동] (마지막 탭 기억) ----------
+   오늘 차시에 학습지가 없으면 탭 없이 모둠활동만 */
 
 const store = {
   get(k) { try { return JSON.parse(localStorage.getItem(k) || 'null'); } catch { return null; } },
@@ -327,170 +317,333 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
-const quizSeen = new Set();   // 이 화면에서 열려 있거나 마감된 상태로 본 질문
-let quizKey;
-let quizNow = null;
-let quizDraft = {};           // { k1: '답', ... } 지금 입력칸의 답
-let quizSending = false;
-let quizLeveled = new Set();
+let tab = store.get('classTab') === 'group' ? 'group' : 'sheet';
+let hasSheet = false;
 
-const draftOf = (id) => store.get(`quiz-${id}`);   // { answers, pending: 보내다 실패해 다시 보낼 것 }
-const saveDraft = (id, pending) => store.set(`quiz-${id}`, { answers: quizDraft, pending });
-
-// 같은 문장의 빈칸(단어)은 문장 하나 아래에 칸을 나란히
-function quizGroups(items) {
-  const out = [];
-  items.forEach((it) => {
-    const last = out[out.length - 1];
-    if (it.type === 'blank' && last?.type === 'blank' && last.prompt === it.prompt) last.items.push(it);
-    else out.push({ type: it.type, prompt: it.prompt, items: [it] });
+function applyTab() {
+  const sheetOn = hasSheet && tab === 'sheet';
+  $('tabs').classList.toggle('hidden', !hasSheet);
+  $('sheet').classList.toggle('hidden', !sheetOn);
+  $('group-tab').classList.toggle('hidden', sheetOn);
+  document.querySelectorAll('.class-tab').forEach((b) => {
+    const on = b.dataset.tab === (sheetOn ? 'sheet' : 'group');
+    b.classList.toggle('on', on);
+    b.setAttribute('aria-selected', String(on));
   });
-  return out;
+  if (sheetOn) ensureSheet();
+  else fitFrame();
 }
 
-function quizField(it, locked, graded) {
-  const v = quizDraft[it.key] ?? '';
-  const mark = graded ? (graded.result?.[it.key] ? '<span class="qa-mark is-ok" aria-label="맞음">○</span>' : '<span class="qa-mark is-no" aria-label="틀림">✕</span>') : '';
-  if (it.type === 'choice' || it.type === 'sym') {
-    return `
-      <div class="qa-opts${it.type === 'sym' ? ' is-sym' : ''}" role="group" aria-label="${circled(it.no)}">
-        <b class="qa-no">${circled(it.no)}</b>
-        ${(it.options ?? []).map((o) => `<button type="button" class="qa-opt press" data-key="${it.key}" data-val="${esc(o)}"
-          aria-pressed="${v === o}" ${locked ? 'disabled' : ''}>${esc(o)}</button>`).join('')}
-        ${mark}
-      </div>`;
-  }
-  const tag = it.type === 'text'
-    ? `<textarea class="input qa-in" rows="2" maxlength="200" data-key="${it.key}" ${locked ? 'disabled' : ''}>${esc(v)}</textarea>`
-    : `<input class="input qa-in" type="text" maxlength="200" data-key="${it.key}" value="${esc(v)}" autocomplete="off" ${locked ? 'disabled' : ''}>`;
-  return `<label class="qa-field"><b>${circled(it.no)}</b>${tag}${mark}</label>`;
-}
-
-function renderQuiz(data) {
-  const box = $('quiz');
-  const q = data?.board ? data.quiz : null;
-  if (q && q.status !== 'graded') quizSeen.add(q.id);
-  const show = q && (q.status !== 'graded' || quizSeen.has(q.id));
-  if (!show) {
-    if (q?.status === 'graded') store.del(`quiz-${q.id}`);
-    box.classList.add('hidden');
-    quizKey = undefined;
-    quizNow = null;
-    return;
-  }
-  const graded = q.status === 'graded' ? q.graded : null;
-  const key = [q.id, q.status, login ? 'in' : 'out', q.mine?.submitted_at ?? '', graded ? JSON.stringify(graded) : ''].join('|');
-  if (key === quizKey) return;
-  const fresh = quizNow?.id !== q.id;
-  quizKey = key;
-  quizNow = q;
-
-  if (fresh) {
-    const d = draftOf(q.id);
-    quizDraft = { ...(q.mine?.answers ?? {}), ...(d?.answers ?? {}) };
-  }
-  if (q.status !== 'open') quizDraft = { ...(q.mine?.answers ?? {}) };
-  const locked = !login || q.status !== 'open';
-  const sent = !!q.mine;
-  const state = q.status === 'open'
-    ? (sent ? '<span class="chip qa-chip is-sent">냈어요</span>' : '')
-    : q.status === 'closed' ? '<span class="chip qa-chip is-closed">마감</span>' : '';
-
-  let foot;
-  if (!login) {
-    foot = `<div class="state-box is-idle login-need"><span class="state-title">로그인하면 낼 수 있어요</span><a class="btn btn-primary press" href="index.html">로그인</a></div>`;
-  } else if (graded) {
-    const right = Object.values(graded.result ?? {}).filter(Boolean).length;
-    foot = `<div class="state-box is-passed qa-result">
-      <span class="state-title">${q.items.length}개 중 ${right}개 맞음</span>
-      ${graded.xp || graded.coins ? `<span class="qa-gain num">+${graded.xp} XP · +${graded.coins}코인</span>` : ''}
-    </div>`;
-  } else if (q.status === 'open') {
-    foot = `<button type="button" class="btn btn-primary btn-big press" id="quiz-send">${sent ? '고쳐서 다시 내기' : '내기'}</button>`;
-  } else {
-    foot = '';
-  }
-
-  box.innerHTML = `
-    <div class="quiz-head">
-      <h2 id="quiz-h">빈칸 · ${q.slide_no}쪽</h2>${state}
-    </div>
-    <div class="quiz-items">
-      ${quizGroups(q.items).map((g) => `
-        <div class="qa-q">
-          ${g.prompt ? `<p class="qa-prompt">${esc(g.prompt)}</p>` : ''}
-          <div class="qa-row${g.type === 'blank' ? ' is-inline' : ''}">${g.items.map((it) => quizField(it, locked, graded)).join('')}</div>
-        </div>`).join('')}
-    </div>
-    ${foot}`;
-  box.classList.remove('hidden');
-  if (fresh) { box.classList.remove('rise'); void box.offsetWidth; box.classList.add('rise'); }
-
-  if (graded) {
-    store.del(`quiz-${q.id}`);
-    if (graded.level_after > graded.level_before && !quizLeveled.has(q.id)) {
-      quizLeveled.add(q.id);
-      showLevelUp(graded.level_after, graded.total_xp, data.my_members?.find((m) => m.me)?.avatar);
-    }
-  }
-}
-
-// 보내다 실패한 답은 연결되면 자동으로 다시
-function retryQuiz() {
-  if (quizNow?.status === 'open' && login && draftOf(quizNow.id)?.pending) sendQuiz();
-}
-
-$('quiz').addEventListener('input', (e) => {
-  const el = e.target.closest('.qa-in');
-  if (!el || !quizNow) return;
-  quizDraft[el.dataset.key] = el.value;
-  saveDraft(quizNow.id, !!draftOf(quizNow.id)?.pending);
+$('tabs').addEventListener('click', (e) => {
+  const b = e.target.closest('.class-tab');
+  if (!b || b.dataset.tab === tab) return;
+  tab = b.dataset.tab;
+  store.set('classTab', tab);
+  applyTab();
 });
 
-$('quiz').addEventListener('click', (e) => {
-  const opt = e.target.closest('.qa-opt');
-  if (opt && quizNow && !opt.disabled) {
-    const k = opt.dataset.key;
-    quizDraft[k] = quizDraft[k] === opt.dataset.val ? '' : opt.dataset.val;
-    opt.parentElement.querySelectorAll('.qa-opt').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.val === quizDraft[k])));
-    saveDraft(quizNow.id, !!draftOf(quizNow.id)?.pending);
+/* ---------- 개인 학습지 ----------
+   본문(get_worksheet)은 무거워서 버전이 바뀔 때만 받는다. 15초 갱신에는 완료 여부만 온다.
+   쓰는 대로 기기에 임시 저장(ws-<보드>-<번호>, 학생마다 따로)하고 몇 초 뒤 서버에 저장한다. 끊기면 연결되면 다시.
+   로그인하지 않았으면 빈 학습지만 보인다(같은 기기를 쓴 다른 학생의 답이 보이지 않게)
+   [제출]하면 서버가 채점해 틀리거나 빈 칸의 위치만 돌려준다(정답은 오지 않는다) */
+
+const SAVE_DELAY_MS = 2500;
+const WS_ERR = {
+  TIMEOUT: '응답이 없어요. 다시 제출해 주세요',
+  NO_SESSION: '다시 로그인해 주세요',
+  BOARD_CHANGED: '오늘 수업이 바뀌었어요',
+  NO_SHEET: '학습지가 바뀌었어요',
+};
+
+const ws = {
+  meta: null,       // get_class_page의 worksheet
+  boardId: null,
+  ver: null,        // 받아 둔 본문의 '보드|버전'
+  sheet: null,      // get_worksheet 결과
+  answers: {},
+  idx: 0,
+  done: false,
+  gain: null,       // { xp, coins }
+  justDone: false,
+  bad: {},          // { f1: 'wrong' | 'empty' }
+  dirty: false,     // 서버에 아직 저장 안 된 답이 있음
+  saving: false,
+  submitting: false,
+  fetching: false,
+  saveTimer: null,
+  status: '',
+};
+
+const draftKey = () => (login ? `ws-${ws.boardId}-${login.number}` : null);
+const pageKey = () => `ws-page-${ws.boardId}`;
+const persist = () => { if (draftKey()) store.set(draftKey(), { answers: ws.answers, dirty: ws.dirty }); };
+const pages = () => ws.sheet?.pages ?? [];
+const locked = () => !login || ws.done;
+
+// get_class_page를 받을 때마다
+function syncSheet(data) {
+  const meta = data?.board ? data.worksheet : null;
+  hasSheet = !!meta;
+  ws.meta = meta;
+  if (!meta) {
+    ws.ver = null;
+    ws.sheet = null;
+    ws.boardId = null;
+    applyTab();
     return;
   }
-  if (e.target.closest('#quiz-send')) sendQuiz();
-});
+  const want = `${data.board.id}|${meta.version}`;
+  if (ws.ver && ws.ver !== want) ws.ver = null; // 학습지를 다시 올렸거나 오늘 보드가 바뀜
+  if (ws.sheet && login && meta.done && !ws.done) ws.ver = null; // 다른 기기에서 완료함
+  applyTab();
+  if (ws.sheet && !login && ws.lockedShown === false) { ws.ver = null; ws.answers = {}; ws.bad = {}; ensureSheet(); } // 로그인이 풀림
+}
 
-// 버튼 하나에 요청 하나: 누르면 '보내는 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 보내기]
-async function sendQuiz() {
-  if (quizSending || !quizNow || !login || quizNow.status !== 'open') return;
-  const q = quizNow;
-  quizSending = true;
-  saveDraft(q.id, true);
-  const btn = $('quiz-send');
-  if (btn) { btn.disabled = true; btn.textContent = '보내는 중'; }
-  let res;
+function ensureSheet() {
+  if (!ws.meta || ws.ver || ws.fetching) return;
+  fetchSheet();
+}
+
+async function fetchSheet() {
+  ws.fetching = true;
   try {
-    res = await withTimeout(submitQuiz(login.token, q.id, quizDraft), SUBMIT_WAIT_MS);
+    const res = await getWorksheet(classId, login?.token ?? null);
+    if (!res?.ok) return;
+    if (login && res.session === 'none') { clearLogin(); login = null; mineKey = undefined; }
+    const fresh = ws.boardId !== res.board_id || !ws.sheet;
+    ws.boardId = res.board_id;
+    ws.sheet = res;
+    ws.ver = `${res.board_id}|${res.version}`;
+    ws.done = !!res.mine?.done_at;
+    ws.gain = ws.done ? { xp: res.mine.xp ?? 0, coins: res.mine.coins ?? 0 } : null;
+    const local = draftKey() ? store.get(draftKey()) : null;
+    const server = res.mine?.answers ?? {};
+    // 기기에 저장 못 한 답이 있으면 그쪽이 먼저
+    ws.answers = local?.dirty && !ws.done ? { ...server, ...local.answers } : { ...(local?.answers ?? {}), ...server };
+    ws.dirty = !!local?.dirty && !ws.done && !!login;
+    if (fresh) {
+      const saved = Number(store.get(pageKey()));
+      ws.idx = Number.isInteger(saved) && saved >= 0 && saved < pages().length ? saved : 0;
+      ws.bad = {};
+    }
+    renderSheet();
+    if (ws.dirty) saveSheet();
   } catch (err) {
     console.error(err);
-    quizSending = false;
-    toast(QUIZ_ERR[err.message] || '보내지 못했어요. 연결되면 다시 보낼게요', 'error');
-    if (btn?.isConnected) { btn.disabled = false; btn.textContent = '다시 보내기'; }
-    return;
+    if (!ws.sheet) $('ws-page').innerHTML = '<div class="empty"><strong>학습지를 불러오지 못했어요</strong></div>';
+  } finally {
+    ws.fetching = false;
   }
-  quizSending = false;
-  if (res?.ok) {
-    saveDraft(q.id, false);
-    toast('냈어요', 'ok');
-  } else {
-    store.del(`quiz-${q.id}`);
-    toast(QUIZ_ERR[res?.error] || '내지 못했어요', 'error');
-    if (res?.error === 'NO_SESSION') { clearLogin(); login = null; mineKey = undefined; }
-  }
-  quizKey = undefined;
-  await load();
 }
 
-/* ---------- 레벨업 (빈칸 XP로 레벨이 오르면) ---------- */
+function renderSheet() {
+  if (!ws.sheet) return;
+  ws.lockedShown = locked();
+  $('ws-login').classList.toggle('hidden', !!login);
+  $('ws-chip').classList.toggle('hidden', !ws.done);
+  renderWsPage();
+  renderWsFoot();
+}
+
+function renderWsPage() {
+  const list = pages();
+  const page = list[ws.idx];
+  $('ws-slide').textContent = page ? `수업자료 ${page.slide}쪽` : '';
+  $('ws-h').textContent = page?.title || ws.sheet.title || '';
+  renderPage($('ws-page'), page, ws.answers, { locked: locked() });
+  markFields($('ws-page'), ws.bad);
+  $('ws-prev').disabled = ws.idx <= 0;
+  $('ws-next').disabled = ws.idx >= list.length - 1;
+  renderDots();
+}
+
+// 쪽 점: 지금 쪽, 다 채운 쪽, 고칠 칸이 있는 쪽
+function renderDots() {
+  $('ws-dots').innerHTML = pages().map((p, i) => {
+    const keys = p.fields.map((f) => f.key);
+    const full = keys.length > 0 && keys.every((k) => (ws.answers[k] ?? '') !== '');
+    const bad = keys.some((k) => ws.bad[k]);
+    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}"
+      data-i="${i}" aria-label="${p.slide}쪽${bad ? ' · 고칠 칸 있음' : full ? ' · 다 씀' : ''}" ${i === ws.idx ? 'aria-current="step"' : ''}><span class="num">${p.slide}</span></button>`;
+  }).join('');
+}
+
+function renderWsFoot() {
+  const foot = $('ws-foot');
+  if (!login) { foot.innerHTML = ''; return; }
+  if (ws.done) {
+    const g = ws.gain ?? {};
+    foot.innerHTML = `
+      <div class="state-box is-passed passed-box ws-done">
+        ${ws.justDone ? BITS.map(([l, c, d]) => `<span class="confetti-bit" aria-hidden="true" style="left:${l};background:${c};--d:${d}s"></span>`).join('') : ''}
+        <span class="pass-check${ws.justDone ? ' pop' : ''}" aria-hidden="true">
+          <svg class="draw" style="--d:.35s" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
+        </span>
+        <span class="pass-title">학습지 완료!</span>
+        ${g.xp || g.coins ? `<span class="pass-sub num">+${g.xp} XP · +${g.coins}코인</span>` : ''}
+      </div>`;
+    prepareDraw(foot);
+    ws.justDone = false;
+    return;
+  }
+  const nBad = Object.keys(ws.bad).length;
+  foot.innerHTML = `
+    <span class="ws-save muted" id="ws-save" role="status">${esc(ws.status)}</span>
+    ${nBad ? `<span class="ws-badn">고칠 칸 ${nBad}개</span>` : ''}
+    <button type="button" class="btn btn-primary btn-big press" id="ws-submit">${nBad ? '고쳐서 다시 제출' : '제출'}</button>`;
+}
+
+function setStatus(text) {
+  ws.status = text;
+  const el = $('ws-save');
+  if (el) el.textContent = text;
+}
+
+function goPage(i) {
+  if (i < 0 || i >= pages().length || i === ws.idx) return;
+  ws.idx = i;
+  store.set(pageKey(), i);
+  renderWsPage();
+  if ($('sheet').getBoundingClientRect().top < 0) $('sheet').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
+}
+$('ws-prev').addEventListener('click', () => goPage(ws.idx - 1));
+$('ws-next').addEventListener('click', () => goPage(ws.idx + 1));
+$('ws-dots').addEventListener('click', (e) => {
+  const d = e.target.closest('.ws-dot');
+  if (d) goPage(Number(d.dataset.i));
+});
+
+function setAnswer(k, v) {
+  if (v === '') delete ws.answers[k];
+  else ws.answers[k] = v;
+  if (ws.bad[k]) {
+    delete ws.bad[k];
+    markFields($('ws-page'), ws.bad);
+    renderWsFoot();
+  }
+  ws.dirty = true;
+  persist();
+  renderDots();
+  clearTimeout(ws.saveTimer);
+  ws.saveTimer = setTimeout(saveSheet, SAVE_DELAY_MS);
+}
+
+$('ws-page').addEventListener('input', (e) => {
+  const el = e.target.closest('.ws-in');
+  if (!el || locked()) return;
+  setAnswer(el.dataset.k, el.value.trim() ? el.value : '');
+});
+
+$('ws-page').addEventListener('click', (e) => {
+  const b = e.target.closest('.ws-opt');
+  if (!b || b.disabled || locked()) return;
+  const k = b.dataset.k;
+  const v = ws.answers[k] === b.dataset.v ? '' : b.dataset.v;
+  b.parentElement.querySelectorAll('.ws-opt').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === v)));
+  setAnswer(k, v);
+});
+
+$('ws-foot').addEventListener('click', (e) => {
+  const b = e.target.closest('#ws-submit');
+  if (b) submitSheet(b);
+});
+
+function sheetError(code) {
+  if (code === 'NO_SESSION') {
+    clearLogin();
+    login = null;
+    mineKey = undefined;
+    ws.ver = null; // 내 답 없이 다시 받기
+    ensureSheet();
+  } else if (code === 'BOARD_CHANGED' || code === 'NO_SHEET') {
+    ws.ver = null;
+    load();
+  }
+}
+
+// 서버 저장: 한 번에 하나만. 보내는 동안 또 고쳤으면 끝난 뒤 다시
+async function saveSheet() {
+  clearTimeout(ws.saveTimer);
+  if (!ws.dirty || ws.saving || ws.submitting || ws.done || !login || !ws.sheet) return;
+  ws.saving = true;
+  const sent = JSON.stringify(ws.answers);
+  setStatus('저장 중');
+  let ok = false;
+  try {
+    const res = await withTimeout(saveWorksheetAnswers(login.token, ws.boardId, ws.answers), SUBMIT_WAIT_MS);
+    if (res?.ok) {
+      ok = true;
+      if (JSON.stringify(ws.answers) === sent) { ws.dirty = false; persist(); }
+      setStatus('저장됨');
+      if (res.done) { ws.ver = null; ensureSheet(); }
+    } else {
+      setStatus('');
+      sheetError(res?.error);
+    }
+  } catch (err) {
+    console.error(err);
+    setStatus('연결되면 저장돼요');
+  } finally {
+    ws.saving = false;
+    if (ok && ws.dirty) ws.saveTimer = setTimeout(saveSheet, SAVE_DELAY_MS);
+  }
+}
+
+// 버튼 하나에 요청 하나: 누르면 '채점 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 제출]
+async function submitSheet(btn) {
+  if (ws.submitting || ws.done || !login || !ws.sheet) return;
+  ws.submitting = true;
+  clearTimeout(ws.saveTimer);
+  btn.disabled = true;
+  btn.textContent = '채점 중';
+  let res;
+  try {
+    res = await withTimeout(submitWorksheet(login.token, ws.boardId, ws.answers), SUBMIT_WAIT_MS);
+  } catch (err) {
+    console.error(err);
+    ws.submitting = false;
+    toast(WS_ERR[err.message] || '보내지 못했어요. 다시 제출해 주세요', 'error');
+    if (btn.isConnected) { btn.disabled = false; btn.textContent = '다시 제출'; }
+    return;
+  }
+  ws.submitting = false;
+
+  if (res?.ok && res.done) {
+    ws.dirty = false;
+    ws.done = true;
+    ws.bad = {};
+    ws.gain = { xp: res.xp ?? 0, coins: res.coins ?? 0 };
+    ws.justDone = !res.already;
+    persist();
+    renderSheet();
+    if (!res.already && res.level_after > res.level_before) {
+      showLevelUp(res.level_after, res.total_xp, page?.my_members?.find((m) => m.me)?.avatar);
+    }
+    return;
+  }
+  if (res?.error === 'NOT_YET') {
+    // 답은 서버에 저장됐다
+    ws.dirty = false;
+    persist();
+    ws.bad = {};
+    (res.empty ?? []).forEach((k) => { ws.bad[k] = 'empty'; });
+    (res.wrong ?? []).forEach((k) => { ws.bad[k] = 'wrong'; });
+    const n = Object.keys(ws.bad).length;
+    const empty = (res.empty ?? []).length;
+    toast(empty === n ? `빈 칸이 ${n}개 있어요` : `틀리거나 빈 칸이 ${n}개 있어요`, 'error');
+    const first = pages().findIndex((p) => p.fields.some((f) => ws.bad[f.key]));
+    if (first >= 0 && first !== ws.idx) { ws.idx = first; store.set(pageKey(), first); }
+    ws.status = '';
+    renderSheet();
+    return;
+  }
+  toast(WS_ERR[res?.error] || '제출하지 못했어요', 'error');
+  sheetError(res?.error);
+  if (btn.isConnected) { btn.disabled = false; btn.textContent = '제출'; }
+}
+
+/* ---------- 레벨업 (학습지 XP로 레벨이 오르면) ---------- */
 function showLevelUp(lv, total, avatar) {
   if (login) {
     const k = `lv-${login.class_id}-${login.number}`;
@@ -598,13 +751,13 @@ async function load() {
     renderLesson(board);
     renderSims(board?.sim_links);
     renderMine(data);
-    renderQuiz(data);
     renderGroups(data);
+    syncSheet(data);
     updateSide();
     if (!board) showEmpty('오늘 수업이 아직 없어요');
     else renderPadlet(board.padlet_src);
     setNetDown(false);
-    retryQuiz();
+    if (ws.dirty) saveSheet(); // 끊겨서 못 보낸 학습지 답
   } catch (err) {
     console.error(err);
     if (err.message === 'NOT_CONFIGURED') showEmpty('config.js에 Supabase 주소와 키를 넣어야 해요');
@@ -637,5 +790,5 @@ if (sb) onClassRefresh(classId, () => {
   if (!document.hidden) setTimeout(load, Math.random() * 2000);
 });
 document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
-addEventListener('online', () => { quizKey = undefined; load(); });
+addEventListener('online', () => { load(); saveSheet(); });
 addEventListener('offline', () => setNetDown(true));

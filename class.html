@@ -27,10 +27,39 @@
     </nav>
   </div>
 
-  <!-- 수업 중 빈칸 질문: 선생님이 열면 맨 위에 뜬다 (패들렛을 열지 않아도 됨) -->
-  <section class="quiz-card glass-strong rise hidden" id="quiz" aria-labelledby="quiz-h" aria-live="polite"></section>
+  <!-- 오늘 차시에 학습지가 있으면: [개인 학습지] [모둠활동] -->
+  <nav class="class-tabs glass hidden" id="tabs" role="tablist" aria-label="오늘 수업">
+    <button type="button" class="class-tab press" role="tab" data-tab="sheet" id="tab-sheet" aria-controls="sheet" aria-selected="false">개인 학습지</button>
+    <button type="button" class="class-tab press" role="tab" data-tab="group" id="tab-group" aria-controls="group-tab" aria-selected="true">모둠활동</button>
+  </nav>
 
-  <div class="class-body">
+  <!-- 개인 학습지: 수업자료 쪽에 맞춰 한 쪽씩 (패들렛은 만들지 않는다) -->
+  <section class="ws-card glass-strong hidden" id="sheet" role="tabpanel" aria-labelledby="tab-sheet">
+    <header class="ws-head">
+      <div class="ws-where">
+        <span class="ws-slide num" id="ws-slide"></span>
+        <h2 id="ws-h"></h2>
+      </div>
+      <span class="chip ws-chip hidden" id="ws-chip">완료</span>
+    </header>
+    <div class="state-box is-idle login-need hidden" id="ws-login">
+      <span class="state-title">로그인하면 쓸 수 있어요</span>
+      <a class="btn btn-primary press" href="index.html">로그인</a>
+    </div>
+    <div class="ws-page" id="ws-page" aria-live="polite"></div>
+    <nav class="ws-nav" aria-label="학습지 쪽">
+      <button type="button" class="icon-btn glass press" id="ws-prev" aria-label="앞 쪽">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>
+      </button>
+      <div class="ws-dots" id="ws-dots"></div>
+      <button type="button" class="icon-btn glass press" id="ws-next" aria-label="다음 쪽">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>
+      </button>
+    </nav>
+    <div class="ws-foot" id="ws-foot"></div>
+  </section>
+
+  <div class="class-body" id="group-tab" role="tabpanel" aria-labelledby="tab-group">
     <section class="padlet-card glass rise" aria-labelledby="padlet-h">
       <div class="padlet-head">
         <h2 id="padlet-h">오늘의 패들렛</h2>

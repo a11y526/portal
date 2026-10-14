@@ -975,14 +975,67 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .ws-dots { flex: 1; min-width: 0; display: flex; flex-wrap: wrap; justify-content: center; gap: 6px; }
 .ws-dot { min-width: 44px; height: 44px; padding: 0 8px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.2); background: rgba(255,255,255,.7);
   font: inherit; font-size: 14px; font-weight: 800; color: var(--ink-2); cursor: pointer; }
-.ws-dot.is-full { background: var(--passed-bg); border-color: transparent; color: var(--passed-fg); }
+.ws-dot { display: inline-flex; align-items: center; justify-content: center; gap: 3px; }
+.ws-dot.is-full { border-color: var(--accent); color: var(--accent); }
+.ws-dot.is-done { background: var(--passed-solid); border-color: var(--passed-solid); color: #fff; }
 .ws-dot.is-bad { background: var(--returned-bg); border-color: var(--returned-solid); color: var(--returned-fg); }
 .ws-dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ws-dot.on.is-done { box-shadow: 0 0 0 3px var(--passed-solid); }
+.ws-dot-ck { flex: none; }
 .ws-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
 .ws-foot:empty { display: none; }
 .ws-save { margin-right: auto; font-size: 14px; }
 .ws-badn { font-size: 15px; font-weight: 800; color: var(--returned-fg); }
 .ws-done { width: 100%; }
+.ws-prog { font-size: 15px; color: var(--ink-2); }
+.ws-prog b { font-weight: 900; color: var(--ink); }
+.ws-pagedone { display: inline-flex; align-items: center; gap: 8px; min-height: 44px; padding: 0 18px; border-radius: var(--r-pill);
+  background: var(--passed-bg); color: var(--passed-fg); font-weight: 900; font-size: 16px; }
+.ws-pagedone-ck { display: inline-flex; align-items: center; justify-content: center; width: 26px; height: 26px; border-radius: 999px; background: var(--passed-solid); color: #fff; }
+
+/* 학습지 완료 화면: 쪽 카드가 차례로 뒤집히며 초록 → 도장 → 숫자 → 색종이 (--stamp: 도장이 찍히는 때) */
+.wsdone { position: fixed; inset: 0; z-index: 46; display: flex; align-items: center; justify-content: center; padding: 16px; overflow: hidden;
+  background: rgba(237,241,247,.6); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); animation: fade-in .3s ease both; }
+.lite .wsdone { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(237,241,247,.94); }
+.wsdone-card { position: relative; width: 440px; max-width: 100%; border-radius: 40px; padding: 32px 28px 30px; display: flex; flex-direction: column; align-items: center; gap: 6px; text-align: center;
+  animation: pop .6s var(--ease-back) both, wsd-thud .35s ease-out var(--stamp); }
+.wsdone-sheet { position: relative; width: 100%; min-height: 120px; display: flex; align-items: center; justify-content: center; padding: 18px 56px 18px 12px; margin-bottom: 26px; border-radius: 24px; background: rgba(255,255,255,.75); border: 1.5px solid rgba(78,88,104,.14); }
+.wsdone-tiles { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px; }
+.wsd-tile { position: relative; width: 44px; height: 54px; border-radius: 10px; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px;
+  background: var(--passed-solid); color: #fff; font-size: 14px; font-weight: 900; box-shadow: 0 4px 10px rgba(15,138,95,.25);
+  animation: wsd-flip .45s var(--ease-back) var(--d, 0s) both; }
+.wsdone-stamp { position: absolute; right: -18px; bottom: -30px; width: 112px; height: 112px; border-radius: 999px;
+  display: grid; place-items: center; border: 5px solid var(--accent); color: var(--accent); background: rgba(255,255,255,.94);
+  box-shadow: inset 0 0 0 4px rgba(255,255,255,.9), inset 0 0 0 7px var(--accent);
+  animation: wsd-stamp .4s cubic-bezier(.3,0,.4,1) var(--stamp) both; }
+.wsdone-stamp span { font-size: 30px; font-weight: 900; letter-spacing: .04em; }
+.wsdone-t { font-size: 15px; font-weight: 700; color: var(--ink-2); animation: rise .4s ease calc(var(--stamp) + .15s) both; }
+.wsdone-h { margin: 0; font-size: 34px; font-weight: 900; letter-spacing: -0.03em; color: var(--passed-fg); animation: pop .6s var(--ease-back) calc(var(--stamp) + .2s) both; }
+.wsdone-gain { display: flex; gap: 10px; margin-top: 6px; animation: rise .4s ease calc(var(--stamp) + .3s) both; }
+.wsdone-chip { display: inline-flex; align-items: baseline; gap: 4px; padding: 8px 18px; border-radius: var(--r-pill); background: rgba(36,87,230,.1); color: var(--accent); font-weight: 800; font-size: 16px; }
+.wsdone-chip b { font-size: 26px; font-weight: 900; }
+.wsdone-chip b::before { content: '+'; }
+.wsdone-chip.is-coin { background: rgba(209,154,0,.14); color: #8A6400; }
+.wsdone-card .btn { margin-top: 14px; min-width: 160px; animation: rise .4s ease calc(var(--stamp) + .45s) both; }
+.wsdone-fx { position: absolute; inset: 0; pointer-events: none; }
+.wsd-bit { position: absolute; top: -16px; width: 9px; height: 14px; border-radius: 2px; opacity: 0; animation: wsd-fall 2.4s ease-in var(--d, 0s) 1 both; }
+@keyframes wsd-flip { 0% { opacity: 0; transform: perspective(300px) rotateY(90deg) scale(.7); background: rgba(78,88,104,.18); }
+  60% { opacity: 1; } 100% { opacity: 1; transform: none; } }
+@keyframes wsd-stamp { 0% { opacity: 0; transform: scale(2.4) rotate(-4deg); } 70% { opacity: 1; transform: scale(.94) rotate(-14deg); } 100% { opacity: 1; transform: scale(1) rotate(-12deg); } }
+@keyframes wsd-thud { 0%, 100% { transform: none; } 30% { transform: translateY(4px) scale(.985); } 60% { transform: translateY(-2px); } }
+@keyframes wsd-fall { 0% { opacity: 0; transform: translate(0, 0) rotate(0); } 10% { opacity: 1; } 100% { opacity: 0; transform: translate(var(--x, 0), 105vh) rotate(var(--r, 300deg)); } }
+@media (max-width: 600px) {
+  .wsdone-card { padding: 24px 18px; border-radius: var(--r-lg); }
+  .wsd-tile { width: 38px; height: 48px; }
+  .wsdone-sheet { padding-right: 44px; }
+  .wsdone-stamp { width: 96px; height: 96px; right: -10px; }
+  .wsdone-stamp span { font-size: 26px; }
+  .wsdone-h { font-size: 28px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .wsdone, .wsdone *, .wsdone-card { animation: none !important; }
+  .wsdone-stamp { transform: rotate(-12deg); }
+}
 
 /* 학습지 본문 (웹판의 class는 앞에 w-가 붙어 온다) */
 .ws-page { font-size: 17px; line-height: 1.9; word-break: keep-all; overflow-wrap: break-word; min-width: 0; }

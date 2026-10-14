@@ -1,0 +1,863 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>페트병 속 기체 입자 · 기체의 압력</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --accent:#0066CC; --accent-soft:#E8F1FB; --ink:#1D1D1F; --ink2:#515154; --ink3:#86868B;
+  --line:#E5E5EA; --bg:#F5F5F7; --card:#FFFFFF; --red:#FF3B30; --blue:#0A84FF;
+  --font:'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font);-webkit-font-smoothing:antialiased}
+.wrap{max-width:1100px;margin:0 auto;padding:10px 12px 12px}
+html,body{background:#fff}
+.card{box-shadow:none;padding:0;margin:0}
+.badge-row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.badge{background:var(--accent);color:#fff;font-weight:800;font-size:17px;padding:6px 14px;border-radius:999px}
+.unit-tag{color:var(--ink3);font-size:16px;font-weight:500}
+h1{font-size:34px;font-weight:800;margin:14px 0 8px;letter-spacing:-0.02em}
+.sub{font-size:19px;line-height:1.6;color:var(--ink2);margin:0 0 18px}
+.steps{list-style:none;display:flex;gap:8px;padding:0;margin:0 0 16px;flex-wrap:wrap}
+.steps li{display:flex;align-items:center;gap:8px;font-size:17px;font-weight:700;color:var(--ink3);
+  background:#fff;border:1.5px solid var(--line);border-radius:999px;padding:8px 16px 8px 8px}
+.steps li .n{width:28px;height:28px;border-radius:50%;display:grid;place-items:center;background:var(--line);color:#fff;font-size:15px}
+.steps li.active{color:var(--accent);border-color:var(--accent)}
+.steps li.active .n{background:var(--accent)}
+.steps li.done{color:var(--ink2)}
+.steps li.done .n{background:#34C759}
+.card{background:var(--card);border-radius:22px;padding:18px;box-shadow:0 2px 14px rgba(0,0,0,.06);margin-bottom:16px}
+.stage{border-radius:16px;overflow:hidden;border:1px solid var(--line);background:#FAFAFC}
+canvas{display:block;width:100%;height:auto;touch-action:none;cursor:crosshair}
+.status{margin:12px 2px 0;font-size:17px;font-weight:600;color:var(--accent);min-height:26px}
+.toolbar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-top:12px}
+.seg{display:inline-flex;background:var(--bg);border-radius:999px;padding:4px}
+.seg button{border:0;background:transparent;font:700 17px var(--font);color:var(--ink2);padding:10px 18px;border-radius:999px;min-height:46px;cursor:pointer}
+.seg button.on{background:#fff;color:var(--accent);box-shadow:0 1px 4px rgba(0,0,0,.12)}
+.btn{border:1.5px solid var(--line);background:#fff;font:700 17px var(--font);color:var(--ink);padding:10px 20px;border-radius:999px;min-height:50px;cursor:pointer;user-select:none;-webkit-user-select:none;touch-action:manipulation}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+.btn.warn{background:#FFF1F0;border-color:#FFB4AE;color:#C4271D}
+.btn.warn.holding{background:var(--red);border-color:var(--red);color:#fff}
+.btn.toggle-on{background:var(--accent-soft);border-color:var(--accent);color:var(--accent)}
+.spacer{flex:1}
+.meters{display:grid;gap:10px;margin-top:16px}
+.meter{display:grid;grid-template-columns:minmax(200px,300px) 1fr 150px;gap:14px;align-items:center}
+.meter .lab{font-size:17px;font-weight:700;color:var(--ink2);display:flex;align-items:center;gap:8px}
+.meter .lab i{width:14px;height:14px;border-radius:4px;display:inline-block;flex:none}
+.meter .bar{height:22px;background:var(--bg);border-radius:999px;overflow:hidden}
+.meter .fill{height:100%;width:0;border-radius:999px;transition:width .25s linear}
+.meter .val{font-size:17px;font-weight:700;color:var(--ink);text-align:right;font-variant-numeric:tabular-nums}
+.legend{display:flex;flex-wrap:wrap;gap:18px;margin-top:14px;font-size:16px;color:var(--ink2)}
+.legend span{display:flex;align-items:center;gap:8px}
+.dot{width:14px;height:14px;border-radius:50%;display:inline-block}
+.arr{display:inline-block;width:26px;height:4px;border-radius:2px;position:relative}
+.arr:after{content:'';position:absolute;right:-6px;top:-5px;border-left:9px solid currentColor;border-top:7px solid transparent;border-bottom:7px solid transparent}
+h2{font-size:22px;font-weight:800;margin:0 0 12px}
+.sentence{font-size:21px;line-height:2.3;margin:0}
+.blank-in{font:700 21px var(--font);color:var(--accent);border:0;border-bottom:2.5px solid #9DB8D6;background:var(--accent-soft);border-radius:8px 8px 0 0;padding:4px 8px;margin:0 4px;text-align:center;min-height:44px;vertical-align:baseline;max-width:100%}
+.blank-in:focus{outline:none;border-bottom-color:var(--accent);background:#DCEAF9}
+.save-row{display:flex;flex-wrap:wrap;gap:12px;align-items:center}
+.name-field{display:flex;align-items:center;gap:10px;font-size:18px;font-weight:700}
+.name-field input{font:500 19px var(--font);padding:12px 16px;border:1.5px solid var(--line);border-radius:14px;width:220px;min-height:52px}
+.name-field input:focus{outline:none;border-color:var(--accent)}
+.name-field input.need{border-color:var(--red);animation:shake .35s}
+@keyframes shake{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.hint{font-size:16px;color:var(--ink3);margin:12px 2px 0;line-height:1.6}
+@media (max-width:760px){.meter{grid-template-columns:1fr 90px}.meter .bar{grid-column:1/-1;grid-row:2}h1{font-size:28px}}
+.card{box-shadow:none!important;padding:0!important;margin:0!important;border-radius:0!important}
+.wrap{padding:8px 10px!important}
+.toolbar{margin-top:8px;gap:8px}
+.seg button{font-size:15px;padding:6px 12px;min-height:38px}
+.btn{font-size:15px;padding:6px 14px;min-height:40px}
+.meters{margin-top:8px;gap:6px}
+.meter{grid-template-columns:auto 1fr auto;gap:10px}
+.meter .lab,.meter .val{font-size:15px}
+.meter .bar{height:16px}
+.legend{margin-top:6px;font-size:14px;gap:12px}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <div class="stage"><canvas id="c"></canvas></div>
+    <div class="toolbar">
+      <div class="seg" id="speed">
+        <button data-v="0.45" class="on">느리게</button>
+        <button data-v="1">보통</button>
+        <button data-v="1.8">빠르게</button>
+      </div>
+      <button class="btn" id="pause">멈춤</button>
+      <button class="btn primary" id="release">오른쪽 병 뚜껑 열었다 닫기</button>
+      <span class="spacer"></span>
+      <button class="btn" id="reset">처음부터</button>
+    </div>
+    <div class="meters" id="meters"></div>
+    <div class="legend"><span><i class="dot" style="background:#3A3A3C"></i>병 속 기체 입자</span><span><i class="dot" style="background:rgba(142,142,147,.45)"></i>바깥 공기 입자</span><span><i class="dot" style="background:#FF3B30"></i>병 밖으로 나간 입자</span><span><i class="dot" style="background:#0A84FF"></i>병 안으로 들어온 입자</span><span><i class="arr" style="background:#FF3B30;color:#FF3B30"></i>입자가 벽에 부딪혀 미는 방향</span></div>
+    <div class="status" id="status" hidden></div>
+  </div>
+  <div hidden><ol id="steps"></ol><p id="sentence"></p><input id="nm"><button id="save"></button><button id="undo"></button></div>
+</div>
+<script>
+var CFG = {num:0,numLabel:'',title:'',barMax:30,fitPx:180,
+  W:1000,H:560,floorY:535,
+  containers:[
+    {type:'rect',x:170,w:240,bottom:535,h:380,valveX:290,valveGap:30,noValve:true,liquid:{h:150,color:'rgba(120,190,240,0.35)',label:'탄산수'},style:{fill:'rgba(200,225,245,0.20)',stroke:'#9FB7CC'}},
+    {type:'rect',x:590,w:240,bottom:535,h:380,valveX:710,valveGap:30,noValve:true,liquid:{h:150,color:'rgba(120,190,240,0.35)',label:'탄산수'},style:{fill:'rgba(200,225,245,0.20)',stroke:'#9FB7CC'}}
+  ],
+  seed:[36,36],
+  release:{c:1,target:12,settle:5,label:'오른쪽 병 뚜껑 열었다 닫기'},
+  labels:[{t:'뚜껑을 열지 않은 병',x:290,y:44},{t:'뚜껑을 열었다 닫은 병',x:710,y:44}],
+  meters:[
+    {key:'a',c:0,side:'in',walls:['top','side'],label:'왼쪽 병: 벽에 부딪히는 횟수',color:'#FF3B30'},
+    {key:'b',c:1,side:'in',walls:['top','side'],label:'오른쪽 병: 벽에 부딪히는 횟수',color:'#FF3B30'}
+  ],
+  sentence:[],
+  decorFront:function(ctx,C){
+    C.forEach(function(c){
+      var top=c.bottom-c.h, cx=c.valveX;
+      ctx.save();
+      ctx.fillStyle='rgba(200,225,245,0.35)'; ctx.strokeStyle='#9FB7CC'; ctx.lineWidth=8;
+      ctx.beginPath(); ctx.moveTo(cx-60,top-2); ctx.lineTo(cx-30,top-44); ctx.lineTo(cx+30,top-44); ctx.lineTo(cx+60,top-2); ctx.stroke();
+      var lift=c.capOpen?46:0, rot=c.capOpen?-0.35:0;
+      ctx.translate(cx,top-58-lift); ctx.rotate(rot);
+      ctx.fillStyle='#2F9E5B'; ctx.beginPath(); ctx.moveTo(-36,-16); ctx.lineTo(36,-16); ctx.lineTo(36,14); ctx.lineTo(-36,14); ctx.closePath(); ctx.fill();
+      ctx.fillStyle='rgba(255,255,255,0.35)'; for(var i=-30;i<=30;i+=10){ ctx.fillRect(i,-14,3,26); }
+      ctx.restore();
+    });
+    var c=C[1];
+    if((c.nOut||0)+(c.nIn||0)>0){
+      ctx.save(); ctx.font="700 19px 'Noto Sans KR','Noto Sans CJK KR',sans-serif"; ctx.textAlign='left';
+      var y=c.bottom-c.h+60, x=c.x+c.w+18;
+      ctx.fillStyle='#FF3B30'; ctx.fillText('나간 입자 '+(c.nOut||0),x,y);
+      ctx.fillStyle='#0A84FF'; ctx.fillText('들어온 입자 '+(c.nIn||0),x,y+28);
+      ctx.restore();
+    }
+  }
+};
+</script>
+<script>
+(function(){
+'use strict';
+var W = CFG.W, H = CFG.H, DPR = 2;
+var R = 7;            // 입자 반지름
+var WT = 12;          // 벽 두께
+var V = 110;          // 입자 속력(모두 같음)
+var FLOOR = CFG.floorY || H;
+var OUT_DENSITY = 1/3800;
+var ARROW_LIFE = 0.6; // 화살표 유지 시간(시뮬레이션 초)
+var MAXN = CFG.maxPerContainer || 60;
+var FONT = "'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+
+var canvas = document.getElementById('c');
+canvas.width = W*DPR; canvas.height = H*DPR;
+var ctx = canvas.getContext('2d');
+ctx.setTransform(DPR,0,0,DPR,0,0);
+var stageEl=document.querySelector('.stage'); stageEl.style.maxWidth = CFG.fitPx ? 'calc((100vh - '+CFG.fitPx+'px) * '+(W/H).toFixed(4)+')' : 'calc('+(CFG.stageVh||60)+'vh * '+(W/H).toFixed(4)+')'; stageEl.style.margin='0 auto';
+
+var C = CFG.containers;           // 용기 목록
+var parts = [];                   // 입자
+var addStack = [];                // 되돌리기용
+var arrows = [];
+var hits = {};                    // 카운터 키 → 시각 배열
+var simT = 0, speed = 0.45, paused = false;
+var pumping = false, pumpTimer = 0, rushTimer = 0;
+var everAdded = false, pumpedOnce = false;
+
+/* ---------- 도형 ---------- */
+function rectTop(c){ return c.bottom - c.h; }
+function blanketH(c){   // 이불 두께: 팩이 눌릴수록 같이 눌린다
+  if(!c.blanket) return 0;
+  var f=Math.max(0,Math.min(1,(c.h-c.hMin)/(c.hMax-c.hMin)));
+  return c.blanket.min+(c.blanket.full-c.blanket.min)*f;
+}
+function gasBottom(c){ return c.bottom-WT/2-(c.blanket ? blanketH(c)+5 : 0)-(c.liquid ? c.liquid.h : 0); }  // 기체가 내려갈 수 있는 가장 아래(이불 윗면)
+function insideGas(c, x, y, m){       // 기체가 있을 수 있는 자리인가(여유 m)
+  if(c.type==='circle'){ return Math.hypot(x-c.cx,y-c.cy) < c.r - WT/2 - m; }
+  if(c.type==='annulus'){ var d=Math.hypot(x-c.cx,y-c.cy); return d < c.rOut-WT/2-m && d > c.rIn+WT/2+m; }
+  if(c.type==='rect'){ return x > c.x+WT/2+m && x < c.x+c.w-WT/2-m && y > rectTop(c)+WT/2+m && y < gasBottom(c)-m; }
+  return false;
+}
+function blocked(c, x, y, m){          // 바깥 입자가 이 자리에 있으면 안 되는가
+  if(c.type==='circle'){ return Math.hypot(x-c.cx,y-c.cy) < c.r + WT/2 + m; }
+  if(c.type==='annulus'){ var d=Math.hypot(x-c.cx,y-c.cy); return d < c.rOut+WT/2+m && d > c.rIn-WT/2-m; }
+  if(c.type==='rect'){ return x > c.x-WT/2-m && x < c.x+c.w+WT/2+m && y > rectTop(c)-WT/2-m; }
+  return false;
+}
+function outsideFree(x,y,m){
+  if(x<m||x>W-m||y<m||y>FLOOR-m) return false;
+  for(var i=0;i<C.length;i++) if(blocked(C[i],x,y,m)) return false;
+  return true;
+}
+function areaOf(c){
+  if(c.type==='circle') return Math.PI*Math.pow(c.r-WT/2,2);
+  if(c.type==='annulus') return Math.PI*(Math.pow(c.rOut-WT/2,2)-Math.pow(c.rIn+WT/2,2));
+  return (c.w-WT)*(gasBottom(c)-rectTop(c)-WT/2);
+}
+
+/* ---------- 입자 ---------- */
+function newParticle(x,y,reg){
+  var a = Math.random()*Math.PI*2;
+  return {x:x,y:y,vx:Math.cos(a)*V,vy:Math.sin(a)*V,reg:reg,leaving:false};
+}
+function moving(p){ return p.leaving||p.entering||p.escaping; }
+function countIn(i){ var n=0; for(var k=0;k<parts.length;k++){ var p=parts[k]; if(p.reg===i && !moving(p)) n++; } return n; }
+function seedOutside(){
+  var free=0, tries=0;
+  // 바깥 면적 어림(몬테카를로)
+  for(var i=0;i<4000;i++){ if(outsideFree(Math.random()*W,Math.random()*FLOOR,R)) free++; }
+  var n = Math.round(W*FLOOR*free/4000*OUT_DENSITY);
+  var placed=0;
+  while(placed<n && tries<20000){
+    tries++;
+    var x=Math.random()*W, y=Math.random()*FLOOR;
+    if(!outsideFree(x,y,R+2)) continue;
+    var ok=true;
+    for(var k=0;k<parts.length;k++){ var q=parts[k]; if(q.reg===-1 && Math.hypot(q.x-x,q.y-y)<2*R+3){ok=false;break;} }
+    if(!ok) continue;
+    parts.push(newParticle(x,y,-1)); placed++;
+  }
+}
+function seedInside(i, n){
+  var c=C[i], tries=0, placed=0;
+  while(placed<n && tries<20000){
+    tries++;
+    var x=Math.random()*W, y=Math.random()*H;
+    if(!insideGas(c,x,y,R+2)) continue;
+    parts.push(newParticle(x,y,i)); placed++;
+  }
+}
+
+function spawnOutside(){   // 대기는 끝없이 넓으므로, 들어간 만큼 가장자리에서 채운다
+  for(var t=0;t<200;t++){
+    var side=Math.floor(Math.random()*3), x, y;
+    if(side===0){ x=R+2; y=R+2+Math.random()*(FLOOR*0.6); }
+    else if(side===1){ x=W-R-2; y=R+2+Math.random()*(FLOOR*0.6); }
+    else { x=R+2+Math.random()*(W-2*R-4); y=R+2; }
+    if(outsideFree(x,y,R+1)){ parts.push(newParticle(x,y,-1)); return; }
+  }
+}
+/* ---------- 충돌 기록 ---------- */
+function hit(ci, side, wall, px, py, dx, dy){
+  var c = C[ci];
+  var show = side==='in' ? true : !!CFG.outArrows;
+  if(show && wall!=='bottom'){
+    arrows.push({x:px,y:py,dx:dx,dy:dy,t:simT,col: side==='in' ? '#FF3B30' : '#0A84FF'});
+  }
+  (CFG.meters||[]).forEach(function(m){
+    if(m.c===ci && m.side===side && (!m.walls || m.walls.indexOf(wall)>=0)){
+      (hits[m.key] = hits[m.key] || []).push(simT);
+    }
+  });
+}
+
+/* ---------- 벽 충돌 ---------- */
+function reflect(p, nx, ny){ var vn=p.vx*nx+p.vy*ny; p.vx-=2*vn*nx; p.vy-=2*vn*ny; }
+
+function wallInside(p){
+  var ci=p.reg, c=C[ci];
+  if(c.type==='circle' || c.type==='annulus'){
+    var dx=p.x-c.cx, dy=p.y-c.cy, d=Math.hypot(dx,dy)||1e-6, nx=dx/d, ny=dy/d;
+    var Ro = (c.type==='circle'?c.r:c.rOut), lim = Ro - WT/2 - R;
+    if(d>lim){
+      p.x=c.cx+nx*lim; p.y=c.cy+ny*lim;
+      if(p.vx*nx+p.vy*ny>0){ reflect(p,nx,ny); hit(ci,'in','outer',c.cx+nx*(Ro-WT/2),c.cy+ny*(Ro-WT/2),nx,ny); }
+    }
+    if(c.type==='annulus'){
+      var li = c.rIn + WT/2 + R;
+      if(d<li){
+        p.x=c.cx+nx*li; p.y=c.cy+ny*li;
+        if(p.vx*nx+p.vy*ny<0){ reflect(p,nx,ny); hit(ci,'in','inner',c.cx+nx*(c.rIn+WT/2),c.cy+ny*(c.rIn+WT/2),-nx,-ny); }
+      }
+    }
+    return;
+  }
+  // 사각형
+  var top=rectTop(c);
+  var x0=c.x+WT/2+R, x1=c.x+c.w-WT/2-R, y0=top+WT/2+R, y1=gasBottom(c)-R;
+  if(p.x<x0){ p.x=x0; if(p.vx<0){ p.vx=-p.vx; hit(ci,'in','side',c.x+WT/2,p.y,-1,0);} }
+  if(p.x>x1){ p.x=x1; if(p.vx>0){ p.vx=-p.vx; hit(ci,'in','side',c.x+c.w-WT/2,p.y,1,0);} }
+  if(p.y<y0){
+    if(c.valveOpen && Math.abs(p.x-c.valveX)<c.valveGap && p.vy<0){
+      p.reg=-1; p.y=top-WT/2-R-1; if(c.countFlow){ c.nOut=(c.nOut||0)+1; p.flash={k:'out',t:performance.now()}; } return;
+    }
+    p.y=y0; if(p.vy<0){ p.vy=-p.vy; hit(ci,'in','top',p.x,top+WT/2,0,-1);} }
+  if(p.y>y1){ p.y=y1; if(p.vy>0){ p.vy=-p.vy; } }
+}
+
+function wallOutside(p){
+  if(p.x<R){p.x=R; if(p.vx<0)p.vx=-p.vx;}
+  if(p.x>W-R){p.x=W-R; if(p.vx>0)p.vx=-p.vx;}
+  if(p.y<R){p.y=R; if(p.vy<0)p.vy=-p.vy;}
+  if(p.y>FLOOR-R){p.y=FLOOR-R; if(p.vy>0)p.vy=-p.vy;}
+  for(var ci=0;ci<C.length;ci++){
+    var c=C[ci];
+    if(c.type==='circle' || c.type==='annulus'){
+      var dx=p.x-c.cx, dy=p.y-c.cy, d=Math.hypot(dx,dy)||1e-6, nx=dx/d, ny=dy/d;
+      var Ro=(c.type==='circle'?c.r:c.rOut), lo=Ro+WT/2+R;
+      var inHub = c.type==='annulus' && d < (c.rIn+c.rOut)/2;
+      if(!inHub && d<lo){
+        p.x=c.cx+nx*lo; p.y=c.cy+ny*lo;
+        if(p.vx*nx+p.vy*ny<0){ reflect(p,nx,ny); hit(ci,'out','outer',c.cx+nx*(Ro+WT/2),c.cy+ny*(Ro+WT/2),-nx,-ny); }
+      }
+      if(inHub){
+        var lh=c.rIn-WT/2-R;
+        if(d>lh){
+          p.x=c.cx+nx*lh; p.y=c.cy+ny*lh;
+          if(p.vx*nx+p.vy*ny>0){ reflect(p,nx,ny); hit(ci,'out','inner',c.cx+nx*(c.rIn-WT/2),c.cy+ny*(c.rIn-WT/2),nx,ny); }
+        }
+      }
+      continue;
+    }
+    var top=rectTop(c);
+    var ex0=c.x-WT/2-R, ex1=c.x+c.w+WT/2+R, ey0=top-WT/2-R;
+    if(p.x>ex0 && p.x<ex1 && p.y>ey0){
+      var pl=p.x-ex0, pr=ex1-p.x, pt=p.y-ey0;
+      if(pt<=pl && pt<=pr){
+        if(c.valveOpen && Math.abs(p.x-c.valveX)<c.valveGap && p.vy>0){
+          p.reg=ci; p.y=top+WT/2+R+1; if(c.countFlow){ c.nIn=(c.nIn||0)+1; p.flash={k:'in',t:performance.now()}; } return;
+        }
+        p.y=ey0; if(p.vy>0){ p.vy=-p.vy; hit(ci,'out','top',p.x,top-WT/2,0,1);} }
+      else if(pl<pr){ p.x=ex0; if(p.vx>0){ p.vx=-p.vx; hit(ci,'out','side',c.x-WT/2,p.y,1,0);} }
+      else { p.x=ex1; if(p.vx<0){ p.vx=-p.vx; hit(ci,'out','side',c.x+c.w+WT/2,p.y,-1,0);} }
+    }
+  }
+}
+
+/* ---------- 입자끼리 충돌 (방향만 바뀜, 속력 유지) ---------- */
+function norm(p){ var s=Math.hypot(p.vx,p.vy)||1; p.vx=p.vx/s*V; p.vy=p.vy/s*V; }
+function pairCollide(){
+  var D=2*R, D2=D*D, n=parts.length;
+  for(var i=0;i<n;i++){
+    var a=parts[i]; if(moving(a)) continue;
+    for(var j=i+1;j<n;j++){
+      var b=parts[j]; if(moving(b) || b.reg!==a.reg) continue;
+      var dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy;
+      if(d2>=D2 || d2===0) continue;
+      var d=Math.sqrt(d2), nx=dx/d, ny=dy/d;
+      var k=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+      if(k>0){ a.vx-=k*nx; a.vy-=k*ny; b.vx+=k*nx; b.vy+=k*ny; norm(a); norm(b); }
+      var o=(D-d)/2; a.x-=nx*o; a.y-=ny*o; b.x+=nx*o; b.y+=ny*o;
+    }
+  }
+}
+
+/* ---------- 압축팩: 공기 빼기와 높이 ---------- */
+function packUpdate(dt, realDt){
+  C.forEach(function(c,ci){
+    if(!c.dynamic) return;
+    if(pumping){
+      pumpTimer -= realDt;
+      if(pumpTimer<=0){
+        pumpTimer = 0.13;
+        var best=null, bd=1e9, vy=rectTop(c);
+        parts.forEach(function(p){ if(p.reg===ci && !p.leaving){ var d=Math.hypot(p.x-c.valveX,p.y-vy); if(d<bd){bd=d;best=p;} } });
+        if(best){ best.leaving=true; pumpedOnce=true; }
+      }
+    }
+    // 밸브를 열면 바깥 공기가 밀려 들어온다(안과 밖이 같아질 때까지)
+    if(c.valveOpen && !pumping){
+      rushTimer -= realDt;
+      if(rushTimer<=0){
+        rushTimer = 0.12;
+        var ent=0; parts.forEach(function(p){ if(p.entering) ent++; });
+        if(countIn(ci)+ent < c.n0){
+          var best2=null, bd2=1e9, vy2=rectTop(c);
+          parts.forEach(function(p){ if(p.reg===-1 && !moving(p)){ var d=Math.hypot(p.x-c.valveX,p.y-vy2); if(d<bd2){bd2=d;best2=p;} } });
+          if(best2){ best2.entering=true; spawnOutside(); }
+        }
+      }
+      var ex=c.valveX, ey=rectTop(c)-WT/2-8;
+      parts.forEach(function(p){
+        if(!p.entering) return;
+        var dx=ex-p.x, dy=ey-p.y, d=Math.hypot(dx,dy);
+        if(d<8){ p.entering=false; p.reg=ci; p.x=ex+(Math.random()-0.5)*16; p.y=rectTop(c)+WT/2+R+2; var a=Math.PI*(0.15+0.7*Math.random()); p.vx=Math.cos(a)*V; p.vy=Math.sin(a)*V; return; }
+        var s2=Math.min(d, 380*realDt); p.x+=dx/d*s2; p.y+=dy/d*s2;
+      });
+    } else {
+      parts.forEach(function(p){ if(p.entering) p.entering=false; });
+    }
+    // 빠져나가는 입자는 밸브로 날아가 사라진다
+    var vx=c.valveX, vyTop=rectTop(c)-WT/2;
+    for(var k=parts.length-1;k>=0;k--){
+      var p=parts[k]; if(!p.leaving) continue;
+      var dx=vx-p.x, dy=vyTop-p.y, d=Math.hypot(dx,dy);
+      if(d<10){ parts.splice(k,1); continue; }
+      var s=Math.min(d, 420*realDt); p.x+=dx/d*s; p.y+=dy/d*s;
+    }
+    var n=countIn(ci);
+    var target=c.hMin+(c.hMax-c.hMin)*Math.max(0,Math.min(1,n/c.n0));
+    c.h += (target-c.h)*Math.min(1, realDt*2.5);
+    fitWidth(c);
+    var top=rectTop(c);
+    parts.forEach(function(p){
+      if(p.leaving) return;
+      if(p.reg===ci){ var gb=gasBottom(c)-R; if(p.y>gb) p.y=gb; if(p.y<top+WT/2+R) p.y=top+WT/2+R;
+        if(p.x<c.x+WT/2+R) p.x=c.x+WT/2+R; if(p.x>c.x+c.w-WT/2-R) p.x=c.x+c.w-WT/2-R; }
+      else if(p.reg===-1 && blocked(c,p.x,p.y,R) && p.x>c.x && p.x<c.x+c.w){ p.y=top-WT/2-R-0.5; if(p.vy>0)p.vy=-p.vy; }
+    });
+  });
+}
+
+/* ---------- 공기 양에 따라 부피가 변하는 용기(풍선·매트) ---------- */
+function sizeTarget(c,n){
+  var f=Math.max(0,Math.min(1,n/c.nFull));
+  if(c.type==='circle') return Math.sqrt(c.rMin*c.rMin+(c.rMax*c.rMax-c.rMin*c.rMin)*f);
+  return c.hMin+(c.hMax-c.hMin)*f;
+}
+function fitWidth(c){   // 높이에 맞춰 너비도 같이 변한다(모든 방향으로 커지고 작아짐)
+  if(c.type!=='rect' || !c.wMin) return;
+  if(c.cxMid===undefined) c.cxMid=c.x+c.w/2;
+  var f=Math.max(0,Math.min(1,(c.h-c.hMin)/(c.hMax-c.hMin)));
+  c.w=c.wMin+(c.wMax-c.wMin)*f; c.x=c.cxMid-c.w/2;
+  if(c.valveFromRight) c.valveX=c.x+c.w-c.valveFromRight;
+}
+function setSize(c,val,instant){
+  if(c.type==='circle'){ c.r=instant?sizeTarget(c,val):val; c.cy=c.baseY-c.r; }
+  else { c.h=instant?sizeTarget(c,val):val; fitWidth(c); }
+}
+function bodyArea(c){
+  if(c.type==='circle') return Math.PI*Math.pow(c.r+WT/2,2);
+  if(c.type==='annulus') return Math.PI*Math.pow(c.rOut+WT/2,2);
+  return (c.w+WT)*(c.h+WT/2);
+}
+function outsideTarget(){
+  var a=W*FLOOR; C.forEach(function(c){ a-=bodyArea(c); }); return Math.round(a*OUT_DENSITY);
+}
+function growUpdate(realDt){
+  var any=false;
+  C.forEach(function(c,ci){
+    if(c.dynamic) any=true;
+    if(!c.grow) return; any=true;
+    var n=countIn(ci), cur=(c.type==='circle'?c.r:c.h), tg=sizeTarget(c,n);
+    if(Math.abs(tg-cur)<0.05) return;
+    setSize(c, cur+(tg-cur)*Math.min(1,realDt*3));
+    // 안쪽 입자는 벽 안으로
+    parts.forEach(function(p){
+      if(p.reg!==ci) return;
+      if(c.type==='circle'){
+        var dx=p.x-c.cx, dy=p.y-c.cy, d=Math.hypot(dx,dy)||1e-6, lim=Math.max(0,c.r-WT/2-R);
+        if(d>lim){ p.x=c.cx+dx/d*lim; p.y=c.cy+dy/d*lim; }
+      } else {
+        var top=rectTop(c); if(p.y<top+WT/2+R) p.y=top+WT/2+R; if(p.x<c.x+WT/2+R) p.x=c.x+WT/2+R; if(p.x>c.x+c.w-WT/2-R) p.x=c.x+c.w-WT/2-R;
+      }
+    });
+  });
+  if(!any) return;
+  // 바깥 공기는 끝없이 넓다: 용기가 커지면 밀려난 만큼 빠지고, 작아지면 가장자리에서 채워진다
+  var outN=0; parts.forEach(function(p){ if(p.reg===-1) outN++; });
+  var tgt=outsideTarget();
+  for(var k=parts.length-1;k>=0;k--){
+    var p=parts[k]; if(p.reg!==-1 || moving(p)) continue;
+    for(var ci=0;ci<C.length;ci++){
+      var c=C[ci]; if(!(c.grow||c.dynamic) || !blocked(c,p.x,p.y,R)) continue;
+      if(outN>tgt){ parts.splice(k,1); outN--; break; }
+      if(c.type==='circle'){
+        var dx=p.x-c.cx, dy=p.y-c.cy, d=Math.hypot(dx,dy)||1e-6, lo=c.r+WT/2+R+0.5;
+        p.x=c.cx+dx/d*lo; p.y=c.cy+dy/d*lo; if(p.vx*dx+p.vy*dy<0){ reflect(p,dx/d,dy/d); }
+      } else {
+        var t2=rectTop(c), pl=p.x-(c.x-WT/2-R), pr=(c.x+c.w+WT/2+R)-p.x, pt=p.y-(t2-WT/2-R);
+        if(pt<=pl && pt<=pr){ p.y=t2-WT/2-R-0.5; if(p.vy>0) p.vy=-p.vy; }
+        else if(pl<pr){ p.x=c.x-WT/2-R-0.5; if(p.vx>0) p.vx=-p.vx; }
+        else { p.x=c.x+c.w+WT/2+R+0.5; if(p.vx<0) p.vx=-p.vx; }
+      }
+      break;
+    }
+  }
+  while(outN<tgt-1){ spawnOutside(); outN++; }
+}
+/* ---------- 뚜껑 열었다 닫기(탄산수 페트병) ----------
+   뚜껑을 열면 병 입구가 뚫린다. 입자는 저절로 드나들고(나가면 잠깐 빨강, 들어오면 잠깐 파랑),
+   병 속이 바깥보다 빽빽한 동안에는 기체가 입구로 몰려 나간다(칙 소리 나는 순간).
+   안과 밖이 비슷해지면 잠깐 더 열어 두었다가 뚜껑이 닫힌다. */
+var releasing=false, relTimer=0, relPhase='', settleT=0;
+function releaseUpdate(realDt){
+  if(!CFG.release) return;
+  var ci=CFG.release.c, c=C[ci], top=rectTop(c), ex=c.valveX;
+  if(releasing){
+    if(relPhase==='rush'){
+      relTimer-=realDt;
+      if(relTimer<=0){
+        relTimer=0.09;
+        var esc=parts.filter(function(p){return p.escaping;}).length;
+        if(countIn(ci)-0 > CFG.release.target){
+          var best=null, bd=1e9;
+          parts.forEach(function(p){ if(p.reg===ci && !moving(p)){ var d=Math.hypot(p.x-ex,p.y-top); if(d<bd){bd=d;best=p;} } });
+          if(best) best.escaping=true;
+        } else if(!esc){ relPhase='settle'; settleT=CFG.release.settle||3; }
+      }
+    } else if(relPhase==='settle'){
+      settleT-=realDt*speed;
+      if(settleT<=0){
+        releasing=false; relPhase=''; c.capOpen=false; c.valveOpen=false;
+        var rb=document.getElementById('release'); if(rb){ rb.textContent='다시 보려면 처음부터'; }
+      }
+    }
+  }
+  // 몰려 나가는 입자: 입구까지 간 뒤 병 밖으로
+  parts.forEach(function(p){
+    if(!p.escaping) return;
+    var tx=ex+(p.ox||0), ty=top+WT/2+R;
+    if(p.ox===undefined) p.ox=(Math.random()-0.5)*(c.valveGap*1.4);
+    var dx=tx-p.x, dy=ty-p.y, d=Math.hypot(dx,dy);
+    if(d<6){
+      p.escaping=false; p.reg=-1; p.y=top-WT/2-R-2; p.x=tx; delete p.ox;
+      var a=-Math.PI*(0.3+0.4*Math.random()); p.vx=Math.cos(a)*V; p.vy=Math.sin(a)*V;
+      c.nOut=(c.nOut||0)+1; p.flash={k:'out',t:performance.now()};
+      return;
+    }
+    var st=Math.min(d,300*realDt*Math.max(0.6,speed)); p.x+=dx/d*st; p.y+=dy/d*st;
+  });
+}
+var suspended=false;
+window.addEventListener('message',function(e){
+  if(e.data==='sim:pause') suspended=true;
+  if(e.data==='sim:resume'){ suspended=false; prev=performance.now(); }
+});
+/* ---------- 한 단계 ---------- */
+function step(dt){
+  var sub=Math.max(1,Math.ceil(V*dt/3)), h=dt/sub;
+  for(var s=0;s<sub;s++){
+    simT+=h;
+    for(var i=0;i<parts.length;i++){
+      var p=parts[i]; if(moving(p)) continue;
+      p.x+=p.vx*h; p.y+=p.vy*h;
+      if(p.reg>=0) wallInside(p); else wallOutside(p);
+    }
+    pairCollide();
+  }
+}
+
+/* ---------- 그리기 ---------- */
+function roundRect(x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function drawArrow(x,y,dx,dy,len,col,alpha,width){
+  var ex=x+dx*len, ey=y+dy*len, a=Math.atan2(dy,dx), hl=Math.max(8,width*2.6);
+  ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=width; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex-dx*hl*0.6,ey-dy*hl*0.6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-hl*Math.cos(a-0.45),ey-hl*Math.sin(a-0.45)); ctx.lineTo(ex-hl*Math.cos(a+0.45),ey-hl*Math.sin(a+0.45)); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function drawContainerFill(c){
+  var st=c.style||{};
+  ctx.save(); ctx.fillStyle=st.fill||'rgba(0,102,204,0.06)';
+  if(c.type==='circle'){ ctx.beginPath(); ctx.arc(c.cx,c.cy,c.r,0,Math.PI*2); ctx.fill(); }
+  else if(c.type==='annulus'){ ctx.beginPath(); ctx.arc(c.cx,c.cy,c.rOut,0,Math.PI*2); ctx.arc(c.cx,c.cy,c.rIn,0,Math.PI*2,true); ctx.fill('evenodd'); }
+  else { roundRect(c.x,rectTop(c),c.w,c.h,18); ctx.fill(); }
+  if(c.liquid){ var ly=gasBottom(c)+WT/2*0; ctx.fillStyle=c.liquid.color; ctx.beginPath(); ctx.moveTo(c.x+WT/2,ly); ctx.lineTo(c.x+c.w-WT/2,ly); ctx.lineTo(c.x+c.w-WT/2,c.bottom-18); ctx.arcTo(c.x+c.w-WT/2,c.bottom-WT/2,c.x+c.w-18,c.bottom-WT/2,12); ctx.lineTo(c.x+18,c.bottom-WT/2); ctx.arcTo(c.x+WT/2,c.bottom-WT/2,c.x+WT/2,c.bottom-18,12); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle='rgba(60,140,210,0.6)'; ctx.lineWidth=2; ctx.beginPath(); ctx.moveTo(c.x+WT/2,ly); ctx.lineTo(c.x+c.w-WT/2,ly); ctx.stroke();
+    if(c.liquid.label){ ctx.fillStyle='rgba(40,100,160,0.7)'; ctx.font='700 18px '+FONT; ctx.textAlign='center'; ctx.fillText(c.liquid.label,c.x+c.w/2,(ly+c.bottom)/2+6); } }
+  ctx.restore();
+  c.blanketNow=blanketH(c);
+  if(CFG.decorFill) CFG.decorFill(ctx,c,rectTop);
+}
+function drawContainerWall(c){
+  var st=c.style||{};
+  if(c.grow && c.type==='circle'){
+    var f=(c.r-c.rMin)/(c.rMax-c.rMin);
+    if(f<0.6){
+      ctx.save(); ctx.globalAlpha=(0.6-f)/0.6*0.8; ctx.strokeStyle=st.stroke||'#0066CC'; ctx.lineWidth=3; ctx.lineCap='round';
+      for(var i=0;i<6;i++){ var a=i*Math.PI/3+0.4, r0=c.r*0.35, r1=c.r*0.8;
+        ctx.beginPath(); ctx.moveTo(c.cx+Math.cos(a)*r0,c.cy+Math.sin(a)*r0);
+        ctx.quadraticCurveTo(c.cx+Math.cos(a+0.35)*c.r*0.6,c.cy+Math.sin(a+0.35)*c.r*0.6,c.cx+Math.cos(a)*r1,c.cy+Math.sin(a)*r1); ctx.stroke(); }
+      ctx.restore();
+    }
+  }
+  ctx.save(); ctx.strokeStyle=st.stroke||'#0066CC'; ctx.lineWidth=WT;
+  if(c.type==='circle'){ ctx.beginPath(); ctx.arc(c.cx,c.cy,c.r,0,Math.PI*2); ctx.stroke(); }
+  else if(c.type==='annulus'){
+    ctx.beginPath(); ctx.arc(c.cx,c.cy,c.rOut,0,Math.PI*2); ctx.stroke();
+    ctx.strokeStyle=st.stroke2||st.stroke||'#0066CC';
+    ctx.beginPath(); ctx.arc(c.cx,c.cy,c.rIn,0,Math.PI*2); ctx.stroke();
+  } else {
+    roundRect(c.x,rectTop(c),c.w,c.h,18); ctx.stroke();
+    if(c.noValve && c.valveOpen){ var t0=rectTop(c); ctx.fillStyle='#FAFAFC'; ctx.fillRect(c.valveX-c.valveGap,t0-WT/2-1,2*c.valveGap,WT+2); }
+    if(c.valveX && !c.noValve){
+      var t=rectTop(c);
+      ctx.fillStyle=c.valveOpen?'#FFFFFF':'#8E8E93'; ctx.strokeStyle='#636366'; ctx.lineWidth=3;
+      roundRect(c.valveX-c.valveGap-6,t-WT/2-16,2*c.valveGap+12,18,5); ctx.fill(); ctx.stroke();
+      if(c.valveOpen){ ctx.fillStyle='#636366'; ctx.font='700 15px '+FONT; ctx.textAlign='center'; ctx.fillText('열림',c.valveX,t-WT/2-24); }
+    }
+  }
+  ctx.restore();
+}
+function drawParticle(p){
+  if(p.flash){
+    var age=performance.now()-p.flash.t;
+    if(age<1600){
+      var col=p.flash.k==='out'?'#FF3B30':'#0A84FF';
+      ctx.fillStyle=col; ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.fill();
+      var fx=p.vx/V, fy=p.vy/V; drawArrow(p.x+fx*(R+1),p.y+fy*(R+1),fx,fy,11,col,0.9,2);
+      return;
+    }
+    delete p.flash;
+  }
+  if(p.reg===-1){
+    ctx.fillStyle='rgba(142,142,147,0.42)';
+    ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.fill();
+    return;
+  }
+  ctx.fillStyle='#3A3A3C';
+  ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.fill();
+  var ux=p.vx/V, uy=p.vy/V;
+  drawArrow(p.x+ux*(R+1),p.y+uy*(R+1),ux,uy,11,'#3A3A3C',0.9,2);
+}
+function render(){
+  ctx.clearRect(0,0,W,H);
+  ctx.fillStyle='#FAFAFC'; ctx.fillRect(0,0,W,H);
+  if(CFG.floorY){ ctx.fillStyle='#E9E6E0'; ctx.fillRect(0,FLOOR,W,H-FLOOR); ctx.fillStyle='#CFC9BE'; ctx.fillRect(0,FLOOR,W,3); }
+  if(CFG.decorBack) CFG.decorBack(ctx);
+  parts.forEach(function(p){ if(p.reg===-1) drawParticle(p); });
+  C.forEach(drawContainerFill);
+  parts.forEach(function(p){ if(p.reg>=0 || p.leaving) drawParticle(p); });
+  C.forEach(drawContainerWall);
+  if(CFG.decorMid) CFG.decorMid(ctx,C,rectTop);
+  // 화살표
+  arrows = arrows.filter(function(a){ return simT-a.t < ARROW_LIFE; });
+  arrows.forEach(function(a){ var age=(simT-a.t)/ARROW_LIFE; drawArrow(a.x,a.y,a.dx,a.dy,30,a.col,1-age*age,4); });
+  if(CFG.decorFront) CFG.decorFront(ctx,C,rectTop,pumping);
+  if(CFG.labels) CFG.labels.forEach(function(l){
+    ctx.save(); ctx.font='800 22px '+FONT; ctx.textAlign='center'; ctx.fillStyle='#1D1D1F'; ctx.fillText(l.t,l.x,l.y); ctx.restore();
+  });
+}
+
+/* ---------- 막대 ---------- */
+var meterEls={};
+function buildMeters(){
+  var box=document.getElementById('meters');
+  (CFG.meters||[]).forEach(function(m){
+    var d=document.createElement('div'); d.className='meter';
+    d.innerHTML='<div class="lab"><i style="background:'+m.color+'"></i>'+m.label+'</div><div class="bar"><div class="fill" style="background:'+m.color+'"></div></div><div class="val">0</div>';
+    box.appendChild(d); meterEls[m.key]={fill:d.querySelector('.fill'),val:d.querySelector('.val')};
+  });
+}
+var WINDOW=5, resetAt=0;
+function rate(key){
+  var arr=hits[key]||[], t0=simT-WINDOW;
+  while(arr.length && arr[0]<t0) arr.shift();
+  var span=Math.min(WINDOW, simT-resetAt); if(span<0.5) span=0.5;
+  return arr.length/span;
+}
+function updateMeters(){
+  (CFG.meters||[]).forEach(function(m){
+    var r=rate(m.key), el=meterEls[m.key];
+    el.fill.style.width=Math.min(100,r/CFG.barMax*100)+'%';
+    el.val.textContent='1초에 약 '+Math.round(r)+'번';
+  });
+}
+
+/* ---------- 문장 ---------- */
+var choices=[];
+function buildSentence(){
+  var el=document.getElementById('sentence');
+  CFG.sentence.forEach(function(seg){
+    if(typeof seg==='string'){ el.appendChild(document.createTextNode(seg)); if(seg==='\n') el.appendChild(document.createElement('br')); return; }
+    var idx=choices.length; choices.push(null);
+    var g=document.createElement('input'); g.type='text'; g.className='blank-in'; g.autocomplete='off'; g.setAttribute('aria-label','빈칸 '+(idx+1));
+    var fit=function(){ g.style.width=Math.max(5, g.value.length*1.15+1.5)+'em'; };
+    g.addEventListener('input',function(){ var v=g.value.trim(); choices[idx]=v?v:null; fit(); updateSteps(); });
+    fit();
+    el.appendChild(g);
+  });
+}
+
+/* ---------- 단계 표시 ---------- */
+var status=document.getElementById('status');
+function stepState(){
+  var s1 = CFG.pack ? pumpedOnce : everAdded;
+  var s3 = choices.every(function(c){return c!==null;});
+  var s4 = document.getElementById('nm').value.trim().length>0;
+  return [s1, s1, s3, s4];
+}
+function updateSteps(){
+  var st=stepState(), firstOpen=st.indexOf(false); if(firstOpen<0) firstOpen=4;
+  document.querySelectorAll('#steps li').forEach(function(li,i){
+    li.classList.toggle('done', st[i] && i<firstOpen);
+    li.classList.toggle('active', i===firstOpen);
+  });
+}
+
+/* ---------- 입력 ---------- */
+function pos(e){ var r=canvas.getBoundingClientRect(); return {x:(e.clientX-r.left)*W/r.width, y:(e.clientY-r.top)*H/r.height}; }
+var drawing=false, lastAdd=null, lastT=0;
+function tryAdd(pt){
+  for(var i=0;i<C.length;i++){
+    var c=C[i]; if(!c.fillable) continue;
+    var q = insideGas(c,pt.x,pt.y,R) ? pt : (c.grow ? snapInside(c,pt) : null);
+    if(q){ pt=q;
+      if(countIn(i)>=MAXN){ status.textContent=(CFG.fullMsg||'입자는 한 칸에 '+MAXN+'개까지 넣을 수 있어요'); return true; }
+      var p=newParticle(pt.x,pt.y,i); parts.push(p); addStack.push(p);
+      if(!everAdded){ everAdded=true; updateSteps(); }
+      lastAdd=pt; lastT=performance.now();
+      status.textContent=CFG.addMsg ? CFG.addMsg(countsText()) : '';
+      return true;
+    }
+  }
+  return false;
+}
+// 작은(바람 빠진) 용기 근처를 눌러도 안쪽에 입자가 생기게
+function snapInside(c,pt){
+  var NEAR=60;
+  if(c.type==='circle'){
+    var dx=pt.x-c.cx, dy=pt.y-c.cy, d=Math.hypot(dx,dy)||1e-6, lim=c.r-WT/2-R-1;
+    if(d>c.r+NEAR || lim<1) return null;
+    var k=Math.min(d,lim)/d; return {x:c.cx+dx*k, y:c.cy+dy*k};
+  }
+  if(c.type==='rect'){
+    var top=rectTop(c);
+    if(pt.x<c.x-NEAR/2 || pt.x>c.x+c.w+NEAR/2 || pt.y<top-NEAR || pt.y>c.bottom) return null;
+    return {x:Math.max(c.x+WT/2+R+1,Math.min(c.x+c.w-WT/2-R-1,pt.x)), y:Math.max(top+WT/2+R+1,Math.min(c.bottom-WT/2-R-1,pt.y))};
+  }
+  return null;
+}
+function countsText(){ return C.map(function(c,i){return countIn(i);}); }
+if(!CFG.pack){
+  canvas.addEventListener('pointerdown',function(e){ e.preventDefault(); var pt=pos(e); if(tryAdd(pt)){ drawing=true; try{canvas.setPointerCapture(e.pointerId);}catch(_){} } });
+  canvas.addEventListener('pointermove',function(e){ if(!drawing) return; var pt=pos(e); if(Math.hypot(pt.x-lastAdd.x,pt.y-lastAdd.y)>=16 && performance.now()-lastT>45) tryAdd(pt); });
+  ['pointerup','pointercancel','pointerleave'].forEach(function(t){ canvas.addEventListener(t,function(){ drawing=false; }); });
+} else {
+  canvas.style.cursor='default';
+}
+
+document.querySelectorAll('#speed button').forEach(function(b){
+  b.onclick=function(){ speed=parseFloat(b.dataset.v); document.querySelectorAll('#speed button').forEach(function(x){x.classList.toggle('on',x===b);}); };
+});
+var pauseBtn=document.getElementById('pause');
+pauseBtn.onclick=function(){ paused=!paused; pauseBtn.textContent=paused?'계속':'멈춤'; pauseBtn.classList.toggle('toggle-on',paused); };
+
+var undoBtn=document.getElementById('undo');
+if(CFG.pack){ undoBtn.style.display='none'; }
+undoBtn.onclick=function(){
+  while(addStack.length){ var p=addStack.pop(), k=parts.indexOf(p); if(k>=0 && p.reg>=0){ parts.splice(k,1); break; } }
+  status.textContent=CFG.addMsg ? CFG.addMsg(countsText()) : '';
+};
+function resetAll(){
+  parts=[]; addStack=[]; arrows=[]; hits={}; resetAt=simT; pumping=false;
+  C.forEach(function(c){ if(c.dynamic){ c.h=c.hMax; fitWidth(c); c.valveOpen=false; } if(c.grow) setSize(c,0,true); });
+  seedOutside();
+  C.forEach(function(c,i){ if(c.dynamic){ c.n0=Math.round(areaOf(c)*OUT_DENSITY); seedInside(i,c.n0); } });
+  if(CFG.seed) CFG.seed.forEach(function(n,i){ if(n) seedInside(i,n); });
+  releasing=false; relPhase=''; C.forEach(function(c){ c.capOpen=false; if(CFG.release){ c.valveOpen=false; c.nOut=0; c.nIn=0; } });
+  var rb=document.getElementById('release'); if(rb){ rb.disabled=false; rb.textContent=CFG.release.label; }
+  status.textContent=CFG.startMsg||'';
+  var vb=document.getElementById('valve'); if(vb){ vb.textContent='밸브 열기'; vb.classList.remove('toggle-on'); }
+}
+document.getElementById('reset').onclick=function(){ resetAll(); };
+
+// 압축팩 버튼
+var pumpBtn=document.getElementById('pump');
+if(pumpBtn){
+  var start=function(e){ e.preventDefault(); var c=C.filter(function(c){return c.dynamic;})[0]; c.valveOpen=false; var vb=document.getElementById('valve'); vb.textContent='밸브 열기'; vb.classList.remove('toggle-on'); pumping=true; pumpTimer=0; pumpBtn.classList.add('holding'); try{pumpBtn.setPointerCapture(e.pointerId);}catch(_){} };
+  var stop=function(){ pumping=false; pumpBtn.classList.remove('holding'); updateSteps(); };
+  pumpBtn.addEventListener('pointerdown',start);
+  ['pointerup','pointercancel','lostpointercapture'].forEach(function(t){ pumpBtn.addEventListener(t,stop); });
+  pumpBtn.addEventListener('contextmenu',function(e){e.preventDefault();});
+}
+var valveBtn=document.getElementById('valve');
+if(valveBtn){
+  valveBtn.onclick=function(){ var c=C.filter(function(c){return c.dynamic;})[0]; c.valveOpen=!c.valveOpen; valveBtn.textContent=c.valveOpen?'밸브 닫기':'밸브 열기'; valveBtn.classList.toggle('toggle-on',c.valveOpen); };
+}
+var relBtn=document.getElementById('release');
+if(relBtn){ relBtn.onclick=function(){ if(releasing || relBtn.textContent.indexOf('처음부터')>=0){ if(!releasing){ resetAll(); } return; } releasing=true; relPhase='rush'; relTimer=0; var rc=C[CFG.release.c]; rc.capOpen=true; rc.valveOpen=true; rc.countFlow=true; rc.nOut=0; rc.nIn=0; relBtn.textContent='뚜껑 여는 중…'; }; }
+document.getElementById('nm').addEventListener('input',function(){ this.classList.remove('need'); updateSteps(); });
+
+/* ---------- 저장 ---------- */
+function wrapText(c, text, maxW){
+  var lines=[], cur='';
+  for(var i=0;i<text.length;i++){ var t=cur+text[i]; if(c.measureText(t).width>maxW && cur){ lines.push(cur); cur=text[i]; } else cur=t; }
+  if(cur) lines.push(cur); return lines;
+}
+document.getElementById('save').onclick=function(){
+  var nmEl=document.getElementById('nm'), name=nmEl.value.trim();
+  if(!name){ nmEl.classList.remove('need'); void nmEl.offsetWidth; nmEl.classList.add('need'); nmEl.focus(); status.textContent='이름을 먼저 쓰세요'; return; }
+  render();
+  var S=2, PW=W+80, pad=40;
+  var tmp=document.createElement('canvas').getContext('2d');
+  tmp.font='600 24px '+FONT;
+  // 문장 조각
+  var segs=[], k=0;
+  CFG.sentence.forEach(function(seg){ if(typeof seg==='string') segs.push({t:seg,b:false}); else { var ch=choices[k++]; segs.push({t: ch?' '+ch+' ':' (          ) ', b:true, empty:!ch}); } });
+  // 줄 나누기(조각 단위 → 글자 단위)
+  var lines=[[]], lw=0, maxW=W-40;
+  segs.forEach(function(s){
+    if(s.t==='\n'){ lines.push([]); lw=0; return; }
+    tmp.font=(s.b?'800 ':'500 ')+'24px '+FONT;
+    for(var i=0;i<s.t.length;i++){
+      var ch=s.t[i], cw=tmp.measureText(ch).width;
+      if(lw+cw>maxW){ lines.push([]); lw=0; if(ch===' ') continue; }
+      var L=lines[lines.length-1], last=L[L.length-1];
+      if(last && last.b===s.b && last.empty===s.empty) last.t+=ch; else L.push({t:ch,b:s.b,empty:s.empty});
+      lw+=cw;
+    }
+  });
+  var metersN=(CFG.meters||[]).length;
+  var PH = 96 + H + 24 + metersN*40 + 28 + lines.length*40 + 36;
+  var out=document.createElement('canvas'); out.width=PW*S; out.height=PH*S;
+  var o=out.getContext('2d'); o.scale(S,S);
+  o.fillStyle='#FFFFFF'; o.fillRect(0,0,PW,PH);
+  // 머리
+  o.fillStyle='#0066CC'; roundRectOn(o,pad,26,120,38,19); o.fill();
+  o.fillStyle='#fff'; o.font='800 20px '+FONT; o.textAlign='center'; o.fillText('사례 '+CFG.numLabel,pad+60,52);
+  o.textAlign='left'; o.fillStyle='#1D1D1F'; o.font='800 28px '+FONT; o.fillText(CFG.title,pad+136,55);
+  o.textAlign='right'; o.font='700 24px '+FONT; o.fillText('이름: '+name,PW-pad,55); o.textAlign='left';
+  // 그림
+  var y=90;
+  o.save(); roundRectOn(o,pad,y,W,H,16); o.clip(); o.drawImage(canvas,pad,y,W,H); o.restore();
+  o.strokeStyle='#E5E5EA'; o.lineWidth=1.5; roundRectOn(o,pad,y,W,H,16); o.stroke();
+  y+=H+24;
+  // 막대
+  (CFG.meters||[]).forEach(function(m){
+    var r=rate(m.key);
+    o.fillStyle=m.color; roundRectOn(o,pad,y+4,14,14,4); o.fill();
+    o.fillStyle='#515154'; o.font='700 19px '+FONT; o.fillText(m.label.replace(/<[^>]+>/g,''),pad+24,y+18);
+    var bx=pad+330, bw=W-330-170;
+    o.fillStyle='#F2F2F7'; roundRectOn(o,bx,y,bw,22,11); o.fill();
+    o.fillStyle=m.color; roundRectOn(o,bx,y,Math.max(22,Math.min(1,r/CFG.barMax)*bw),22,11); o.fill();
+    o.fillStyle='#1D1D1F'; o.textAlign='right'; o.fillText('1초에 약 '+Math.round(r)+'번',pad+W,y+18); o.textAlign='left';
+    y+=40;
+  });
+  y+=14;
+  o.strokeStyle='#E5E5EA'; o.beginPath(); o.moveTo(pad,y); o.lineTo(pad+W,y); o.stroke();
+  y+=40;
+  lines.forEach(function(L){
+    var x=pad+20;
+    L.forEach(function(s){
+      o.font=(s.b?'800 ':'500 ')+'24px '+FONT;
+      o.fillStyle = s.empty ? '#AEAEB2' : (s.b ? '#0066CC' : '#1D1D1F');
+      o.fillText(s.t,x,y); x+=o.measureText(s.t).width;
+    });
+    y+=40;
+  });
+  out.toBlob(function(blob){
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob);
+    a.download='611_사례'+CFG.num+'_'+name+'.png';
+    document.body.appendChild(a); a.click(); setTimeout(function(){URL.revokeObjectURL(a.href); a.remove();},1500);
+    status.textContent='저장했어요. 패들렛 우리 모둠 칸에 올리세요.';
+  },'image/png');
+};
+function roundRectOn(o,x,y,w,h,r){ o.beginPath(); o.moveTo(x+r,y); o.arcTo(x+w,y,x+w,y+h,r); o.arcTo(x+w,y+h,x,y+h,r); o.arcTo(x,y+h,x,y,r); o.arcTo(x,y,x+w,y,r); o.closePath(); }
+
+/* ---------- 시작 ---------- */
+buildMeters(); buildSentence(); resetAll(); updateSteps();
+var prev=performance.now(), meterTick=0;
+function loop(now){
+  var realDt=Math.min(0.05,(now-prev)/1000); prev=now;
+  if(suspended){ requestAnimationFrame(loop); return; }
+  if(!paused){ var dt=realDt*speed; step(dt); if(CFG.pack) packUpdate(dt, realDt); releaseUpdate(realDt); }
+  growUpdate(realDt);
+  render();
+  meterTick+=realDt; if(meterTick>0.2){ meterTick=0; updateMeters(); }
+  requestAnimationFrame(loop);
+}
+if(document.fonts && document.fonts.ready){ document.fonts.ready.then(function(){ render(); }); }
+requestAnimationFrame(loop);
+window.__sim={parts:function(){return parts;},C:C,rate:rate,tryAdd:tryAdd,step:step,packUpdate:packUpdate,setPump:function(v){pumping=v;},countIn:countIn,growUpdate:growUpdate};
+})();
+
+</script>
+</body>
+</html>

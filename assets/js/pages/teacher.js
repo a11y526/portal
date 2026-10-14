@@ -15,7 +15,7 @@ import {
 } from '../db.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
-import { parseWorksheet, renderPage, TYPE_NAME } from '../worksheet.js';
+import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../worksheet.js';
 
 initUI();
 
@@ -1112,7 +1112,7 @@ function showSheetPreview() {
   const bytes = new Blob([JSON.stringify(parsed.pages)]).size;
   const warns = parsed.report.reduce((n, r) => n + r.warn.length, 0);
   $('ws-dlg-h').textContent = `${code}차시 학습지 미리보기`;
-  $('ws-dlg-meta').textContent = [file.name, `${parsed.pages.length}쪽`, `칸 ${parsed.fieldCount}개`,
+  $('ws-dlg-meta').textContent = [file.name, `${parsed.pages.length}쪽`, `칸 ${parsed.fieldCount}개`, parsed.sims.length ? `시뮬레이션 ${parsed.report.reduce((n, r) => n + r.sims, 0)}개` : '',
     bytes < 1024 * 1024 ? `${Math.max(1, Math.round(bytes / 1024))}KB` : `${(bytes / 1024 / 1024).toFixed(1)}MB`, warns ? `확인할 것 ${warns}개` : ''].filter(Boolean).join(' · ') +
     (bytes > BIG_BYTES ? ' · 그림이 커서 학생 기기에서 느릴 수 있어요' : '');
   $('ws-report').innerHTML = parsed.report.map((r, i) => {
@@ -1122,7 +1122,7 @@ function showSheetPreview() {
         <button type="button" class="ws-rep-btn" data-view="${i}">
           <b class="num">${r.slide ?? '?'}쪽</b>
           <span class="ws-rep-t">${esc(r.title || '')}</span>
-          <span class="ws-rep-k muted">${kinds}${r.open ? ` (정답 없는 고르기 ${r.open})` : ''}</span>
+          <span class="ws-rep-k muted">${kinds}${r.open ? ` (정답 없는 고르기 ${r.open})` : ''}${r.sims ? ` · 시뮬레이션 ${r.sims}개` : ''}</span>
         </button>
         ${r.warn.map((w) => `<span class="ws-rep-w">${esc(w)}</span>`).join('')}
       </li>`;
@@ -1146,6 +1146,7 @@ $('ws-report').addEventListener('click', (e) => {
 });
 
 $('ws-dlg-cancel').addEventListener('click', () => { $('ws-dlg').close(); sheetDraft = null; });
+$('ws-dlg').addEventListener('close', () => closeSims($('ws-dlg-view')));
 
 $('ws-dlg-save').addEventListener('click', async (e) => {
   if (!sheetDraft) return;
@@ -1153,6 +1154,16 @@ $('ws-dlg-save').addEventListener('click', async (e) => {
   const { code, parsed } = sheetDraft;
   btn.disabled = true;
   try {
+    // 시뮬레이션 주소가 포털에서 열리는지(sims/ 파일을 GitHub에 올렸는지). 한글이 섞이면 NFC/NFD로 바꿔 본다
+    const broken = [];
+    for (const src of parsed.sims) {
+      const chk = await checkSimUrl(simHref(src));
+      if (chk.ok === false) broken.push(src);
+    }
+    if (broken.length && !confirm(`이 시뮬레이션 주소가 아직 열리지 않아요(404).\n${broken.join('\n')}\n\nsims/ 폴더에 파일을 GitHub에 올리면 열려요. 학습지는 지금 저장할까요?`)) {
+      btn.disabled = false;
+      return;
+    }
     if (sheets.has(code)) {
       const n = await countWorksheetAnswers(code);
       if (n && !confirm(`이미 ${n}명이 이 학습지를 쓰기 시작했어요. 새 파일로 바꿀까요?\n칸이 바뀌면 쓰던 답이 맞지 않을 수 있어요. 이미 받은 XP는 그대로예요.`)) {

@@ -952,6 +952,13 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .ws-page .w-mine i, .ws-page .w-ox i { font-style: normal; border: 1.5px solid rgba(78,88,104,.4); border-radius: var(--r-pill); padding: 0 10px; }
 
 /* 칸 */
+/* 학습지 안 시뮬레이션: 누를 때만 iframe */
+.ws-sim { margin: 12px 0; padding: 10px 14px; border: 1.5px solid rgba(78,88,104,.22); border-radius: 16px; background: rgba(255,255,255,.7); }
+.ws-sim-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; }
+.ws-sim-t { font-weight: 900; font-size: 16px; }
+.ws-sim-btn { min-height: 44px; }
+.ws-sim.is-open { padding-bottom: 14px; }
+.ws-sim-frame { display: block; width: 100%; aspect-ratio: 4 / 3; min-height: 420px; margin-top: 10px; border: 0; border-radius: 12px; background: #fff; }
 .ws-in { font-weight: 700; }
 .ws-bl { display: inline-block; vertical-align: middle; width: 8em; height: 42px; margin: 2px 4px; padding: 0 8px; text-align: center; border-radius: 12px; font-size: 17px; }
 .ws-bl.ws-s { width: 5em; }

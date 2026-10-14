@@ -6,7 +6,7 @@ import { initUI, esc, toast, prepareDraw } from '../ui.js';
 import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheet, onClassRefresh, sendClassRefresh } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
-import { renderPage, markFields } from '../worksheet.js';
+import { renderPage, markFields, closeSims } from '../worksheet.js';
 
 initUI();
 bindReactions();
@@ -331,7 +331,7 @@ function applyTab() {
     b.setAttribute('aria-selected', String(on));
   });
   if (sheetOn) ensureSheet();
-  else fitFrame();
+  else { closeSims($('sheet')); fitFrame(); }
 }
 
 $('tabs').addEventListener('click', (e) => {
@@ -789,6 +789,9 @@ if (sb) onClassRefresh(classId, () => {
   // 신호는 모든 학생 기기에 한꺼번에 가므로 0~2초 흩어서 읽는다
   if (!document.hidden) setTimeout(load, Math.random() * 2000);
 });
-document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) closeSims(); // 학습지 시뮬레이션은 화면이 숨겨지면 없앤다(학생 기기 부담)
+  else load();
+});
 addEventListener('online', () => { load(); saveSheet(); });
 addEventListener('offline', () => setNetDown(true));

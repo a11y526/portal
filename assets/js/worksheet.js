@@ -1,6 +1,8 @@
 // 개인 학습지(웹판): 관리 화면에서 올린 HTML 읽기 + 반 페이지에서 쪽 그리기
 // 웹판 규칙은 ../학습지_웹판_규칙.md (section.page[data-slide][data-title], .bl .ox .ineq .box .fill)
 // 정답은 key에만 담아 서버에 저장하고, 화면용 html에서는 칸 자리를 <span data-ws="f1"></span>으로 바꿔 정답을 뺀다
+// 시뮬레이션 칸 <div class="sim" data-src="sims/…html">은 칸(field)이 아니다. <div class="w-sim" data-sim="sims/…">으로만 남기고,
+// 반 페이지에서 [시뮬레이션 열기]를 누를 때 sandbox iframe으로 연다(학습지 안의 script·iframe은 계속 지운다)
 
 const FIELD = '.bl, .ox, .ineq .box, .fill';
 const SYMS = { '<': '<', '＜': '<', '〈': '<', '=': '=', '＝': '=', '>': '>', '＞': '>', '〉': '>' };
@@ -13,6 +15,9 @@ const KEEP = new Set(['DIV', 'SPAN', 'P', 'H2', 'H3', 'H4', 'B', 'STRONG', 'I', 
 const DROP = new Set(['SCRIPT', 'STYLE', 'IFRAME', 'OBJECT', 'EMBED', 'LINK', 'META', 'TITLE', 'TEMPLATE', 'FORM', 'INPUT', 'BUTTON',
   'TEXTAREA', 'SELECT', 'SVG', 'MATH', 'VIDEO', 'AUDIO', 'CANVAS', 'NOSCRIPT', 'BASE', 'FRAME', 'FRAMESET', 'HEAD']);
 const ATTRS = new Set(['class', 'colspan', 'rowspan', 'alt', 'data-ws']);
+export const SIM_SRC = /^sims\/[A-Za-z0-9_-]+\.html$/;
+const PORTAL_ROOT = new URL('../../', import.meta.url); // assets/js/ → 포털 맨 위
+export const simHref = (src) => new URL(src, PORTAL_ROOT).href;
 const DATA_IMG = /^data:image\/(png|jpe?g|gif|webp|svg\+xml);base64,[a-z0-9+/=\s]+$/i;
 
 const squash = (t) => String(t ?? '').replace(/\s+/g, ' ').trim();
@@ -28,9 +33,11 @@ export function sanitize(root, { prefix = true } = {}) {
     [...el.attributes].forEach((a) => {
       const name = a.name.toLowerCase();
       if (tag === 'IMG' && name === 'src' && DATA_IMG.test(a.value)) return;
+      if (tag === 'DIV' && name === 'data-sim' && SIM_SRC.test(a.value)) return;
       if (!ATTRS.has(name)) el.removeAttribute(a.name);
     });
     if (tag === 'IMG' && !el.hasAttribute('src')) { el.remove(); return; }
+    if (el.hasAttribute('data-sim')) { el.setAttribute('class', 'w-sim'); el.replaceChildren(); return; }
     if (el.hasAttribute('class') && !el.hasAttribute('data-ws')) {
       const cls = el.getAttribute('class').split(/\s+/).filter((c) => /^[a-z0-9_-]+$/i.test(c))
         .map((c) => (prefix ? 'w-' + c : c)).filter((c) => c.startsWith('w-')).join(' ');
@@ -49,7 +56,8 @@ export function sanitize(root, { prefix = true } = {}) {
    관리 화면: 웹판 HTML → { title, pages, key, report }
    pages: [{ slide, title, html, fields: [{ key, type, options }] }]
    key:   { f1: { type, answers, options } }
-   report: 쪽마다 칸 종류별 개수와 경고(정답 빠진 칸 등)
+   report: 쪽마다 칸 종류별 개수, 시뮬레이션 수와 경고(정답 빠진 칸 등)
+   sims: 학습지에 든 시뮬레이션 주소(sims/…, 겹치지 않게)
    읽을 수 없으면 Error(이유)
    ========================================================= */
 export function parseWorksheet(text) {
@@ -63,6 +71,7 @@ export function parseWorksheet(text) {
   const report = [];
   let n = 0;
   const seen = new Set();
+  const sims = new Set();
 
   sections.forEach((sec, si) => {
     const slide = parseInt(sec.dataset.slide, 10);
@@ -76,6 +85,24 @@ export function parseWorksheet(text) {
     const extra = sec.querySelectorAll('.ans, .key-tag');
     if (extra.length) warn.push(`정답 표시(.ans, .key-tag) ${extra.length}개는 학생 화면에서 뺐어요`);
     extra.forEach((x) => x.remove());
+
+    // 시뮬레이션: sims/ 폴더의 영어 이름 파일만. 칸 키(f1…) 매기기 전에 바꿔 두지만 칸이 아니므로 키는 그대로
+    let simCount = 0;
+    sec.querySelectorAll('[data-sim]').forEach((el) => el.removeAttribute('data-sim')); // .sim 칸으로만 만든다
+    sec.querySelectorAll('.sim').forEach((el) => {
+      const src = String(el.getAttribute('data-src') || '').trim();
+      if (el.tagName !== 'DIV' || !SIM_SRC.test(src)) {
+        warn.push(`시뮬레이션 주소가 규칙에 맞지 않아 뺐어요: ${src || '(주소 없음)'} (sims/영어이름.html만 됨)`);
+        el.remove();
+        return;
+      }
+      const box = doc.createElement('div');
+      box.setAttribute('class', 'sim');
+      box.setAttribute('data-sim', src);
+      el.replaceWith(box);
+      sims.add(src);
+      simCount++;
+    });
 
     const fields = [];
     const count = { blank: 0, choice: 0, sym: 0, text: 0 };
@@ -111,16 +138,16 @@ export function parseWorksheet(text) {
         el.replaceWith(mark);
       });
     if (missing) warn.push(`정답이 빠진 칸 ${missing}개 (채우기만 하면 맞음으로 처리돼요)`);
-    if (!fields.length) warn.push('칸이 없는 쪽이에요');
+    if (!fields.length && !simCount) warn.push('칸이 없는 쪽이에요');
 
     const box = doc.createElement('div');
     box.append(...sec.childNodes);
     sanitize(box);
     pages.push({ slide: Number.isFinite(slide) ? slide : si + 1, title: pageTitle, html: box.innerHTML.trim(), fields });
-    report.push({ slide: Number.isFinite(slide) ? slide : null, title: pageTitle, count, warn, open: fields.filter((f) => f.type === 'choice' && !key[f.key].answers.length).length });
+    report.push({ slide: Number.isFinite(slide) ? slide : null, title: pageTitle, count, sims: simCount, warn, open: fields.filter((f) => f.type === 'choice' && !key[f.key].answers.length).length });
   });
 
-  return { title, pages, key, report, fieldCount: n };
+  return { title, pages, key, report, fieldCount: n, sims: [...sims] };
 }
 
 /* =========================================================
@@ -179,7 +206,64 @@ export function renderPage(box, page, answers, { locked = false } = {}) {
     }
     mark.replaceWith(el);
   });
+  // 시뮬레이션 자리: 카드 + [시뮬레이션 열기]. iframe은 누를 때만 만든다
+  const pg = String(page?.slide ?? '');
+  wrap.querySelectorAll('.w-sim[data-sim]').forEach((el, i) => {
+    const card = document.createElement('div');
+    card.className = 'ws-sim';
+    card.dataset.sim = el.dataset.sim;
+    card.dataset.id = `${pg}-${i}`;
+    card.innerHTML = SIM_BAR;
+    el.replaceWith(card);
+  });
+  // 같은 쪽을 다시 그릴 때(제출 결과 등)는 열어 둔 시뮬레이션 칸을 열린 채로 옮긴다(옮기면 처음부터 다시 시작). 다른 쪽이면 replaceChildren으로 사라진다
+  const open = box.querySelector('.ws-sim.is-open');
+  if (open) {
+    const same = wrap.querySelector(`.ws-sim[data-id="${CSS.escape(open.dataset.id)}"]`);
+    if (same && same.dataset.sim === open.dataset.sim) same.replaceWith(open);
+  }
+  if (!box.dataset.simBound) {
+    box.dataset.simBound = '1';
+    box.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-sim-act]');
+      if (!b || !box.contains(b)) return;
+      const card = b.closest('.ws-sim');
+      if (b.dataset.simAct === 'open') openSim(card);
+      else closeSims(box);
+    });
+  }
   box.replaceChildren(...wrap.childNodes);
+}
+
+const SIM_BAR = `
+  <div class="ws-sim-bar">
+    <span class="ws-sim-t">시뮬레이션</span>
+    <button type="button" class="btn btn-line press ws-sim-btn" data-sim-act="open">시뮬레이션 열기</button>
+  </div>`;
+
+// 한 번에 하나만: 다른 데 열린 것은 닫고 연다. allow-same-origin을 주지 않아 포털의 출입증·저장소에 손대지 못한다
+function openSim(card) {
+  closeSims(document);
+  const frame = document.createElement('iframe');
+  frame.className = 'ws-sim-frame';
+  frame.setAttribute('sandbox', 'allow-scripts');
+  frame.setAttribute('title', '시뮬레이션');
+  frame.src = simHref(card.dataset.sim);
+  card.classList.add('is-open');
+  card.innerHTML = `
+    <div class="ws-sim-bar">
+      <span class="ws-sim-t">시뮬레이션</span>
+      <button type="button" class="btn btn-line press ws-sim-btn" data-sim-act="close">닫기</button>
+    </div>`;
+  card.append(frame);
+}
+
+// root 안에서 열린 시뮬레이션을 모두 닫는다(iframe을 없애 멈춘다)
+export function closeSims(root = document) {
+  root.querySelectorAll('.ws-sim.is-open').forEach((card) => {
+    card.classList.remove('is-open');
+    card.innerHTML = SIM_BAR;
+  });
 }
 
 // 틀리거나 빈 칸 표시 (bad: { f1: 'wrong' | 'empty' })

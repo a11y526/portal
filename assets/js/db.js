@@ -68,7 +68,7 @@ export async function requestPurchase(token, itemId, partner = null) {
 }
 
 // 학습지 본문(무거움: 버전이 바뀔 때만 부른다)
-// { ok: true, board_id, lesson_code, title, version, pages, session, mine: { answers, done_at, xp, coins } | null } 또는 error = 'NO_SHEET'
+// { ok: true, board_id, lesson_code, title, version, pages, session, mine: { answers, passed, done_at, xp, coins } | null } 또는 error = 'NO_SHEET'
 export async function getWorksheet(classId, token = null) {
   return unwrap(await need().rpc('get_worksheet', { p_class_id: classId, p_token: token }));
 }
@@ -78,10 +78,11 @@ export async function saveWorksheetAnswers(token, boardId, answers) {
   return unwrap(await need().rpc('save_worksheet_answers', { p_token: token, p_board_id: boardId, p_answers: answers }));
 }
 
-// 제출: { ok: true, done, already, xp, coins, level_before, level_after, total_xp }
-// 또는 { ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸] } (정답은 오지 않는다)
-export async function submitWorksheet(token, boardId, answers) {
-  return unwrap(await need().rpc('submit_worksheet', { p_token: token, p_board_id: boardId, p_answers: answers }));
+// 쪽별 제출(page: pages 순서, 0부터): { ok: true, done: false, passed, left }
+// 또는 { ok: true, done: true, already, passed, xp, coins, level_before, level_after, total_xp }
+// 또는 { ok: false, error: 'NOT_YET', empty, wrong } (그 쪽 칸만) · 'NO_PAGE' 등
+export async function submitWorksheetPage(token, boardId, page, answers) {
+  return unwrap(await need().rpc('submit_worksheet_page', { p_token: token, p_board_id: boardId, p_page: page, p_answers: answers }));
 }
 
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }

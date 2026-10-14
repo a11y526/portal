@@ -180,6 +180,11 @@ export async function updateBoard(id, patch) {
   return unwrap(await need().from('boards').update(patch).eq('id', id).select().single());
 }
 
+// 시뮬레이션 링크는 차시마다 같다: 같은 차시의 모든 반 보드에 똑같이 넣는다
+export async function setLessonSims(lesson_code, sim_links) {
+  unwrap(await need().from('boards').update({ sim_links }).eq('lesson_code', lesson_code));
+}
+
 export async function deleteBoard(id) {
   unwrap(await need().from('boards').delete().eq('id', id));
 }

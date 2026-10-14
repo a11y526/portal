@@ -2,8 +2,8 @@
 // 학생 기기가 느리고 와이파이가 약해서: 패들렛은 [패들렛 열기]를 눌러야 불러오고,
 // 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
-import { initUI, esc, toast, prepareDraw } from '../ui.js';
-import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheet, onClassRefresh, sendClassRefresh } from '../db.js';
+import { initUI, esc, toast, prepareDraw, countUp } from '../ui.js';
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 import { renderPage, markFields, closeSims } from '../worksheet.js';
@@ -346,7 +346,8 @@ $('tabs').addEventListener('click', (e) => {
    본문(get_worksheet)은 무거워서 버전이 바뀔 때만 받는다. 15초 갱신에는 완료 여부만 온다.
    쓰는 대로 기기에 임시 저장(ws-<보드>-<번호>, 학생마다 따로)하고 몇 초 뒤 서버에 저장한다. 끊기면 연결되면 다시.
    로그인하지 않았으면 빈 학습지만 보인다(같은 기기를 쓴 다른 학생의 답이 보이지 않게)
-   [제출]하면 서버가 채점해 틀리거나 빈 칸의 위치만 돌려준다(정답은 오지 않는다) */
+   쪽마다 [이 쪽 제출]: 서버가 그 쪽 칸만 채점해 틀리거나 빈 칸의 위치만 돌려준다(정답은 오지 않는다).
+   맞은 쪽은 잠긴다(passed). 칸이 있는 쪽을 모두 제출해야 완료 + XP·코인, 완료 화면(#wsdone) */
 
 const SAVE_DELAY_MS = 2500;
 const WS_ERR = {
@@ -354,6 +355,7 @@ const WS_ERR = {
   NO_SESSION: '다시 로그인해 주세요',
   BOARD_CHANGED: '오늘 수업이 바뀌었어요',
   NO_SHEET: '학습지가 바뀌었어요',
+  NO_PAGE: '학습지가 바뀌었어요',
 };
 
 const ws = {
@@ -365,7 +367,8 @@ const ws = {
   idx: 0,
   done: false,
   gain: null,       // { xp, coins }
-  justDone: false,
+  passed: new Set(), // 제출해서 맞은 칸(f1…). 이 칸들이 다 든 쪽은 잠긴다
+  justPassed: -1,   // 방금 제출한 쪽(제출함 표시를 한 번 튀게)
   bad: {},          // { f1: 'wrong' | 'empty' }
   dirty: false,     // 서버에 아직 저장 안 된 답이 있음
   saving: false,
@@ -379,7 +382,14 @@ const draftKey = () => (login ? `ws-${ws.boardId}-${login.number}` : null);
 const pageKey = () => `ws-page-${ws.boardId}`;
 const persist = () => { if (draftKey()) store.set(draftKey(), { answers: ws.answers, dirty: ws.dirty }); };
 const pages = () => ws.sheet?.pages ?? [];
-const locked = () => !login || ws.done;
+const hasFields = (p) => (p?.fields?.length ?? 0) > 0;
+const pageDone = (p) => ws.done || (hasFields(p) && p.fields.every((f) => ws.passed.has(f.key)));
+const locked = () => !login || ws.done || pageDone(pages()[ws.idx]);
+// 제출할 쪽(칸이 있는 쪽) 수와 제출한 쪽 수
+function progress() {
+  const list = pages().filter(hasFields);
+  return { n: list.filter(pageDone).length, total: list.length };
+}
 
 // get_class_page를 받을 때마다
 function syncSheet(data) {
@@ -417,10 +427,12 @@ async function fetchSheet() {
     ws.ver = `${res.board_id}|${res.version}`;
     ws.done = !!res.mine?.done_at;
     ws.gain = ws.done ? { xp: res.mine.xp ?? 0, coins: res.mine.coins ?? 0 } : null;
+    ws.passed = new Set(res.mine?.passed ?? []);
     const local = draftKey() ? store.get(draftKey()) : null;
     const server = res.mine?.answers ?? {};
-    // 기기에 저장 못 한 답이 있으면 그쪽이 먼저
+    // 기기에 저장 못 한 답이 있으면 그쪽이 먼저 (제출한 칸은 서버 답 그대로)
     ws.answers = local?.dirty && !ws.done ? { ...server, ...local.answers } : { ...(local?.answers ?? {}), ...server };
+    ws.passed.forEach((k) => { if (k in server) ws.answers[k] = server[k]; else delete ws.answers[k]; });
     ws.dirty = !!local?.dirty && !ws.done && !!login;
     if (fresh) {
       const saved = Number(store.get(pageKey()));
@@ -441,7 +453,6 @@ function renderSheet() {
   if (!ws.sheet) return;
   ws.lockedShown = locked();
   $('ws-login').classList.toggle('hidden', !!login);
-  $('ws-chip').classList.toggle('hidden', !ws.done);
   renderWsPage();
   renderWsFoot();
 }
@@ -451,6 +462,9 @@ function renderWsPage() {
   const page = list[ws.idx];
   $('ws-slide').textContent = page ? `수업자료 ${page.slide}쪽` : '';
   $('ws-h').textContent = page?.title || ws.sheet.title || '';
+  const chip = ws.done ? '완료' : login && hasFields(page) && pageDone(page) ? '제출함' : '';
+  $('ws-chip').textContent = chip;
+  $('ws-chip').classList.toggle('hidden', !chip);
   renderPage($('ws-page'), page, ws.answers, { locked: locked() });
   markFields($('ws-page'), ws.bad);
   $('ws-prev').disabled = ws.idx <= 0;
@@ -458,16 +472,21 @@ function renderWsPage() {
   renderDots();
 }
 
-// 쪽 점: 지금 쪽, 다 채운 쪽, 고칠 칸이 있는 쪽
+// 쪽 점: 지금 쪽, 제출한 쪽(초록 + 체크), 다 썼지만 아직 제출 안 한 쪽, 고칠 칸이 있는 쪽
+const DOT_CHECK = '<svg class="ws-dot-ck" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
 function renderDots() {
   $('ws-dots').innerHTML = pages().map((p, i) => {
     const keys = p.fields.map((f) => f.key);
-    const full = keys.length > 0 && keys.every((k) => (ws.answers[k] ?? '') !== '');
-    const bad = keys.some((k) => ws.bad[k]);
-    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}"
-      data-i="${i}" aria-label="${p.slide}쪽${bad ? ' · 고칠 칸 있음' : full ? ' · 다 씀' : ''}" ${i === ws.idx ? 'aria-current="step"' : ''}><span class="num">${p.slide}</span></button>`;
+    const done = !!login && hasFields(p) && pageDone(p);
+    const full = !done && keys.length > 0 && keys.every((k) => (ws.answers[k] ?? '') !== '');
+    const bad = !done && keys.some((k) => ws.bad[k]);
+    const st = done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : full ? ' · 다 씀, 제출 전' : '';
+    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}"
+      data-i="${i}" aria-label="${p.slide}쪽${st}" ${i === ws.idx ? 'aria-current="step"' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
   }).join('');
 }
+
+const CHECK_SVG = (w, d = '.35s') => `<svg class="draw" style="--d:${d}" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
 
 function renderWsFoot() {
   const foot = $('ws-foot');
@@ -476,22 +495,31 @@ function renderWsFoot() {
     const g = ws.gain ?? {};
     foot.innerHTML = `
       <div class="state-box is-passed passed-box ws-done">
-        ${ws.justDone ? BITS.map(([l, c, d]) => `<span class="confetti-bit" aria-hidden="true" style="left:${l};background:${c};--d:${d}s"></span>`).join('') : ''}
-        <span class="pass-check${ws.justDone ? ' pop' : ''}" aria-hidden="true">
-          <svg class="draw" style="--d:.35s" width="38" height="38" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>
-        </span>
+        <span class="pass-check" aria-hidden="true">${CHECK_SVG(38)}</span>
         <span class="pass-title">학습지 완료!</span>
         ${g.xp || g.coins ? `<span class="pass-sub num">+${g.xp} XP · +${g.coins}코인</span>` : ''}
       </div>`;
-    prepareDraw(foot);
-    ws.justDone = false;
     return;
   }
-  const nBad = Object.keys(ws.bad).length;
-  foot.innerHTML = `
-    <span class="ws-save muted" id="ws-save" role="status">${esc(ws.status)}</span>
+  const page = pages()[ws.idx];
+  const pr = progress();
+  const prog = `<span class="ws-prog num" aria-label="제출한 쪽 ${pr.n}개, 모두 ${pr.total}쪽">제출 <b>${pr.n}</b> / ${pr.total}쪽</span>`;
+  const status = `<span class="ws-save muted" id="ws-save" role="status">${esc(ws.status)}</span>`;
+  if (!hasFields(page)) { foot.innerHTML = status + prog; return; }
+  if (pageDone(page)) {
+    const just = ws.justPassed === ws.idx;
+    ws.justPassed = -1;
+    const next = pages().findIndex((p) => hasFields(p) && !pageDone(p));
+    foot.innerHTML = `${status}${prog}
+      <span class="ws-pagedone${just ? ' pop' : ''}"><span class="ws-pagedone-ck" aria-hidden="true">${CHECK_SVG(18, just ? '.2s' : '0s')}</span>이 쪽 제출함</span>
+      ${next >= 0 ? `<button type="button" class="btn btn-line press" id="ws-left" data-i="${next}">제출 안 한 쪽으로</button>` : ''}`;
+    if (just) prepareDraw(foot);
+    return;
+  }
+  const nBad = page.fields.filter((f) => ws.bad[f.key]).length;
+  foot.innerHTML = `${status}${prog}
     ${nBad ? `<span class="ws-badn">고칠 칸 ${nBad}개</span>` : ''}
-    <button type="button" class="btn btn-primary btn-big press" id="ws-submit">${nBad ? '고쳐서 다시 제출' : '제출'}</button>`;
+    <button type="button" class="btn btn-primary btn-big press" id="ws-submit">${nBad ? '고쳐서 다시 제출' : '이 쪽 제출'}</button>`;
 }
 
 function setStatus(text) {
@@ -505,6 +533,7 @@ function goPage(i) {
   ws.idx = i;
   store.set(pageKey(), i);
   renderWsPage();
+  renderWsFoot();
   if ($('sheet').getBoundingClientRect().top < 0) $('sheet').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
 }
 $('ws-prev').addEventListener('click', () => goPage(ws.idx - 1));
@@ -546,7 +575,9 @@ $('ws-page').addEventListener('click', (e) => {
 
 $('ws-foot').addEventListener('click', (e) => {
   const b = e.target.closest('#ws-submit');
-  if (b) submitSheet(b);
+  if (b) submitPage(b);
+  const left = e.target.closest('#ws-left');
+  if (left) goPage(Number(left.dataset.i));
 });
 
 function sheetError(code) {
@@ -556,7 +587,7 @@ function sheetError(code) {
     mineKey = undefined;
     ws.ver = null; // 내 답 없이 다시 받기
     ensureSheet();
-  } else if (code === 'BOARD_CHANGED' || code === 'NO_SHEET') {
+  } else if (code === 'BOARD_CHANGED' || code === 'NO_SHEET' || code === 'NO_PAGE') {
     ws.ver = null;
     load();
   }
@@ -590,16 +621,21 @@ async function saveSheet() {
   }
 }
 
-// 버튼 하나에 요청 하나: 누르면 '채점 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 제출]
-async function submitSheet(btn) {
+// 쪽별 제출. 버튼 하나에 요청 하나: 누르면 '채점 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 제출]
+// 답은 모두 보내 저장하고, 서버는 그 쪽 칸만 채점한다
+async function submitPage(btn) {
   if (ws.submitting || ws.done || !login || !ws.sheet) return;
+  const idx = ws.idx;
+  const pg = pages()[idx];
+  if (!hasFields(pg) || pageDone(pg)) return;
   ws.submitting = true;
   clearTimeout(ws.saveTimer);
   btn.disabled = true;
   btn.textContent = '채점 중';
+  const sent = JSON.stringify(ws.answers);
   let res;
   try {
-    res = await withTimeout(submitWorksheet(login.token, ws.boardId, ws.answers), SUBMIT_WAIT_MS);
+    res = await withTimeout(submitWorksheetPage(login.token, ws.boardId, idx, ws.answers), SUBMIT_WAIT_MS);
   } catch (err) {
     console.error(err);
     ws.submitting = false;
@@ -609,39 +645,82 @@ async function submitSheet(btn) {
   }
   ws.submitting = false;
 
-  if (res?.ok && res.done) {
-    ws.dirty = false;
-    ws.done = true;
-    ws.bad = {};
-    ws.gain = { xp: res.xp ?? 0, coins: res.coins ?? 0 };
-    ws.justDone = !res.already;
-    persist();
-    renderSheet();
-    if (!res.already && res.level_after > res.level_before) {
-      showLevelUp(res.level_after, res.total_xp, page?.my_members?.find((m) => m.me)?.avatar);
+  if (res?.ok) {
+    // 답은 서버에 저장됐다
+    if (JSON.stringify(ws.answers) === sent) ws.dirty = false;
+    ws.passed = new Set(res.passed ?? []);
+    pg.fields.forEach((f) => { delete ws.bad[f.key]; });
+    ws.status = '';
+    if (res.done) {
+      ws.done = true;
+      ws.dirty = false;
+      ws.bad = {};
+      ws.gain = { xp: res.xp ?? 0, coins: res.coins ?? 0 };
+      persist();
+      renderSheet();
+      if (!res.already) showSheetDone(res);
+      return;
     }
+    persist();
+    ws.justPassed = idx;
+    renderSheet();
+    if (ws.dirty) saveSheet();
     return;
   }
   if (res?.error === 'NOT_YET') {
-    // 답은 서버에 저장됐다
-    ws.dirty = false;
+    if (JSON.stringify(ws.answers) === sent) ws.dirty = false;
     persist();
-    ws.bad = {};
+    pg.fields.forEach((f) => { delete ws.bad[f.key]; });
     (res.empty ?? []).forEach((k) => { ws.bad[k] = 'empty'; });
     (res.wrong ?? []).forEach((k) => { ws.bad[k] = 'wrong'; });
-    const n = Object.keys(ws.bad).length;
     const empty = (res.empty ?? []).length;
+    const n = empty + (res.wrong ?? []).length;
     toast(empty === n ? `빈 칸이 ${n}개 있어요` : `틀리거나 빈 칸이 ${n}개 있어요`, 'error');
-    const first = pages().findIndex((p) => p.fields.some((f) => ws.bad[f.key]));
-    if (first >= 0 && first !== ws.idx) { ws.idx = first; store.set(pageKey(), first); }
     ws.status = '';
     renderSheet();
+    if (ws.dirty) saveSheet();
     return;
   }
   toast(WS_ERR[res?.error] || '제출하지 못했어요', 'error');
   sheetError(res?.error);
-  if (btn.isConnected) { btn.disabled = false; btn.textContent = '제출'; }
+  if (btn.isConnected) { btn.disabled = false; btn.textContent = '이 쪽 제출'; }
 }
+
+/* ---------- 학습지 완료 화면 (마지막 쪽까지 제출했을 때 한 번)
+   쪽 카드가 차례로 뒤집히며 초록 → '완료' 도장이 찍힘 → XP·코인 숫자가 올라감 → 색종이.
+   [확인]을 누르면 레벨이 올랐을 때 레벨업 화면으로 이어진다 ---------- */
+const DONE_BITS = ['#2457E6', '#F59E0B', '#22C582', '#B79CFF', '#FF7A45', '#6EA8FF'];
+let doneLevel = null;
+
+function showSheetDone(res) {
+  const list = pages().filter(hasFields);
+  const step = Math.min(70, Math.round(900 / Math.max(1, list.length))); // 쪽이 많아도 1초 안에
+  const stampAt = 250 + list.length * step + 250;
+  const box = $('wsdone');
+  box.style.setProperty('--stamp', `${stampAt}ms`);
+  $('wsdone-t').textContent = ws.sheet?.title || `학습지 ${ws.sheet?.lesson_code ?? ''}`;
+  $('wsdone-tiles').innerHTML = list.map((p, i) => `
+    <span class="wsd-tile" style="--d:${250 + i * step}ms"><span class="num">${p.slide}</span>${DOT_CHECK}</span>`).join('');
+  $('wsdone-fx').innerHTML = reduceMotion ? '' : Array.from({ length: 22 }, (_, i) =>
+    `<span class="wsd-bit" style="left:${(i * 37) % 100}%;background:${DONE_BITS[i % DONE_BITS.length]};--d:${stampAt + (i % 7) * 90}ms;--x:${((i * 53) % 41) - 20}px;--r:${(i * 97) % 360}deg"></span>`).join('');
+  const xp = $('wsdone-xp');
+  const co = $('wsdone-co');
+  xp.dataset.value = 0; xp.textContent = '0';
+  co.dataset.value = 0; co.textContent = '0';
+  $('wsdone-gain').classList.toggle('hidden', !(res.xp || res.coins));
+  doneLevel = res.level_after > res.level_before ? res : null;
+  box.classList.remove('hidden');
+  $('wsdone-ok').focus();
+  setTimeout(() => { countUp(xp, res.xp ?? 0, 900); countUp(co, res.coins ?? 0, 900); }, reduceMotion ? 0 : stampAt + 350);
+}
+
+$('wsdone-ok').addEventListener('click', () => {
+  $('wsdone').classList.add('hidden');
+  $('wsdone-fx').innerHTML = '';
+  const lv = doneLevel;
+  doneLevel = null;
+  if (lv) showLevelUp(lv.level_after, lv.total_xp, page?.my_members?.find((m) => m.me)?.avatar);
+});
 
 /* ---------- 레벨업 (학습지 XP로 레벨이 오르면) ---------- */
 function showLevelUp(lv, total, avatar) {

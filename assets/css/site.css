@@ -689,21 +689,78 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 
 /* ---------- 관리 첫 화면 (teacher/index.html) ---------- */
 .admin-title { display: flex; align-items: center; gap: 12px; min-width: 0; }
-.hub { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
-.hub-item {
-  position: relative; min-height: 120px; padding: 22px 24px; border-radius: var(--r-lg); text-decoration: none; color: var(--ink);
-  display: flex; flex-direction: column; justify-content: flex-end; gap: 6px;
-}
-.hub-item:hover { color: var(--ink); }
-.hub-item b { font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
-.hub-item span { font-size: 14px; color: var(--ink-2); min-height: 1.2em; }
-.hub-badge { position: absolute; top: 18px; right: 18px; min-width: 30px; height: 30px; padding: 0 9px; border-radius: var(--r-pill);
-  background: var(--returned-solid); color: #fff; font-style: normal; font-weight: 900; font-size: 15px; display: inline-flex; align-items: center; justify-content: center; }
 .panel { display: flex; flex-direction: column; gap: 24px; }
 .panel.card { gap: 16px; }
-.hub-start { background: var(--accent); color: #fff; border-color: transparent; box-shadow: 0 14px 30px rgba(36,87,230,.3); }
+
+/* 묶음: 수업 · 학생 · 점수와 상점 · 기타. 묶음마다 아이콘 색만 다르다 */
+.hub { display: flex; flex-direction: column; gap: 28px; }
+.hub-group { display: flex; flex-direction: column; gap: 12px; }
+.g-class   { --g: #2457E6; --g-bg: rgba(36,87,230,.12); }
+.g-student { --g: #0F8A5F; --g-bg: rgba(15,138,95,.13); }
+.g-point   { --g: #C26A00; --g-bg: rgba(255,170,51,.20); }
+.g-etc     { --g: #6D4FD8; --g-bg: rgba(125,92,232,.14); }
+.hub-label { display: flex; align-items: center; gap: 8px; margin: 0 0 0 4px;
+  font-size: 13px; font-weight: 700; letter-spacing: .02em; color: var(--ink-2); }
+.hub-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--g); }
+.hub-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+
+.hub-item {
+  position: relative; min-height: 132px; padding: 20px 22px; border-radius: var(--r-lg); text-decoration: none; color: var(--ink);
+  display: flex; flex-direction: column; justify-content: flex-end; gap: 4px;
+}
+.hub-item:hover { color: var(--ink); }
+.hub-item b { font-size: 19px; font-weight: 900; letter-spacing: -0.02em; line-height: 1.3; }
+.hub-item span { font-size: 13.5px; color: var(--ink-2); min-height: 1.2em; }
+.hub-item b { margin-top: 12px; }
+.hub-ic { flex: none; margin-bottom: auto; width: 42px; height: 42px; border-radius: 13px;
+  display: grid; place-items: center; background: var(--g-bg); color: var(--g); transition: transform .3s var(--ease-back); }
+.hub-ic svg { width: 22px; height: 22px; }
+.hub-item:hover .hub-ic { transform: scale(1.08) rotate(-4deg); }
+.hub-go { position: absolute; top: 20px; right: 20px; width: 30px; height: 30px; border-radius: 50%;
+  display: grid; place-items: center; color: var(--g); background: rgba(255,255,255,.7);
+  opacity: 0; transform: translate(-4px, 4px); transition: opacity .2s, transform .25s var(--ease); }
+.hub-go svg { width: 16px; height: 16px; }
+.hub-item:hover .hub-go, .hub-item:focus-visible .hub-go { opacity: 1; transform: none; }
+.hub-badge { position: absolute; top: 18px; right: 18px; z-index: 1; min-width: 30px; height: 30px; padding: 0 9px; border-radius: var(--r-pill);
+  background: var(--returned-solid); color: #fff; font-style: normal; font-weight: 900; font-size: 15px;
+  display: inline-flex; align-items: center; justify-content: center; box-shadow: 0 6px 14px rgba(194,65,12,.35); }
+.hub-badge:not(.hidden) ~ .hub-go { display: none; }
+
+/* 수업 시작: 2칸 x 2줄 큰 카드. .lite .glass의 흰 배경보다 이겨야 해서 선택자를 세게 쓴다 */
+.hub-item.hub-start.glass {
+  grid-column: span 2; grid-row: span 2; min-height: 278px; padding: 28px 30px;
+  background: radial-gradient(120% 90% at 100% 0%, #5B8CFF 0%, transparent 55%), linear-gradient(150deg, #2F66F2 0%, #1C3FB5 100%);
+  color: #fff; border-color: rgba(255,255,255,.25);
+  box-shadow: 0 18px 40px rgba(36,87,230,.32), inset 0 1px 0 rgba(255,255,255,.35);
+}
+.hub-start::before { content: ""; position: absolute; right: -60px; bottom: -80px; width: 260px; height: 260px; border-radius: 50%;
+  border: 36px solid rgba(255,255,255,.08); pointer-events: none; }
 .hub-start:hover { color: #fff; }
-.hub-start span { color: rgba(255,255,255,.82); }
+.hub-item.hub-start b { font-size: 34px; letter-spacing: -0.03em; }
+.hub-item.hub-start span { font-size: 15px; color: rgba(255,255,255,.85); }
+.hub-start .hub-ic { width: 60px; height: 60px; border-radius: 18px; background: rgba(255,255,255,.18); color: #fff; }
+.hub-start .hub-ic svg { width: 28px; height: 28px; fill: currentColor; }
+.hub-start .hub-go { top: 28px; right: 28px; width: 40px; height: 40px; opacity: 1; transform: none; color: #fff; background: rgba(255,255,255,.18); }
+.hub-start:hover .hub-go { background: #fff; color: var(--accent); }
+.hub-start.glass-live::after { background: radial-gradient(260px circle at var(--mx,50%) var(--my,0%), rgba(255,255,255,.25), transparent 60%); }
+
+@media (max-width: 900px) {
+  .hub-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .hub-item.hub-start.glass { grid-row: auto; min-height: 190px; }
+  .hub-item.hub-start b { font-size: 28px; }
+}
+@media (max-width: 420px) {
+  .hub-grid { gap: 10px; }
+  .hub-item { min-height: 118px; padding: 16px; }
+  .hub-item b { font-size: 16px; }
+  .hub-item span { font-size: 12.5px; }
+  .hub-ic { width: 36px; height: 36px; border-radius: 11px; }
+  .hub-ic svg { width: 19px; height: 19px; }
+  .hub-start .hub-ic { width: 48px; height: 48px; }
+  .hub-item.hub-start.glass { min-height: 170px; padding: 20px; }
+  .hub-item.hub-start b { font-size: 24px; }
+  .hub-start .hub-go { top: 20px; right: 20px; }
+}
 
 /* ---------- 관리: 수업 시작 (차시 창) ---------- */
 .lesson-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(340px, 1fr)); gap: 16px; align-items: start; }

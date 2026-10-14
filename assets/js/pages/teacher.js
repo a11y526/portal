@@ -4,7 +4,7 @@
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
-  listClasses, listBoards, createBoards, updateBoard, deleteBoard, setTodayBoard, toPadletEmbed,
+  listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, toPadletEmbed,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
@@ -252,6 +252,18 @@ function renderCreateForm() {
   addSimRow(sims);
 }
 
+// 시뮬레이션 링크는 차시마다 같다: 차시를 넣으면 그 차시 보드에 있던 링크를 채운다(링크 칸이 비어 있을 때만)
+const lessonSims = (code) => boards.find((b) => b.lesson_code === code && b.sim_links?.length)?.sim_links ?? null;
+
+$('create').lesson_code.addEventListener('change', (e) => {
+  const sims = $('create').querySelector('[data-sims]');
+  const filled = [...sims.querySelectorAll('.sim-row')].some((r) => r.querySelector('.sim-name').value.trim() || r.querySelector('.sim-url').value.trim());
+  const found = lessonSims(e.target.value.trim());
+  if (filled || !found) return;
+  sims.innerHTML = '';
+  found.forEach((s) => addSimRow(sims, s));
+});
+
 $('copy-first').addEventListener('click', () => {
   const inputs = [...$('padlet-rows').querySelectorAll('[data-padlet]')];
   const first = inputs.find((i) => i.value.trim());
@@ -288,6 +300,7 @@ $('create').addEventListener('submit', async (e) => {
   btn.disabled = true;
   try {
     await createBoards({ lesson_code, title, sim_links, items, setToday: f.set_today.checked });
+    if (sim_links.length) await setLessonSims(lesson_code, sim_links);
     toast(`${items.length}개 반에 보드를 만들었어요`, 'ok');
     f.reset();
     renderCreateForm();
@@ -329,13 +342,15 @@ editForm.addEventListener('submit', async (e) => {
   const sim_links = await readSims(editForm.querySelector('[data-sims]'));
   if (!sim_links) return;
   try {
+    const lesson_code = editForm.lesson_code.value.trim();
     await updateBoard(editing.id, {
-      lesson_code: editForm.lesson_code.value.trim(),
+      lesson_code,
       title: editForm.elements.title.value.trim(),
       padlet_src,
       sim_links,
     });
-    toast('저장했어요', 'ok');
+    await setLessonSims(lesson_code, sim_links);
+    toast(`저장했어요 (시뮬레이션 링크는 ${lesson_code}차시 모든 반에)`, 'ok');
     $('edit').close();
     await refresh();
   } catch (err) {

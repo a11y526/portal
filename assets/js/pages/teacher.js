@@ -1,4 +1,4 @@
-// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #roster #nick #buys #shopset #grant #points #data #lock #presets)
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #roster #nick #buys #shopset #grant #points #data #lock #omok #presets)
 // 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
@@ -6,7 +6,7 @@ import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, toPadletEmbed,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
-  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock,
+  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
   getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
@@ -906,6 +906,7 @@ function eventKind(e) {
   if (e.board_id) return '순위 발표';
   if (e.worksheet_board_id || (e.reason || '').startsWith('학습지 ')) return '학습지';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
+  if (e.reason === '오목 승리') return '오목';
   return '직접 줌';
 }
 
@@ -1329,6 +1330,52 @@ $('lock-list').addEventListener('click', async (e) => {
   }
 });
 
+/* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
+function renderOmok() {
+  $('omok-list').innerHTML = classes.map((c) => `
+    <div class="lock-row${c.omok_open ? ' is-open' : ''}">
+      <b>${c.id}반</b>
+      <span class="tag ${c.omok_open ? 'tag-done' : 'tag-off'}">${c.omok_open ? '켜짐' : '꺼짐'}</span>
+      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${c.id}반 오목"><span></span></button>
+    </div>`).join('');
+  updateHub();
+}
+
+async function setOmok(list, open) {
+  for (const c of list) {
+    await setOmokOpen(c.id, open);
+    c.omok_open = open;
+    sendClassRefresh(c.id);
+  }
+  renderOmok();
+}
+
+$('omok-list').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-omok]');
+  if (!btn) return;
+  const c = classes.find((x) => x.id === Number(btn.dataset.omok));
+  btn.disabled = true;
+  try {
+    await setOmok([c], !c.omok_open);
+    toast(c.omok_open ? `${c.id}반 오목을 켰어요` : `${c.id}반 오목을 껐어요`, 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    btn.disabled = false;
+  }
+});
+
+$('omok-all').addEventListener('click', async (e) => {
+  const btn = e.target.closest('[data-all]');
+  if (!btn) return;
+  const open = btn.dataset.all === 'on';
+  btn.disabled = true;
+  try {
+    await setOmok(classes.filter((c) => !!c.omok_open !== open), open);
+    toast(open ? '모든 반 오목을 켰어요' : '모든 반 오목을 껐어요', 'ok');
+  } catch (err) { toast(errMsg(err), 'error'); }
+  btn.disabled = false;
+});
+
 /* ---------- 첫 화면 항목 ---------- */
 function updateHub() {
   const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
@@ -1343,6 +1390,8 @@ function updateHub() {
   $('hub-nick-badge').classList.toggle('hidden', !nickReqs.length);
   const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
+  const omok = classes.filter((c) => c.omok_open).map((c) => `${c.id}반`);
+  if (classes.length) set('hub-omok', omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐');
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -1383,6 +1432,7 @@ async function refresh() {
   renderToday();
   renderBoards();
   renderLocks();
+  renderOmok();
   renderLessons();
   if (location.hash === '#data') renderArchive();
 }

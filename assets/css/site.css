@@ -795,6 +795,8 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .switch[aria-checked="true"] { background: var(--returned-solid); }
 .switch[aria-checked="true"] span { transform: translateX(26px); }
 .switch[disabled] { opacity: .5; cursor: default; }
+.switch-on[aria-checked="true"] { background: var(--passed-solid); }
+.lock-row.is-open { background: var(--passed-bg); }
 
 /* 등장(rise)이 끝난 뒤 hover의 transform(lift)이 먹도록: 끝난 상태를 붙잡지 않는다 */
 .rise { animation-fill-mode: backwards; }
@@ -1056,3 +1058,77 @@ dialog.ws-dlg { width: min(880px, calc(100vw - 32px)); }
 .ws-rep.on .ws-rep-btn { border-color: var(--accent); }
 .ws-rep-w { display: block; margin: 4px 0 0 12px; font-size: 13px; font-weight: 700; color: var(--returned-fg); }
 .ws-preview { border-radius: var(--r-md); background: rgba(255,255,255,.75); padding: 16px; max-height: 50vh; overflow: auto; }
+
+/* ---------- 오목 (omok.html) ---------- */
+.omok-wrap { max-width: 1040px; }
+.omok-body { display: flex; flex-direction: column; gap: 20px; }
+.omok-msg { align-items: center; text-align: center; padding: 40px 24px; }
+.omok-msg-h { margin: 0; font-size: 32px; font-weight: 900; }
+.omok-msg p { margin: 0; }
+.omok-hero { border-radius: var(--r-xl); padding: 20px 28px; display: flex; align-items: center; gap: 22px; flex-wrap: wrap; }
+.omok-av { width: 120px; height: 120px; flex: none; }
+.omok-av svg { width: 100%; height: 100%; }
+.omok-hero-main { display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+.omok-reward { margin: 0; font-size: 17px; color: var(--ink-2); }
+.omok-reward b { color: var(--ink); font-weight: 900; }
+.omok-today { display: flex; align-items: center; gap: 10px; font-size: 14px; color: var(--ink-2); font-weight: 700; }
+.omok-today b { color: var(--ink); }
+.omok-dots { display: inline-flex; gap: 6px; }
+.omok-dots i { width: 14px; height: 14px; border-radius: 50%; background: rgba(78,88,104,.18); }
+.omok-dots i.on { background: var(--passed-solid); animation: pop .5s var(--ease-back) both; }
+
+.omok-play { display: grid; grid-template-columns: minmax(0, 1fr) 240px; gap: 20px; align-items: start; }
+.omok-board-box { position: relative; border-radius: var(--r-lg); padding: 3%; }
+.omok-board { position: relative; width: 100%; aspect-ratio: 1; display: grid;
+  grid-template-columns: repeat(15, 1fr); grid-template-rows: repeat(15, 1fr); }
+.omok-lines { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  stroke: rgba(11,18,32,.28); stroke-width: .18; }
+.omok-lines g { fill: rgba(11,18,32,.45); stroke: none; }
+.oc { position: relative; border: 0; padding: 0; background: none; cursor: pointer; min-width: 0; }
+.oc:disabled { cursor: default; }
+.oc i { position: absolute; inset: 8%; border-radius: 50%; transition: transform .15s; }
+.oc:not(.black):not(.white):not(:disabled):hover i { background: rgba(36,87,230,.16); }
+.oc.black i { background: radial-gradient(circle at 34% 30%, #4A5466, #0B1220 68%); box-shadow: 0 2px 4px rgba(11,18,32,.35); animation: oc-drop .22s var(--ease-back) both; }
+.oc.white i { background: radial-gradient(circle at 34% 30%, #fff, #E3E8F0 75%); box-shadow: 0 2px 4px rgba(11,18,32,.22), inset 0 0 0 1px rgba(11,18,32,.12); animation: oc-drop .22s var(--ease-back) both; }
+.oc.last i { outline: 2.5px solid var(--accent); outline-offset: 1px; }
+.oc.win i { outline: 3px solid var(--passed-solid); outline-offset: 1px; animation: bump .5s var(--ease-back) both; }
+@keyframes oc-drop { from { transform: scale(.4); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.omok-cover { position: absolute; inset: 0; display: flex; align-items: center; justify-content: center; padding: 16px;
+  border-radius: var(--r-lg); background: rgba(237,241,247,.55); }
+.omok-cover-card { position: relative; overflow: hidden; border-radius: var(--r-lg); padding: 26px 32px; min-width: 240px;
+  display: flex; flex-direction: column; align-items: center; gap: 8px; text-align: center; }
+.omok-cover-card > b { font-size: 20px; font-weight: 900; }
+.omok-cover-card svg { color: var(--ink-2); }
+.omok-cover-card .row-actions { margin-top: 8px; justify-content: center; }
+.omok-result-h { font-size: 40px; font-weight: 900; letter-spacing: -0.03em; }
+.omok-cover-card.is-win .omok-result-h { color: var(--passed-fg); }
+.omok-result-s { font-size: 17px; font-weight: 700; color: var(--ink-2); min-height: 1.4em; }
+.omok-cover-card.is-win .omok-result-s { color: var(--passed-fg); }
+
+.omok-side { display: flex; flex-direction: column; gap: 14px; }
+.omok-state { gap: 4px; padding: 18px 22px; border-radius: var(--r-md); }
+.omok-turn { font-size: 22px; font-weight: 900; }
+.omok-turn.thinking { color: var(--ink-2); animation: breathe 1.4s ease-in-out infinite; }
+.omok-turn.won { color: var(--passed-fg); }
+.omok-moves { font-size: 14px; }
+.omok-score { flex-direction: row; justify-content: space-around; padding: 16px; border-radius: var(--r-md); }
+.omok-score div { display: flex; flex-direction: column; align-items: center; gap: 4px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.omok-score b { font-size: 30px; font-weight: 900; color: var(--ink); line-height: 1.1; }
+.omok-stone { width: 22px; height: 22px; border-radius: 50%; }
+.omok-stone.black { background: radial-gradient(circle at 34% 30%, #4A5466, #0B1220 68%); }
+.omok-stone.white { background: radial-gradient(circle at 34% 30%, #fff, #E3E8F0 75%); box-shadow: inset 0 0 0 1px rgba(11,18,32,.15); }
+.omok-btns { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.lite .omok-turn.thinking { animation: none; }
+
+@media (max-width: 820px) {
+  .omok-play { grid-template-columns: 1fr; }
+  .omok-side { display: grid; grid-template-columns: 1fr 1fr; }
+  .omok-btns { grid-column: 1 / -1; }
+}
+@media (max-width: 480px) {
+  .omok-hero { padding: 18px; gap: 14px; }
+  .omok-av { width: 88px; height: 88px; }
+  .omok-board-box { padding: 2%; }
+  .omok-result-h { font-size: 32px; }
+}

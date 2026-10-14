@@ -85,6 +85,17 @@ export async function submitWorksheet(token, boardId, answers) {
 }
 
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
+// 오목: { ok: true, open, today(오늘 받은 횟수), daily, xp, coins, avatar }
+export async function getOmok(token) {
+  return unwrap(await need().rpc('get_omok', { p_token: token }));
+}
+
+// 이긴 대국 내기(흑 수 [[행, 열], …]): { ok: true, paid, xp, coins, today, daily, level_before, level_after, total_xp }
+// 또는 error = 'CLOSED' | 'BAD_GAME'
+export async function submitOmok(token, moves) {
+  return unwrap(await need().rpc('submit_omok', { p_token: token, p_moves: moves }));
+}
+
 export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
 }
@@ -140,7 +151,7 @@ export async function amITeacher() {
 }
 
 export async function listClasses() {
-  return unwrap(await need().from('classes').select('id, label, today_board_id, locked').order('id'));
+  return unwrap(await need().from('classes').select('id, label, today_board_id, locked, omok_open').order('id'));
 }
 
 // 쓰는 중인 보드 (보관한 보드는 빠짐)
@@ -219,6 +230,11 @@ export async function listNicknameRequests() {
     .select('id, class_id, number, nickname, nickname_request')
     .eq('nickname_status', 'pending').eq('active', true)
     .order('class_id').order('number'));
+}
+
+// 오목 켜기/끄기 (반마다)
+export async function setOmokOpen(classId, open) {
+  unwrap(await need().from('classes').update({ omok_open: open }).eq('id', classId));
 }
 
 // 반 잠금: 잠그면 그 반 학생 모두 로그아웃
@@ -318,7 +334,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).not('reason', 'like', '아이템:%')
+    .is('board_id', null).is('worksheet_board_id', null).not('reason', 'like', '아이템:%').neq('reason', '오목 승리')
     .order('created_at', { ascending: false }).limit(limit));
 }
 

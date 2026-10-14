@@ -73,7 +73,12 @@ insert into public.shop_items (id, name, cost, kind, sort) values
   ('store',       '상점',       100, 'plain', 2)
 on conflict (id) do nothing;
 
--- 7단계: 빈칸 정답 1개당 XP·코인
+-- 8단계: 학습지를 모두 맞게 내면 받는 XP·코인 (한 보드에서 한 번)
 insert into public.settings (key, value) values
-  ('quiz', '{"xp": 2, "coins": 1}'::jsonb)
+  ('worksheet', '{"xp": 10, "coins": 5}'::jsonb)
+on conflict (key) do nothing;
+
+-- 오목: AI에게 이기면 받는 XP·코인, 하루에 받을 수 있는 횟수(한국 시간 0시에 새로)
+insert into public.settings (key, value) values
+  ('omok', '{"xp": 2, "coins": 2, "daily": 3}'::jsonb)
 on conflict (key) do nothing;

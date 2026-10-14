@@ -1,0 +1,104 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오목</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap omok-wrap">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <!-- 로그인 필요 -->
+  <section class="glass-strong me-card omok-msg hidden rise" id="v-login">
+    <h1 class="omok-msg-h">오목</h1>
+    <p class="muted">로그인하면 할 수 있어요</p>
+    <a class="btn btn-primary press" href="index.html">로그인</a>
+  </section>
+
+  <div class="omok-body hidden" id="v-game">
+    <section class="glass-strong omok-hero rise">
+      <div class="omok-av" id="av"></div>
+      <div class="omok-hero-main">
+        <div class="me-name-row">
+          <h1 class="me-name">오목</h1>
+          <span class="chip">AI 대전 · 보통</span>
+        </div>
+        <p class="omok-reward">이기면 <b class="num" id="rw-xp">2</b> XP · <b class="num" id="rw-co">2</b>코인</p>
+        <div class="omok-today">
+          <span>오늘 받은 보상</span>
+          <span class="omok-dots" id="dots" aria-hidden="true"></span>
+          <b class="num" id="today"></b>
+        </div>
+      </div>
+    </section>
+
+    <section class="omok-play rise" style="--d:.06s">
+      <div class="omok-board-box glass-strong">
+        <div class="omok-board" id="board" role="grid" aria-label="오목판 15×15"></div>
+
+        <div class="omok-cover hidden" id="closed">
+          <div class="omok-cover-card glass-strong pop">
+            <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+            <b>지금은 오목을 할 수 없어요</b>
+            <span class="muted">선생님이 열면 할 수 있어요</span>
+          </div>
+        </div>
+
+        <div class="omok-cover hidden" id="result">
+          <div class="omok-cover-card glass-strong pop" id="result-card">
+            <b class="omok-result-h" id="result-h"></b>
+            <span class="omok-result-s" id="result-s"></span>
+            <div class="row-actions">
+              <button type="button" class="btn btn-line hidden" id="retry">다시 보내기</button>
+              <button type="button" class="btn btn-primary press" id="again">한 판 더</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="omok-side">
+        <div class="glass me-card omok-state">
+          <span class="omok-turn" id="turn"></span>
+          <span class="muted omok-moves num" id="moves"></span>
+        </div>
+        <div class="glass me-card omok-score">
+          <div><span class="omok-stone black" aria-hidden="true"></span><span>나</span><b class="num" id="win-b">0</b></div>
+          <div><span class="omok-stone white" aria-hidden="true"></span><span>AI</span><b class="num" id="win-w">0</b></div>
+        </div>
+        <div class="omok-btns">
+          <button type="button" class="btn btn-line press" id="undo">무르기</button>
+          <button type="button" class="btn btn-line press" id="reset">새 대국</button>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <div class="lvup hidden" id="lvup" role="dialog" aria-modal="true" aria-labelledby="lvup-h">
+    <div class="lvup-box">
+      <div class="lvup-rays" aria-hidden="true"><svg class="rays" viewBox="0 0 200 200">
+        <g fill="#FFC48A"><path d="M100 100 L96 0 L104 0 Z"/><path d="M100 100 L196 96 L196 104 Z"/><path d="M100 100 L104 200 L96 200 Z"/><path d="M100 100 L4 104 L4 96 Z"/><path d="M100 100 L168 26 L174 32 Z"/><path d="M100 100 L174 168 L168 174 Z"/><path d="M100 100 L32 174 L26 168 Z"/><path d="M100 100 L26 32 L32 26 Z"/></g>
+      </svg></div>
+      <div class="lvup-card glass-strong">
+        <div class="lvup-av" id="lvup-av"></div>
+        <span class="lvup-h" id="lvup-h">레벨 업!</span>
+        <span class="lvup-n num" id="lvup-n"></span>
+        <span class="lvup-s" id="lvup-s"></span>
+        <button type="button" class="btn btn-primary btn-big press" id="lvup-ok">확인</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/omok.js"></script>
+</body>
+</html>

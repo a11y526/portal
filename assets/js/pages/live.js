@@ -4,7 +4,7 @@
 import { CLASSES, GRADE } from '../config.js';
 import { toast, esc } from '../ui.js';
 import {
-  getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh,
+  getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats,
 } from '../db.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
@@ -541,6 +541,11 @@ teacherGate($('app'), async () => {
   const title = [`${GRADE}학년 ${classId}반`, `${code}차시`, lesson?.title || board?.title].filter(Boolean).join(' · ');
   $('cover-title').textContent = title;
   document.title = `${classId}반 ${code}차시 수업`;
+
+  // 수업 중에는 이 반 오목을 끈다 (보드가 없어도)
+  if (classes.find((x) => x.id === classId)?.omok_open) {
+    setOmokOpen(classId, false).then(() => sendClassRefresh(classId)).catch((err) => toast(errMsg(err), 'error'));
+  }
 
   if (lesson?.lesson_src) lessonFrame.mount(lesson.lesson_src);
   else fail(`${code}차시 수업자료 주소가 없어요`);

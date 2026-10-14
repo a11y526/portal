@@ -241,47 +241,44 @@ create table if not exists public.lessons (
 alter table public.boards add column if not exists archived_at timestamptz null;
 
 -- ---------------------------------------------------------
--- 7단계: 수업 중 빈칸 답 → XP
+-- 8단계: 개인 학습지(웹판) → XP
+-- (7단계 빈칸 질문은 8단계로 바뀌어 지운다. 7단계 SQL을 실행한 적이 없으면 아무 일도 하지 않는다)
 -- ---------------------------------------------------------
+alter table public.point_events drop column if exists quiz_id;
+drop table if exists public.quiz_answers;
+drop table if exists public.quizzes;
+delete from public.settings where key = 'quiz';
 
--- 수업 모드에서 연 질문 (수업자료 한 쪽의 빈칸 전부). 같은 보드·같은 쪽을 다시 열면 새 행
--- items: [{key, no, kind: 'auto'|'teacher', type: 'blank'|'choice'|'sym'|'text', prompt, options?, answers: [정답, 허용 답…]}]
-create table if not exists public.quizzes (
-  id        uuid primary key default gen_random_uuid(),
-  board_id  uuid not null references public.boards(id) on delete cascade,
-  slide_no  smallint not null,
-  items     jsonb not null default '[]'::jsonb,
-  status    text not null default 'open' check (status in ('open', 'closed', 'graded')),
-  opened_at timestamptz not null default now(),
-  closed_at timestamptz null
-);
-create index if not exists quizzes_board_time_idx on public.quizzes (board_id, opened_at desc);
--- 열린 질문은 보드마다 1개
-create unique index if not exists quizzes_one_open_idx on public.quizzes (board_id) where status = 'open';
-
--- 학생 답. result: {key: true/false} (자동 채점은 낼 때, 교사 체크는 검사 화면에서)
-create table if not exists public.quiz_answers (
-  quiz_id      uuid not null references public.quizzes(id) on delete cascade,
-  student_id   uuid not null references public.students(id) on delete cascade,
-  answers      jsonb not null default '{}'::jsonb,
-  result       jsonb null,
-  submitted_at timestamptz not null default now(),
-  updated_at   timestamptz not null default now(),
-  primary key (quiz_id, student_id)
+-- 차시별 학습지 (반과 상관없이 차시마다 1개). 관리 화면에서 웹판 HTML을 올리면 브라우저가 읽어 저장한다
+-- pages: [{slide, title, html(정답을 뺀 화면용, 칸 자리는 <span data-ws="f1"></span>), fields: [{key, type, options}]}]
+-- key:   {f1: {type: 'blank'|'choice'|'sym'|'text', answers: [정답, 허용 답…], options}}  ← 학생 쪽에 내보내지 않는다
+create table if not exists public.worksheets (
+  lesson_code text primary key,
+  title       text not null default '',
+  pages       jsonb not null default '[]'::jsonb,
+  key         jsonb not null default '{}'::jsonb,
+  page_count  int  not null default 0,
+  field_count int  not null default 0,
+  updated_at  timestamptz not null default now()
 );
 
--- 빈칸 XP는 board_id를 비우고 quiz_id로 묶는다 (발표 지급·발표 취소와 섞이지 않게). 한 질문에 한 학생 한 번
-alter table public.point_events add column if not exists quiz_id uuid null references public.quizzes(id) on delete set null;
-create unique index if not exists point_events_quiz_once_idx on public.point_events (student_id, quiz_id) where quiz_id is not null;
+-- 학생이 쓴 답 (보드마다 한 학생 한 줄). done_at: 모두 맞게 제출한 때
+create table if not exists public.worksheet_answers (
+  board_id   uuid not null references public.boards(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  answers    jsonb not null default '{}'::jsonb,
+  done_at    timestamptz null,
+  updated_at timestamptz not null default now(),
+  primary key (board_id, student_id)
+);
 
--- 수업 모드 제출 수가 실시간으로 바뀌도록
-do $$
-begin
-  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
-     and not exists (
-       select 1 from pg_publication_tables
-       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'quiz_answers'
-     ) then
-    alter publication supabase_realtime add table public.quiz_answers;
-  end if;
-end $$;
+-- 학습지 완료 XP는 board_id를 비우고 worksheet_board_id로 묶는다 (발표 지급·발표 취소와 섞이지 않게). 한 보드에서 한 학생 한 번
+alter table public.point_events add column if not exists worksheet_board_id uuid null references public.boards(id) on delete set null;
+create unique index if not exists point_events_ws_once_idx on public.point_events (student_id, worksheet_board_id) where worksheet_board_id is not null;
+
+-- ---------------------------------------------------------
+-- 오목 (AI 대전, 보통 난이도)
+-- 교사가 켠 반만 할 수 있다(기본 꺼짐). 수업 모드를 열면 그 반은 자동으로 꺼진다.
+-- 이기면 point_events에 사유 '오목 승리'로 지급(하루 횟수 제한은 settings.omok). 따로 표는 없다
+-- ---------------------------------------------------------
+alter table public.classes add column if not exists omok_open boolean not null default false;

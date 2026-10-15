@@ -120,7 +120,7 @@ async function showHome(login) {
     $('go-shop-sub').textContent = `코인 ${me.coins}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
     getOmok(login.token).then((o) => {
-      if (o?.ok) $('go-omok-sub').textContent = o.open ? `오늘 보상 ${Math.min(o.today, o.daily)} / ${o.daily}` : '지금은 닫혀 있어요';
+      if (o?.ok) $('go-omok-sub').textContent = o.open ? `오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판` : '지금은 닫혀 있어요';
     }).catch(() => {});
     try {
       if (me.month_rank) sessionStorage.setItem('me-mark', JSON.stringify({ c: me.class_id, r: me.month_rank, xp: me.month_xp }));

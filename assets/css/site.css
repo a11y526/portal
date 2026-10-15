@@ -979,7 +979,9 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .ws-dot.is-full { border-color: var(--accent); color: var(--accent); }
 .ws-dot.is-done { background: var(--passed-solid); border-color: var(--passed-solid); color: #fff; }
 .ws-dot.is-bad { background: var(--returned-bg); border-color: var(--returned-solid); color: var(--returned-fg); }
+.ws-dot.is-closed { opacity: .4; border-style: dashed; }
 .ws-dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.ws-closed { gap: 10px; color: var(--ink-2); }
 .ws-dot.on.is-done { box-shadow: 0 0 0 3px var(--passed-solid); }
 .ws-dot-ck { flex: none; }
 .ws-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
@@ -1089,6 +1091,24 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .ws-in.is-empty { border: 2px dashed var(--pending-dot); background: var(--pending-bg); }
 .ws-ox.is-wrong { box-shadow: 0 0 0 3px var(--returned-solid); background: var(--returned-bg); }
 .ws-ox.is-empty { box-shadow: 0 0 0 3px var(--pending-dot); background: var(--pending-bg); }
+/* 점 찍기 칸: 점 ● → 채점 뒤 맞은 점 ○, 틀린 점 × (색만으로 구분하지 않게 모양도 다름) */
+.ws-plot { display: block; max-width: 480px; margin: 10px 0; padding: 8px; border: 1.5px solid rgba(78,88,104,.22); border-radius: 16px; background: rgba(255,255,255,.85); }
+.ws-plot-svg { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
+.ws-plot[data-locked] .ws-plot-svg { cursor: default; }
+.ws-plot-grid line { stroke: rgba(78,88,104,.16); stroke-width: 1; }
+.ws-plot-axis { fill: none; stroke: var(--ink); stroke-width: 2; }
+.ws-plot-tick text { font-size: 16px; font-weight: 700; fill: var(--ink-2); font-variant-numeric: tabular-nums; }
+.ws-plot-label { font-size: 16px; font-weight: 900; fill: var(--ink); }
+.ws-pt-dot { fill: var(--accent); stroke: #fff; stroke-width: 2; }
+.ws-pt-x { display: none; fill: none; stroke: var(--returned-solid); stroke-width: 3.5; stroke-linecap: round; }
+.ws-pt.is-ok .ws-pt-dot { fill: #fff; stroke: var(--passed-solid); stroke-width: 3; }
+.ws-pt.is-bad .ws-pt-dot { display: none; }
+.ws-pt.is-bad .ws-pt-x { display: inline; }
+.ws-plot-bar { display: flex; align-items: center; justify-content: flex-end; gap: 8px; flex-wrap: wrap; margin-top: 6px; line-height: 1.3; }
+.ws-plot-n { margin-right: auto; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.ws-plot-btn { min-height: 44px; }
+.ws-plot.is-wrong { border: 2px solid var(--returned-solid); background: var(--returned-bg); }
+.ws-plot.is-empty { border: 2px dashed var(--pending-dot); background: var(--pending-bg); }
 
 @media (max-width: 600px) {
   .ws-card { padding: 16px; border-radius: var(--r-lg); }

@@ -1,7 +1,8 @@
-// 오목: AI(백, 보통)와 대전. 나는 흑. 이기면 서버가 기보를 다시 두어 확인한 뒤 XP·코인을 준다(하루 횟수 제한).
-// 선생님이 켠 반만 할 수 있고, 꺼지면(수업 모드 시작 포함) 판을 막는다. 대국 중 통신은 하지 않는다.
+// 오목: AI(백, 보통)와 대전. 나는 흑. 이기면 서버가 기보를 다시 두어 확인한 뒤 XP·코인을 준다.
+// 하루 판 수 제한: 첫 돌을 놓을 때 서버에서 판을 받는다(그만두거나 새로고침해도 한 판).
+// 선생님이 켠 반만 할 수 있고, 꺼지면(수업 모드 시작 포함) 판을 막는다. 첫 돌 말고는 대국 중 통신은 하지 않는다.
 import { initUI, toast, countUp } from '../ui.js';
-import { getOmok, submitOmok, onClassRefresh } from '../db.js';
+import { getOmok, startOmok, submitOmok, onClassRefresh } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
 import { mountAvatar, avatarSVG, react, bindReactions } from '../avatar.js';
 import { N, emptyBoard, aiMove, isWin, winLine, isFull } from '../omok.js';
@@ -16,7 +17,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
-// 보상 받기 전 이긴 기보 (와이파이가 끊겨도 날아가지 않게)
+// 보상 받기 전 이긴 판 {game, moves} (와이파이가 끊겨도 날아가지 않게)
 const PENDING = login ? `omok-win-${login.class_id}-${login.number}` : '';
 
 let info = null;      // get_omok 결과
@@ -25,6 +26,8 @@ const g = {
   board: emptyBoard(), turn: 'black', moves: [], last: null,
   over: null,         // null | 'black' | 'white' | 'draw'
   line: new Set(), thinking: false, gen: 0,
+  gameId: null,       // start_omok에서 받은 판 번호(첫 돌을 놓으면 생김)
+  starting: false,
   tally: { black: 0, white: 0 },
 };
 
@@ -49,9 +52,12 @@ $('board').addEventListener('click', (e) => {
   if (b) play(Number(b.dataset.r), Number(b.dataset.c));
 });
 
+// 오늘 판을 다 써서 새 판을 시작할 수 없음
+const used = () => !!info && !g.gameId && info.today >= info.daily;
+
 function render() {
   const open = !!info?.open;
-  const mine = open && !g.over && !g.thinking && g.turn === 'black';
+  const mine = open && !g.over && !g.thinking && !g.starting && !used() && g.turn === 'black';
   cells.forEach((el, i) => {
     const r = Math.floor(i / N), c = i % N, v = g.board[r][c];
     el.className = 'oc' + (v ? ' ' + v : '')
@@ -61,12 +67,13 @@ function render() {
     el.setAttribute('aria-label', `${r + 1}행 ${c + 1}열 ${v === 'black' ? '흑' : v === 'white' ? '백' : '빈 칸'}`);
   });
   $('turn').textContent = g.over === 'black' ? '승리!' : g.over === 'white' ? 'AI 승리' : g.over === 'draw' ? '무승부'
-    : !open ? '닫혀 있어요' : g.thinking ? 'AI가 생각 중' : '내 차례';
+    : !open ? '닫혀 있어요' : used() ? '오늘 판을 다 했어요' : g.thinking ? 'AI가 생각 중' : '내 차례';
   $('turn').className = 'omok-turn' + (g.thinking ? ' thinking' : '') + (g.over === 'black' ? ' won' : '');
   $('moves').textContent = `${g.moves.length}수`;
   $('undo').disabled = !open || !g.moves.length || !!g.over || g.thinking;
   $('reset').disabled = !open || g.thinking;
   $('closed').classList.toggle('hidden', !info || open);
+  $('limit').classList.toggle('hidden', !open || !used() || !!g.over);
 }
 
 function renderInfo() {
@@ -76,16 +83,50 @@ function renderInfo() {
   const left = Math.max(0, info.daily - info.today);
   $('dots').innerHTML = Array.from({ length: info.daily }, (_, i) => `<i class="${i < info.today ? 'on' : ''}"></i>`).join('');
   $('today').textContent = `${Math.min(info.today, info.daily)} / ${info.daily}`;
-  $('today').title = left ? `${left}번 더 받을 수 있어요` : '';
+  $('today').title = left ? `${left}판 남았어요` : '';
 }
 
 /* ---------- 대국 ---------- */
-function play(r, c) {
-  if (!info?.open || g.over || g.thinking || g.turn !== 'black' || g.board[r][c] !== null) return;
+async function play(r, c) {
+  if (!info?.open || g.over || g.thinking || g.starting || g.turn !== 'black' || g.board[r][c] !== null) return;
+  if (!g.gameId && !(await begin())) return;
+  if (g.over || g.board[r][c] !== null) return;
   place(r, c, 'black');
   if (finish(r, c, 'black')) return;
   g.turn = 'white';
   aiTurn();
+}
+
+// 첫 돌: 서버에서 판 번호를 받는다(오늘 판 수 +1). 받으면 true
+async function begin() {
+  g.starting = true;
+  render();
+  const gen = g.gen;
+  try {
+    const res = await startOmok(login.token);
+    if (gen !== g.gen) return false;
+    if (res?.ok) {
+      g.gameId = res.game_id;
+      info = { ...info, today: res.today, daily: res.daily };
+      renderInfo();
+      return true;
+    }
+    if (res?.error === 'NO_SESSION') relogin();
+    else if (res?.error === 'LIMIT') {
+      info = { ...info, today: res.today, daily: res.daily };
+      renderInfo();
+    } else if (res?.error === 'CLOSED') {
+      info = { ...info, open: false };
+    } else toast('시작하지 못했어요', 'error');
+    return false;
+  } catch (err) {
+    console.error(err);
+    toast('연결을 확인해 주세요', 'error');
+    return false;
+  } finally {
+    g.starting = false;
+    render();
+  }
 }
 
 function aiTurn() {
@@ -121,7 +162,7 @@ function finish(r, c, p) {
     render();
     if (p === 'black') {
       const blackMoves = g.moves.filter((m) => m.p === 'black').map((m) => [m.r, m.c]);
-      store.set(PENDING, JSON.stringify(blackMoves));
+      store.set(PENDING, JSON.stringify({ game: g.gameId, moves: blackMoves }));
       showResult('win');
       sendWin();
       if (avatarEl) react(avatarEl, 'jump');
@@ -156,14 +197,14 @@ function undo() {
 
 function newGame() {
   g.gen++;
-  Object.assign(g, { board: emptyBoard(), turn: 'black', moves: [], last: null, over: null, line: new Set(), thinking: false });
+  Object.assign(g, { board: emptyBoard(), turn: 'black', moves: [], last: null, over: null, line: new Set(), thinking: false, gameId: null, starting: false });
   $('result').classList.add('hidden');
   render();
 }
 
 $('undo').addEventListener('click', undo);
 $('reset').addEventListener('click', () => {
-  if (g.moves.length && !g.over && !confirm('지금 대국을 그만두고 새로 시작할까요?')) return;
+  if (g.moves.length && !g.over && !confirm('지금 대국을 그만두고 새로 시작할까요? 그만둔 판도 오늘 판 수에 들어가요.')) return;
   newGame();
 });
 $('again').addEventListener('click', newGame);
@@ -189,15 +230,17 @@ let sending = false;
 async function sendWin() {
   const raw = store.get(PENDING);
   if (!raw || sending || !login) return;
-  let moves;
-  try { moves = JSON.parse(raw); } catch { store.del(PENDING); return; }
+  let saved;
+  try { saved = JSON.parse(raw); } catch { store.del(PENDING); return; }
+  // 판 번호가 없는 예전 기록은 보낼 수 없다
+  if (!saved?.game || !Array.isArray(saved.moves)) { store.del(PENDING); return; }
   sending = true;
   const onScreen = g.over === 'black';
   $('retry').classList.add('hidden');
   if (onScreen) $('result-s').textContent = '보상 받는 중…';
   const timer = setTimeout(() => { if (sending && onScreen) $('retry').classList.remove('hidden'); }, 10000);
   try {
-    const res = await submitOmok(login.token, moves);
+    const res = await submitOmok(login.token, saved.game, saved.moves);
     store.del(PENDING);
     if (!res?.ok) {
       if (res?.error === 'NO_SESSION') return relogin();
@@ -207,7 +250,7 @@ async function sendWin() {
     }
     info = { ...info, today: res.today, daily: res.daily };
     renderInfo();
-    const msg = res.paid ? `+${res.xp} XP · +${res.coins}코인` : '오늘 보상은 다 받았어요';
+    const msg = res.paid ? `+${res.xp} XP · +${res.coins}코인` : '이미 받은 판이에요';
     if (onScreen) $('result-s').textContent = msg; else if (res.paid) toast(`지난 승리 보상 ${msg}`, 'ok');
     if (res.paid && res.level_after > res.level_before) showLevelUp(res.level_after, res.total_xp);
   } catch (err) {

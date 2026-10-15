@@ -86,15 +86,21 @@ export async function submitWorksheetPage(token, boardId, page, answers) {
 }
 
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
-// 오목: { ok: true, open, today(오늘 받은 횟수), daily, xp, coins, avatar }
+// 오목: { ok: true, open, today(오늘 시작한 판 수), daily(하루 판 수), xp, coins, avatar }
 export async function getOmok(token) {
   return unwrap(await need().rpc('get_omok', { p_token: token }));
 }
 
-// 이긴 대국 내기(흑 수 [[행, 열], …]): { ok: true, paid, xp, coins, today, daily, level_before, level_after, total_xp }
+// 한 판 시작(첫 돌을 놓을 때): { ok: true, game_id, today, daily }
+// 또는 error = 'CLOSED' | 'LIMIT'(오늘 판을 다 씀, today·daily 같이)
+export async function startOmok(token) {
+  return unwrap(await need().rpc('start_omok', { p_token: token }));
+}
+
+// 이긴 판 내기(판 번호, 흑 수 [[행, 열], …]): { ok: true, paid, xp, coins, today, daily, level_before, level_after, total_xp }
 // 또는 error = 'CLOSED' | 'BAD_GAME'
-export async function submitOmok(token, moves) {
-  return unwrap(await need().rpc('submit_omok', { p_token: token, p_moves: moves }));
+export async function submitOmok(token, gameId, moves) {
+  return unwrap(await need().rpc('submit_omok', { p_token: token, p_game_id: gameId, p_moves: moves }));
 }
 
 export async function getMonthTop20() {
@@ -475,6 +481,11 @@ export async function countWorksheetAnswers(code) {
   const { count, error } = await need().from('worksheet_answers').select('student_id', { count: 'exact', head: true }).in('board_id', ids);
   if (error) throw error;
   return count ?? 0;
+}
+
+// 학습지 진도: 지금까지 간 수업자료 쪽 중 가장 뒤 번호를 남기고 돌려준다(전부 열기는 9999)
+export async function setWorksheetUpto(boardId, slide) {
+  return unwrap(await need().rpc('set_worksheet_upto', { p_board_id: boardId, p_slide: slide }));
 }
 
 // 수업 모드 띠: { has_sheet, done, total }

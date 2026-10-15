@@ -356,6 +356,7 @@ const WS_ERR = {
   BOARD_CHANGED: '오늘 수업이 바뀌었어요',
   NO_SHEET: '학습지가 바뀌었어요',
   NO_PAGE: '학습지가 바뀌었어요',
+  LOCKED: '아직 수업에서 안 나간 쪽이에요',
 };
 
 const ws = {
@@ -370,6 +371,7 @@ const ws = {
   passed: new Set(), // 제출해서 맞은 칸(f1…). 이 칸들이 다 든 쪽은 잠긴다
   justPassed: -1,   // 방금 제출한 쪽(제출함 표시를 한 번 튀게)
   bad: {},          // { f1: 'wrong' | 'empty' }
+  badPts: {},       // 점 찍기 칸의 틀린 점 순서 { f9: [2, 5] } (제출 결과)
   dirty: false,     // 서버에 아직 저장 안 된 답이 있음
   saving: false,
   submitting: false,
@@ -383,12 +385,14 @@ const pageKey = () => `ws-page-${ws.boardId}`;
 const persist = () => { if (draftKey()) store.set(draftKey(), { answers: ws.answers, dirty: ws.dirty }); };
 const pages = () => ws.sheet?.pages ?? [];
 const hasFields = (p) => (p?.fields?.length ?? 0) > 0;
+const isClosed = (p) => !!p?.locked; // 아직 수업에서 안 나간 쪽(본문이 오지 않음)
 const pageDone = (p) => ws.done || (hasFields(p) && p.fields.every((f) => ws.passed.has(f.key)));
 const locked = () => !login || ws.done || pageDone(pages()[ws.idx]);
+const wsMarks = () => ({ points: ws.badPts, passed: ws.done ? new Set(Object.keys(ws.answers)) : ws.passed });
 // 제출할 쪽(칸이 있는 쪽) 수와 제출한 쪽 수
 function progress() {
   const list = pages().filter(hasFields);
-  return { n: list.filter(pageDone).length, total: list.length };
+  return { n: list.filter(pageDone).length, total: list.length + pages().filter((p) => isClosed(p) && p.has_fields).length };
 }
 
 // get_class_page를 받을 때마다
@@ -403,11 +407,11 @@ function syncSheet(data) {
     applyTab();
     return;
   }
-  const want = `${data.board.id}|${meta.version}`;
+  const want = `${data.board.id}|${meta.version}|${meta.upto ?? ''}`; // 진도가 바뀌어도 다시 받는다
   if (ws.ver && ws.ver !== want) ws.ver = null; // 학습지를 다시 올렸거나 오늘 보드가 바뀜
   if (ws.sheet && login && meta.done && !ws.done) ws.ver = null; // 다른 기기에서 완료함
   applyTab();
-  if (ws.sheet && !login && ws.lockedShown === false) { ws.ver = null; ws.answers = {}; ws.bad = {}; ensureSheet(); } // 로그인이 풀림
+  if (ws.sheet && !login && ws.lockedShown === false) { ws.ver = null; ws.answers = {}; ws.bad = {}; ws.badPts = {}; ensureSheet(); } // 로그인이 풀림
 }
 
 function ensureSheet() {
@@ -424,7 +428,7 @@ async function fetchSheet() {
     const fresh = ws.boardId !== res.board_id || !ws.sheet;
     ws.boardId = res.board_id;
     ws.sheet = res;
-    ws.ver = `${res.board_id}|${res.version}`;
+    ws.ver = `${res.board_id}|${res.version}|${res.upto ?? ''}`;
     ws.done = !!res.mine?.done_at;
     ws.gain = ws.done ? { xp: res.mine.xp ?? 0, coins: res.mine.coins ?? 0 } : null;
     ws.passed = new Set(res.mine?.passed ?? []);
@@ -438,6 +442,7 @@ async function fetchSheet() {
       const saved = Number(store.get(pageKey()));
       ws.idx = Number.isInteger(saved) && saved >= 0 && saved < pages().length ? saved : 0;
       ws.bad = {};
+      ws.badPts = {};
     }
     renderSheet();
     if (ws.dirty) saveSheet();
@@ -461,12 +466,13 @@ function renderWsPage() {
   const list = pages();
   const page = list[ws.idx];
   $('ws-slide').textContent = page ? `수업자료 ${page.slide}쪽` : '';
-  $('ws-h').textContent = page?.title || ws.sheet.title || '';
+  $('ws-h').textContent = isClosed(page) ? '' : page?.title || ws.sheet.title || '';
   const chip = ws.done ? '완료' : login && hasFields(page) && pageDone(page) ? '제출함' : '';
   $('ws-chip').textContent = chip;
   $('ws-chip').classList.toggle('hidden', !chip);
-  renderPage($('ws-page'), page, ws.answers, { locked: locked() });
-  markFields($('ws-page'), ws.bad);
+  if (isClosed(page)) $('ws-page').innerHTML = `<div class="empty ws-closed">${LOCK_SVG}<strong>아직 수업에서 안 나간 쪽이에요</strong></div>`;
+  else renderPage($('ws-page'), page, ws.answers, { locked: locked() });
+  markFields($('ws-page'), ws.bad, wsMarks());
   $('ws-prev').disabled = ws.idx <= 0;
   $('ws-next').disabled = ws.idx >= list.length - 1;
   renderDots();
@@ -474,14 +480,16 @@ function renderWsPage() {
 
 // 쪽 점: 지금 쪽, 제출한 쪽(초록 + 체크), 다 썼지만 아직 제출 안 한 쪽, 고칠 칸이 있는 쪽
 const DOT_CHECK = '<svg class="ws-dot-ck" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>';
+const LOCK_SVG = '<svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 function renderDots() {
   $('ws-dots').innerHTML = pages().map((p, i) => {
     const keys = p.fields.map((f) => f.key);
     const done = !!login && hasFields(p) && pageDone(p);
     const full = !done && keys.length > 0 && keys.every((k) => (ws.answers[k] ?? '') !== '');
     const bad = !done && keys.some((k) => ws.bad[k]);
-    const st = done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : full ? ' · 다 씀, 제출 전' : '';
-    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}"
+    const closed = isClosed(p);
+    const st = closed ? ' · 아직 수업 전' : done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : full ? ' · 다 씀, 제출 전' : '';
+    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}"
       data-i="${i}" aria-label="${p.slide}쪽${st}" ${i === ws.idx ? 'aria-current="step"' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
   }).join('');
 }
@@ -548,7 +556,8 @@ function setAnswer(k, v) {
   else ws.answers[k] = v;
   if (ws.bad[k]) {
     delete ws.bad[k];
-    markFields($('ws-page'), ws.bad);
+    delete ws.badPts[k];
+    markFields($('ws-page'), ws.bad, wsMarks());
     renderWsFoot();
   }
   ws.dirty = true;
@@ -587,7 +596,7 @@ function sheetError(code) {
     mineKey = undefined;
     ws.ver = null; // 내 답 없이 다시 받기
     ensureSheet();
-  } else if (code === 'BOARD_CHANGED' || code === 'NO_SHEET' || code === 'NO_PAGE') {
+  } else if (code === 'BOARD_CHANGED' || code === 'NO_SHEET' || code === 'NO_PAGE' || code === 'LOCKED') {
     ws.ver = null;
     load();
   }
@@ -649,12 +658,13 @@ async function submitPage(btn) {
     // 답은 서버에 저장됐다
     if (JSON.stringify(ws.answers) === sent) ws.dirty = false;
     ws.passed = new Set(res.passed ?? []);
-    pg.fields.forEach((f) => { delete ws.bad[f.key]; });
+    pg.fields.forEach((f) => { delete ws.bad[f.key]; delete ws.badPts[f.key]; });
     ws.status = '';
     if (res.done) {
       ws.done = true;
       ws.dirty = false;
       ws.bad = {};
+      ws.badPts = {};
       ws.gain = { xp: res.xp ?? 0, coins: res.coins ?? 0 };
       persist();
       renderSheet();
@@ -670,9 +680,10 @@ async function submitPage(btn) {
   if (res?.error === 'NOT_YET') {
     if (JSON.stringify(ws.answers) === sent) ws.dirty = false;
     persist();
-    pg.fields.forEach((f) => { delete ws.bad[f.key]; });
+    pg.fields.forEach((f) => { delete ws.bad[f.key]; delete ws.badPts[f.key]; });
     (res.empty ?? []).forEach((k) => { ws.bad[k] = 'empty'; });
     (res.wrong ?? []).forEach((k) => { ws.bad[k] = 'wrong'; });
+    Object.entries(res.points ?? {}).forEach(([k, v]) => { if (ws.bad[k] === 'wrong') ws.badPts[k] = v; });
     const empty = (res.empty ?? []).length;
     const n = empty + (res.wrong ?? []).length;
     toast(empty === n ? `빈 칸이 ${n}개 있어요` : `틀리거나 빈 칸이 ${n}개 있어요`, 'error');

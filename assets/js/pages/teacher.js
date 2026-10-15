@@ -1138,7 +1138,7 @@ function showSheetPreview() {
         <button type="button" class="ws-rep-btn" data-view="${i}">
           <b class="num">${r.slide ?? '?'}쪽</b>
           <span class="ws-rep-t">${esc(r.title || '')}</span>
-          <span class="ws-rep-k muted">${kinds}${r.open ? ` (정답 없는 고르기 ${r.open})` : ''}${r.sims ? ` · 시뮬레이션 ${r.sims}개` : ''}</span>
+          <span class="ws-rep-k muted">${kinds}${r.open ? ` (정답 없는 고르기 ${r.open})` : ''}${r.count.plot ? ` (정답 점 ${r.plotPoints}개)` : ''}${r.sims ? ` · 시뮬레이션 ${r.sims}개` : ''}</span>
         </button>
         ${r.warn.map((w) => `<span class="ws-rep-w">${esc(w)}</span>`).join('')}
       </li>`;

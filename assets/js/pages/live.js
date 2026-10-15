@@ -5,7 +5,7 @@ import { CLASSES, GRADE } from '../config.js';
 import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
-  getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats,
+  getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto,
 } from '../db.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -73,10 +73,21 @@ const lessonFrame = {
     this.el.focus();
     try { this.el.contentWindow.focus(); } catch {}
   },
+
+  // 지금 보이는 쪽 번호(1부터). 수업자료가 .slide 중 .active 하나를 보여 주는 구조일 때만. 모르면 null
+  currentSlide() {
+    try {
+      const slides = [...this.el.contentWindow.document.querySelectorAll('.slide')];
+      const i = slides.findIndex((s) => s.classList.contains('active'));
+      return i >= 0 ? i + 1 : null;
+    } catch {
+      return null;
+    }
+  },
 };
 
 /* ---------- 키 ----------
-   G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면
+   G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기
    덮개가 열려 있으면 1·2·3 탭, T 타이머 시작·일시정지
    한글 자판에서도 먹게 e.code로 본다 */
 const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
@@ -87,6 +98,7 @@ function handleKey(e) {
   switch (e.code) {
     case 'KeyG': if (!e.repeat) toggleCover(); return true;
     case 'KeyF': if (!e.repeat) toggleFullscreen(); return true;
+    case 'KeyW': if (!e.repeat) sheetUpto.openAll(); return true;
   }
   if (!coverOpen) return false;
   switch (e.code) {
@@ -506,7 +518,8 @@ const sheetBand = {
       const band = $('ws-band');
       band.classList.toggle('hidden', !st?.has_sheet);
       if (!st?.has_sheet) return;
-      band.innerHTML = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>`;
+      const upto = sheetUpto.sent >= ALL_PAGES ? '모두 열림' : sheetUpto.sent > 0 ? `${sheetUpto.sent}쪽까지` : '';
+      band.innerHTML = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}`;
       band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
     } catch (err) {
       console.error(err);
@@ -515,6 +528,42 @@ const sheetBand = {
   start() {
     this.refresh();
     setInterval(() => { if (!document.hidden) this.refresh(); }, SHEET_POLL_MS);
+  },
+};
+
+/* =========================================================
+   학습지 진도: 수업자료에서 지금까지 간 가장 뒤 쪽을 서버에 올린다.
+   학생은 그 쪽까지의 학습지만 보고 낸다. 앞 쪽으로 돌아가도 열린 쪽은 닫히지 않는다
+   ========================================================= */
+const UPTO_POLL_MS = 1000;
+const ALL_PAGES = 9999;
+const sheetUpto = {
+  sent: 0,
+  busy: false,
+
+  async push(slide) {
+    if (!board || this.busy || !(slide > this.sent)) return;
+    this.busy = true;
+    try {
+      this.sent = await setWorksheetUpto(board.id, slide) ?? slide;
+      sendClassRefresh(classId);
+      sheetBand.refresh();
+    } catch (err) {
+      console.error(err);
+    } finally {
+      this.busy = false;
+    }
+  },
+  openAll() {
+    if (!board) return;
+    if (this.sent >= ALL_PAGES) { toast('학습지가 이미 모두 열려 있어요'); return; }
+    this.push(ALL_PAGES).then(() => { if (this.sent >= ALL_PAGES) toast('학습지를 모두 열었어요'); });
+  },
+  start() {
+    this.sent = board?.ws_upto ?? 0;
+    const tick = () => this.push(lessonFrame.currentSlide());
+    tick();
+    setInterval(tick, UPTO_POLL_MS);
   },
 };
 
@@ -563,6 +612,7 @@ teacherGate($('app'), async () => {
     await setTodayBoard(classId, board.id).catch((err) => toast(errMsg(err), 'error'));
     sendClassRefresh(classId);
   }
+  sheetUpto.start();
   await loadGroups();
   sheetBand.start();
   onSubmissionsChange((p) => {

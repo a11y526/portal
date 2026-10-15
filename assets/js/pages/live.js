@@ -5,7 +5,7 @@ import { CLASSES, GRADE } from '../config.js';
 import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
-  getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto,
+  getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
 } from '../db.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -87,7 +87,7 @@ const lessonFrame = {
 };
 
 /* ---------- 키 ----------
-   G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기
+   G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기 · Shift+W: 지금 쪽 뒤로 다시 잠그기
    덮개가 열려 있으면 1·2·3 탭, T 타이머 시작·일시정지
    한글 자판에서도 먹게 e.code로 본다 */
 const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
@@ -98,7 +98,7 @@ function handleKey(e) {
   switch (e.code) {
     case 'KeyG': if (!e.repeat) toggleCover(); return true;
     case 'KeyF': if (!e.repeat) toggleFullscreen(); return true;
-    case 'KeyW': if (!e.repeat) sheetUpto.openAll(); return true;
+    case 'KeyW': if (!e.repeat) { if (e.shiftKey) sheetUpto.rewind(); else sheetUpto.openAll(); } return true;
   }
   if (!coverOpen) return false;
   switch (e.code) {
@@ -558,6 +558,23 @@ const sheetUpto = {
     if (!board) return;
     if (this.sent >= ALL_PAGES) { toast('학습지가 이미 모두 열려 있어요'); return; }
     this.push(ALL_PAGES).then(() => { if (this.sent >= ALL_PAGES) toast('학습지를 모두 열었어요'); });
+  },
+  // 지금 보이는 쪽까지만 남기고 뒤 쪽은 다시 잠근다 (미리 넘겨 봤을 때)
+  async rewind() {
+    const slide = lessonFrame.currentSlide();
+    if (!board || this.busy || !slide) return;
+    this.busy = true;
+    try {
+      this.sent = await resetWorksheetUpto(board.id, slide) ?? slide;
+      sendClassRefresh(classId);
+      sheetBand.refresh();
+      toast(`학습지를 ${this.sent}쪽까지로 되돌렸어요`);
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.busy = false;
+    }
   },
   start() {
     this.sent = board?.ws_upto ?? 0;

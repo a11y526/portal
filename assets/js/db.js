@@ -488,6 +488,11 @@ export async function setWorksheetUpto(boardId, slide) {
   return unwrap(await need().rpc('set_worksheet_upto', { p_board_id: boardId, p_slide: slide }));
 }
 
+// 학습지 진도 되돌리기: 진도를 slide로 바로 맞춘다(뒤 쪽은 다시 잠김)
+export async function resetWorksheetUpto(boardId, slide) {
+  return unwrap(await need().rpc('reset_worksheet_upto', { p_board_id: boardId, p_slide: slide }));
+}
+
 // 수업 모드 띠: { has_sheet, done, total }
 export async function getWorksheetStats(boardId) {
   return unwrap(await need().rpc('get_worksheet_stats', { p_board_id: boardId }));

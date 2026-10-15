@@ -227,7 +227,7 @@ function renderMine(data) {
   const myGroup = login ? data.my_group : null;
   $('mine-h').textContent = myGroup ? `우리 모둠 · ${myGroup}모둠` : '우리 모둠';
   $('num-change').classList.toggle('hidden', !login);
-  if (login) $('num-change').textContent = `${login.number}번`;
+  if (login) $('num-change').textContent = login.number === 0 ? '선생님' : `${login.number}번`;
 
   if (!login) {
     renderMates(null);

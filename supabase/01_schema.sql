@@ -68,6 +68,10 @@ create table if not exists public.students (
   created_at      timestamptz not null default now(),
   unique (class_id, number)
 );
+-- 0번은 반마다 하나 있는 선생님 체험 계정(학생 화면 그대로 들어가 보기). 만들기·코드는 04_seed.sql 끝.
+-- 순위·학습지 완료 수·명단·코드 발급·모둠 선택권 친구에서 빠진다
+alter table public.students drop constraint if exists students_number_check;
+alter table public.students add constraint students_number_check check (number between 0 and 99);
 -- 모둠을 명단에 고정하던 열은 쓰지 않는다 (예전에 만들어졌으면 지움)
 alter table public.students drop column if exists group_no;
 
@@ -275,6 +279,10 @@ create table if not exists public.worksheet_answers (
 -- 학습지 완료 XP는 board_id를 비우고 worksheet_board_id로 묶는다 (발표 지급·발표 취소와 섞이지 않게). 한 보드에서 한 학생 한 번
 alter table public.point_events add column if not exists worksheet_board_id uuid null references public.boards(id) on delete set null;
 create unique index if not exists point_events_ws_once_idx on public.point_events (student_id, worksheet_board_id) where worksheet_board_id is not null;
+
+-- 쪽별 제출 (2026-10-14): 쪽마다 [이 쪽 제출]로 채점하고, 모두 맞은 쪽의 칸 이름(f1…)을 passed에 모은다.
+-- passed에 든 칸은 답이 바뀌지 않는다. 학습지의 모든 칸이 passed에 들면 done_at + XP·코인
+alter table public.worksheet_answers add column if not exists passed jsonb not null default '[]'::jsonb;
 
 -- ---------------------------------------------------------
 -- 오목 (AI 대전, 보통 난이도)

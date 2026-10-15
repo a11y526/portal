@@ -25,9 +25,12 @@ const ERR = {
 let pickClass = Number(store.get('lastClass'));
 if (!CLASSES.includes(pickClass)) pickClass = null;
 
+const who = (n) => (n === 0 ? '선생님' : `${n}번`);
+
 function savedNum(c) {
-  const n = Number(store.get('num-' + c));
-  return Number.isInteger(n) && n >= 1 && n <= 99 ? n : null;
+  const raw = store.get('num-' + c);
+  const n = Number(raw);
+  return /^\d{1,2}$/.test(String(raw ?? '')) && n <= 99 ? n : null;
 }
 
 function renderClassPick() {
@@ -44,7 +47,7 @@ $('cls-pick').addEventListener('click', (e) => {
   renderClassPick();
   const n = savedNum(pickClass);
   $('num-in').value = n ?? '';
-  (n ? $('code-in') : $('num-in')).focus();
+  (n != null ? $('code-in') : $('num-in')).focus();
 });
 
 $('guest').innerHTML = CLASSES.map((n) => `<a class="guest-link glass lift" href="class.html?c=${n}">${n}반</a>`).join('');
@@ -65,7 +68,7 @@ $('login-form').addEventListener('submit', async (e) => {
   const number = Number($('num-in').value.trim());
   const code = $('code-in').value.replace(/\D/g, '');
   if (!pickClass) return toast('반을 골라 주세요', 'error');
-  if (!Number.isInteger(number) || number < 1 || number > 99) return toast('번호를 확인해 주세요', 'error');
+  if (!$('num-in').value.trim() || !Number.isInteger(number) || number < 0 || number > 99) return toast('번호를 확인해 주세요', 'error');
   if (code.length !== 6) return toast('코드 6자리를 넣어 주세요', 'error');
 
   const btn = e.currentTarget.querySelector('[type="submit"]');
@@ -98,7 +101,7 @@ async function showHome(login) {
   $('v-home').classList.remove('hidden');
   $('go-class').href = `class.html?c=${login.class_id}`;
   $('go-class-sub').textContent = `${GRADE}학년 ${login.class_id}반`;
-  $('home-cls').textContent = `${login.class_id}반 · ${login.number}번`;
+  $('home-cls').textContent = `${login.class_id}반 · ${who(login.number)}`;
   prepareDraw($('v-home'));
 
   try {
@@ -112,7 +115,7 @@ async function showHome(login) {
     react(svg, 'wave', { delay: 500 });
     $('home-nick').textContent = me.nickname || '닉네임 미정';
     $('home-nick').classList.toggle('muted', !me.nickname);
-    $('home-cls').textContent = `${me.class_id}반 · ${me.number}번 · Lv.${me.level.level}`;
+    $('home-cls').textContent = `${me.class_id}반 · ${who(me.number)} · Lv.${me.level.level}`;
     $('go-me-sub').textContent = `레벨 ${me.level.level}`;
     $('go-shop-sub').textContent = `코인 ${me.coins}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';

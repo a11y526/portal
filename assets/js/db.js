@@ -214,6 +214,7 @@ export async function getBoard(id) {
 export async function listStudents() {
   return unwrap(await need().from('students')
     .select('id, class_id, number, has_code, active')
+    .gt('number', 0) // 0번(선생님 체험 계정)은 명단·코드·모둠·점수 주기에서 뺀다
     .order('class_id').order('number'));
 }
 

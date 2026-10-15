@@ -267,6 +267,19 @@ as $$
     ) y
   ) x;
 $$;
+-- 저장할 답 합치기: 이미 제출한 칸(passed)은 원래 답 그대로, 나머지는 새 답
+create or replace function public._ws_merge(p_old jsonb, p_passed jsonb, p_new jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = public
+as $$
+  select (coalesce(p_new, '{}'::jsonb) - array(select jsonb_array_elements_text(coalesce(p_passed, '[]'::jsonb))))
+      || coalesce((select jsonb_object_agg(k, p_old -> k)
+                   from jsonb_array_elements_text(coalesce(p_passed, '[]'::jsonb)) as k
+                   where coalesce(p_old, '{}'::jsonb) ? k), '{}'::jsonb);
+$$;
+revoke all on function public._ws_merge(jsonb, jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public._ws_norm(text) from public, anon, authenticated;
 revoke all on function public._ws_clean(jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public._ws_check(jsonb, jsonb) from public, anon, authenticated;
@@ -393,7 +406,7 @@ begin
       'status',      b.status
     ) end,
     'groups',     v_groups,
-    'has_roster', exists (select 1 from public.students where class_id = p_class_id and active),
+    'has_roster', exists (select 1 from public.students where class_id = p_class_id and active and number > 0),
     'session',    case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'my_group',   v_my,
     'my_members', v_members,
@@ -717,7 +730,7 @@ begin
 
   for r in
     select id, number from public.students
-    where class_id = p_class_id and active and (not p_only_missing or code_hash is null)
+    where class_id = p_class_id and active and number > 0 and (not p_only_missing or code_hash is null)
     order by number
   loop
     v_code := public._new_code();
@@ -806,7 +819,7 @@ as $$
   from (
     select e.student_id as sid, sum(e.xp)::int as total
     from public.point_events e
-    join public.students s on s.id = e.student_id and s.active
+    join public.students s on s.id = e.student_id and s.active and s.number > 0
     where e.created_at >= public._month_start()
     group by e.student_id
   ) t
@@ -1321,7 +1334,7 @@ begin
 
   select coalesce(jsonb_agg(number order by number), '[]'::jsonb)
   into v_mates
-  from public.students where class_id = s.class_id and active and id <> v_sid;
+  from public.students where class_id = s.class_id and active and number > 0 and id <> v_sid;
 
   return jsonb_build_object(
     'ok',         true,
@@ -1421,7 +1434,7 @@ begin
   end if;
   if it.kind = 'pair' and (
        p_partner is null or p_partner = s.number
-       or not exists (select 1 from public.students where class_id = s.class_id and number = p_partner and active)
+       or not exists (select 1 from public.students where class_id = s.class_id and number = p_partner and number > 0 and active)
      ) then
     return jsonb_build_object('ok', false, 'error', 'BAD_PARTNER');
   end if;
@@ -1521,7 +1534,7 @@ grant execute on function public.grant_points(uuid[], int, int, text) to authent
 -- =========================================================
 
 -- 학습지 본문 (누구나. 출입증을 주면 내 답도)
--- 결과: {ok: true, board_id, lesson_code, title, version, pages, session, mine: {answers, done_at, xp, coins} | null}
+-- 결과: {ok: true, board_id, lesson_code, title, version, pages, session, mine: {answers, passed, done_at, xp, coins} | null}
 --   또는 {ok: false, error: 'NO_SHEET'} (오늘 보드가 없거나 그 차시에 학습지가 없음)
 create or replace function public.get_worksheet(p_class_id int, p_token text default null)
 returns jsonb
@@ -1570,6 +1583,7 @@ begin
     'session',     case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'mine',        case when a.board_id is null then null else jsonb_build_object(
                      'answers', a.answers,
+                     'passed',  a.passed,
                      'done_at', a.done_at,
                      'xp',      v_xp,
                      'coins',   v_co
@@ -1636,7 +1650,7 @@ begin
   insert into public.worksheet_answers as x (board_id, student_id, answers)
   values (p_board_id, (t ->> 'sid')::uuid, public._ws_clean(t -> 'key', p_answers))
   on conflict (board_id, student_id) do update
-    set answers = excluded.answers, updated_at = now()
+    set answers = public._ws_merge(x.answers, x.passed, excluded.answers), updated_at = now()
     where x.done_at is null
   returning x.updated_at into v_at;
 
@@ -1649,7 +1663,8 @@ $$;
 revoke all on function public.save_worksheet_answers(text, uuid, jsonb) from public;
 grant execute on function public.save_worksheet_answers(text, uuid, jsonb) to anon, authenticated;
 
--- 제출 (학생): 답을 저장하고 채점한다
+-- 제출 (학생): 답을 저장하고 학습지 전체를 채점한다. 반 페이지는 쪽별 제출(submit_worksheet_page)을 쓴다.
+-- 업로드 순서 때문에 남겨 둠(SQL을 먼저 실행해도 예전 화면이 동작하게)
 -- 결과: {ok: true, done: true, already, xp, coins, level_before, level_after, total_xp}
 --   또는 {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸]} (고쳐서 다시 제출)
 --   또는 {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET'}
@@ -1681,7 +1696,7 @@ begin
   insert into public.worksheet_answers as x (board_id, student_id, answers)
   values (p_board_id, v_sid, public._ws_clean(t -> 'key', p_answers))
   on conflict (board_id, student_id) do update
-    set answers = case when x.done_at is null then excluded.answers else x.answers end,
+    set answers = case when x.done_at is null then public._ws_merge(x.answers, x.passed, excluded.answers) else x.answers end,
         updated_at = case when x.done_at is null then now() else x.updated_at end;
   select * into a from public.worksheet_answers
   where board_id = p_board_id and student_id = v_sid for update;
@@ -1728,6 +1743,121 @@ $$;
 revoke all on function public.submit_worksheet(text, uuid, jsonb) from public;
 grant execute on function public.submit_worksheet(text, uuid, jsonb) to anon, authenticated;
 
+-- 쪽별 제출 (학생, 2026-10-14): 답을 모두 저장하고 p_page(0부터, pages 순서) 쪽의 칸만 채점한다.
+-- 그 쪽이 모두 맞으면 그 칸들을 passed에 넣는다(그 뒤로 답이 바뀌지 않음).
+-- 학습지의 모든 칸이 passed에 들면 완료(done_at) + settings.worksheet XP·코인 한 번.
+-- 결과: {ok: true, done: false, passed, left(아직 제출 안 한 칸 수)}
+--   · {ok: true, done: true, already, passed, xp, coins, level_before, level_after, total_xp}
+--   · {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸]} (그 쪽 칸만. 정답은 주지 않는다)
+--   · {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'NO_PAGE'}
+create or replace function public.submit_worksheet_page(p_token text, p_board_id uuid, p_page int, p_answers jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  t        jsonb;
+  v_sid    uuid;
+  v_pages  jsonb;
+  v_keys   text[];
+  v_pkey   jsonb;
+  a        public.worksheet_answers;
+  v_chk    jsonb;
+  v_passed jsonb;
+  v_left   int;
+  v_set    jsonb;
+  v_xp     int;
+  v_co     int;
+  v_before int;
+  v_paid   int := 0;
+begin
+  t := public._ws_target(p_token, p_board_id);
+  if t ? 'error' then
+    return jsonb_build_object('ok', false, 'error', t ->> 'error');
+  end if;
+  v_sid := (t ->> 'sid')::uuid;
+
+  select pages into v_pages from public.worksheets where lesson_code = t ->> 'lesson_code';
+  if p_page is null or p_page < 0 or p_page >= coalesce(jsonb_array_length(v_pages), 0) then
+    return jsonb_build_object('ok', false, 'error', 'NO_PAGE');
+  end if;
+  select coalesce(array_agg(f ->> 'key'), '{}') into v_keys
+  from jsonb_array_elements(coalesce(v_pages -> p_page -> 'fields', '[]'::jsonb)) as f
+  where (t -> 'key') ? (f ->> 'key');
+  select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) into v_pkey
+  from jsonb_each(t -> 'key') as e
+  where e.key = any(v_keys);
+
+  -- 저장하면서 이 학생 줄을 잠근다 (두 번 눌러도 한 번만)
+  insert into public.worksheet_answers as x (board_id, student_id, answers)
+  values (p_board_id, v_sid, public._ws_clean(t -> 'key', p_answers))
+  on conflict (board_id, student_id) do update
+    set answers = case when x.done_at is null then public._ws_merge(x.answers, x.passed, excluded.answers) else x.answers end,
+        updated_at = case when x.done_at is null then now() else x.updated_at end;
+  select * into a from public.worksheet_answers
+  where board_id = p_board_id and student_id = v_sid for update;
+
+  select coalesce(sum(xp), 0)::int into v_before from public.point_events where student_id = v_sid;
+
+  if a.done_at is not null then
+    select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int into v_xp, v_co
+    from public.point_events where student_id = v_sid and worksheet_board_id = p_board_id;
+    return jsonb_build_object('ok', true, 'done', true, 'already', true, 'passed', a.passed, 'xp', v_xp, 'coins', v_co,
+      'level_before', (public._level_info(v_before) ->> 'level')::int,
+      'level_after',  (public._level_info(v_before) ->> 'level')::int,
+      'total_xp',     v_before);
+  end if;
+
+  v_chk := public._ws_check(v_pkey, a.answers);
+  if jsonb_array_length(v_chk -> 'empty') > 0 or jsonb_array_length(v_chk -> 'wrong') > 0 then
+    return jsonb_build_object('ok', false, 'error', 'NOT_YET', 'empty', v_chk -> 'empty', 'wrong', v_chk -> 'wrong');
+  end if;
+
+  -- 이 쪽 칸을 passed에 넣는다 (학습지에 지금 있는 칸만, 문서 순서대로)
+  select coalesce(jsonb_agg(k order by coalesce(nullif(regexp_replace(k, '\D', '', 'g'), ''), '0')::int), '[]'::jsonb)
+  into v_passed
+  from (
+    select k from jsonb_object_keys(t -> 'key') as k
+    where k = any(v_keys) or coalesce(a.passed, '[]'::jsonb) ? k
+  ) z;
+  select count(*)::int into v_left
+  from jsonb_object_keys(t -> 'key') as k
+  where not v_passed ? k;
+
+  if v_left > 0 then
+    update public.worksheet_answers set passed = v_passed
+    where board_id = p_board_id and student_id = v_sid;
+    return jsonb_build_object('ok', true, 'done', false, 'passed', v_passed, 'left', v_left);
+  end if;
+
+  update public.worksheet_answers set passed = v_passed, done_at = now()
+  where board_id = p_board_id and student_id = v_sid;
+
+  select value into v_set from public.settings where key = 'worksheet';
+  v_xp := coalesce((v_set ->> 'xp')::int, 10);
+  v_co := coalesce((v_set ->> 'coins')::int, 5);
+  if v_xp <> 0 or v_co <> 0 then
+    insert into public.point_events (student_id, xp, coins, reason, worksheet_board_id)
+    values (v_sid, v_xp, v_co, '학습지 ' || (t ->> 'lesson_code'), p_board_id)
+    on conflict (student_id, worksheet_board_id) where worksheet_board_id is not null do nothing;
+    get diagnostics v_paid = row_count;
+  end if;
+  if v_paid = 0 then
+    v_xp := 0;
+    v_co := 0;
+  end if;
+
+  return jsonb_build_object('ok', true, 'done', true, 'already', false, 'passed', v_passed, 'xp', v_xp, 'coins', v_co,
+    'level_before', (public._level_info(v_before) ->> 'level')::int,
+    'level_after',  (public._level_info(v_before + v_xp) ->> 'level')::int,
+    'total_xp',     v_before + v_xp);
+end;
+$$;
+revoke all on function public.submit_worksheet_page(text, uuid, int, jsonb) from public;
+grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) to anon, authenticated;
+
 -- 완료 현황 (교사, 수업 모드 띠). 학생 답·이름은 주지 않는다
 -- total: 그날 모둠 편성 인원(편성이 없으면 명단 인원)
 create or replace function public.get_worksheet_stats(p_board_id uuid)
@@ -1749,10 +1879,12 @@ begin
   if not found then
     raise exception 'NOT_FOUND';
   end if;
-  select count(*)::int into v_done from public.worksheet_answers where board_id = b.id and done_at is not null;
+  select count(*)::int into v_done
+  from public.worksheet_answers a join public.students s on s.id = a.student_id and s.number > 0
+  where a.board_id = b.id and a.done_at is not null;
   select count(*)::int into v_total from public.board_groups where board_id = b.id;
   if v_total = 0 then
-    select count(*)::int into v_total from public.students where class_id = b.class_id and active;
+    select count(*)::int into v_total from public.students where class_id = b.class_id and active and number > 0;
   end if;
   return jsonb_build_object(
     'has_sheet', exists (select 1 from public.worksheets where lesson_code = b.lesson_code),

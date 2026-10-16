@@ -508,6 +508,16 @@ export async function saveWorksheetRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'worksheet', value }, { onConflict: 'key' }));
 }
 
+// 오목 { xp, coins, daily(하루 판 수) }
+export async function getOmokRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'omok'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveOmokRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'omok', value }, { onConflict: 'key' }));
+}
+
 /* ---------- 패들렛 주소 ---------- */
 
 // 임베드 코드(<iframe ...>), 보드 주소, 임베드 주소 중 무엇을 넣어도 임베드 주소로 바꾼다.

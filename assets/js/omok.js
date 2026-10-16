@@ -1,6 +1,7 @@
 // 오목 엔진: 15×15, 자유룰(다섯 개 이상 이으면 승리), AI는 백·보통 난이도.
 // 서버(03_functions.sql의 _omok_ai)가 같은 규칙으로 기보를 다시 두어 승리를 확인하므로,
-// AI를 고치면 서버 함수도 똑같이 고쳐야 한다. 같은 판에는 늘 같은 수로 답한다(무작위 없음).
+// AI를 고치면 서버 함수도 똑같이 고쳐야 한다. 비슷하게 좋은 수 중 판마다 다른 씨앗(seed)으로 하나를 고른다
+// (같은 씨앗·같은 판이면 늘 같은 수라서 서버가 다시 둘 수 있다).
 export const N = 15;
 const DIRS = [[0, 1], [1, 0], [1, 1], [1, -1]];
 
@@ -64,20 +65,34 @@ function near(b, r, c) {
   return false;
 }
 
-// AI(백)의 다음 수 [행, 열] 또는 null. 돌에서 두 칸 안의 빈 칸만 위→아래, 왼→오 순서로 보고
-// 바로 이기는 칸이 있으면 그 칸, 없으면 점수가 가장 높은 칸(같으면 먼저 본 칸)
-export function aiMove(board) {
+// 판마다 다른 무작위 수 (서버 _omok_rand와 같음). 곱셈이 2^53을 넘지 않게 31비트 안에서만 계산
+const M = 2147483647;
+export function rand(seed, ply) {
+  let x = ((seed % M) + ply * 7919 + 1) % M;
+  x = (x * 48271) % M;
+  return (x * 48271) % M;
+}
+
+// AI(백)의 다음 수 [행, 열] 또는 null. seed = 판 씨앗, ply = 백이 지금까지 둔 수의 개수.
+// 돌에서 두 칸 안의 빈 칸만 위→아래, 왼→오 순서로 보고 바로 이기는 칸이 있으면 그 칸,
+// 없으면 가장 높은 점수의 90% 이상인 칸들 중 rand로 하나(본 순서대로 번호)
+export function aiMove(board, seed = 0, ply = 0) {
   const b = board.map((row) => [...row]);
   if (b.every((row) => row.every((v) => v === null))) return [7, 7];
-  let best = null, top = -1;
+  const cand = [];
+  let top = -1;
   for (let r = 0; r < N; r++) {
     for (let c = 0; c < N; c++) {
       if (b[r][c] !== null || !near(b, r, c)) continue;
       if (isWin(b, r, c, 'white')) return [r, c];
       const score = pattern(b, r, c, 'white') + Math.floor((11 * pattern(b, r, c, 'black')) / 10)
         + (14 - (Math.abs(r - 7) + Math.abs(c - 7)));
-      if (score > top) { top = score; best = [r, c]; }
+      cand.push([r, c, score]);
+      if (score > top) top = score;
     }
   }
-  return best;
+  if (!cand.length) return null;
+  const pick = cand.filter((x) => x[2] * 10 >= top * 9);
+  const [r, c] = pick[rand(seed, ply) % pick.length];
+  return [r, c];
 }

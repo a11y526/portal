@@ -27,6 +27,7 @@ const g = {
   over: null,         // null | 'black' | 'white' | 'draw'
   line: new Set(), thinking: false, gen: 0,
   gameId: null,       // start_omok에서 받은 판 번호(첫 돌을 놓으면 생김)
+  seed: 0,            // 그 판의 AI 씨앗
   starting: false,
   tally: { black: 0, white: 0 },
 };
@@ -70,7 +71,6 @@ function render() {
     : !open ? '닫혀 있어요' : used() ? '오늘 판을 다 했어요' : g.thinking ? 'AI가 생각 중' : '내 차례';
   $('turn').className = 'omok-turn' + (g.thinking ? ' thinking' : '') + (g.over === 'black' ? ' won' : '');
   $('moves').textContent = `${g.moves.length}수`;
-  $('undo').disabled = !open || !g.moves.length || !!g.over || g.thinking;
   $('reset').disabled = !open || g.thinking;
   $('closed').classList.toggle('hidden', !info || open);
   $('limit').classList.toggle('hidden', !open || !used() || !!g.over);
@@ -107,6 +107,7 @@ async function begin() {
     if (gen !== g.gen) return false;
     if (res?.ok) {
       g.gameId = res.game_id;
+      g.seed = res.seed ?? 0;
       info = { ...info, today: res.today, daily: res.daily };
       renderInfo();
       return true;
@@ -136,7 +137,7 @@ function aiTurn() {
   setTimeout(() => {
     if (gen !== g.gen) return;
     g.thinking = false;
-    const m = aiMove(g.board);
+    const m = aiMove(g.board, g.seed, g.moves.filter((x) => x.p === 'white').length);
     if (m) {
       place(m[0], m[1], 'white');
       if (finish(m[0], m[1], 'white')) return;
@@ -181,28 +182,13 @@ function finish(r, c, p) {
   return false;
 }
 
-// AI전 무르기: AI 수와 내 수 두 수
-function undo() {
-  if (g.over || g.thinking || !g.moves.length) return;
-  let n = g.moves[g.moves.length - 1].p === 'white' ? 2 : 1;
-  while (n-- > 0 && g.moves.length) {
-    const m = g.moves.pop();
-    g.board[m.r][m.c] = null;
-  }
-  const l = g.moves[g.moves.length - 1];
-  g.last = l ? [l.r, l.c] : null;
-  g.turn = 'black';
-  render();
-}
-
 function newGame() {
   g.gen++;
-  Object.assign(g, { board: emptyBoard(), turn: 'black', moves: [], last: null, over: null, line: new Set(), thinking: false, gameId: null, starting: false });
+  Object.assign(g, { board: emptyBoard(), turn: 'black', moves: [], last: null, over: null, line: new Set(), thinking: false, gameId: null, seed: 0, starting: false });
   $('result').classList.add('hidden');
   render();
 }
 
-$('undo').addEventListener('click', undo);
 $('reset').addEventListener('click', () => {
   if (g.moves.length && !g.over && !confirm('지금 대국을 그만두고 새로 시작할까요? 그만둔 판도 오늘 판 수에 들어가요.')) return;
   newGame();

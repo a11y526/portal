@@ -2481,6 +2481,19 @@ revoke all on function public._omok_today(uuid) from public, anon, authenticated
 
 -- 오목 화면 (학생)
 -- 결과: {ok: true, open, today(오늘 받은 횟수), daily, xp, coins, avatar} 또는 {ok: false, error: 'NO_SESSION'}
+-- 오늘(KST) 보상을 받은 오목 승리 수 (내부용). 하루 settings.omok.reward_daily번까지만 지급(2026-10-16 사용자 결정)
+create or replace function public._omok_paid_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int from public.point_events
+  where student_id = p_student_id and reason = '오목 승리'
+    and created_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._omok_paid_today(uuid) from public, anon, authenticated;
+
 create or replace function public.get_omok(p_token text)
 returns jsonb
 language plpgsql
@@ -2506,6 +2519,8 @@ begin
     'daily',  coalesce((v_set ->> 'daily')::int, 7),
     'xp',     coalesce((v_set ->> 'xp')::int, 2),
     'coins',  coalesce((v_set ->> 'coins')::int, 2),
+    'reward_daily', coalesce((v_set ->> 'reward_daily')::int, 2),
+    'rewarded', public._omok_paid_today(v_sid),
     'avatar', s.avatar
   );
 end;
@@ -2580,6 +2595,7 @@ declare
   c        int;
   w        int;
   v_won    boolean := false;
+  v_cap    boolean := false;
   v_xp     int;
   v_co     int;
   v_before int;
@@ -2588,7 +2604,8 @@ begin
   if v_sid is null then
     return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
-  select * into s from public.students where id = v_sid;
+  -- 학생 줄을 잠가 동시에 여러 판을 내도 하루 보상 횟수를 넘지 않게
+  select * into s from public.students where id = v_sid for update;
   if not coalesce((select omok_open from public.classes where id = s.class_id), false) then
     return jsonb_build_object('ok', false, 'error', 'CLOSED');
   end if;
@@ -2645,15 +2662,21 @@ begin
     return jsonb_build_object('ok', false, 'error', 'BAD_GAME');
   end if;
 
+  -- 이긴 판은 늘 기록(랭킹), 보상은 오늘 reward_daily번까지
   update public.omok_games set won_at = now() where id = gm.id;
   v_xp := coalesce((v_set ->> 'xp')::int, 2);
   v_co := coalesce((v_set ->> 'coins')::int, 2);
+  v_cap := public._omok_paid_today(v_sid) >= coalesce((v_set ->> 'reward_daily')::int, 2);
+  if v_cap then
+    v_xp := 0;
+    v_co := 0;
+  end if;
   if v_xp <> 0 or v_co <> 0 then
     insert into public.point_events (student_id, xp, coins, reason)
     values (v_sid, v_xp, v_co, '오목 승리');
   end if;
 
-  return jsonb_build_object('ok', true, 'paid', v_xp <> 0 or v_co <> 0, 'xp', v_xp, 'coins', v_co,
+  return jsonb_build_object('ok', true, 'paid', v_xp <> 0 or v_co <> 0, 'capped', v_cap, 'xp', v_xp, 'coins', v_co,
     'today', public._omok_today(v_sid), 'daily', coalesce((v_set ->> 'daily')::int, 7),
     'level_before', (public._level_info(v_before) ->> 'level')::int,
     'level_after',  (public._level_info(v_before + v_xp) ->> 'level')::int,

@@ -150,3 +150,7 @@ on conflict (class_id, number) do update set code_hash = excluded.code_hash, act
 insert into public.settings (key, value) values
   ('omok_pvp', '{"daily": 5, "turn": 30}'::jsonb)
 on conflict (key) do nothing;
+
+-- 오목 AI 대전 보상은 하루 이긴 판 2번까지(2026-10-16). 이미 있는 설정에도 넣는다(값이 있으면 그대로)
+update public.settings set value = value || '{"reward_daily": 2}'::jsonb
+where key = 'omok' and not (value ? 'reward_daily');

@@ -1340,10 +1340,11 @@ $('lock-list').addEventListener('click', async (e) => {
 });
 
 /* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
-// 하루 판 수: settings.omok.daily (xp·coins는 그대로 둔다)
+// 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·coins는 그대로 둔다)
 async function refreshOmokRules() {
   omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
   $('omok-daily').value = omokRules.daily ?? 7;
+  $('omok-rdaily').value = omokRules.reward_daily ?? 2;
   $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${omokRules.coins ?? 2}코인`;
   updateHub();
 }
@@ -1410,16 +1411,21 @@ $('rk-form').addEventListener('submit', async (e) => {
 $('omok-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const daily = Math.round(Number($('omok-daily').value));
+  const rewardDaily = Math.round(Number($('omok-rdaily').value));
   if (!(daily >= 1 && daily <= 100)) {
     toast('1~100판으로 정해 주세요', 'error');
+    return;
+  }
+  if (!(rewardDaily >= 0 && rewardDaily <= 100)) {
+    toast('보상 받는 승리는 0~100번으로 정해 주세요', 'error');
     return;
   }
   const btn = e.currentTarget.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
-    await saveOmokRules({ xp: 2, coins: 2, ...omokRules, daily });
+    await saveOmokRules({ xp: 2, coins: 2, ...omokRules, daily, reward_daily: rewardDaily });
     await refreshOmokRules();
-    toast(`하루 ${daily}판으로 바꿨어요`, 'ok');
+    toast(`하루 ${daily}판, 보상 ${rewardDaily}번으로 바꿨어요`, 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
   } finally {

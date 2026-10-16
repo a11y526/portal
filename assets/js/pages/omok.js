@@ -80,6 +80,8 @@ function renderInfo() {
   if (!info) return;
   $('rw-xp').textContent = info.xp;
   $('rw-co').textContent = info.coins;
+  const cap = info.reward_daily ?? 2;
+  $('rw-cap').textContent = `· 오늘 보상 ${Math.min(info.rewarded ?? 0, cap)} / ${cap}`;
   const left = Math.max(0, info.daily - info.today);
   $('dots').innerHTML = Array.from({ length: info.daily }, (_, i) => `<i class="${i < info.today ? 'on' : ''}"></i>`).join('');
   $('today').textContent = `${Math.min(info.today, info.daily)} / ${info.daily}`;
@@ -234,9 +236,9 @@ async function sendWin() {
       if (onScreen) $('result-s').textContent = msg; else toast(msg, 'error');
       return;
     }
-    info = { ...info, today: res.today, daily: res.daily };
+    info = { ...info, today: res.today, daily: res.daily, rewarded: (info.rewarded ?? 0) + (res.paid ? 1 : 0) };
     renderInfo();
-    const msg = res.paid ? `+${res.xp} XP · +${res.coins}코인` : '이미 받은 판이에요';
+    const msg = res.paid ? `+${res.xp} XP · +${res.coins}코인` : res.capped ? '오늘 보상은 다 받았어요' : '이미 받은 판이에요';
     if (onScreen) $('result-s').textContent = msg; else if (res.paid) toast(`지난 승리 보상 ${msg}`, 'ok');
     if (res.paid && res.level_after > res.level_before) showLevelUp(res.level_after, res.total_xp);
   } catch (err) {

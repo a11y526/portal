@@ -278,10 +278,12 @@
     <section class="card glass rise panel hidden" data-panel="omok" data-title="오목 · 루미큐브" aria-labelledby="h-omok">
       <h2 id="h-omok">오목 · 루미큐브</h2>
       <p class="muted" style="margin:0">켠 반만 오목과 루미큐브를 할 수 있어요. 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 루미큐브 판에서도 나가요.</p>
-      <p class="muted" style="margin:0">오목: 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2코인</span>.</p>
+      <p class="muted" style="margin:0">오목: 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2코인</span>(보상은 하루에 정한 횟수까지, 그 뒤 승리는 랭킹에만).</p>
       <form class="row-actions" id="omok-form">
         <label for="omok-daily">오목 하루 판 수</label>
         <input class="input num" type="number" min="1" max="100" step="1" id="omok-daily" name="daily" required style="width:96px">
+        <label for="omok-rdaily">보상 받는 승리(하루)</label>
+        <input class="input num" type="number" min="0" max="100" step="1" id="omok-rdaily" name="reward_daily" required style="width:96px">
         <button type="submit" class="btn btn-primary btn-small press">저장</button>
       </form>
       <p class="muted" style="margin:0">오목 1대1: 6개 반 전체에서 먼저 온 2명끼리, 한 수 <span class="num" id="omp-turn">30</span>초(넘기면 짐). 시작된 판을 한 판으로 세고, 보상 없음.</p>

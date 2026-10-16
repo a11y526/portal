@@ -6,6 +6,7 @@ import { omState, omJoin, omLeave, omPlay, onGameRefresh, sendGameRefresh, onCla
 import { readLogin, clearLogin } from '../login.js';
 import { mountAvatar, avatarSVG, react, bindReactions, setWaiting } from '../avatar.js';
 import { N, winLine } from '../omok.js';
+import { loadOmokRank } from '../omok-rank-view.js';
 
 initUI();
 bindReactions();
@@ -303,4 +304,5 @@ if (!login) {
 } else {
   await refresh();
   try { onClassRefresh(login.class_id, () => refresh()); } catch {}
+  loadOmokRank($('rank'), login.token).catch((err) => console.error(err));
 }

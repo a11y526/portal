@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오목 랭킹</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap omok-wrap">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <nav class="class-tabs glass omok-modes" aria-label="오목">
+    <a class="class-tab press" href="omok.html">AI 대전</a>
+    <a class="class-tab press" href="omok-online.html">1대1</a>
+    <a class="class-tab press on" href="omok-rank.html" aria-current="page">랭킹</a>
+  </nav>
+
+  <section class="glass-strong omok-hero rise">
+    <div class="omok-hero-main">
+      <div class="me-name-row">
+        <h1 class="me-name">이번 달 오목 랭킹</h1>
+        <span class="chip">AI 대전 · 6개 반</span>
+      </div>
+      <div class="omr-me hidden" id="me"></div>
+    </div>
+  </section>
+
+  <div class="omr-cols">
+    <section class="rise" style="--d:.06s" aria-labelledby="h-wins">
+      <h2 class="omr-h" id="h-wins">이긴 판</h2>
+      <ol class="rank-list glass" id="wins"></ol>
+    </section>
+    <section class="rise" style="--d:.12s" aria-labelledby="h-rate">
+      <h2 class="omr-h" id="h-rate">승률 <span class="muted">· <span class="num" id="min">20</span>판 이상</span></h2>
+      <ol class="rank-list glass" id="rate"></ol>
+    </section>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/omok-rank.js"></script>
+</body>
+</html>

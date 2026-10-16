@@ -4216,3 +4216,69 @@ end;
 $$;
 revoke all on function public.om_play(text, uuid, int) from public;
 grant execute on function public.om_play(text, uuid, int) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 오목 AI 랭킹 (2026-10-16 사용자 요청): 이번 달(KST) AI 대전 기록으로 TOP 10 두 가지.
+-- 이긴 판 수(서버가 기보를 확인한 승리 won_at만), 승률(이번 달 20판 이상). 동점은 같은 순위.
+-- 6개 반 합산, 0번(선생님)·명단에서 뺀 학생 제외, 번호는 내보내지 않는다. 출입증을 주면 내 기록과 순위도
+-- 결과: {month, min_games, wins: [{rank, me, class_id, nickname, avatar, wins, games}], rate: [{rank, …, rate}], me: null | {wins, games, rate, wins_rank, rate_rank}}
+-- ---------------------------------------------------------
+-- 이번 달 학생별 기록과 두 순위(내부용)
+create or replace function public._omok_month_stats()
+returns table (sid uuid, class_id int, number int, nickname text, avatar jsonb, games int, wins int, wr int, rr int)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  with t as (
+    select g.student_id as sid, count(*)::int as games, count(g.won_at)::int as wins
+    from public.omok_games g
+    join public.students s on s.id = g.student_id and s.active and s.number > 0
+    where g.started_at >= public._month_start()
+    group by g.student_id
+  )
+  select t.sid, s.class_id::int, s.number::int, s.nickname, s.avatar, t.games, t.wins,
+         case when t.wins > 0 then (rank() over (order by t.wins desc))::int end,
+         case when t.games >= 20 then (rank() over (order by (t.games >= 20) desc, t.wins::numeric / t.games desc))::int end
+  from t join public.students s on s.id = t.sid;
+$$;
+revoke all on function public._omok_month_stats() from public, anon, authenticated;
+
+create or replace function public.get_omok_rank(p_token text default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid := case when p_token is null then null else public._session_student(p_token) end;
+  v_wins jsonb;
+  v_rate jsonb;
+  v_me   jsonb;
+begin
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'rank', o.wr, 'me', coalesce(o.sid = v_sid, false), 'class_id', o.class_id, 'nickname', o.nickname, 'avatar', o.avatar, 'wins', o.wins, 'games', o.games)
+         order by o.wr, o.wins::numeric / o.games desc, o.class_id, o.number), '[]'::jsonb)
+  into v_wins from public._omok_month_stats() o where o.wr <= 10;
+
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'rank', o.rr, 'me', coalesce(o.sid = v_sid, false), 'class_id', o.class_id, 'nickname', o.nickname, 'avatar', o.avatar, 'wins', o.wins, 'games', o.games,
+           'rate', round(o.wins * 100.0 / o.games)::int)
+         order by o.rr, o.games desc, o.class_id, o.number), '[]'::jsonb)
+  into v_rate from public._omok_month_stats() o where o.rr <= 10;
+
+  if v_sid is not null then
+    select jsonb_build_object('wins', coalesce(o.wins, 0), 'games', coalesce(o.games, 0),
+             'rate', case when o.games > 0 then round(o.wins * 100.0 / o.games)::int end,
+             'wins_rank', o.wr, 'rate_rank', o.rr)
+    into v_me
+    from (select 1) one left join public._omok_month_stats() o on o.sid = v_sid;
+  end if;
+
+  return jsonb_build_object('month', public._month_key(), 'min_games', 20, 'wins', v_wins, 'rate', v_rate, 'me', v_me);
+end;
+$$;
+revoke all on function public.get_omok_rank(text) from public;
+grant execute on function public.get_omok_rank(text) to anon, authenticated;

@@ -103,6 +103,12 @@ export async function submitOmok(token, gameId, moves) {
   return unwrap(await need().rpc('submit_omok', { p_token: token, p_game_id: gameId, p_moves: moves }));
 }
 
+// 오목 AI 랭킹(이번 달): { month, min_games, wins: [{ rank, me, class_id, nickname, avatar, wins, games }], rate: [{ …, rate(%) }],
+//   me: null | { wins, games, rate, wins_rank, rate_rank } }
+export async function getOmokRank(token = null) {
+  return unwrap(await need().rpc('get_omok_rank', { p_token: token }));
+}
+
 export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
 }

@@ -134,12 +134,34 @@ export async function rkPlay(token, gameId, version, board) {
   return unwrap(await need().rpc('rk_play', { p_token: token, p_game_id: gameId, p_version: version, p_board: board }));
 }
 
-/* ---------- 실시간: 루미큐브 판 채널 "새로고침" 신호 (rk-<판>) ---------- */
+// 오목 1대1. 결과: { ok: true, open, today, daily, turn(초), avatar,
+//   game: null | { id, status(waiting|playing|done), version, me(1 흑 | 2 백), turn, turn_sec, left_ms, board(225칸, 0 빈 칸·1 흑·2 백),
+//                  moves, last(칸), winner, end_reason(five|time|left|full), players: [{ color, me, class_id, nickname, avatar, left }] } }
+export async function omState(token, gameId = null) {
+  return unwrap(await need().rpc('om_state', { p_token: token, p_game_id: gameId }));
+}
+
+// 상대 찾기: omState와 같은 결과 또는 error = 'CLOSED' | 'LIMIT'
+export async function omJoin(token) {
+  return unwrap(await need().rpc('om_join', { p_token: token }));
+}
+
+// 나가기(대기 중이면 취소, 하는 중이면 기권)
+export async function omLeave(token, gameId) {
+  return unwrap(await need().rpc('om_leave', { p_token: token, p_game_id: gameId }));
+}
+
+// 한 수(칸 = 행*15 + 열). 실패하면 { ok: false, error: 'OVER' | 'NOT_TURN' | 'TAKEN' | 'BAD_GAME', state }
+export async function omPlay(token, gameId, cell) {
+  return unwrap(await need().rpc('om_play', { p_token: token, p_game_id: gameId, p_cell: cell }));
+}
+
+/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>) ---------- */
 let gameChannel = null;
 let gameChannelId = null;
 
 // 판이 바뀌면 이전 채널은 닫는다. fn = null이면 닫기만
-export function onGameRefresh(gameId, fn) {
+export function onGameRefresh(gameId, fn, prefix = 'rk-') {
   if (!sb) return;
   if (gameChannel) {
     sb.removeChannel(gameChannel);
@@ -147,17 +169,17 @@ export function onGameRefresh(gameId, fn) {
     gameChannelId = null;
   }
   if (!gameId || !fn) return;
-  gameChannel = sb.channel('rk-' + gameId);
+  gameChannel = sb.channel(prefix + gameId);
   gameChannelId = gameId;
   gameChannel.on('broadcast', { event: 'refresh' }, () => fn());
   gameChannel.subscribe();
 }
 
 // 듣고 있는 판이 아니면(방금 나간 판 등) 잠깐 채널을 만들어 보낸다(연결 전이면 supabase-js가 HTTP로 보냄)
-export function sendGameRefresh(gameId) {
+export function sendGameRefresh(gameId, prefix = 'rk-') {
   if (!sb || !gameId) return Promise.resolve();
   const live = gameChannelId === gameId;
-  const ch = live ? gameChannel : sb.channel('rk-' + gameId);
+  const ch = live ? gameChannel : sb.channel(prefix + gameId);
   return ch.send({ type: 'broadcast', event: 'refresh', payload: {} }).catch(() => {})
     .finally(() => { if (!live) sb.removeChannel(ch); });
 }
@@ -622,6 +644,16 @@ export async function getOmokRules() {
 
 export async function saveOmokRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'omok', value }, { onConflict: 'key' }));
+}
+
+// 오목 1대1 { daily(하루 판 수), turn(한 수 초) }
+export async function getOmokPvpRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'omok_pvp'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveOmokPvpRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'omok_pvp', value }, { onConflict: 'key' }));
 }
 
 // 루미큐브 { xp, coins, daily(하루 판 수), turn(한 턴 초) }

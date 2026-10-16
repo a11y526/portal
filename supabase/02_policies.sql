@@ -211,3 +211,42 @@ drop policy if exists ws_page_open_teacher_all on public.ws_page_open;
 create policy ws_page_open_teacher_all on public.ws_page_open
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 퀴즈 배틀 (2026-10-16): 학생은 qb_* 함수로만
+alter table public.qb_games enable row level security;
+alter table public.qb_players enable row level security;
+alter table public.qb_answers enable row level security;
+revoke all on public.qb_games from anon;
+revoke all on public.qb_players from anon;
+revoke all on public.qb_answers from anon;
+
+drop policy if exists qb_games_teacher_all on public.qb_games;
+create policy qb_games_teacher_all on public.qb_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qb_players_teacher_all on public.qb_players;
+create policy qb_players_teacher_all on public.qb_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qb_answers_teacher_all on public.qb_answers;
+create policy qb_answers_teacher_all on public.qb_answers
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+-- 오목 1대1 (2026-10-16): 학생은 om_* 함수로만
+alter table public.om_games enable row level security;
+alter table public.om_players enable row level security;
+revoke all on public.om_games from anon;
+revoke all on public.om_players from anon;
+
+drop policy if exists om_games_teacher_all on public.om_games;
+create policy om_games_teacher_all on public.om_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists om_players_teacher_all on public.om_players;
+create policy om_players_teacher_all on public.om_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -391,3 +391,86 @@ create table if not exists public.ws_page_open (
   opened_at timestamptz not null default now(),
   primary key (board_id, page)
 );
+
+-- ---------------------------------------------------------
+-- 퀴즈 배틀 (2026-10-16): 그날 모둠끼리 오늘 차시 학습지의 빈칸·고르기·부등호를 한 문제씩 함께 푼다.
+-- 교사가 수업 모드에서 연 보드(boards.quiz_open)에서만. 모둠마다 한 판(unique), 모둠 안 1등(동점이면 모두)에게 XP·코인.
+-- items: 출제 문항(정답 포함, 학생 쪽에는 지금 문제와 이미 공개된 정답만 내보낸다)
+-- q: 지금 문제(0부터), q_at: 지금 문제를 보여 주기 시작한 시각, q_end: 답을 받는 마감(접속한 모둠원이 모두 냈으면 앞당김).
+-- 마감 뒤 settings.quiz_battle.reveal초 동안 정답 공개, 그 뒤 다음 문제
+-- ---------------------------------------------------------
+alter table public.boards add column if not exists quiz_open boolean not null default false;
+
+create table if not exists public.qb_games (
+  id         uuid primary key default gen_random_uuid(),
+  board_id   uuid not null references public.boards(id) on delete cascade,
+  group_no   smallint not null,
+  status     text not null default 'lobby' check (status in ('lobby', 'playing', 'done')),
+  items      jsonb not null default '[]'::jsonb,
+  q          int not null default 0,
+  q_at       timestamptz null,
+  q_end      timestamptz null,
+  version    int not null default 0,
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null,
+  paid       boolean not null default false,
+  unique (board_id, group_no)
+);
+
+create table if not exists public.qb_players (
+  game_id    uuid not null references public.qb_games(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  score      int not null default 0,
+  correct    int not null default 0,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, student_id)
+);
+
+create table if not exists public.qb_answers (
+  game_id    uuid not null references public.qb_games(id) on delete cascade,
+  q          int not null,
+  student_id uuid not null references public.students(id) on delete cascade,
+  answer     text not null,
+  ok         boolean not null,
+  at         timestamptz not null default now(),
+  primary key (game_id, q, student_id)
+);
+
+-- 퀴즈 배틀 지급은 board_id를 비우고 qb_game_id로 묶는다. 한 판에 한 학생 한 번
+alter table public.point_events add column if not exists qb_game_id uuid null references public.qb_games(id) on delete set null;
+create unique index if not exists point_events_qb_once_idx on public.point_events (student_id, qb_game_id) where qb_game_id is not null;
+
+-- ---------------------------------------------------------
+-- 오목 1대1 (2026-10-16): 6개 반 전체에서 먼저 온 2명끼리. 보상 없음.
+-- 오목 스위치(classes.omok_open)를 같이 쓰고, 하루 판 수는 AI 대전과 따로(settings.omok_pvp).
+-- 보드: int[225] (r*15 + c + 1), 0 빈 칸 · 1 흑 · 2 백. 흑이 먼저
+-- ---------------------------------------------------------
+create table if not exists public.om_games (
+  id         uuid primary key default gen_random_uuid(),
+  status     text not null default 'waiting' check (status in ('waiting', 'playing', 'done')),
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null,
+  board      int[] not null default array_fill(0, array[225]),
+  turn       smallint not null default 1,        -- 지금 둘 색(1 흑 · 2 백)
+  turn_at    timestamptz null,                   -- 지금 차례가 시작된 시각(제한 시간 기준)
+  version    int not null default 0,             -- 바뀔 때마다 +1
+  moves      smallint not null default 0,
+  last       smallint null,                      -- 마지막 수 칸(0~224)
+  winner     smallint null,                      -- 이긴 색(무승부면 null)
+  end_reason text null check (end_reason in ('five', 'time', 'left', 'full'))
+);
+create index if not exists om_games_status_idx on public.om_games (status, created_at);
+
+create table if not exists public.om_players (
+  game_id    uuid not null references public.om_games(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  color      smallint not null check (color in (1, 2)),
+  left_at    timestamptz null,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, student_id)
+);
+create index if not exists om_players_student_idx on public.om_players (student_id, joined_at);

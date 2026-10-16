@@ -284,6 +284,12 @@
         <input class="input num" type="number" min="1" max="100" step="1" id="omok-daily" name="daily" required style="width:96px">
         <button type="submit" class="btn btn-primary btn-small press">저장</button>
       </form>
+      <p class="muted" style="margin:0">오목 1대1: 6개 반 전체에서 먼저 온 2명끼리, 한 수 <span class="num" id="omp-turn">30</span>초(넘기면 짐). 시작된 판을 한 판으로 세고, 보상 없음.</p>
+      <form class="row-actions" id="omp-form">
+        <label for="omp-daily">오목 1대1 하루 판 수</label>
+        <input class="input num" type="number" min="1" max="100" step="1" id="omp-daily" name="daily" required style="width:96px">
+        <button type="submit" class="btn btn-primary btn-small press">저장</button>
+      </form>
       <p class="muted" style="margin:0">루미큐브: 6개 반 전체에서 먼저 온 3명끼리, 한 턴 <span class="num" id="rk-turn">60</span>초. 시작된 판을 한 판으로 세고, 1등만 <span class="num" id="rk-reward">5 XP · 5코인</span>(다른 사람이 모두 나가서 이긴 판은 없음).</p>
       <form class="row-actions" id="rk-form">
         <label for="rk-daily">루미큐브 하루 판 수</label>

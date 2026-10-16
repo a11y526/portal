@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getOmokRules, saveOmokRules, getRummikubRules, saveRummikubRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -24,6 +24,7 @@ const $ = (id) => document.getElementById(id);
 let classes = [];
 let omokRules = null;   // settings.omok
 let rkRules = null;     // settings.rummikub
+let ompRules = null;    // settings.omok_pvp
 let boards = [];
 let students = [];
 let presets = [];
@@ -1347,6 +1348,35 @@ async function refreshOmokRules() {
   updateHub();
 }
 
+// 오목 1대1 하루 판 수: settings.omok_pvp.daily (turn은 그대로 둔다)
+const OMP_DEFAULT = { daily: 5, turn: 30 };
+async function refreshOmpRules() {
+  ompRules = { ...OMP_DEFAULT, ...((await getOmokPvpRules()) ?? {}) };
+  $('omp-daily').value = ompRules.daily;
+  $('omp-turn').textContent = ompRules.turn;
+  updateHub();
+}
+
+$('omp-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const daily = Math.round(Number($('omp-daily').value));
+  if (!(daily >= 1 && daily <= 100)) {
+    toast('1~100판으로 정해 주세요', 'error');
+    return;
+  }
+  const btn = e.currentTarget.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    await saveOmokPvpRules({ ...OMP_DEFAULT, ...ompRules, daily });
+    await refreshOmpRules();
+    toast(`오목 1대1 하루 ${daily}판으로 바꿨어요`, 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // 루미큐브 하루 판 수: settings.rummikub.daily (xp·coins·turn은 그대로 둔다)
 const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, turn: 60 };
 async function refreshRkRules() {
@@ -1457,7 +1487,7 @@ function updateHub() {
   const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
   const omok = classes.filter((c) => c.omok_open).map((c) => `${c.id}반`);
-  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : ''));
+  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : ''));
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -1487,7 +1517,7 @@ function loadPanel(key) {
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
   if (key === 'points') refreshPoints().catch(() => {});
-  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshRkRules().catch(() => {}); }
+  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshOmpRules().catch(() => {}); refreshRkRules().catch(() => {}); }
   if (key === 'data') refreshArchive().catch(() => {});
 }
 addEventListener('hashchange', route);
@@ -1507,6 +1537,6 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules(), refreshRkRules()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules(), refreshOmpRules(), refreshRkRules()]).catch((err) => toast(errMsg(err), 'error'));
   loadPanel(location.hash.slice(1));
 });

@@ -135,8 +135,18 @@ insert into public.settings (key, value) values
   ('ws_first', '{"xp": 1, "coins": 1}'::jsonb)
 on conflict (key) do nothing;
 
+-- 퀴즈 배틀: 모둠 안 1등이 받는 XP·코인, 문제마다 받는 시간(초: 고르기·부등호 / 빈칸), 정답 공개(초)
+insert into public.settings (key, value) values
+  ('quiz_battle', '{"xp": 4, "coins": 4, "pick": 15, "blank": 25, "reveal": 3}'::jsonb)
+on conflict (key) do nothing;
+
 -- 선생님 체험 계정: 반마다 0번, 코드 823727 (사용자 결정 2026-10-15: 파일에 써도 됨).
 -- 다시 실행하면 코드가 이 값으로 돌아간다. 순위·명단·코드 발급 등에서는 빠진다(01_schema 0번 설명)
 insert into public.students (class_id, number, code_hash)
 select id, 0, extensions.crypt('823727', extensions.gen_salt('bf')) from public.classes
 on conflict (class_id, number) do update set code_hash = excluded.code_hash, active = true;
+
+-- 오목 1대1: 하루 판 수(시작된 판), 한 수 제한 시간(초). 보상 없음
+insert into public.settings (key, value) values
+  ('omok_pvp', '{"daily": 5, "turn": 30}'::jsonb)
+on conflict (key) do nothing;

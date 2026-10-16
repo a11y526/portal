@@ -1,0 +1,108 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오목 1대1</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap omok-wrap">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <nav class="class-tabs glass omok-modes" aria-label="오목">
+    <a class="class-tab press" href="omok.html">AI 대전</a>
+    <a class="class-tab press on" href="omok-online.html" aria-current="page">1대1</a>
+  </nav>
+
+  <!-- 로그인 필요 -->
+  <section class="glass-strong me-card omok-msg hidden rise" id="v-login">
+    <h1 class="omok-msg-h">오목 1대1</h1>
+    <p class="muted">로그인하면 할 수 있어요</p>
+    <a class="btn btn-primary press" href="index.html">로그인</a>
+  </section>
+
+  <div class="omok-body hidden" id="v-game">
+    <section class="glass-strong omok-hero rise" id="hero">
+      <div class="omok-av" id="av"></div>
+      <div class="omok-hero-main">
+        <div class="me-name-row">
+          <h1 class="me-name">오목 1대1</h1>
+          <span class="chip">6개 반 · 한 수 <span class="num" id="turn-sec">30</span>초</span>
+        </div>
+        <div class="omok-today">
+          <span>오늘 한 판</span>
+          <span class="omok-dots" id="dots" aria-hidden="true"></span>
+          <b class="num" id="today"></b>
+        </div>
+      </div>
+    </section>
+
+    <!-- 상대 찾기 -->
+    <section class="glass-strong rk-lobby rise" style="--d:.06s" id="lobby">
+      <div class="rk-seats" id="seats"></div>
+      <b class="rk-lobby-h" id="lobby-h">2명이 모이면 시작해요</b>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary btn-big press" id="find">상대 찾기</button>
+        <button type="button" class="btn btn-line press hidden" id="cancel">취소</button>
+      </div>
+
+      <div class="omok-cover hidden" id="closed">
+        <div class="omok-cover-card glass-strong pop">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+          <b>지금은 오목을 할 수 없어요</b>
+          <span class="muted">선생님이 열면 할 수 있어요</span>
+        </div>
+      </div>
+
+      <div class="omok-cover hidden" id="limit">
+        <div class="omok-cover-card glass-strong pop">
+          <b>오늘 판을 다 했어요</b>
+          <span class="muted">내일 다시 할 수 있어요</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 대국 -->
+    <section class="omok-play hidden" id="table">
+      <div class="omok-board-box glass-strong">
+        <div class="omok-board" id="board" role="grid" aria-label="오목판 15×15"></div>
+
+        <div class="omok-cover hidden" id="result">
+          <div class="omok-cover-card glass-strong pop" id="result-card">
+            <b class="omok-result-h" id="result-h"></b>
+            <span class="omok-result-s" id="result-s"></span>
+            <div class="row-actions">
+              <button type="button" class="btn btn-line press" id="view">판 보기</button>
+              <button type="button" class="btn btn-primary press" id="again">한 판 더</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="omok-side om-side">
+        <div class="glass me-card omok-state">
+          <span class="omok-turn" id="turn"></span>
+          <span class="rk-clock num" id="clock" aria-live="off"></span>
+        </div>
+        <div class="om-players" id="players"></div>
+        <div class="omok-btns">
+          <button type="button" class="btn btn-line press" id="resign">기권</button>
+          <button type="button" class="btn btn-primary press hidden" id="again2">한 판 더</button>
+        </div>
+      </aside>
+    </section>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/omok-online.js"></script>
+</body>
+</html>

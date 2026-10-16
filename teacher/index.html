@@ -274,7 +274,12 @@
 
     <section class="card glass rise panel hidden" data-panel="omok" data-title="오목" aria-labelledby="h-omok">
       <h2 id="h-omok">오목</h2>
-      <p class="muted" style="margin:0">켠 반만 할 수 있어요. 수업 모드를 열면 그 반은 자동으로 꺼져요. 이기면 2 XP · 2코인, 하루 3번까지.</p>
+      <p class="muted" style="margin:0">켠 반만 할 수 있어요. 수업 모드를 열면 그 반은 자동으로 꺼져요. 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2코인</span>.</p>
+      <form class="row-actions" id="omok-form">
+        <label for="omok-daily">하루 판 수</label>
+        <input class="input num" type="number" min="1" max="100" step="1" id="omok-daily" name="daily" required style="width:96px">
+        <button type="submit" class="btn btn-primary btn-small press">저장</button>
+      </form>
       <div class="row-actions" id="omok-all">
         <button type="button" class="btn btn-line btn-small" data-all="on">모두 켜기</button>
         <button type="button" class="btn btn-line btn-small" data-all="off">모두 끄기</button>

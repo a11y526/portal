@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getOmokRules, saveOmokRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -22,6 +22,7 @@ initUI();
 const $ = (id) => document.getElementById(id);
 
 let classes = [];
+let omokRules = null;   // settings.omok
 let boards = [];
 let students = [];
 let presets = [];
@@ -1331,6 +1332,34 @@ $('lock-list').addEventListener('click', async (e) => {
 });
 
 /* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
+// 하루 판 수: settings.omok.daily (xp·coins는 그대로 둔다)
+async function refreshOmokRules() {
+  omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
+  $('omok-daily').value = omokRules.daily ?? 7;
+  $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${omokRules.coins ?? 2}코인`;
+  updateHub();
+}
+
+$('omok-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const daily = Math.round(Number($('omok-daily').value));
+  if (!(daily >= 1 && daily <= 100)) {
+    toast('1~100판으로 정해 주세요', 'error');
+    return;
+  }
+  const btn = e.currentTarget.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    await saveOmokRules({ xp: 2, coins: 2, ...omokRules, daily });
+    await refreshOmokRules();
+    toast(`하루 ${daily}판으로 바꿨어요`, 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 function renderOmok() {
   $('omok-list').innerHTML = classes.map((c) => `
     <div class="lock-row${c.omok_open ? ' is-open' : ''}">
@@ -1391,7 +1420,7 @@ function updateHub() {
   const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
   const omok = classes.filter((c) => c.omok_open).map((c) => `${c.id}반`);
-  if (classes.length) set('hub-omok', omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐');
+  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 하루 ${omokRules.daily ?? 7}판` : ''));
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -1421,6 +1450,7 @@ function loadPanel(key) {
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
   if (key === 'points') refreshPoints().catch(() => {});
+  if (key === 'omok') refreshOmokRules().catch(() => {});
   if (key === 'data') refreshArchive().catch(() => {});
 }
 addEventListener('hashchange', route);
@@ -1440,6 +1470,6 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules()]).catch((err) => toast(errMsg(err), 'error'));
   loadPanel(location.hash.slice(1));
 });

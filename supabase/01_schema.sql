@@ -346,3 +346,48 @@ create table if not exists public.rk_players (
   unique (game_id, student_id)
 );
 create index if not exists rk_players_student_idx on public.rk_players (student_id, joined_at);
+
+-- ---------------------------------------------------------
+-- 쪽별 첫 답 (2026-10-16): 학습지 쪽 칸을 모두 채워 [이 쪽 제출]한 학생을 먼저 낸 순서로 쪽마다 5명까지 줄 세운다(맞았는지는 따지지 않음).
+-- 수업 모드에 한 명씩 띄우고 교사가 [인정](1 XP·1코인) 또는 [넘기기](다음 사람). 지급은 쪽마다 한 명,
+-- 지급한 뒤 줄의 나머지는 지급 없이 차례로 보여 준다
+-- status: wait 대기 · accepted 인정(지급) · skipped 넘김 · closed (예전 값, 지금은 안 씀)
+-- ---------------------------------------------------------
+create table if not exists public.ws_firsts (
+  id          uuid primary key default gen_random_uuid(),
+  board_id    uuid not null references public.boards(id) on delete cascade,
+  page        int not null,
+  slide       int null,
+  student_id  uuid not null references public.students(id) on delete cascade,
+  answers     jsonb not null default '{}'::jsonb,  -- 낸 순간 그 쪽 칸의 답
+  status      text not null default 'wait' check (status in ('wait', 'accepted', 'skipped', 'closed')),
+  created_at  timestamptz not null default now(),
+  decided_at  timestamptz null,
+  unique (board_id, page, student_id)
+);
+create index if not exists ws_firsts_board_idx on public.ws_firsts (board_id, page, created_at);
+
+-- 첫 답 지급은 board_id를 비우고 ws_first_id로 묶는다. 한 줄에 한 번
+alter table public.point_events add column if not exists ws_first_id uuid null references public.ws_firsts(id) on delete set null;
+create unique index if not exists point_events_ws_first_once_idx on public.point_events (ws_first_id) where ws_first_id is not null;
+
+-- 수업 모드가 새 첫 답을 실시간으로 받도록
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'ws_firsts'
+     ) then
+    alter publication supabase_realtime add table public.ws_firsts;
+  end if;
+end $$;
+
+-- 쪽별 제출 열기 (2026-10-16): 학습지 쪽의 [이 쪽 제출]은 교사가 수업 모드에서 그 쪽 [제출 시작]을 눌러야 열린다
+create table if not exists public.ws_page_open (
+  board_id  uuid not null references public.boards(id) on delete cascade,
+  page      int not null,
+  slide     int null,
+  opened_at timestamptz not null default now(),
+  primary key (board_id, page)
+);

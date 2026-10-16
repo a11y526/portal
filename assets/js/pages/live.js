@@ -6,7 +6,9 @@ import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
+  getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, sendWsOpen,
 } from '../db.js';
+import { renderPage, closeSims } from '../worksheet.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
 import { teacherGate, errMsg } from '../gate.js';
 
@@ -89,6 +91,8 @@ const lessonFrame = {
 /* ---------- 키 ----------
    G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기 · Shift+W: 지금 쪽 뒤로 다시 잠그기
    덮개가 열려 있으면 1·2·3 탭, T 타이머 시작·일시정지
+   S: 지금 쪽 학습지 [제출 시작] · V: [제출한 것 보기]
+   첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, Esc 닫기
    한글 자판에서도 먹게 e.code로 본다 */
 const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
 
@@ -100,7 +104,21 @@ function handleKey(e) {
     case 'KeyF': if (!e.repeat) toggleFullscreen(); return true;
     case 'KeyW': if (!e.repeat) { if (e.shiftKey) sheetUpto.rewind(); else sheetUpto.openAll(); } return true;
   }
-  if (!coverOpen) return false;
+  if (wsFirst.isOpen()) {
+    switch (e.code) {
+      case 'Enter': case 'NumpadEnter': if (!e.repeat) wsFirst.decide(!wsFirst.item.paid); return true;
+      case 'KeyN': if (!e.repeat) wsFirst.decide(false); return true;
+      case 'Escape': wsFirst.close(); return true;
+    }
+    return false;
+  }
+  if (!coverOpen) {
+    switch (e.code) {
+      case 'KeyS': if (!e.repeat) sheetBand.openPage(); return true;
+      case 'KeyV': if (!e.repeat) wsFirst.view(); return true;
+    }
+    return false;
+  }
   switch (e.code) {
     case 'Digit1': case 'Numpad1': setTab('groups'); return true;
     case 'Digit2': case 'Numpad2': setTab('padlet'); return true;
@@ -112,9 +130,9 @@ function handleKey(e) {
 
 const swallow = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
 
-// 수업자료 안: G·F만 가로채고 나머지는 수업자료가 처리. 덮개가 열려 있으면 모두 막는다(쪽이 넘어가지 않게)
+// 수업자료 안: G·F만 가로채고 나머지는 수업자료가 처리. 덮개나 첫 답 창이 열려 있으면 모두 막는다(쪽이 넘어가지 않게)
 function onLessonKey(e) {
-  if (handleKey(e) || coverOpen) swallow(e);
+  if (handleKey(e) || coverOpen || wsFirst.isOpen()) swallow(e);
 }
 
 // 바깥 문서와 덮개 안 화면(모둠 편성·순위 발표): 우리 키만 가로채고 나머지(스페이스로 다음 등)는 그 화면이 처리
@@ -163,6 +181,7 @@ function toggleCover(force) {
   } else {
     lessonFrame.focus();
   }
+  wsFirst.paint();
 }
 $('cover-close').addEventListener('click', () => toggleCover(false));
 
@@ -511,25 +530,209 @@ $('timer-plus').addEventListener('click', () => timer.step(1));
    ========================================================= */
 const SHEET_POLL_MS = 5000;
 const sheetBand = {
+  st: null,
+  slide: null,   // 지금 보이는 수업자료 쪽 (1초마다 sheetUpto가 알려 줌)
+  opening: false,
+  html: '',
+
   async refresh() {
     if (!board) return;
     try {
-      const st = await getWorksheetStats(board.id);
-      const band = $('ws-band');
-      band.classList.toggle('hidden', !st?.has_sheet);
-      if (!st?.has_sheet) return;
-      const upto = sheetUpto.sent >= ALL_PAGES ? '모두 열림' : sheetUpto.sent > 0 ? `${sheetUpto.sent}쪽까지` : '';
-      band.innerHTML = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}`;
-      band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
+      this.st = await getWorksheetStats(board.id);
+      this.render();
     } catch (err) {
       console.error(err);
     }
   },
+
+  // 지금 쪽에 칸이 있는 학습지 쪽이 있으면 [제출 시작] 또는 '제출 받는 중'. 낸 학생이 있으면 [제출한 것 보기 n]
+  render() {
+    const st = this.st;
+    const band = $('ws-band');
+    band.classList.toggle('hidden', !st?.has_sheet);
+    if (!st?.has_sheet) return;
+    const upto = sheetUpto.sent >= ALL_PAGES ? '모두 열림' : sheetUpto.sent > 0 ? `${sheetUpto.sent}쪽까지` : '';
+    const here = (st.pages ?? []).filter((p) => p.slide === this.slide);
+    const opened = new Set(st.opened ?? []);
+    const open = here.length > 0 && here.every((p) => opened.has(p.page));
+    const start = !here.length ? ''
+      : open ? '<span class="ws-band-on">제출 받는 중</span>'
+      : `<button type="button" class="btn btn-primary btn-small press" data-act="open"${this.opening ? ' disabled' : ''}>제출 시작<kbd>S</kbd></button>`;
+    const view = st.waiting > 0
+      ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${st.waiting}</b><kbd>V</kbd></button>` : '';
+    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}`;
+    if (html !== this.html) band.innerHTML = this.html = html;
+    band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
+    band.classList.toggle('has-act', !!(start || view));
+  },
+
+  setSlide(slide) {
+    if (slide === this.slide) return;
+    this.slide = slide;
+    if (this.st) this.render();
+  },
+
+  // [제출 시작]: 지금 수업자료 쪽에 해당하는 학습지 쪽의 제출을 연다
+  async openPage() {
+    const slide = lessonFrame.currentSlide();
+    if (!board || this.opening || !slide) return;
+    this.opening = true;
+    this.render();
+    try {
+      await sheetUpto.push(slide);
+      const pages = await openWsPage(board.id, slide);
+      if (!pages?.length) {
+        toast('이 쪽에는 낼 학습지 칸이 없어요');
+      } else {
+        sendWsOpen(classId);
+        toast(`${slide}쪽 제출 시작`, 'ok');
+      }
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.opening = false;
+      this.refresh();
+    }
+  },
+
   start() {
     this.refresh();
     setInterval(() => { if (!document.hidden) this.refresh(); }, SHEET_POLL_MS);
   },
 };
+$('ws-band').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-act]');
+  if (b?.dataset.act === 'open') sheetBand.openPage();
+  if (b?.dataset.act === 'view') wsFirst.view();
+  lessonFrame.focus();
+});
+
+/* =========================================================
+   쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로(쪽마다 5명까지) 한 명씩 띄운다.
+   [제출한 것 보기](V)를 눌러야 뜬다. [인정] 1 XP·1코인(쪽마다 한 명) · [넘기기] 다음 사람.
+   지급한 쪽은 [다음]만. 다 보면 창이 닫힌다(Esc로 닫으면 남은 것은 다음에 다시 보기).
+   덮개가 열려 있는 동안은 숨겨 두었다가 닫으면 다시 보인다
+   ========================================================= */
+const wsFirst = {
+  item: null,
+  viewing: false,
+  busy: false,
+  loading: false,
+  again: false,
+
+  isOpen() { return this.viewing && !!this.item && !coverOpen; },
+
+  async view() {
+    if (!board || this.viewing) return;
+    this.viewing = true;
+    await this.refresh();
+    if (!this.item) { this.viewing = false; toast('아직 낸 학생이 없어요'); }
+  },
+
+  close() {
+    this.viewing = false;
+    this.item = null;
+    this.paint();
+  },
+
+  async refresh() {
+    if (!board || !this.viewing) return;
+    if (this.loading || this.busy) { this.again = true; return; }
+    this.loading = true;
+    try {
+      const res = await getWsFirst(board.id);
+      this.show(res?.item ?? null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      this.loading = false;
+      if (this.again) { this.again = false; this.refresh(); }
+    }
+  },
+
+  show(item) {
+    const same = item && this.item && item.id === this.item.id;
+    this.item = item;
+    if (!item) this.viewing = false;
+    if (item && !same) this.render(item);
+    else if (item) this.renderFoot(item);
+    this.paint();
+  },
+
+  render(it) {
+    const name = `${it.number}번${it.nickname ? ` ${it.nickname}` : ''}`;
+    $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${it.number}번 캐릭터` });
+    $('wsf-name').textContent = name;
+    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', `${it.pos}번째로 냄`].filter(Boolean).join(' · ');
+    const box = $('wsf-page');
+    closeSims(box);
+    if (it.sheet_page) renderPage(box, it.sheet_page, it.answers, { locked: true });
+    else box.innerHTML = '<div class="empty"><strong>학습지가 바뀌어 이 쪽을 보여 줄 수 없어요</strong></div>';
+    box.closest('.wsf-body').scrollTop = 0;
+    this.renderFoot(it);
+  },
+
+  renderFoot(it) {
+    const left = Math.max(0, (it.wait ?? 1) - 1);
+    $('wsf-badge').textContent = it.paid ? '지급함' : '첫 답';
+    $('wsf-badge').classList.toggle('is-paid', !!it.paid);
+    $('wsf-note').textContent = [it.paid ? '이 쪽은 이미 지급했어요' : '', left ? `다음 ${left}명` : ''].filter(Boolean).join(' · ');
+    $('wsf-ok').classList.toggle('hidden', !!it.paid);
+    $('wsf-skip').querySelector('span').textContent = it.paid ? '다음' : '넘기기';
+    $('wsf-skip').querySelector('kbd').textContent = it.paid ? 'Enter' : 'N';
+    $('wsf-skip').classList.toggle('btn-primary', !!it.paid);
+    $('wsf-skip').classList.toggle('btn-line', !it.paid);
+  },
+
+  paint() {
+    const open = this.isOpen();
+    const box = $('wsf');
+    if (!open && !box.classList.contains('hidden')) closeSims(box);
+    box.classList.toggle('hidden', !open);
+    if (!open && !coverOpen) lessonFrame.focus();
+  },
+
+  async decide(accept) {
+    const it = this.item;
+    if (!it || this.busy) return;
+    this.busy = true;
+    $('wsf-ok').disabled = $('wsf-skip').disabled = true;
+    try {
+      if (accept) {
+        const r = await acceptWsFirst(it.id);
+        if (r?.ok) {
+          toast(`${it.number}번 +${r.xp} XP · +${r.coins}코인`, 'ok');
+          sendClassRefresh(classId);
+        } else {
+          toast(r?.error === 'TAKEN' ? '이 쪽은 이미 다른 학생에게 지급했어요' : '이미 넘긴 답이에요', 'error');
+        }
+      } else {
+        await skipWsFirst(it.id);
+      }
+      this.item = null;
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.busy = false;
+      $('wsf-ok').disabled = $('wsf-skip').disabled = false;
+    }
+    if (!this.item) this.refresh();
+    sheetBand.refresh();
+  },
+
+  start() {
+    onWsFirstsChange((p) => {
+      const row = p.new?.board_id ? p.new : p.old;
+      if (row?.board_id && row.board_id !== board.id) return;
+      sheetBand.refresh();
+      this.refresh();
+    });
+  },
+};
+$('wsf-ok').addEventListener('click', () => wsFirst.decide(true));
+$('wsf-skip').addEventListener('click', () => wsFirst.decide(false));
 
 /* =========================================================
    학습지 진도: 수업자료에서 지금까지 간 가장 뒤 쪽을 서버에 올린다.
@@ -578,7 +781,11 @@ const sheetUpto = {
   },
   start() {
     this.sent = board?.ws_upto ?? 0;
-    const tick = () => this.push(lessonFrame.currentSlide());
+    const tick = () => {
+      const slide = lessonFrame.currentSlide();
+      sheetBand.setSlide(slide);
+      this.push(slide);
+    };
     tick();
     setInterval(tick, UPTO_POLL_MS);
   },
@@ -632,6 +839,7 @@ teacherGate($('app'), async () => {
   sheetUpto.start();
   await loadGroups();
   sheetBand.start();
+  wsFirst.start();
   onSubmissionsChange((p) => {
     const row = p.new?.board_id ? p.new : p.old;
     if (!row?.board_id || row.board_id === board.id) scheduleGroups();

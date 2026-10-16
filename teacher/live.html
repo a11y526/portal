@@ -24,6 +24,26 @@
   <!-- 학습지: 오른쪽 아래 작은 띠 (완료 수만. 학생 답·이름은 보이지 않는다) -->
   <div class="ws-band hidden" id="ws-band" aria-live="polite"></div>
 
+  <!-- 쪽별 첫 답: 학생 한 명이 낸 쪽을 띄우고 [인정]/[넘기기] (덮개가 닫혀 있을 때만) -->
+  <section class="wsf hidden" id="wsf" role="dialog" aria-modal="true" aria-labelledby="wsf-name">
+    <div class="wsf-card">
+      <header class="wsf-top">
+        <span class="wsf-av" id="wsf-av"></span>
+        <div class="wsf-who">
+          <strong class="wsf-name" id="wsf-name"></strong>
+          <span class="wsf-meta num" id="wsf-meta"></span>
+        </div>
+        <span class="wsf-badge" id="wsf-badge">첫 답</span>
+      </header>
+      <div class="wsf-body"><div class="ws-page wsf-page" id="wsf-page"></div></div>
+      <footer class="wsf-foot">
+        <span class="wsf-note" id="wsf-note"></span>
+        <button type="button" class="btn btn-line btn-big press" id="wsf-skip"><span>넘기기</span><kbd>N</kbd></button>
+        <button type="button" class="btn btn-primary btn-big press" id="wsf-ok"><span>인정</span><kbd>Enter</kbd></button>
+      </footer>
+    </div>
+  </section>
+
   <!-- 덮개: G키로 열고 닫는다 -->
   <section class="cover" id="cover" tabindex="-1" aria-hidden="true" aria-labelledby="cover-title">
     <header class="cover-top">

@@ -955,6 +955,35 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .ws-band b { font-size: 28px; font-weight: 900; color: var(--accent); }
 .ws-band .num { font-size: 20px; }
 .ws-band.is-all b { color: var(--passed-solid); }
+.ws-band { align-items: center; }
+.ws-band.has-act { opacity: 1; }
+.ws-band .btn { gap: 8px; }
+.ws-band .btn b { font-size: 16px; color: inherit; }
+.ws-band kbd { font: inherit; font-size: 12px; font-weight: 700; padding: 1px 6px; border-radius: 6px; background: rgba(0,0,0,.12); }
+.ws-band-on { padding: 6px 14px; border-radius: var(--r-pill); background: var(--passed-bg); color: var(--passed-fg); font-size: 15px; font-weight: 900; }
+
+/* ---------- 수업 모드: 쪽별 첫 답 창 (수업자료 위, 덮개 아래) ---------- */
+.wsf { position: absolute; inset: 0; z-index: 8; display: flex; align-items: center; justify-content: center; padding: 3vh 3vw;
+  background: rgba(20,28,48,.42); animation: wsf-in .3s var(--ease); }
+.wsf-card { width: min(1100px, 100%); max-height: 100%; display: flex; flex-direction: column; gap: 14px; padding: 22px 26px;
+  border-radius: var(--r-lg); background: #fff; box-shadow: var(--shadow-strong); animation: wsf-pop .45s var(--ease); }
+.wsf-top { display: flex; align-items: center; gap: 16px; }
+.wsf-av svg.av { width: 72px; height: 72px; display: block; }
+.wsf-who { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
+.wsf-name { font-size: clamp(26px, 4vh, 40px); font-weight: 900; letter-spacing: -0.03em; }
+.wsf-meta { font-size: 18px; color: var(--ink-2); font-weight: 700; }
+.wsf-badge { padding: 8px 18px; border-radius: var(--r-pill); background: var(--accent); color: #fff; font-size: 20px; font-weight: 900; }
+.wsf-badge.is-paid { background: var(--passed-solid); }
+.wsf-body { flex: 1; min-height: 0; overflow: auto; padding: 16px 20px; border-radius: var(--r-md); background: rgba(237,241,247,.6); }
+.wsf-page { font-size: clamp(18px, 2.4vh, 24px); }
+.wsf-page .ws-sim { display: none; }
+.wsf-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }
+.wsf-note { margin-right: auto; font-size: 17px; font-weight: 700; color: var(--ink-2); }
+.wsf-foot .btn { gap: 10px; min-width: 150px; }
+.wsf-foot kbd { font: inherit; font-size: 13px; font-weight: 700; padding: 2px 7px; border-radius: 6px; background: rgba(0,0,0,.12); }
+@keyframes wsf-in { from { opacity: 0; } }
+@keyframes wsf-pop { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+@media (prefers-reduced-motion: reduce) { .wsf, .wsf-card { animation: none; } }
 
 /* ---------- 8단계: 반 페이지 탭 [개인 학습지] [모둠활동] ---------- */
 .class-tabs { align-self: flex-start; max-width: 100%; display: flex; gap: 6px; padding: 6px; border-radius: var(--r-pill); }
@@ -982,6 +1011,9 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .ws-dot.is-closed { opacity: .4; border-style: dashed; }
 .ws-dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ws-closed { gap: 10px; color: var(--ink-2); }
+.ws-wait-open { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: var(--r-pill);
+  background: rgba(78,88,104,.1); color: var(--ink-2); font-weight: 700; }
+.ws-wait-open svg { width: 20px; height: 20px; flex: none; }
 .ws-dot.on.is-done { box-shadow: 0 0 0 3px var(--passed-solid); }
 .ws-dot-ck { flex: none; }
 .ws-foot { display: flex; align-items: center; justify-content: flex-end; gap: 12px; flex-wrap: wrap; }

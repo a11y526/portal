@@ -3,7 +3,7 @@
 // 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp } from '../ui.js';
-import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh } from '../db.js';
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 import { renderPage, markFields, closeSims } from '../worksheet.js';
@@ -357,6 +357,7 @@ const WS_ERR = {
   NO_SHEET: '학습지가 바뀌었어요',
   NO_PAGE: '학습지가 바뀌었어요',
   LOCKED: '아직 수업에서 안 나간 쪽이에요',
+  NOT_OPEN: '선생님이 [제출 시작]을 누르면 낼 수 있어요',
 };
 
 const ws = {
@@ -370,6 +371,8 @@ const ws = {
   gain: null,       // { xp, coins }
   passed: new Set(), // 제출해서 맞은 칸(f1…). 이 칸들이 다 든 쪽은 잠긴다
   justPassed: -1,   // 방금 제출한 쪽(제출함 표시를 한 번 튀게)
+  firsts: new Set(), // 선생님이 첫 답으로 인정한 쪽(pages 순서)
+  opened: new Set(), // 선생님이 [제출 시작]을 누른 쪽(pages 순서). 칸이 있는 쪽은 열린 뒤에만 제출
   bad: {},          // { f1: 'wrong' | 'empty' }
   badPts: {},       // 점 찍기 칸의 틀린 점 순서 { f9: [2, 5] } (제출 결과)
   dirty: false,     // 서버에 아직 저장 안 된 답이 있음
@@ -400,6 +403,8 @@ function syncSheet(data) {
   const meta = data?.board ? data.worksheet : null;
   hasSheet = !!meta;
   ws.meta = meta;
+  noteFirsts(meta, data?.board?.id);
+  setOpened(meta?.opened);
   if (!meta) {
     ws.ver = null;
     ws.sheet = null;
@@ -412,6 +417,32 @@ function syncSheet(data) {
   if (ws.sheet && login && meta.done && !ws.done) ws.ver = null; // 다른 기기에서 완료함
   applyTab();
   if (ws.sheet && !login && ws.lockedShown === false) { ws.ver = null; ws.answers = {}; ws.bad = {}; ws.badPts = {}; ensureSheet(); } // 로그인이 풀림
+}
+
+function setOpened(list) {
+  const next = new Set(list ?? []);
+  const changed = next.size !== ws.opened.size || [...next].some((p) => !ws.opened.has(p));
+  ws.opened = next;
+  if (changed && ws.sheet) renderWsFoot();
+}
+
+// 쪽별 첫 답: 선생님이 [인정]한 내 답. 처음 보는 것만 알리고(wsf-<보드>-<번호>), 레벨이 올랐으면 레벨업
+function noteFirsts(meta, boardId) {
+  const list = login && meta ? meta.firsts ?? [] : [];
+  const before = ws.firsts.size;
+  ws.firsts = new Set(list.map((f) => f.page));
+  if (ws.sheet && ws.firsts.size !== before) renderWsPage();
+  if (!list.length) return;
+  const k = `wsf-${boardId}-${login.number}`;
+  const seen = new Set(store.get(k) ?? []);
+  const fresh = list.filter((f) => !seen.has(f.id));
+  if (!fresh.length) return;
+  store.set(k, list.map((f) => f.id));
+  fresh.forEach((f) => toast(`첫 답 인정!${f.slide ? ` ${f.slide}쪽` : ''}${f.xp || f.coins ? ` +${f.xp} XP · +${f.coins}코인` : ''}`, 'ok'));
+  const lv = meta.level;
+  let had = 0;
+  try { had = Number(localStorage.getItem(`lv-${login.class_id}-${login.number}`)) || 0; } catch {}
+  if (lv && had && lv.level > had) showLevelUp(lv.level, lv.total_xp, page?.my_members?.find((m) => m.me)?.avatar);
 }
 
 function ensureSheet() {
@@ -432,6 +463,7 @@ async function fetchSheet() {
     ws.done = !!res.mine?.done_at;
     ws.gain = ws.done ? { xp: res.mine.xp ?? 0, coins: res.mine.coins ?? 0 } : null;
     ws.passed = new Set(res.mine?.passed ?? []);
+    ws.opened = new Set(res.opened ?? []);
     const local = draftKey() ? store.get(draftKey()) : null;
     const server = res.mine?.answers ?? {};
     // 기기에 저장 못 한 답이 있으면 그쪽이 먼저 (제출한 칸은 서버 답 그대로)
@@ -467,7 +499,8 @@ function renderWsPage() {
   const page = list[ws.idx];
   $('ws-slide').textContent = page ? `수업자료 ${page.slide}쪽` : '';
   $('ws-h').textContent = isClosed(page) ? '' : page?.title || ws.sheet.title || '';
-  const chip = ws.done ? '완료' : login && hasFields(page) && pageDone(page) ? '제출함' : '';
+  const chip = [ws.done ? '완료' : login && hasFields(page) && pageDone(page) ? '제출함' : '', ws.firsts.has(ws.idx) ? '첫 답 ★' : '']
+    .filter(Boolean).join(' · ');
   $('ws-chip').textContent = chip;
   $('ws-chip').classList.toggle('hidden', !chip);
   if (isClosed(page)) $('ws-page').innerHTML = `<div class="empty ws-closed">${LOCK_SVG}<strong>아직 수업에서 안 나간 쪽이에요</strong></div>`;
@@ -522,6 +555,10 @@ function renderWsFoot() {
       <span class="ws-pagedone${just ? ' pop' : ''}"><span class="ws-pagedone-ck" aria-hidden="true">${CHECK_SVG(18, just ? '.2s' : '0s')}</span>이 쪽 제출함</span>
       ${next >= 0 ? `<button type="button" class="btn btn-line press" id="ws-left" data-i="${next}">제출 안 한 쪽으로</button>` : ''}`;
     if (just) prepareDraw(foot);
+    return;
+  }
+  if (!ws.opened.has(ws.idx)) {
+    foot.innerHTML = `${status}${prog}<span class="ws-wait-open">${LOCK_SVG}선생님이 [제출 시작]을 누르면 낼 수 있어요</span>`;
     return;
   }
   const nBad = page.fields.filter((f) => ws.bad[f.key]).length;
@@ -875,6 +912,8 @@ function schedule() {
 load();
 schedule();
 
+// [제출 시작]은 먼저 낸 순서를 겨루므로 흩지 않고 바로 읽는다
+if (sb) onWsOpen(classId, () => { if (!document.hidden) load(); });
 if (sb) onClassRefresh(classId, () => {
   // 신호는 모든 학생 기기에 한꺼번에 가므로 0~2초 흩어서 읽는다
   if (!document.hidden) setTimeout(load, Math.random() * 2000);

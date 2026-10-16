@@ -182,6 +182,20 @@ export function onClassRefresh(classId, fn) {
   if (ch.state === 'closed') ch.subscribe();
 }
 
+// [제출 시작] 신호: 받은 학생 기기는 흩지 않고 바로 다시 읽는다 (먼저 낸 순서가 공평하게)
+export function onWsOpen(classId, fn) {
+  const ch = classChannel(classId);
+  ch.on('broadcast', { event: 'ws-open' }, () => fn());
+  if (ch.state === 'closed') ch.subscribe();
+}
+
+export function sendWsOpen(classId) {
+  if (!sb) return Promise.resolve();
+  const ch = classChannel(classId);
+  if (ch.state === 'closed') ch.subscribe();
+  return ch.send({ type: 'broadcast', event: 'ws-open', payload: {} }).catch(() => {});
+}
+
 export function sendClassRefresh(classId) {
   if (!sb) return Promise.resolve();
   const ch = classChannel(classId);
@@ -393,11 +407,11 @@ export async function grantPoints(studentIds, xp, coins, reason) {
   return unwrap(await need().rpc('grant_points', { p_student_ids: studentIds, p_xp: xp, p_coins: coins, p_reason: reason }));
 }
 
-// 최근 직접 준 점수 (발표 지급·학습지·아이템 구매 제외)
+// 최근 직접 준 점수 (발표 지급·학습지·첫 답·아이템 구매 제외)
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -414,7 +428,7 @@ async function readAll(build) {
 
 export async function exportPointEvents() {
   return readAll(() => need().from('point_events')
-    .select('id, xp, coins, reason, board_id, worksheet_board_id, created_at, student:students(class_id, number, nickname)')
+    .select('id, xp, coins, reason, board_id, worksheet_board_id, ws_first_id, created_at, student:students(class_id, number, nickname)')
     .order('created_at').order('id'));
 }
 
@@ -548,9 +562,46 @@ export async function resetWorksheetUpto(boardId, slide) {
   return unwrap(await need().rpc('reset_worksheet_upto', { p_board_id: boardId, p_slide: slide }));
 }
 
-// 수업 모드 띠: { has_sheet, done, total }
+// 수업 모드 띠: { has_sheet, done, total, pages: [{ page, slide }](칸이 있는 쪽), opened: [page], waiting(안 본 첫 답) }
 export async function getWorksheetStats(boardId) {
   return unwrap(await need().rpc('get_worksheet_stats', { p_board_id: boardId }));
+}
+
+// 쪽별 첫 답: 지금 띄울 하나 { item: null | { id, page, slide, pos, count, wait, class_id, number, nickname, avatar, answers, sheet_page } }
+export async function getWsFirst(boardId) {
+  return unwrap(await need().rpc('get_ws_first', { p_board_id: boardId }));
+}
+
+// [인정]: { ok, xp, coins, class_id, already } · { ok: false, error: 'TAKEN' | 'SKIPPED' }
+export async function acceptWsFirst(id) {
+  return unwrap(await need().rpc('accept_ws_first', { p_id: id }));
+}
+
+// [제출 시작]: 수업자료 그 쪽에 해당하는 학습지 쪽의 제출을 연다. 결과: 열린 학습지 쪽 번호 목록
+export async function openWsPage(boardId, slide) {
+  return unwrap(await need().rpc('open_ws_page', { p_board_id: boardId, p_slide: slide }));
+}
+
+// [넘기기]
+export async function skipWsFirst(id) {
+  return unwrap(await need().rpc('skip_ws_first', { p_id: id }));
+}
+
+// ws_firsts 표가 바뀌면 fn(payload)
+export function onWsFirstsChange(fn) {
+  need().channel('ws-firsts-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'ws_firsts' }, fn)
+    .subscribe();
+}
+
+// { xp, coins } 쪽별 첫 답을 인정받았을 때
+export async function getWsFirstRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'ws_first'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveWsFirstRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'ws_first', value }, { onConflict: 'key' }));
 }
 
 // { xp, coins } 학습지를 모두 맞게 냈을 때

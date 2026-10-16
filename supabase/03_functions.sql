@@ -412,6 +412,8 @@ declare
   w        public.worksheets;
   v_done   timestamptz;
   v_ws     jsonb;
+  v_firsts jsonb;
+  v_total  int;
 begin
   select * into c from public.classes where id = p_class_id;
   if not found then
@@ -481,6 +483,15 @@ begin
   if w.lesson_code is not null then
     if v_sid is not null then
       select done_at into v_done from public.worksheet_answers where board_id = b.id and student_id = v_sid;
+      -- 쪽별 첫 답으로 인정받은 것 [{id, page, slide, xp, coins}]
+      select coalesce(jsonb_agg(jsonb_build_object('id', f.id, 'page', f.page, 'slide', f.slide,
+               'xp', coalesce(e.xp, 0), 'coins', coalesce(e.coins, 0)) order by f.decided_at), '[]'::jsonb)
+      into v_firsts
+      from public.ws_firsts f left join public.point_events e on e.ws_first_id = f.id
+      where f.board_id = b.id and f.student_id = v_sid and f.status = 'accepted';
+      if jsonb_array_length(v_firsts) > 0 then
+        select coalesce(sum(xp), 0)::int into v_total from public.point_events where student_id = v_sid;
+      end if;
     end if;
     v_ws := jsonb_build_object(
       'lesson_code', w.lesson_code,
@@ -488,7 +499,11 @@ begin
       'version',     w.updated_at,
       'pages',       w.page_count,
       'done',        v_done is not null,
-      'upto',        b.ws_upto
+      'upto',        b.ws_upto,
+      'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id),
+      'firsts',      coalesce(v_firsts, '[]'::jsonb),
+      'level',       case when v_total is null then null else jsonb_build_object(
+                       'level', (public._level_info(v_total) ->> 'level')::int, 'total_xp', v_total) end
     );
   end if;
 
@@ -1679,6 +1694,7 @@ begin
     'version',     w.updated_at,
     'upto',        b.ws_upto,
     'pages',       public._ws_view(w.pages, b.ws_upto),
+    'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id),
     'session',     case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'mine',        case when a.board_id is null then null else jsonb_build_object(
                      'answers', a.answers,
@@ -1898,6 +1914,12 @@ begin
   select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) into v_pkey
   from jsonb_each(t -> 'key') as e
   where e.key = any(v_keys);
+  -- 교사가 그 쪽 [제출 시작]을 누르기 전에는 낼 수 없다 (2026-10-16)
+  if array_length(v_keys, 1) > 0
+     and not exists (select 1 from public.ws_page_open where board_id = p_board_id and page = p_page)
+     and not exists (select 1 from public.worksheet_answers where board_id = p_board_id and student_id = v_sid and done_at is not null) then
+    return jsonb_build_object('ok', false, 'error', 'NOT_OPEN');
+  end if;
 
   -- 저장하면서 이 학생 줄을 잠근다 (두 번 눌러도 한 번만)
   insert into public.worksheet_answers as x (board_id, student_id, answers)
@@ -1920,6 +1942,11 @@ begin
   end if;
 
   v_chk := public._ws_check(v_pkey, a.answers);
+  -- 이 쪽 칸을 모두 채웠으면 맞았는지와 상관없이 첫 답 줄에 (쪽마다 5명까지)
+  if jsonb_array_length(v_chk -> 'empty') = 0 and array_length(v_keys, 1) > 0 then
+    perform public._ws_first_enter(p_board_id, p_page, (v_pages -> p_page ->> 'slide')::int, v_sid,
+      (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(a.answers) as e where e.key = any(v_keys)));
+  end if;
   if jsonb_array_length(v_chk -> 'empty') > 0 or jsonb_array_length(v_chk -> 'wrong') > 0 then
     select coalesce(jsonb_object_agg(e.key, public._ws_plot(e.value, a.answers ->> e.key) -> 'bad'), '{}'::jsonb) into v_pts
     from jsonb_each(v_pkey) as e
@@ -1969,6 +1996,208 @@ end;
 $$;
 revoke all on function public.submit_worksheet_page(text, uuid, int, jsonb) from public;
 grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 쪽별 첫 답 (2026-10-16)
+-- 학생이 쪽 칸을 모두 채워 제출하면 먼저 낸 순서로 쪽마다 5명까지 줄에 넣는다(맞았는지는 따지지 않음).
+-- 수업 모드가 한 명씩 띄우고 교사가 [인정](XP·코인) 또는 [넘기기](다음 사람). 지급은 쪽마다 한 명뿐이고,
+-- 지급한 뒤에도 줄의 나머지는 차례로 뜬다(지급 없이 [다음]만). 0번(체험 계정)은 넣지 않는다
+-- ---------------------------------------------------------
+create or replace function public._ws_first_enter(p_board_id uuid, p_page int, p_slide int, p_sid uuid, p_answers jsonb)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if exists (select 1 from public.students where id = p_sid and number = 0) then
+    return;
+  end if;
+  -- 같은 쪽에 동시에 들어와도 5명을 넘지 않게
+  perform pg_advisory_xact_lock(hashtext('ws_first|' || p_board_id::text || '|' || p_page::text));
+  if exists (select 1 from public.ws_firsts
+             where board_id = p_board_id and page = p_page and student_id = p_sid) then
+    return;
+  end if;
+  if (select count(*) from public.ws_firsts where board_id = p_board_id and page = p_page) >= 5 then
+    return;
+  end if;
+  insert into public.ws_firsts (board_id, page, slide, student_id, answers)
+  values (p_board_id, p_page, p_slide, p_sid, coalesce(p_answers, '{}'::jsonb))
+  on conflict (board_id, page, student_id) do nothing;
+end;
+$$;
+revoke all on function public._ws_first_enter(uuid, int, int, uuid, jsonb) from public, anon, authenticated;
+
+-- 수업 모드: 지금 띄울 첫 답 하나 (교사). 먼저 낸 것부터.
+-- 결과: {item: null} 또는 {item: {id, page, slide, pos(그 쪽 몇 번째), count(그 쪽 줄 수), wait(전체 남은 수), paid(그 쪽은 이미 지급),
+--        number, nickname, avatar, answers, sheet_page(학습지 그 쪽 본문, 정답 없음)}}
+create or replace function public.get_ws_first(p_board_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  f      public.ws_firsts;
+  s      public.students;
+  v_page jsonb;
+  v_wait int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select x.* into f from public.ws_firsts x
+  where x.board_id = p_board_id and x.status = 'wait'
+  order by x.created_at, x.id
+  limit 1;
+  if not found then
+    return jsonb_build_object('item', null);
+  end if;
+  select count(*)::int into v_wait from public.ws_firsts x
+  where x.board_id = p_board_id and x.status = 'wait';
+  select * into s from public.students where id = f.student_id;
+  select w.pages -> f.page into v_page
+  from public.boards b join public.worksheets w on w.lesson_code = b.lesson_code
+  where b.id = p_board_id;
+  return jsonb_build_object('item', jsonb_build_object(
+    'id',         f.id,
+    'page',       f.page,
+    'slide',      f.slide,
+    'pos',        (select count(*)::int from public.ws_firsts z
+                   where z.board_id = f.board_id and z.page = f.page
+                     and (z.created_at, z.id) <= (f.created_at, f.id)),
+    'count',      (select count(*)::int from public.ws_firsts z where z.board_id = f.board_id and z.page = f.page),
+    'wait',       v_wait,
+    'paid',       exists (select 1 from public.ws_firsts z
+                          where z.board_id = f.board_id and z.page = f.page and z.status = 'accepted'),
+    'class_id',   s.class_id,
+    'number',     s.number,
+    'nickname',   s.nickname,
+    'avatar',     s.avatar,
+    'answers',    f.answers,
+    'sheet_page', v_page
+  ));
+end;
+$$;
+revoke all on function public.get_ws_first(uuid) from public, anon;
+grant execute on function public.get_ws_first(uuid) to authenticated;
+
+-- [인정] (교사): 그 학생에게 settings.ws_first XP·코인. 쪽마다 한 명만, 두 번 눌러도 한 번만
+-- 결과: {ok: true, xp, coins, class_id, already} · {ok: false, error: 'TAKEN'(그 쪽은 이미 다른 학생에게 지급) | 'SKIPPED'}
+create or replace function public.accept_ws_first(p_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  f      public.ws_firsts;
+  v_set  jsonb;
+  v_xp   int;
+  v_co   int;
+  v_code text;
+  v_cls  int;
+  v_paid int := 0;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into f from public.ws_firsts where id = p_id;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  perform pg_advisory_xact_lock(hashtext('ws_first|' || f.board_id::text || '|' || f.page::text));
+  select * into f from public.ws_firsts where id = p_id for update;
+  select class_id into v_cls from public.students where id = f.student_id;
+
+  if f.status = 'accepted' then
+    select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int into v_xp, v_co
+    from public.point_events where ws_first_id = f.id;
+    return jsonb_build_object('ok', true, 'already', true, 'xp', v_xp, 'coins', v_co, 'class_id', v_cls);
+  end if;
+  if exists (select 1 from public.ws_firsts
+             where board_id = f.board_id and page = f.page and status = 'accepted') then
+    return jsonb_build_object('ok', false, 'error', 'TAKEN');
+  end if;
+  if f.status <> 'wait' then
+    return jsonb_build_object('ok', false, 'error', 'SKIPPED');
+  end if;
+
+  update public.ws_firsts set status = 'accepted', decided_at = now() where id = f.id;
+
+  select value into v_set from public.settings where key = 'ws_first';
+  v_xp := coalesce((v_set ->> 'xp')::int, 1);
+  v_co := coalesce((v_set ->> 'coins')::int, 1);
+  select lesson_code into v_code from public.boards where id = f.board_id;
+  if v_xp <> 0 or v_co <> 0 then
+    insert into public.point_events (student_id, xp, coins, reason, ws_first_id)
+    values (f.student_id, v_xp, v_co,
+            '첫 답 ' || coalesce(v_code, '') || coalesce('-' || f.slide::text || '쪽', ''), f.id)
+    on conflict (ws_first_id) where ws_first_id is not null do nothing;
+    get diagnostics v_paid = row_count;
+  end if;
+  if v_paid = 0 then
+    v_xp := 0;
+    v_co := 0;
+  end if;
+  return jsonb_build_object('ok', true, 'already', false, 'xp', v_xp, 'coins', v_co, 'class_id', v_cls);
+end;
+$$;
+revoke all on function public.accept_ws_first(uuid) from public, anon;
+grant execute on function public.accept_ws_first(uuid) to authenticated;
+
+-- [넘기기] (교사): 대기 중이면 넘김으로. 결과: {ok}
+create or replace function public.skip_ws_first(p_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.ws_firsts set status = 'skipped', decided_at = now() where id = p_id and status = 'wait';
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.skip_ws_first(uuid) from public, anon;
+grant execute on function public.skip_ws_first(uuid) to authenticated;
+
+-- [제출 시작] (교사, 수업 모드): 수업자료 그 쪽(slide)에 해당하는 학습지 쪽(칸이 있는 것)의 제출을 연다. 닫지는 않는다
+-- 결과: 그 쪽에 해당해 열린 학습지 쪽 번호(pages 순서) 목록. 해당하는 쪽이 없으면 []
+create or replace function public.open_ws_page(p_board_id uuid, p_slide int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_pages jsonb;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select w.pages into v_pages
+  from public.boards b join public.worksheets w on w.lesson_code = b.lesson_code
+  where b.id = p_board_id;
+  insert into public.ws_page_open (board_id, page, slide)
+  select p_board_id, (e.i - 1)::int, p_slide
+  from jsonb_array_elements(coalesce(v_pages, '[]'::jsonb)) with ordinality as e(p, i)
+  where (e.p ->> 'slide')::int = p_slide and jsonb_array_length(coalesce(e.p -> 'fields', '[]'::jsonb)) > 0
+  on conflict (board_id, page) do nothing;
+  return (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb)
+          from public.ws_page_open o where o.board_id = p_board_id and o.slide = p_slide);
+end;
+$$;
+revoke all on function public.open_ws_page(uuid, int) from public, anon;
+grant execute on function public.open_ws_page(uuid, int) to authenticated;
 
 -- 학습지 진도 올리기 (교사, 수업 모드). 지금까지 간 쪽 중 가장 뒤 번호만 남긴다(앞 쪽으로 돌아가도 닫히지 않음).
 -- 전부 열기는 큰 수(9999)를 넘긴다. 결과: 저장된 진도
@@ -2060,7 +2289,13 @@ begin
   return jsonb_build_object(
     'has_sheet', exists (select 1 from public.worksheets where lesson_code = b.lesson_code),
     'done',      v_done,
-    'total',     v_total
+    'total',     v_total,
+    -- 쪽별 제출 열기·첫 답: 칸이 있는 쪽의 수업자료 쪽 번호, 연 쪽(pages 순서), 아직 안 본 첫 답 수
+    'pages',     (select coalesce(jsonb_agg(jsonb_build_object('page', e.i - 1, 'slide', (e.p ->> 'slide')::int) order by e.i), '[]'::jsonb)
+                  from public.worksheets w, jsonb_array_elements(w.pages) with ordinality as e(p, i)
+                  where w.lesson_code = b.lesson_code and jsonb_array_length(coalesce(e.p -> 'fields', '[]'::jsonb)) > 0),
+    'opened',    (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id),
+    'waiting',   (select count(*)::int from public.ws_firsts f where f.board_id = b.id and f.status = 'wait')
   );
 end;
 $$;

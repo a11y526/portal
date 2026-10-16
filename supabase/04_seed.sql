@@ -130,6 +130,11 @@ insert into public.settings (key, value) values
   ('rummikub', '{"xp": 5, "coins": 5, "daily": 5, "turn": 60}'::jsonb)
 on conflict (key) do nothing;
 
+-- 쪽별 첫 답: 교사가 [인정]하면 받는 XP·코인 (쪽마다 한 명)
+insert into public.settings (key, value) values
+  ('ws_first', '{"xp": 1, "coins": 1}'::jsonb)
+on conflict (key) do nothing;
+
 -- 선생님 체험 계정: 반마다 0번, 코드 823727 (사용자 결정 2026-10-15: 파일에 써도 됨).
 -- 다시 실행하면 코드가 이 값으로 돌아간다. 순위·명단·코드 발급 등에서는 빠진다(01_schema 0번 설명)
 insert into public.students (class_id, number, code_hash)

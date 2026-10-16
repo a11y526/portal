@@ -194,3 +194,20 @@ drop policy if exists rk_players_teacher_all on public.rk_players;
 create policy rk_players_teacher_all on public.rk_players
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 쪽별 첫 답 (2026-10-16): 학생은 submit_worksheet_page로만 들어간다
+alter table public.ws_firsts enable row level security;
+revoke all on public.ws_firsts from anon;
+
+drop policy if exists ws_firsts_teacher_all on public.ws_firsts;
+create policy ws_firsts_teacher_all on public.ws_firsts
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+alter table public.ws_page_open enable row level security;
+revoke all on public.ws_page_open from anon;
+
+drop policy if exists ws_page_open_teacher_all on public.ws_page_open;
+create policy ws_page_open_teacher_all on public.ws_page_open
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

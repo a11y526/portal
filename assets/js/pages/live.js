@@ -610,8 +610,8 @@ $('ws-band').addEventListener('click', (e) => {
 
 /* =========================================================
    쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로(쪽마다 5명까지) 한 명씩 띄운다.
-   [제출한 것 보기](V)를 눌러야 뜬다. [인정] 1 XP·1코인(쪽마다 한 명) · [넘기기] 다음 사람.
-   지급한 쪽은 [다음]만. 다 보면 창이 닫힌다(Esc로 닫으면 남은 것은 다음에 다시 보기).
+   [제출한 것 보기](V)를 눌러야 뜬다. [인정] 1 XP·1코인(쪽마다 한 명)하고 창을 닫는다 · [넘기기] 다음 사람.
+   지급한 쪽은 [다음]만. 다 보면 창이 닫힌다(인정·Esc로 닫으면 남은 것은 다음에 V로 다시 보기).
    덮개가 열려 있는 동안은 숨겨 두었다가 닫으면 다시 보인다
    ========================================================= */
 const wsFirst = {
@@ -698,12 +698,14 @@ const wsFirst = {
     if (!it || this.busy) return;
     this.busy = true;
     $('wsf-ok').disabled = $('wsf-skip').disabled = true;
+    let done = false; // 인정하면 창을 닫는다
     try {
       if (accept) {
         const r = await acceptWsFirst(it.id);
         if (r?.ok) {
           toast(`${it.number}번 +${r.xp} XP · +${r.coins}코인`, 'ok');
           sendClassRefresh(classId);
+          done = true;
         } else {
           toast(r?.error === 'TAKEN' ? '이 쪽은 이미 다른 학생에게 지급했어요' : '이미 넘긴 답이에요', 'error');
         }
@@ -718,7 +720,8 @@ const wsFirst = {
       this.busy = false;
       $('wsf-ok').disabled = $('wsf-skip').disabled = false;
     }
-    if (!this.item) this.refresh();
+    if (done) this.close();
+    else if (!this.item) this.refresh();
     sheetBand.refresh();
   },
 

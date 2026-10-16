@@ -1,0 +1,66 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>새 상점 부품</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/css/design.css">
+<link rel="stylesheet" href="../../assets/css/site.css">
+<style>
+  .s-wrap { max-width: 1120px; padding: 40px 24px 72px; gap: 28px; }
+  .s-wrap h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: -.02em; }
+  .s-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 18px; }
+  .s-card { border-radius: var(--r-lg); padding: 20px 16px 16px; display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .s-name { font-weight: 900; }
+  .s-meta { font-size: 13px; color: var(--ink-2); }
+  .s-sizes { display: flex; align-items: flex-end; gap: 12px; }
+</style>
+</head>
+<body>
+<main class="wrap s-wrap">
+  <h1>새 상점 부품</h1>
+  <section class="s-grid" id="grid"></section>
+</main>
+<script type="module">
+  import { initUI } from '../../assets/js/ui.js';
+  import { avatarSVG, bindReactions } from '../../assets/js/avatar.js';
+  import { PARTS, SLOT_NAMES } from '../../assets/js/avatar-parts.js';
+
+  initUI();
+  bindReactions();
+
+  const base = { face: 'face_round', hair: 'hair_short', eyes: 'eyes_round', mouth: 'mouth_smile', outfit: 'outfit_tee', acc: 'acc_none', bg: 'bg_circle' };
+  const items = [
+    ['eyes', 'eyes_dot', '일반 · 5'], ['mouth', 'mouth_o', '일반 · 5'], ['mouth', 'mouth_cat', '일반 · 5'],
+    ['acc', 'acc_bandaid', '일반 · 5'], ['bg', 'bg_dots', '일반 · 5'],
+    ['eyes', 'eyes_wink', '일반 · 10'], ['mouth', 'mouth_smirk', '일반 · 10'], ['hair', 'hair_buzz', '일반 · 10'],
+    ['acc', 'acc_pencil', '일반 · 10'], ['acc', 'acc_bow', '일반 · 10'], ['bg', 'bg_check', '일반 · 10'],
+    ['eyes', 'eyes_heart', '일반 · 15'], ['mouth', 'mouth_teeth', '일반 · 15'], ['hair', 'hair_side', '일반 · 15'],
+    ['outfit', 'outfit_stripe', '일반 · 15'],
+    ['hair', 'hair_bun', '일반 · 20'], ['outfit', 'outfit_jersey', '일반 · 20'], ['acc', 'acc_scarf', '일반 · 20'],
+    ['hair', 'hair_twin', '일반 · 25'], ['outfit', 'outfit_vest', '일반 · 25'], ['acc', 'acc_beaker', '일반 · 25'],
+    ['outfit', 'outfit_shirt', '일반 · 30'], ['acc', 'acc_cap', '일반 · 30'], ['acc', 'acc_magnifier', '일반 · 30'],
+    ['bg', 'bg_hex', '일반 · 30'],
+    ['acc', 'acc_hat_chick', '일반 · 35'], ['acc', 'acc_hat_frog', '일반 · 40'], ['acc', 'acc_hat_cat', '일반 · 40'],
+    ['acc', 'acc_hat_bear', '일반 · 40'], ['acc', 'acc_hat_rabbit', '일반 · 45'], ['acc', 'acc_hat_dino', '희귀 · 80'],
+    ['eyes', 'eyes_star', '희귀 · 60'], ['outfit', 'outfit_tux', '희귀 · 80'], ['acc', 'acc_flask', '희귀 · 80'],
+    ['bg', 'bg_planet', '희귀 · 80'], ['bg', 'bg_dna', '희귀 · 100'],
+    ['bg', 'bg_galaxy', '전설 · 200 · Lv.5'], ['acc', 'acc_halo', '전설 · 250 · Lv.8'],
+  ];
+
+  document.getElementById('grid').innerHTML = items.map(([slot, id, tier], i) => {
+    const a = { ...base, [slot]: id };
+    return `
+    <article class="s-card glass rise" style="--d:${i * 0.03}s">
+      ${avatarSVG(a, 200)}
+      <div class="s-name">${PARTS[slot][id].name}</div>
+      <div class="s-meta">${SLOT_NAMES[slot]} · ${tier}</div>
+      <div class="s-sizes">${avatarSVG(a, 96)}${avatarSVG(a, 48)}${avatarSVG(a, 40)}</div>
+    </article>`;
+  }).join('');
+</script>
+</body>
+</html>

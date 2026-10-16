@@ -2,7 +2,7 @@
 // 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(패들렛)만 볼 수도 있다.
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
-import { studentLogin, studentLogout, getMyPage, getOmok } from '../db.js';
+import { studentLogin, studentLogout, getMyPage, getOmok, rkState } from '../db.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
 import { mountAvatar, react, bindReactions } from '../avatar.js';
 
@@ -121,6 +121,12 @@ async function showHome(login) {
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
     getOmok(login.token).then((o) => {
       if (o?.ok) $('go-omok-sub').textContent = o.open ? `오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판` : '지금은 닫혀 있어요';
+    }).catch(() => {});
+    rkState(login.token).then((r) => {
+      if (!r?.ok) return;
+      $('go-rk-sub').textContent = !r.open ? '지금은 닫혀 있어요'
+        : r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
+        : `오늘 ${Math.min(r.today, r.daily)} / ${r.daily}판`;
     }).catch(() => {});
     try {
       if (me.month_rank) sessionStorage.setItem('me-mark', JSON.stringify({ c: me.class_id, r: me.month_rank, xp: me.month_xp }));

@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getOmokRules, saveOmokRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getOmokRules, saveOmokRules, getRummikubRules, saveRummikubRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -23,6 +23,7 @@ const $ = (id) => document.getElementById(id);
 
 let classes = [];
 let omokRules = null;   // settings.omok
+let rkRules = null;     // settings.rummikub
 let boards = [];
 let students = [];
 let presets = [];
@@ -908,6 +909,7 @@ function eventKind(e) {
   if (e.worksheet_board_id || (e.reason || '').startsWith('학습지 ')) return '학습지';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   if (e.reason === '오목 승리') return '오목';
+  if (e.reason === '루미큐브 승리') return '루미큐브';
   return '직접 줌';
 }
 
@@ -1340,6 +1342,36 @@ async function refreshOmokRules() {
   updateHub();
 }
 
+// 루미큐브 하루 판 수: settings.rummikub.daily (xp·coins·turn은 그대로 둔다)
+const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, turn: 60 };
+async function refreshRkRules() {
+  rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
+  $('rk-daily').value = rkRules.daily;
+  $('rk-turn').textContent = rkRules.turn;
+  $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.coins}코인`;
+  updateHub();
+}
+
+$('rk-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const daily = Math.round(Number($('rk-daily').value));
+  if (!(daily >= 1 && daily <= 100)) {
+    toast('1~100판으로 정해 주세요', 'error');
+    return;
+  }
+  const btn = e.currentTarget.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    await saveRummikubRules({ ...RK_DEFAULT, ...rkRules, daily });
+    await refreshRkRules();
+    toast(`루미큐브 하루 ${daily}판으로 바꿨어요`, 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 $('omok-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const daily = Math.round(Number($('omok-daily').value));
@@ -1365,7 +1397,7 @@ function renderOmok() {
     <div class="lock-row${c.omok_open ? ' is-open' : ''}">
       <b>${c.id}반</b>
       <span class="tag ${c.omok_open ? 'tag-done' : 'tag-off'}">${c.omok_open ? '켜짐' : '꺼짐'}</span>
-      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${c.id}반 오목"><span></span></button>
+      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${c.id}반 오목·루미큐브"><span></span></button>
     </div>`).join('');
   updateHub();
 }
@@ -1386,7 +1418,7 @@ $('omok-list').addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     await setOmok([c], !c.omok_open);
-    toast(c.omok_open ? `${c.id}반 오목을 켰어요` : `${c.id}반 오목을 껐어요`, 'ok');
+    toast(c.omok_open ? `${c.id}반 오목·루미큐브를 켰어요` : `${c.id}반 오목·루미큐브를 껐어요`, 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
     btn.disabled = false;
@@ -1400,7 +1432,7 @@ $('omok-all').addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     await setOmok(classes.filter((c) => !!c.omok_open !== open), open);
-    toast(open ? '모든 반 오목을 켰어요' : '모든 반 오목을 껐어요', 'ok');
+    toast(open ? '모든 반 오목·루미큐브를 켰어요' : '모든 반 오목·루미큐브를 껐어요', 'ok');
   } catch (err) { toast(errMsg(err), 'error'); }
   btn.disabled = false;
 });
@@ -1420,7 +1452,7 @@ function updateHub() {
   const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
   const omok = classes.filter((c) => c.omok_open).map((c) => `${c.id}반`);
-  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 하루 ${omokRules.daily ?? 7}판` : ''));
+  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : ''));
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -1450,7 +1482,7 @@ function loadPanel(key) {
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
   if (key === 'points') refreshPoints().catch(() => {});
-  if (key === 'omok') refreshOmokRules().catch(() => {});
+  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshRkRules().catch(() => {}); }
   if (key === 'data') refreshArchive().catch(() => {});
 }
 addEventListener('hashchange', route);
@@ -1470,6 +1502,6 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules(), refreshRkRules()]).catch((err) => toast(errMsg(err), 'error'));
   loadPanel(location.hash.slice(1));
 });

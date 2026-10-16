@@ -107,6 +107,61 @@ export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
 }
 
+// 루미큐브 (3명 온라인). 결과: { ok: true, open, today, daily, xp, coins, turn(초), avatar,
+//   game: null | { id, status(waiting|playing|done), version, me(내 자리), turn, left_ms, pool(남은 장 수), board, rack(내 손패),
+//                  melded, left, last, winner, end_reason(out|pool|left), reward, players: [{ seat, me, class_id, nickname, avatar, count, melded, left, points }] } }
+// 판 번호를 주면 그 판(끝난 판 포함), 안 주면 지금 하는 판
+export async function rkState(token, gameId = null) {
+  return unwrap(await need().rpc('rk_state', { p_token: token, p_game_id: gameId }));
+}
+
+// 판 찾기: rkState와 같은 결과 또는 error = 'CLOSED' | 'LIMIT'
+export async function rkJoin(token) {
+  return unwrap(await need().rpc('rk_join', { p_token: token }));
+}
+
+// 나가기(대기 중이면 취소, 하는 중이면 기권)
+export async function rkLeave(token, gameId) {
+  return unwrap(await need().rpc('rk_leave', { p_token: token, p_game_id: gameId }));
+}
+
+// 1장 가져오기 / 내기(바꾼 뒤 판 전체). 실패하면 { ok: false, error, bad?, meld?, state }
+export async function rkDraw(token, gameId, version) {
+  return unwrap(await need().rpc('rk_draw', { p_token: token, p_game_id: gameId, p_version: version }));
+}
+
+export async function rkPlay(token, gameId, version, board) {
+  return unwrap(await need().rpc('rk_play', { p_token: token, p_game_id: gameId, p_version: version, p_board: board }));
+}
+
+/* ---------- 실시간: 루미큐브 판 채널 "새로고침" 신호 (rk-<판>) ---------- */
+let gameChannel = null;
+let gameChannelId = null;
+
+// 판이 바뀌면 이전 채널은 닫는다. fn = null이면 닫기만
+export function onGameRefresh(gameId, fn) {
+  if (!sb) return;
+  if (gameChannel) {
+    sb.removeChannel(gameChannel);
+    gameChannel = null;
+    gameChannelId = null;
+  }
+  if (!gameId || !fn) return;
+  gameChannel = sb.channel('rk-' + gameId);
+  gameChannelId = gameId;
+  gameChannel.on('broadcast', { event: 'refresh' }, () => fn());
+  gameChannel.subscribe();
+}
+
+// 듣고 있는 판이 아니면(방금 나간 판 등) 잠깐 채널을 만들어 보낸다(연결 전이면 supabase-js가 HTTP로 보냄)
+export function sendGameRefresh(gameId) {
+  if (!sb || !gameId) return Promise.resolve();
+  const live = gameChannelId === gameId;
+  const ch = live ? gameChannel : sb.channel('rk-' + gameId);
+  return ch.send({ type: 'broadcast', event: 'refresh', payload: {} }).catch(() => {})
+    .finally(() => { if (!live) sb.removeChannel(ch); });
+}
+
 /* ---------- 실시간: 반 채널 "새로고침" 신호 ----------
    신호에는 데이터를 싣지 않는다. 받은 쪽은 RPC로 다시 읽는다. */
 
@@ -342,7 +397,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).not('reason', 'like', '아이템:%').neq('reason', '오목 승리')
+    .is('board_id', null).is('worksheet_board_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -516,6 +571,16 @@ export async function getOmokRules() {
 
 export async function saveOmokRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'omok', value }, { onConflict: 'key' }));
+}
+
+// 루미큐브 { xp, coins, daily(하루 판 수), turn(한 턴 초) }
+export async function getRummikubRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'rummikub'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveRummikubRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'rummikub', value }, { onConflict: 'key' }));
 }
 
 /* ---------- 패들렛 주소 ---------- */

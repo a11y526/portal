@@ -287,6 +287,62 @@ alter table public.worksheet_answers add column if not exists passed jsonb not n
 -- ---------------------------------------------------------
 -- 오목 (AI 대전, 보통 난이도)
 -- 교사가 켠 반만 할 수 있다(기본 꺼짐). 수업 모드를 열면 그 반은 자동으로 꺼진다.
--- 이기면 point_events에 사유 '오목 승리'로 지급(하루 횟수 제한은 settings.omok). 따로 표는 없다
+-- 이기면 point_events에 사유 '오목 승리'로 지급
 -- ---------------------------------------------------------
 alter table public.classes add column if not exists omok_open boolean not null default false;
+
+-- 오목 판 (사용자 결정 2026-10-15: 하루 '시도' 횟수 제한, settings.omok.daily).
+-- 첫 돌을 놓을 때 한 줄 생긴다(그만두거나 새로고침해도 한 판으로 센다). 이긴 판은 won_at, 보상은 판마다 한 번
+create table if not exists public.omok_games (
+  id         uuid primary key default gen_random_uuid(),
+  student_id uuid not null references public.students(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  won_at     timestamptz null
+);
+create index if not exists omok_games_student_started on public.omok_games (student_id, started_at);
+-- 판마다 무작위 씨앗(2026-10-16 사용자 요청: AI가 늘 똑같이 두지 않게). AI는 비슷하게 좋은 수 중 씨앗으로 하나를 고른다
+alter table public.omok_games add column if not exists seed int not null default 0;
+
+-- 학습지 진도 (2026-10-15): 수업 모드가 지금까지 띄운 수업자료 쪽 중 가장 뒤 번호.
+-- 학생은 data-slide가 이 번호 이하인 학습지 쪽만 보고 낼 수 있다. null이면 전부 열림(수업 모드를 켜지 않은 보드)
+alter table public.boards add column if not exists ws_upto int null;
+
+-- ---------------------------------------------------------
+-- 루미큐브 (2026-10-16 사용자 요청): 3명 온라인 대전. 6개 반 전체에서 먼저 온 3명끼리.
+-- 오목 스위치(classes.omok_open)를 같이 쓴다. 1등만 XP·코인(settings.rummikub), 하루 판 수 제한.
+-- 타일 번호 0~105: 숫자 = t % 13 + 1, 색 = (t / 13) % 4 (검정·빨강·파랑·주황), 104·105는 조커.
+-- 더미 순서·손패는 서버만 안다(학생 쪽에는 자기 손패만).
+-- ---------------------------------------------------------
+create table if not exists public.rk_games (
+  id         uuid primary key default gen_random_uuid(),
+  status     text not null default 'waiting' check (status in ('waiting', 'playing', 'done')),
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null,
+  pool       int[] not null default '{}',     -- 남은 더미(앞에서부터 뽑음)
+  board      jsonb not null default '[]',      -- 판 위 세트 [[타일…], …]
+  turn       smallint not null default 0,      -- 지금 차례 자리(0~2)
+  turn_at    timestamptz null,                 -- 지금 차례가 시작된 시각(제한 시간 기준)
+  version    int not null default 0,           -- 바뀔 때마다 +1
+  passes     smallint not null default 0,      -- 더미가 빈 뒤 연속으로 넘긴 수
+  last       jsonb null,                       -- 마지막 행동 {seat, kind: play|draw|timeout|pass|leave, n, tiles}
+  winner     smallint null,
+  end_reason text null check (end_reason in ('out', 'pool', 'left')),
+  paid       boolean not null default false
+);
+create index if not exists rk_games_status_idx on public.rk_games (status, created_at);
+
+create table if not exists public.rk_players (
+  game_id    uuid not null references public.rk_games(id) on delete cascade,
+  seat       smallint not null check (seat between 0 and 2),
+  student_id uuid not null references public.students(id) on delete cascade,
+  rack       int[] not null default '{}',
+  melded     boolean not null default false,   -- 첫 등록(30점)을 했는지
+  timeouts   smallint not null default 0,      -- 연속으로 시간을 넘긴 수(3번이면 나간 것으로)
+  left_at    timestamptz null,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, seat),
+  unique (game_id, student_id)
+);
+create index if not exists rk_players_student_idx on public.rk_players (student_id, joined_at);

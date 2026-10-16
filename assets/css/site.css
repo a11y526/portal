@@ -1300,6 +1300,38 @@ dialog.ws-dlg { width: min(880px, calc(100vw - 32px)); }
 .rk-score.win { background: var(--passed-bg); color: var(--passed-fg); }
 .lite .rk-seat-empty.wait, .lite .rk-clock.warn { animation: none; }
 
+/* 규칙 창 */
+dialog.rk-help { width: min(680px, calc(100vw - 32px)); }
+.rk-help-card { border-radius: var(--r-lg); padding: 0; display: flex; flex-direction: column; overflow: hidden !important; font-size: 15px; line-height: 1.6; }
+.rk-help-top { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 18px 26px 12px;
+  border-bottom: 1px solid rgba(78,88,104,.12); flex: none; }
+.rk-help-top h2 { margin: 0; font-size: 22px; font-weight: 900; }
+.rk-help-body { overflow: auto; padding: 18px 26px 24px; display: flex; flex-direction: column; gap: 18px; min-height: 0; }
+.rk-help section { display: flex; flex-direction: column; gap: 8px; }
+.rk-help h3 { margin: 0; font-size: 17px; font-weight: 900; color: var(--accent); }
+.rk-help p, .rk-help ul { margin: 0; }
+.rk-help ul { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.rk-help .muted { font-size: 14px; }
+.rk-ex { display: flex; gap: 3px; padding: 5px; border-radius: 12px; width: fit-content; background: rgba(255,255,255,.6); box-shadow: inset 0 0 0 1px rgba(78,88,104,.12); }
+.rk-ex.bad { background: var(--returned-bg); box-shadow: inset 0 0 0 2px var(--returned-solid); }
+.rk-ex .rt { width: 36px; height: 50px; pointer-events: none; }
+.rk-ex .rt b { font-size: 19px; }
+.rk-help-two { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.rk-help-two > div { display: flex; flex-direction: column; gap: 6px; }
+.rk-help-no { font-weight: 900; color: var(--returned-fg); }
+.rk-help-legend { display: flex; flex-wrap: wrap; gap: 8px 18px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.rk-help-legend > span { display: inline-flex; align-items: center; gap: 8px; }
+.rk-mini { display: inline-block; width: 30px; height: 20px; padding: 0; }
+.rk-mini-t { width: 16px; height: 22px; border-radius: 4px; animation: none; }
+.rk-help-ok { align-self: center; min-width: 140px; }
+@media (max-width: 520px) {
+  .rk-help-top { padding: 14px 18px 10px; }
+  .rk-help-body { padding: 16px 18px 20px; }
+  .rk-help-two { grid-template-columns: 1fr; }
+  .rk-ex .rt { width: 30px; height: 42px; }
+  .rk-ex .rt b { font-size: 16px; }
+}
+
 @media (max-width: 720px) {
   .rk-opps { grid-template-columns: 1fr; gap: 10px; }
   .rk-opp { padding: 10px 12px; }

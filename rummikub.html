@@ -16,7 +16,10 @@
     <a href="index.html" class="icon-btn glass lift" aria-label="처음으로">
       <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
     </a>
-    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+    <div class="row-actions">
+      <button type="button" class="nav-link glass lift" data-help>규칙</button>
+      <a href="me.html" class="nav-link glass lift">마이페이지</a>
+    </div>
   </div>
 
   <!-- 로그인 필요 -->
@@ -77,6 +80,7 @@
         <span class="rk-clock num" id="clock" aria-live="off"></span>
         <span class="rk-last muted" id="last"></span>
         <span class="rk-pool num" id="pool" title="더미에 남은 타일"></span>
+        <button type="button" class="btn btn-line btn-small press" data-help>규칙</button>
       </div>
 
       <div class="glass-strong rk-board-box">
@@ -118,6 +122,107 @@
       </div>
     </section>
   </div>
+
+  <dialog class="sheet rk-help" id="help" aria-labelledby="help-h">
+    <div class="card glass-strong rk-help-card">
+      <div class="rk-help-top">
+        <h2 id="help-h">루미큐브 규칙</h2>
+        <button type="button" class="icon-btn glass" id="help-x" aria-label="닫기">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M6 6l12 12M18 6L6 18"/></svg>
+        </button>
+      </div>
+      <div class="rk-help-body">
+      <section>
+        <h3>목표</h3>
+        <p>손패를 먼저 <b>모두 내면 1등</b>이에요.</p>
+      </section>
+
+      <section>
+        <h3>타일</h3>
+        <p>숫자 1~13, 색 4가지가 2벌씩 있고 조커 2장, 모두 106장이에요. 처음에 14장씩 받아요.</p>
+        <div class="rk-ex" data-tiles="6,19,32,45,104"></div>
+        <p class="muted">색마다 모양이 있어요: ● 검정 · ▲ 빨강 · ■ 파랑 · ◆ 주황</p>
+      </section>
+
+      <section>
+        <h3>세트 만들기 (3장 이상)</h3>
+        <div class="rk-help-two">
+          <div>
+            <b>그룹</b>
+            <p>같은 숫자, 색은 모두 다르게 (3~4장)</p>
+            <div class="rk-ex" data-tiles="6,19,32"></div>
+          </div>
+          <div>
+            <b>줄</b>
+            <p>같은 색, 이어진 숫자</p>
+            <div class="rk-ex" data-tiles="29,30,31,32"></div>
+          </div>
+        </div>
+        <p class="rk-help-no">안 되는 세트</p>
+        <div class="rk-help-two">
+          <div><div class="rk-ex bad" data-tiles="6,58,19"></div><p class="muted">그룹에 같은 색이 두 장</p></div>
+          <div><div class="rk-ex bad" data-tiles="11,12,0"></div><p class="muted">13 다음은 1이 아니에요</p></div>
+        </div>
+      </section>
+
+      <section>
+        <h3>첫 등록</h3>
+        <p>처음 낼 때는 <b>내 타일만으로 세트 점수 합이 30점 이상</b>이어야 해요. 타일 숫자가 점수예요.</p>
+        <div class="rk-ex" data-tiles="8,9,10"></div>
+        <p class="muted">9 + 10 + 11 = 30점. 첫 등록 전에는 판에 있는 세트를 건드릴 수 없어요.</p>
+      </section>
+
+      <section>
+        <h3>내 차례</h3>
+        <ul>
+          <li>세트를 내거나 판을 고쳐서 <b>1장 이상</b> 내고 [내기]</li>
+          <li>낼 게 없으면 [1장 가져오기]</li>
+          <li>한 턴은 <b class="num" id="help-turn">60</b>초. 시간이 지나면 자동으로 1장을 가져가고, 3번 연속이면 나간 것으로 해요</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>판 고치기 (첫 등록 뒤)</h3>
+        <ul>
+          <li>판의 세트에 내 타일 붙이기</li>
+          <li>세트를 나누거나 타일을 다른 세트로 옮기기</li>
+          <li>[내기]를 누를 때 판의 세트가 모두 맞아야 해요</li>
+          <li>판에 있던 타일은 손패로 가져올 수 없어요</li>
+        </ul>
+        <div class="rk-ex" data-tiles="21,104,23"></div>
+        <p class="muted">조커는 어떤 타일이든 대신해요. 위 조커는 빨강 10이에요. 판의 조커도 빼서 다른 세트에 쓸 수 있어요.</p>
+      </section>
+
+      <section>
+        <h3>끝과 보상</h3>
+        <ul>
+          <li>손패를 다 내면 1등</li>
+          <li>더미가 다 떨어지고 모두 넘기면, 남은 타일 점수가 가장 작은 사람이 1등 (조커 30점)</li>
+          <li>1등은 <b class="num" id="help-reward">5 XP · 5코인</b>. 다른 사람이 모두 나가서 혼자 남은 판은 보상이 없어요</li>
+          <li>하루 <b class="num" id="help-daily">5</b>판까지 할 수 있어요. 시작된 판은 중간에 나가도 한 판으로 세요</li>
+        </ul>
+      </section>
+
+      <section>
+        <h3>조작</h3>
+        <ul>
+          <li>타일을 누르면 골라져요(여러 장 가능). 세트 옆 [+]를 누르면 그 세트에, [새 세트]를 누르면 새 세트로 옮겨요</li>
+          <li>마우스로 끌어다 놓아도 돼요</li>
+          <li>[손패로]: 이번 차례에 낸 타일을 다시 손패로</li>
+          <li>[되돌리기]: 이번 차례를 처음 상태로</li>
+          <li>[정렬 789]는 색별로, [정렬 777]은 숫자별로</li>
+        </ul>
+        <div class="rk-help-legend">
+          <span><span class="rk-set bad rk-mini"></span>맞지 않는 세트</span>
+          <span><span class="rt rk-mini-t fresh"></span>이번에 낸 타일</span>
+          <span><span class="rt rk-mini-t recent"></span>다른 사람이 방금 낸 타일</span>
+        </div>
+      </section>
+
+      <button type="button" class="btn btn-primary press rk-help-ok" id="help-ok">확인</button>
+      </div>
+    </div>
+  </dialog>
 
   <div class="lvup hidden" id="lvup" role="dialog" aria-modal="true" aria-labelledby="lvup-h">
     <div class="lvup-box">

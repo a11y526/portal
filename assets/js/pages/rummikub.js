@@ -265,6 +265,28 @@ $('lvup-ok').addEventListener('click', () => {
   $('lvup').classList.remove('lvup-plain');
 });
 
+/* ---------- 규칙 ---------- */
+function openHelp() {
+  document.querySelectorAll('#help .rk-ex').forEach((el) => {
+    const tiles = el.dataset.tiles.split(',').map(Number);
+    const r = readSet(tiles);
+    const reps = r ? [...r.reps] : [];
+    setHTML(el, (r ? r.order : tiles).map((t) => tileHTML(t, { rep: isJoker(t) && r ? reps.shift() : null })).join(''));
+  });
+  if (info) {
+    $('help-turn').textContent = info.turn;
+    $('help-reward').textContent = `${info.xp} XP · ${info.coins}코인`;
+    $('help-daily').textContent = info.daily;
+  }
+  $('help').showModal();
+  const body = $('help').querySelector('.rk-help-body');
+  body.scrollTop = 0;
+  requestAnimationFrame(() => { body.scrollTop = 0; });
+}
+document.querySelectorAll('[data-help]').forEach((b) => b.addEventListener('click', openHelp));
+for (const id of ['help-x', 'help-ok']) $(id).addEventListener('click', () => $('help').close());
+$('help').addEventListener('click', (e) => { if (e.target === $('help')) $('help').close(); });
+
 /* ---------- 서버 응답 반영 ---------- */
 function apply(res) {
   if (!res) return;
@@ -280,6 +302,10 @@ function apply(res) {
     avatarEl = mountAvatar($('av'), res.avatar, 120, { label: '내 캐릭터', live: true });
     $('me-av').innerHTML = avatarSVG(res.avatar, 36, { label: '내 캐릭터' });
     $('v-game').classList.remove('hidden');
+    if (!store.get('rk-help-seen')) {
+      store.set('rk-help-seen', '1');
+      openHelp();
+    }
   }
   const g = res.game;
   if (!g) {

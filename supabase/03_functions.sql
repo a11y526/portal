@@ -231,10 +231,86 @@ as $$
     and btrim(coalesce(p_answers ->> k, '')) <> '';
 $$;
 
+-- 점 찍기 칸 채점: p_spec = {points: [[x, y], …], tol: {x, y}}, p_v = 학생 답 "x,y|x,y"
+--   정답 점마다(순서대로) 오차 안에 있고 아직 짝이 없는 학생 점 중 가장 가까운 것 하나를 짝짓는다(1:1).
+--   짝이 없는 학생 점(읽을 수 없는 조각 포함)은 틀린 점. 정답 점이 모두 짝을 찾고 틀린 점이 없어야 맞음.
+--   정답 점이 비어 있으면 읽을 수 있는 점이 하나라도 있으면 맞음.
+--   결과 {ok, bad: [틀린 학생 점 순서(0부터)]}. 정답 점은 돌려주지 않는다
+create or replace function public._ws_plot(p_spec jsonb, p_v text)
+returns jsonb
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v_tx   numeric := greatest(coalesce((p_spec #>> '{tol,x}')::numeric, 0), 0);
+  v_ty   numeric := greatest(coalesce((p_spec #>> '{tol,y}')::numeric, 0), 0);
+  v_px   numeric[] := '{}';
+  v_py   numeric[] := '{}';
+  v_used boolean[] := '{}';
+  v_bad  jsonb := '[]'::jsonb;
+  v_miss int := 0;
+  v_n    int;
+  v_good int := 0;
+  s      text;
+  m      text[];
+  a      jsonb;
+  ax     numeric;
+  ay     numeric;
+  j      int;
+  best   int;
+  bd     numeric;
+  d      numeric;
+begin
+  if btrim(coalesce(p_v, '')) = '' then
+    return jsonb_build_object('ok', false, 'bad', '[]'::jsonb);
+  end if;
+  foreach s in array string_to_array(p_v, '|') loop
+    m := regexp_match(btrim(s), '^(-?[0-9]+(?:\.[0-9]+)?)\s*,\s*(-?[0-9]+(?:\.[0-9]+)?)$');
+    v_px := v_px || (m[1])::numeric;
+    v_py := v_py || (m[2])::numeric;
+    v_used := v_used || false;
+  end loop;
+  v_n := coalesce(array_length(v_px, 1), 0);
+
+  for a in select value from jsonb_array_elements(case when jsonb_typeof(p_spec -> 'points') = 'array' then p_spec -> 'points' else '[]'::jsonb end) loop
+    ax := (a ->> 0)::numeric;
+    ay := (a ->> 1)::numeric;
+    best := null;
+    bd := null;
+    for j in 1 .. v_n loop
+      if not v_used[j] and v_px[j] is not null and abs(v_px[j] - ax) <= v_tx and abs(v_py[j] - ay) <= v_ty then
+        d := abs(v_px[j] - ax) / greatest(v_tx, 0.000001) + abs(v_py[j] - ay) / greatest(v_ty, 0.000001);
+        if bd is null or d < bd then
+          bd := d;
+          best := j;
+        end if;
+      end if;
+    end loop;
+    if best is null then
+      v_miss := v_miss + 1;
+    else
+      v_used[best] := true;
+    end if;
+  end loop;
+
+  for j in 1 .. v_n loop
+    if v_px[j] is not null then v_good := v_good + 1; end if;
+    if jsonb_array_length(coalesce(p_spec -> 'points', '[]'::jsonb)) = 0 then
+      if v_px[j] is null then v_bad := v_bad || to_jsonb(j - 1); end if;
+    elsif not v_used[j] then
+      v_bad := v_bad || to_jsonb(j - 1);
+    end if;
+  end loop;
+  return jsonb_build_object('ok', v_miss = 0 and jsonb_array_length(v_bad) = 0 and v_good > 0, 'bad', v_bad);
+end;
+$$;
+
 -- 채점: {empty: [빈 칸], wrong: [틀린 칸]} (칸 이름만. 정답은 돌려주지 않는다)
 --   blank  정답·허용 답 중 하나와 같으면 (띄어쓰기·영문 대소문자 무시). 정답이 비어 있으면 채우기만 하면 됨
 --   choice 정답(ok)을 골라야. 정답이 없는 고르기(예측)는 보기 중 하나를 고르면 됨
 --   sym    맞는 부등호. text(서술)는 채우기만 하면 됨
+--   plot   _ws_plot (정답 점을 모두, 틀린 점 없이)
 create or replace function public._ws_check(p_key jsonb, p_answers jsonb)
 returns jsonb
 language sql
@@ -249,6 +325,7 @@ as $$
     select y.k, y.o, y.v,
            case
              when y.t = 'text' then true
+             when y.t = 'plot' then coalesce((public._ws_plot(y.spec, y.v) ->> 'ok')::boolean, false)
              when y.t in ('choice', 'sym') and jsonb_array_length(y.ans) = 0 then
                exists (select 1 from jsonb_array_elements_text(y.opts) as z(t) where z.t = y.v)
              when y.t in ('choice', 'sym') then
@@ -260,6 +337,7 @@ as $$
       select e.key as k,
              coalesce(nullif(regexp_replace(e.key, '\D', '', 'g'), ''), '0')::int as o,
              e.value ->> 'type' as t,
+             e.value as spec,
              coalesce(e.value -> 'answers', '[]'::jsonb) as ans,
              coalesce(e.value -> 'options', '[]'::jsonb) as opts,
              btrim(coalesce(case when jsonb_typeof(p_answers) = 'object' then p_answers ->> e.key end, '')) as v
@@ -283,6 +361,24 @@ revoke all on function public._ws_merge(jsonb, jsonb, jsonb) from public, anon, 
 revoke all on function public._ws_norm(text) from public, anon, authenticated;
 revoke all on function public._ws_clean(jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public._ws_check(jsonb, jsonb) from public, anon, authenticated;
+revoke all on function public._ws_plot(jsonb, text) from public, anon, authenticated;
+
+-- 학생에게 보낼 쪽 목록: 진도(p_upto)보다 뒤 쪽은 본문·칸을 빼고 {slide, locked, has_fields}만. p_upto가 null이면 그대로
+create or replace function public._ws_view(p_pages jsonb, p_upto int)
+returns jsonb
+language sql
+immutable
+set search_path = public
+as $$
+  select case when p_upto is null then p_pages else coalesce((
+    select jsonb_agg(case when coalesce((pg ->> 'slide')::int, 0) > p_upto
+      then jsonb_build_object('slide', pg -> 'slide', 'locked', true,
+                              'has_fields', jsonb_array_length(coalesce(pg -> 'fields', '[]'::jsonb)) > 0, 'fields', '[]'::jsonb)
+      else pg end order by n)
+    from jsonb_array_elements(coalesce(p_pages, '[]'::jsonb)) with ordinality as e(pg, n)
+  ), '[]'::jsonb) end;
+$$;
+revoke all on function public._ws_view(jsonb, int) from public, anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 반 페이지 (누구나)
@@ -292,7 +388,7 @@ revoke all on function public._ws_check(jsonb, jsonb) from public, anon, authent
 -- my_members(그날 우리 모둠원의 승인된 닉네임·캐릭터, 번호는 주지 않음)도 준다. 다른 반 출입증은 'none'.
 -- 보드가 발표됐으면 모둠 순위(rank)도 준다.
 -- 발표 전에는 내 모둠이 아닌 모둠(출입증이 없으면 모든 모둠)의 'passed'를 'pending'으로 내보낸다.
--- worksheet: 오늘 보드의 차시에 학습지가 있으면 {lesson_code, title, version, pages(쪽 수), done(내가 완료했는지)}.
+-- worksheet: 오늘 보드의 차시에 학습지가 있으면 {lesson_code, title, version, pages(쪽 수), done(내가 완료했는지), upto(진도, null이면 전부 열림)}.
 --   학습지 본문은 무거워서 여기 싣지 않고 get_worksheet로 따로 받는다(version이 바뀔 때만)
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
@@ -391,7 +487,8 @@ begin
       'title',       w.title,
       'version',     w.updated_at,
       'pages',       w.page_count,
-      'done',        v_done is not null
+      'done',        v_done is not null,
+      'upto',        b.ws_upto
     );
   end if;
 
@@ -1534,7 +1631,8 @@ grant execute on function public.grant_points(uuid[], int, int, text) to authent
 -- =========================================================
 
 -- 학습지 본문 (누구나. 출입증을 주면 내 답도)
--- 결과: {ok: true, board_id, lesson_code, title, version, pages, session, mine: {answers, passed, done_at, xp, coins} | null}
+-- 결과: {ok: true, board_id, lesson_code, title, version, upto, pages, session, mine: {answers, passed, done_at, xp, coins} | null}
+--   upto: 수업 진도(boards.ws_upto). 그보다 뒤 쪽은 _ws_view가 본문을 빼고 보낸다
 --   또는 {ok: false, error: 'NO_SHEET'} (오늘 보드가 없거나 그 차시에 학습지가 없음)
 create or replace function public.get_worksheet(p_class_id int, p_token text default null)
 returns jsonb
@@ -1579,7 +1677,8 @@ begin
     'lesson_code', w.lesson_code,
     'title',       w.title,
     'version',     w.updated_at,
-    'pages',       w.pages,
+    'upto',        b.ws_upto,
+    'pages',       public._ws_view(w.pages, b.ws_upto),
     'session',     case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'mine',        case when a.board_id is null then null else jsonb_build_object(
                      'answers', a.answers,
@@ -1594,7 +1693,7 @@ $$;
 revoke all on function public.get_worksheet(int, text) from public;
 grant execute on function public.get_worksheet(int, text) to anon, authenticated;
 
--- 출입증 + 보드 확인 (내부용). 결과: {error} 또는 {sid, board_id, lesson_code, key}
+-- 출입증 + 보드 확인 (내부용). 결과: {error} 또는 {sid, board_id, lesson_code, key, upto}
 create or replace function public._ws_target(p_token text, p_board_id uuid)
 returns jsonb
 language plpgsql
@@ -1623,7 +1722,7 @@ begin
   if w.lesson_code is null then
     return jsonb_build_object('error', 'NO_SHEET');
   end if;
-  return jsonb_build_object('sid', v_sid, 'board_id', b.id, 'lesson_code', b.lesson_code, 'key', w.key);
+  return jsonb_build_object('sid', v_sid, 'board_id', b.id, 'lesson_code', b.lesson_code, 'key', w.key, 'upto', b.ws_upto);
 end;
 $$;
 revoke all on function public._ws_target(text, uuid) from public, anon, authenticated;
@@ -1667,7 +1766,7 @@ grant execute on function public.save_worksheet_answers(text, uuid, jsonb) to an
 -- 업로드 순서 때문에 남겨 둠(SQL을 먼저 실행해도 예전 화면이 동작하게)
 -- 결과: {ok: true, done: true, already, xp, coins, level_before, level_after, total_xp}
 --   또는 {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸]} (고쳐서 다시 제출)
---   또는 {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET'}
+--   또는 {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'LOCKED'(아직 수업에서 안 나간 쪽이 있음)}
 create or replace function public.submit_worksheet(p_token text, p_board_id uuid, p_answers jsonb)
 returns jsonb
 language plpgsql
@@ -1691,6 +1790,12 @@ begin
     return jsonb_build_object('ok', false, 'error', t ->> 'error');
   end if;
   v_sid := (t ->> 'sid')::uuid;
+  if t ->> 'upto' is not null and exists (
+    select 1 from public.worksheets w, jsonb_array_elements(w.pages) as pg
+    where w.lesson_code = t ->> 'lesson_code' and coalesce((pg ->> 'slide')::int, 0) > (t ->> 'upto')::int
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
+  end if;
 
   -- 저장하면서 이 학생 줄을 잠근다 (두 번 눌러도 한 번만)
   insert into public.worksheet_answers as x (board_id, student_id, answers)
@@ -1748,8 +1853,8 @@ grant execute on function public.submit_worksheet(text, uuid, jsonb) to anon, au
 -- 학습지의 모든 칸이 passed에 들면 완료(done_at) + settings.worksheet XP·코인 한 번.
 -- 결과: {ok: true, done: false, passed, left(아직 제출 안 한 칸 수)}
 --   · {ok: true, done: true, already, passed, xp, coins, level_before, level_after, total_xp}
---   · {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸]} (그 쪽 칸만. 정답은 주지 않는다)
---   · {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'NO_PAGE'}
+--   · {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸], points: {점 찍기 칸: [틀린 점 순서]}} (그 쪽 칸만. 정답은 주지 않는다)
+--   · {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'NO_PAGE' | 'LOCKED'(아직 수업에서 안 나간 쪽)}
 create or replace function public.submit_worksheet_page(p_token text, p_board_id uuid, p_page int, p_answers jsonb)
 returns jsonb
 language plpgsql
@@ -1766,6 +1871,7 @@ declare
   a        public.worksheet_answers;
   v_chk    jsonb;
   v_passed jsonb;
+  v_pts    jsonb;
   v_left   int;
   v_set    jsonb;
   v_xp     int;
@@ -1782,6 +1888,9 @@ begin
   select pages into v_pages from public.worksheets where lesson_code = t ->> 'lesson_code';
   if p_page is null or p_page < 0 or p_page >= coalesce(jsonb_array_length(v_pages), 0) then
     return jsonb_build_object('ok', false, 'error', 'NO_PAGE');
+  end if;
+  if t ->> 'upto' is not null and coalesce((v_pages -> p_page ->> 'slide')::int, 0) > (t ->> 'upto')::int then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
   end if;
   select coalesce(array_agg(f ->> 'key'), '{}') into v_keys
   from jsonb_array_elements(coalesce(v_pages -> p_page -> 'fields', '[]'::jsonb)) as f
@@ -1812,7 +1921,10 @@ begin
 
   v_chk := public._ws_check(v_pkey, a.answers);
   if jsonb_array_length(v_chk -> 'empty') > 0 or jsonb_array_length(v_chk -> 'wrong') > 0 then
-    return jsonb_build_object('ok', false, 'error', 'NOT_YET', 'empty', v_chk -> 'empty', 'wrong', v_chk -> 'wrong');
+    select coalesce(jsonb_object_agg(e.key, public._ws_plot(e.value, a.answers ->> e.key) -> 'bad'), '{}'::jsonb) into v_pts
+    from jsonb_each(v_pkey) as e
+    where e.value ->> 'type' = 'plot' and (v_chk -> 'wrong') ? e.key;
+    return jsonb_build_object('ok', false, 'error', 'NOT_YET', 'empty', v_chk -> 'empty', 'wrong', v_chk -> 'wrong', 'points', v_pts);
   end if;
 
   -- 이 쪽 칸을 passed에 넣는다 (학습지에 지금 있는 칸만, 문서 순서대로)
@@ -1857,6 +1969,65 @@ end;
 $$;
 revoke all on function public.submit_worksheet_page(text, uuid, int, jsonb) from public;
 grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) to anon, authenticated;
+
+-- 학습지 진도 올리기 (교사, 수업 모드). 지금까지 간 쪽 중 가장 뒤 번호만 남긴다(앞 쪽으로 돌아가도 닫히지 않음).
+-- 전부 열기는 큰 수(9999)를 넘긴다. 결과: 저장된 진도
+create or replace function public.set_worksheet_upto(p_board_id uuid, p_slide int)
+returns int
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_upto int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  if p_slide is null or p_slide < 1 then
+    raise exception 'BAD_SLIDE';
+  end if;
+  update public.boards set ws_upto = greatest(coalesce(ws_upto, 0), p_slide)
+  where id = p_board_id
+  returning ws_upto into v_upto;
+  if v_upto is null then
+    raise exception 'NOT_FOUND';
+  end if;
+  return v_upto;
+end;
+$$;
+revoke all on function public.set_worksheet_upto(uuid, int) from public, anon;
+grant execute on function public.set_worksheet_upto(uuid, int) to authenticated;
+
+-- 학습지 진도 되돌리기 (교사, 수업 모드 Shift+W): 진도를 p_slide로 바로 맞춘다(뒤 쪽은 다시 잠김). 학생이 낸 답은 그대로
+create or replace function public.reset_worksheet_upto(p_board_id uuid, p_slide int)
+returns int
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_upto int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  if p_slide is null or p_slide < 1 then
+    raise exception 'BAD_SLIDE';
+  end if;
+  update public.boards set ws_upto = p_slide
+  where id = p_board_id
+  returning ws_upto into v_upto;
+  if v_upto is null then
+    raise exception 'NOT_FOUND';
+  end if;
+  return v_upto;
+end;
+$$;
+revoke all on function public.reset_worksheet_upto(uuid, int) from public, anon;
+grant execute on function public.reset_worksheet_upto(uuid, int) to authenticated;
 
 -- 완료 현황 (교사, 수업 모드 띠). 학생 답·이름은 주지 않는다
 -- total: 그날 모둠 편성 인원(편성이 없으면 명단 인원)
@@ -1981,20 +2152,34 @@ end;
 $$;
 revoke all on function public._omok_pattern(int[], int, int, int) from public, anon, authenticated;
 
+-- 판마다 다른 무작위 수 (omok.js rand와 같음, 내부용): 씨앗과 백이 둔 수의 개수로 정해진다
+create or replace function public._omok_rand(p_seed int, p_ply int)
+returns bigint
+language sql
+immutable
+set search_path = public
+as $$
+  select ((((p_seed::bigint % 2147483647) + p_ply::bigint * 7919 + 1) % 2147483647 * 48271 % 2147483647) * 48271) % 2147483647;
+$$;
+revoke all on function public._omok_rand(int, int) from public, anon, authenticated;
+
 -- AI(백, 보통)의 다음 수: 칸 번호(1~225) 또는 null(둘 곳 없음) (omok.js aiMove와 같음, 내부용)
 -- 돌에서 두 칸 안의 빈 칸만, 위에서 아래·왼쪽에서 오른쪽 순서로 본다.
--- 바로 이기는 칸이 있으면 그 칸, 없으면 점수가 가장 높은 칸(같으면 먼저 본 칸)
-create or replace function public._omok_ai(b int[])
+-- 바로 이기는 칸이 있으면 그 칸. 없으면 가장 높은 점수의 90% 이상인 칸들 중 _omok_rand로 하나(본 순서대로 번호)
+drop function if exists public._omok_ai(int[]);
+create or replace function public._omok_ai(b int[], p_seed int, p_ply int)
 returns int
 language plpgsql
 immutable
 set search_path = public
 as $$
 declare
-  v_best  int := null;
   v_top   int := -1;
   v_score int;
   v_near  boolean;
+  v_idx   int[] := '{}';
+  v_sc    int[] := '{}';
+  v_pick  int[] := '{}';
   i       int;
 begin
   if not (1 = any(b) or 2 = any(b)) then
@@ -2021,27 +2206,36 @@ begin
       v_score := public._omok_pattern(b, r, c, 2)
                + (11 * public._omok_pattern(b, r, c, 1)) / 10
                + (14 - (abs(r - 7) + abs(c - 7)));
+      v_idx := v_idx || i;
+      v_sc  := v_sc || v_score;
       if v_score > v_top then
         v_top := v_score;
-        v_best := i;
       end if;
     end loop;
   end loop;
-  return v_best;
+  if coalesce(array_length(v_idx, 1), 0) = 0 then
+    return null;
+  end if;
+  for k in 1 .. array_length(v_idx, 1) loop
+    if v_sc[k]::bigint * 10 >= v_top::bigint * 9 then
+      v_pick := v_pick || v_idx[k];
+    end if;
+  end loop;
+  return v_pick[(public._omok_rand(p_seed, p_ply) % array_length(v_pick, 1))::int + 1];
 end;
 $$;
-revoke all on function public._omok_ai(int[]) from public, anon, authenticated;
+revoke all on function public._omok_ai(int[], int, int) from public, anon, authenticated;
 
--- 오늘(한국 시간) 오목으로 받은 횟수 (내부용)
+-- 오늘(한국 시간) 시작한 오목 판 수 (내부용). 하루 한도는 이 수로 센다(사용자 결정 2026-10-15)
 create or replace function public._omok_today(p_student_id uuid)
 returns int
 language sql
 stable
 set search_path = public
 as $$
-  select count(*)::int from public.point_events
-  where student_id = p_student_id and reason = '오목 승리' and board_id is null and worksheet_board_id is null
-    and created_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+  select count(*)::int from public.omok_games
+  where student_id = p_student_id
+    and started_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
 $$;
 revoke all on function public._omok_today(uuid) from public, anon, authenticated;
 
@@ -2069,7 +2263,7 @@ begin
     'ok',     true,
     'open',   (select omok_open from public.classes where id = s.class_id),
     'today',  public._omok_today(v_sid),
-    'daily',  coalesce((v_set ->> 'daily')::int, 3),
+    'daily',  coalesce((v_set ->> 'daily')::int, 7),
     'xp',     coalesce((v_set ->> 'xp')::int, 2),
     'coins',  coalesce((v_set ->> 'coins')::int, 2),
     'avatar', s.avatar
@@ -2079,11 +2273,56 @@ $$;
 revoke all on function public.get_omok(text) from public;
 grant execute on function public.get_omok(text) to anon, authenticated;
 
--- 이긴 대국 내기 (학생): 흑 수 목록 [[행, 열], …] (0~14, 무르기한 수는 빼고 마지막 판의 순서대로)
--- 서버가 처음부터 다시 두며 백은 AI가 둔다. 마지막 흑 수로 다섯 개 이상이 되어야 한다.
+
+-- 오목 한 판 시작 (학생): 첫 돌을 놓을 때 부른다. 오늘 시작한 판이 하루 한도(settings.omok.daily)보다 적어야 한다.
+-- 결과: {ok: true, game_id, seed(AI 무작위 씨앗), today, daily}
+--   또는 {ok: false, error: 'NO_SESSION' | 'CLOSED'(선생님이 끔) | 'LIMIT'(오늘 판을 다 씀), today, daily}
+create or replace function public.start_omok(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  s       public.students;
+  v_set   jsonb;
+  v_daily int;
+  v_today int;
+  v_id    uuid;
+  v_seed  int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  -- 학생 줄을 잠가 동시에 여러 번 눌러도 한도를 넘지 않게
+  select * into s from public.students where id = v_sid for update;
+  if not coalesce((select omok_open from public.classes where id = s.class_id), false) then
+    return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+  select value into v_set from public.settings where key = 'omok';
+  v_daily := coalesce((v_set ->> 'daily')::int, 7);
+  v_today := public._omok_today(v_sid);
+  if v_today >= v_daily then
+    return jsonb_build_object('ok', false, 'error', 'LIMIT', 'today', v_today, 'daily', v_daily);
+  end if;
+  insert into public.omok_games (student_id, seed)
+  values (v_sid, floor(random() * 2147483646)::int + 1)
+  returning id, seed into v_id, v_seed;
+  return jsonb_build_object('ok', true, 'game_id', v_id, 'seed', v_seed, 'today', v_today + 1, 'daily', v_daily);
+end;
+$$;
+revoke all on function public.start_omok(text) from public;
+grant execute on function public.start_omok(text) to anon, authenticated;
+
+-- 이긴 판 내기 (학생): start_omok으로 받은 판 번호 + 흑 수 목록 [[행, 열], …] (0~14, 둔 순서대로. 무르기 없음)
+-- 서버가 처음부터 다시 두며 백은 AI가 둔다. 마지막 흑 수로 다섯 개 이상이 되어야 한다. 판마다 보상 한 번.
 -- 결과: {ok: true, paid, xp, coins, today, daily, level_before, level_after, total_xp}
---   또는 {ok: false, error: 'NO_SESSION' | 'CLOSED'(선생님이 끔) | 'BAD_GAME'(기보가 맞지 않음)}
-create or replace function public.submit_omok(p_token text, p_moves jsonb)
+--   또는 {ok: false, error: 'NO_SESSION' | 'CLOSED'(선생님이 끔) | 'BAD_GAME'(판 번호나 기보가 맞지 않음)}
+drop function if exists public.submit_omok(text, jsonb);
+create or replace function public.submit_omok(p_token text, p_game_id uuid, p_moves jsonb)
 returns jsonb
 language plpgsql
 volatile
@@ -2093,6 +2332,7 @@ as $$
 declare
   v_sid    uuid;
   s        public.students;
+  gm       public.omok_games;
   v_set    jsonb;
   b        int[] := array_fill(0, array[225]);
   v_n      int;
@@ -2100,8 +2340,6 @@ declare
   c        int;
   w        int;
   v_won    boolean := false;
-  v_today  int;
-  v_daily  int;
   v_xp     int;
   v_co     int;
   v_before int;
@@ -2113,6 +2351,23 @@ begin
   select * into s from public.students where id = v_sid;
   if not coalesce((select omok_open from public.classes where id = s.class_id), false) then
     return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+
+  -- 내 판이어야 한다. 줄을 잠가 같은 판을 동시에 여러 번 내도 한 번만
+  select * into gm from public.omok_games where id = p_game_id and student_id = v_sid for update;
+  if gm.id is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_GAME');
+  end if;
+
+  select value into v_set from public.settings where key = 'omok';
+  select coalesce(sum(xp), 0)::int into v_before from public.point_events where student_id = v_sid;
+
+  if gm.won_at is not null then
+    return jsonb_build_object('ok', true, 'paid', false, 'xp', 0, 'coins', 0,
+      'today', public._omok_today(v_sid), 'daily', coalesce((v_set ->> 'daily')::int, 7),
+      'level_before', (public._level_info(v_before) ->> 'level')::int,
+      'level_after',  (public._level_info(v_before) ->> 'level')::int,
+      'total_xp',     v_before);
   end if;
 
   -- 기보 모양: 흑 5~113수, 칸마다 [0~14, 0~14]
@@ -2141,7 +2396,7 @@ begin
       exit;
     end if;
     exit when k = v_n - 1;
-    w := public._omok_ai(b);
+    w := public._omok_ai(b, gm.seed, k);
     exit when w is null;
     b[w] := 2;
     exit when public._omok_wins(b, (w - 1) / 15, (w - 1) % 15, 2);
@@ -2150,30 +2405,702 @@ begin
     return jsonb_build_object('ok', false, 'error', 'BAD_GAME');
   end if;
 
-  -- 학생 줄을 잠가 동시에 여러 번 내도 하루 횟수를 넘지 않게
-  perform 1 from public.students where id = v_sid for update;
-  select value into v_set from public.settings where key = 'omok';
-  v_daily := coalesce((v_set ->> 'daily')::int, 3);
-  v_xp    := coalesce((v_set ->> 'xp')::int, 2);
-  v_co    := coalesce((v_set ->> 'coins')::int, 2);
-  v_today := public._omok_today(v_sid);
-  select coalesce(sum(xp), 0)::int into v_before from public.point_events where student_id = v_sid;
-
-  if v_today >= v_daily or (v_xp = 0 and v_co = 0) then
-    return jsonb_build_object('ok', true, 'paid', false, 'xp', 0, 'coins', 0, 'today', v_today, 'daily', v_daily,
-      'level_before', (public._level_info(v_before) ->> 'level')::int,
-      'level_after',  (public._level_info(v_before) ->> 'level')::int,
-      'total_xp',     v_before);
+  update public.omok_games set won_at = now() where id = gm.id;
+  v_xp := coalesce((v_set ->> 'xp')::int, 2);
+  v_co := coalesce((v_set ->> 'coins')::int, 2);
+  if v_xp <> 0 or v_co <> 0 then
+    insert into public.point_events (student_id, xp, coins, reason)
+    values (v_sid, v_xp, v_co, '오목 승리');
   end if;
 
-  insert into public.point_events (student_id, xp, coins, reason)
-  values (v_sid, v_xp, v_co, '오목 승리');
-
-  return jsonb_build_object('ok', true, 'paid', true, 'xp', v_xp, 'coins', v_co, 'today', v_today + 1, 'daily', v_daily,
+  return jsonb_build_object('ok', true, 'paid', v_xp <> 0 or v_co <> 0, 'xp', v_xp, 'coins', v_co,
+    'today', public._omok_today(v_sid), 'daily', coalesce((v_set ->> 'daily')::int, 7),
     'level_before', (public._level_info(v_before) ->> 'level')::int,
     'level_after',  (public._level_info(v_before + v_xp) ->> 'level')::int,
     'total_xp',     v_before + v_xp);
 end;
 $$;
-revoke all on function public.submit_omok(text, jsonb) from public;
-grant execute on function public.submit_omok(text, jsonb) to anon, authenticated;
+revoke all on function public.submit_omok(text, uuid, jsonb) from public;
+grant execute on function public.submit_omok(text, uuid, jsonb) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 루미큐브 (2026-10-16): 3명 온라인 대전. 규칙은 assets/js/rummikub.js와 같아야 한다.
+-- 판 상태는 모두 서버에. 학생은 rk_join → rk_state(몇 초마다 + rk-<판> Broadcast 신호) → rk_play / rk_draw / rk_leave.
+-- 차례 제한 시간(settings.rummikub.turn초)이 지나면 누가 rk_*를 부르든 서버가 그 사람 몫으로 1장 뽑고 넘긴다(3번 연속이면 나간 것으로).
+-- ---------------------------------------------------------
+
+-- 세트 점수: 맞지 않으면 null.
+-- 그룹: 3~4장, 같은 숫자, 색이 모두 다름. 줄: 3~13장, 같은 색, 이어진 숫자(조커가 빈 곳을 채우고 남으면 위로, 13을 넘으면 아래로).
+-- 둘 다 되면 큰 점수.
+create or replace function public._rk_set_value(s int[])
+returns int
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  n    int := coalesce(array_length(s, 1), 0);
+  nj   int := 0;
+  t    int;
+  nums int[] := '{}';
+  cols int[] := '{}';
+  g    int;
+  r    int;
+  lo   int;
+  hi   int;
+begin
+  if n < 3 then
+    return null;
+  end if;
+  foreach t in array s loop
+    if t is null or t < 0 or t > 105 then
+      return null;
+    end if;
+    if t >= 104 then
+      nj := nj + 1;
+    else
+      nums := nums || (t % 13 + 1);
+      cols := cols || ((t / 13) % 4);
+    end if;
+  end loop;
+  if nj = n then
+    return null;
+  end if;
+  if n <= 4 and (select count(distinct x) from unnest(nums) x) = 1
+     and (select count(distinct x) from unnest(cols) x) = n - nj then
+    g := nums[1] * n;
+  end if;
+  if n <= 13 and (select count(distinct x) from unnest(cols) x) = 1
+     and (select count(distinct x) from unnest(nums) x) = n - nj then
+    select min(x), max(x) into lo, hi from unnest(nums) x;
+    if hi - lo + 1 <= n then
+      hi := lo + n - 1;
+      if hi > 13 then
+        hi := 13;
+        lo := 14 - n;
+      end if;
+      r := (lo + hi) * n / 2;
+    end if;
+  end if;
+  return greatest(g, r);
+end;
+$$;
+revoke all on function public._rk_set_value(int[]) from public, anon, authenticated;
+
+-- 손패 점수(끝날 때 비교). 조커 30
+create or replace function public._rk_rack_points(p_rack int[])
+returns int
+language sql
+immutable
+set search_path = public
+as $$
+  select coalesce(sum(case when t >= 104 then 30 else t % 13 + 1 end), 0)::int from unnest(p_rack) t;
+$$;
+revoke all on function public._rk_rack_points(int[]) from public, anon, authenticated;
+
+-- 오늘(KST) 시작된 판 중 내가 들어간 판 수
+create or replace function public._rk_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int
+  from public.rk_players p
+  join public.rk_games g on g.id = p.game_id
+  where p.student_id = p_student_id
+    and g.started_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._rk_today(uuid) from public, anon, authenticated;
+
+create or replace function public._rk_settings()
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'xp',    coalesce((v ->> 'xp')::int, 5),
+    'coins', coalesce((v ->> 'coins')::int, 5),
+    'daily', coalesce((v ->> 'daily')::int, 5),
+    'turn',  greatest(coalesce((v ->> 'turn')::int, 60), 15))
+  from (select (select value from public.settings where key = 'rummikub') as v) x;
+$$;
+revoke all on function public._rk_settings() from public, anon, authenticated;
+
+-- 판 끝내기. 손패를 다 냈거나(out) 더미가 비고 모두 넘겼으면(pool) 1등에게 보상(반이 켜져 있을 때, 판마다 한 번).
+-- 다른 사람이 모두 나가서 끝나면(left) 보상 없음
+create or replace function public._rk_end(p_game_id uuid, p_winner int, p_reason text)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_sid uuid;
+  v_set jsonb := public._rk_settings();
+  v_pay boolean := false;
+begin
+  select student_id into v_sid from public.rk_players where game_id = p_game_id and seat = p_winner;
+  if p_reason in ('out', 'pool') and v_sid is not null
+     and coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false)
+     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'coins')::int <> 0) then
+    insert into public.point_events (student_id, xp, coins, reason)
+    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'coins')::int, '루미큐브 승리');
+    v_pay := true;
+  end if;
+  update public.rk_games
+  set status = 'done', ended_at = now(), winner = p_winner, end_reason = p_reason, paid = v_pay, version = version + 1
+  where id = p_game_id;
+end;
+$$;
+revoke all on function public._rk_end(uuid, int, text) from public, anon, authenticated;
+
+-- 다음 차례로. 남은 사람이 1명이면 그 사람이 이긴 것으로(보상 없음). p_at: 새 차례가 시작된 시각
+create or replace function public._rk_next(p_game_id uuid, p_at timestamptz)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.rk_games;
+  v_left int;
+  v_seat int;
+begin
+  select * into g from public.rk_games where id = p_game_id;
+  select count(*) into v_left from public.rk_players where game_id = p_game_id and left_at is null;
+  if v_left <= 1 then
+    select seat into v_seat from public.rk_players where game_id = p_game_id and left_at is null;
+    perform public._rk_end(p_game_id, coalesce(v_seat, g.turn), 'left');
+    return;
+  end if;
+  select seat into v_seat from public.rk_players
+  where game_id = p_game_id and left_at is null
+  order by (seat - g.turn + 2) % 3
+  limit 1;
+  update public.rk_games set turn = v_seat, turn_at = p_at, version = version + 1 where id = p_game_id;
+end;
+$$;
+revoke all on function public._rk_next(uuid, timestamptz) from public, anon, authenticated;
+
+-- 지금 차례인 사람이 1장 뽑기(더미가 비었으면 넘김). 모두 연속으로 넘기면 손패 점수가 가장 낮은 사람이 1등.
+-- 끝나지 않았으면 다음 차례로 넘기지는 않는다(부르는 쪽이 _rk_next)
+-- 결과: 판이 끝났으면 true
+create or replace function public._rk_draw_one(p_game_id uuid, p_kind text)
+returns boolean
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.rk_games;
+  v_tile int;
+  v_left int;
+  v_win  int;
+begin
+  select * into g from public.rk_games where id = p_game_id;
+  if coalesce(array_length(g.pool, 1), 0) > 0 then
+    v_tile := g.pool[1];
+    update public.rk_players set rack = rack || v_tile where game_id = p_game_id and seat = g.turn;
+    update public.rk_games
+    set pool = pool[2:], passes = 0, last = jsonb_build_object('seat', g.turn, 'kind', p_kind, 'n', 1)
+    where id = p_game_id;
+    return false;
+  end if;
+  update public.rk_games
+  set passes = passes + 1, last = jsonb_build_object('seat', g.turn, 'kind', case when p_kind = 'timeout' then 'timeout' else 'pass' end, 'n', 0)
+  where id = p_game_id;
+  select count(*) into v_left from public.rk_players where game_id = p_game_id and left_at is null;
+  if g.passes + 1 >= v_left then
+    select seat into v_win from public.rk_players
+    where game_id = p_game_id and left_at is null
+    order by public._rk_rack_points(rack), coalesce(array_length(rack, 1), 0), (seat - g.turn + 3) % 3
+    limit 1;
+    perform public._rk_end(p_game_id, v_win, 'pool');
+    return true;
+  end if;
+  return false;
+end;
+$$;
+revoke all on function public._rk_draw_one(uuid, text) from public, anon, authenticated;
+
+-- 제한 시간이 지난 차례 처리(부르는 쪽이 판 줄을 잠근 뒤). 시간 넘긴 사람은 1장 뽑고 다음 사람,
+-- 3번 연속이면 나간 것으로. 아무도 안 부른 동안 밀린 차례도 한 번에(최대 30번)
+create or replace function public._rk_tick(p_game_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.rk_games;
+  v_turn interval := make_interval(secs => (public._rk_settings() ->> 'turn')::int);
+  v_to   int;
+  v_due  timestamptz;
+begin
+  for i in 1 .. 30 loop
+    select * into g from public.rk_games where id = p_game_id;
+    exit when g.status <> 'playing' or now() < g.turn_at + v_turn + interval '3 seconds';
+    v_due := g.turn_at + v_turn;
+    update public.rk_players set timeouts = timeouts + 1
+    where game_id = p_game_id and seat = g.turn
+    returning timeouts into v_to;
+    if v_to >= 3 then
+      update public.rk_players set left_at = now() where game_id = p_game_id and seat = g.turn;
+      update public.rk_games set last = jsonb_build_object('seat', g.turn, 'kind', 'leave', 'n', 0) where id = p_game_id;
+    elsif public._rk_draw_one(p_game_id, 'timeout') then
+      exit;
+    end if;
+    perform public._rk_next(p_game_id, v_due);
+  end loop;
+end;
+$$;
+revoke all on function public._rk_tick(uuid) from public, anon, authenticated;
+
+-- 학생에게 보낼 판(자기 손패만). 끝난 판이면 손패 점수와 보상도
+create or replace function public._rk_view(p_game_id uuid, p_sid uuid)
+returns jsonb
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  g      public.rk_games;
+  me     public.rk_players;
+  v_set  jsonb := public._rk_settings();
+  v_tot  int;
+  v_rw   jsonb;
+begin
+  select * into g from public.rk_games where id = p_game_id;
+  select * into me from public.rk_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null then
+    return null;
+  end if;
+  if g.status = 'done' and g.paid and g.winner = me.seat then
+    select coalesce(sum(xp), 0)::int into v_tot from public.point_events where student_id = p_sid;
+    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'coins', (v_set ->> 'coins')::int, 'total_xp', v_tot,
+      'level_before', (public._level_info(v_tot - (v_set ->> 'xp')::int) ->> 'level')::int,
+      'level_after',  (public._level_info(v_tot) ->> 'level')::int);
+  end if;
+  return jsonb_build_object(
+    'id',      g.id,
+    'status',  g.status,
+    'version', g.version,
+    'me',      me.seat,
+    'turn',    g.turn,
+    'turn_sec', (v_set ->> 'turn')::int,
+    'left_ms', case when g.status = 'playing'
+                 then greatest(0, floor(extract(epoch from (g.turn_at + make_interval(secs => (v_set ->> 'turn')::int) - now())) * 1000))::bigint
+               end,
+    'pool',    coalesce(array_length(g.pool, 1), 0),
+    'board',   g.board,
+    'rack',    to_jsonb(me.rack),
+    'melded',  me.melded,
+    'left',    me.left_at is not null,
+    'last',    g.last,
+    'winner',  g.winner,
+    'end_reason', g.end_reason,
+    'reward',  v_rw,
+    'players', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'seat',     p.seat,
+        'me',       p.student_id = p_sid,
+        'class_id', s.class_id,
+        'nickname', s.nickname,
+        'avatar',   s.avatar,
+        'count',    coalesce(array_length(p.rack, 1), 0),
+        'melded',   p.melded,
+        'left',     p.left_at is not null,
+        'points',   case when g.status = 'done' then public._rk_rack_points(p.rack) end
+      ) order by p.seat), '[]'::jsonb)
+      from public.rk_players p join public.students s on s.id = p.student_id
+      where p.game_id = g.id)
+  );
+end;
+$$;
+revoke all on function public._rk_view(uuid, uuid) from public, anon, authenticated;
+
+-- 판에서 나가기(내부). 대기 중이면 자리를 비우고, 하는 중이면 기권(남은 사람끼리 계속)
+create or replace function public._rk_leave(p_game_id uuid, p_sid uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g  public.rk_games;
+  me public.rk_players;
+begin
+  select * into g from public.rk_games where id = p_game_id for update;
+  select * into me from public.rk_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null or me.left_at is not null then
+    return;
+  end if;
+  if g.status = 'waiting' then
+    delete from public.rk_players where game_id = p_game_id and student_id = p_sid;
+    if not exists (select 1 from public.rk_players where game_id = p_game_id) then
+      delete from public.rk_games where id = p_game_id;
+    else
+      update public.rk_games set version = version + 1 where id = p_game_id;
+    end if;
+  elsif g.status = 'playing' then
+    update public.rk_players set left_at = now() where game_id = p_game_id and student_id = p_sid;
+    update public.rk_games set last = jsonb_build_object('seat', me.seat, 'kind', 'leave', 'n', 0), version = version + 1
+    where id = p_game_id;
+    if g.turn = me.seat or (select count(*) from public.rk_players where game_id = p_game_id and left_at is null) <= 1 then
+      perform public._rk_next(p_game_id, now());
+    end if;
+  end if;
+end;
+$$;
+revoke all on function public._rk_leave(uuid, uuid) from public, anon, authenticated;
+
+-- 루미큐브 화면 (학생). p_game_id를 주면 그 판(끝난 판 포함), 없으면 지금 하는 판(없으면 game: null).
+-- 부를 때마다 '아직 있음'을 기록하고 밀린 시간 초과를 처리한다. 반이 꺼져 있으면 하던 판에서 나간다.
+-- 결과: {ok: true, open, today, daily, xp, coins, turn, avatar, game} 또는 {ok: false, error: 'NO_SESSION'}
+create or replace function public.rk_state(p_token text, p_game_id uuid default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid;
+  s      public.students;
+  v_open boolean;
+  v_gid  uuid := p_game_id;
+  v_set  jsonb := public._rk_settings();
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid;
+  v_open := coalesce((select omok_open from public.classes where id = s.class_id), false);
+
+  if v_gid is null or not exists (select 1 from public.rk_players where game_id = v_gid and student_id = v_sid) then
+    select p.game_id into v_gid
+    from public.rk_players p join public.rk_games g on g.id = p.game_id
+    where p.student_id = v_sid and p.left_at is null and g.status in ('waiting', 'playing')
+    order by p.joined_at desc
+    limit 1;
+  end if;
+
+  if v_gid is not null then
+    if not v_open then
+      perform public._rk_leave(v_gid, v_sid);
+    else
+      perform 1 from public.rk_games where id = v_gid for update;
+      update public.rk_players set seen_at = now() where game_id = v_gid and student_id = v_sid;
+      perform public._rk_tick(v_gid);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'ok',     true,
+    'open',   v_open,
+    'today',  public._rk_today(v_sid),
+    'daily',  (v_set ->> 'daily')::int,
+    'xp',     (v_set ->> 'xp')::int,
+    'coins',  (v_set ->> 'coins')::int,
+    'turn',   (v_set ->> 'turn')::int,
+    'avatar', s.avatar,
+    'game',   case when v_gid is null then null else public._rk_view(v_gid, v_sid) end
+  );
+end;
+$$;
+revoke all on function public.rk_state(text, uuid) from public;
+grant execute on function public.rk_state(text, uuid) to anon, authenticated;
+
+-- 판 찾기 (학생): 6개 반 전체에서 먼저 온 3명끼리. 이미 하는 판이 있으면 그 판.
+-- 15초 넘게 소식이 없는 대기자는 빼고 채운다. 3명이 되면 섞어서 14장씩 나누고 시작(첫 차례는 무작위).
+-- 결과: rk_state와 같음 또는 {ok: false, error: 'NO_SESSION' | 'CLOSED' | 'LIMIT', today, daily}
+create or replace function public.rk_join(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  s       public.students;
+  v_set   jsonb := public._rk_settings();
+  v_today int;
+  v_gid   uuid;
+  v_seat  int;
+  v_n     int;
+  v_deck  int[];
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid;
+  if not coalesce((select omok_open from public.classes where id = s.class_id), false) then
+    return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+
+  -- 짝 맞추기는 한 번에 한 명씩
+  perform pg_advisory_xact_lock(hashtext('rk_match'));
+
+  if exists (select 1 from public.rk_players p join public.rk_games g on g.id = p.game_id
+             where p.student_id = v_sid and p.left_at is null and g.status in ('waiting', 'playing')) then
+    return public.rk_state(p_token, null);
+  end if;
+
+  v_today := public._rk_today(v_sid);
+  if v_today >= (v_set ->> 'daily')::int then
+    return jsonb_build_object('ok', false, 'error', 'LIMIT', 'today', v_today, 'daily', (v_set ->> 'daily')::int);
+  end if;
+
+  delete from public.rk_players p using public.rk_games g
+  where p.game_id = g.id and g.status = 'waiting' and p.seen_at < now() - interval '15 seconds';
+  delete from public.rk_games g
+  where g.status = 'waiting' and not exists (select 1 from public.rk_players p where p.game_id = g.id);
+
+  select g.id into v_gid from public.rk_games g
+  where g.status = 'waiting' and (select count(*) from public.rk_players p where p.game_id = g.id) < 3
+  order by g.created_at
+  limit 1
+  for update;
+  if v_gid is null then
+    insert into public.rk_games default values returning id into v_gid;
+  end if;
+
+  select min(x) into v_seat from generate_series(0, 2) x
+  where not exists (select 1 from public.rk_players p where p.game_id = v_gid and p.seat = x);
+  insert into public.rk_players (game_id, seat, student_id) values (v_gid, v_seat, v_sid);
+  update public.rk_games set version = version + 1 where id = v_gid;
+
+  select count(*) into v_n from public.rk_players where game_id = v_gid;
+  if v_n = 3 then
+    select array_agg(x order by random()) into v_deck from generate_series(0, 105) x;
+    update public.rk_players set rack = v_deck[seat * 14 + 1 : seat * 14 + 14], seen_at = now() where game_id = v_gid;
+    update public.rk_games
+    set status = 'playing', started_at = now(), pool = v_deck[43:106], board = '[]',
+        turn = floor(random() * 3)::int, turn_at = now() + interval '3 seconds', version = version + 1
+    where id = v_gid;
+  end if;
+
+  return public.rk_state(p_token, v_gid);
+end;
+$$;
+revoke all on function public.rk_join(text) from public;
+grant execute on function public.rk_join(text) to anon, authenticated;
+
+-- 나가기 (학생): 대기 중이면 취소, 하는 중이면 기권
+create or replace function public.rk_leave(p_token text, p_game_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid uuid;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  perform pg_advisory_xact_lock(hashtext('rk_match'));
+  perform public._rk_leave(p_game_id, v_sid);
+  return public.rk_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.rk_leave(text, uuid) from public;
+grant execute on function public.rk_leave(text, uuid) to anon, authenticated;
+
+-- 내 차례 확인(내부): 판 줄을 잠그고 시간 초과를 처리한 뒤 내 자리. 아니면 error
+create or replace function public._rk_my_turn(p_game_id uuid, p_sid uuid, p_version int)
+returns jsonb
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g  public.rk_games;
+  me public.rk_players;
+begin
+  select * into g from public.rk_games where id = p_game_id for update;
+  select * into me from public.rk_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null then
+    return jsonb_build_object('error', 'BAD_GAME');
+  end if;
+  update public.rk_players set seen_at = now() where game_id = p_game_id and student_id = p_sid;
+  perform public._rk_tick(p_game_id);
+  select * into g from public.rk_games where id = p_game_id;
+  select * into me from public.rk_players where game_id = p_game_id and student_id = p_sid;
+  if g.status <> 'playing' or me.left_at is not null then
+    return jsonb_build_object('error', 'OVER');
+  end if;
+  if g.turn <> me.seat then
+    return jsonb_build_object('error', 'NOT_TURN');
+  end if;
+  if g.version <> p_version then
+    return jsonb_build_object('error', 'STALE');
+  end if;
+  return jsonb_build_object('seat', me.seat);
+end;
+$$;
+revoke all on function public._rk_my_turn(uuid, uuid, int) from public, anon, authenticated;
+
+-- 1장 가져오기 (학생, 내 차례). 판을 바꾼 게 있으면 화면이 되돌린 뒤 부른다
+-- 결과: rk_state와 같음(ok: true) 또는 {ok: false, error: 'NO_SESSION' | 'BAD_GAME' | 'OVER' | 'NOT_TURN' | 'STALE', state}
+create or replace function public.rk_draw(p_token text, p_game_id uuid, p_version int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid uuid;
+  v_chk jsonb;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  v_chk := public._rk_my_turn(p_game_id, v_sid, p_version);
+  if v_chk ? 'error' then
+    return jsonb_build_object('ok', false, 'error', v_chk ->> 'error', 'state', public.rk_state(p_token, p_game_id));
+  end if;
+  update public.rk_players set timeouts = 0 where game_id = p_game_id and student_id = v_sid;
+  if not public._rk_draw_one(p_game_id, 'draw') then
+    perform public._rk_next(p_game_id, now());
+  end if;
+  return public.rk_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.rk_draw(text, uuid, int) from public;
+grant execute on function public.rk_draw(text, uuid, int) to anon, authenticated;
+
+-- 내기 (학생, 내 차례): 바꾼 뒤의 판 전체 [[타일…], …]를 보낸다. 서버가 확인하는 것:
+-- 판에 있던 타일이 모두 남아 있음(LOST), 새로 놓은 타일은 내 손패(NOT_MINE), 모든 세트가 맞음(BAD_SET, bad: 세트 순서),
+-- 한 장 이상 냄(NONE), 첫 등록 전이면 판의 세트는 그대로 두고 내 타일로만 30점 이상(FIRST_TOUCH · FIRST_30)
+-- 결과: rk_state와 같음(ok: true) 또는 {ok: false, error, bad?, meld?, state}
+create or replace function public.rk_play(p_token text, p_game_id uuid, p_version int, p_board jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid    uuid;
+  v_chk    jsonb;
+  g        public.rk_games;
+  me       public.rk_players;
+  v_new    int[] := '{}';
+  v_old    int[] := '{}';
+  v_set    int[];
+  v_keys   text[] := '{}';
+  v_bad    int[] := '{}';
+  v_played int[];
+  v_meld   int := 0;
+  v_k      text;
+  v_i      int;
+  v_found  boolean;
+  v_err    text;
+  v_n      int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  v_chk := public._rk_my_turn(p_game_id, v_sid, p_version);
+  if v_chk ? 'error' then
+    return jsonb_build_object('ok', false, 'error', v_chk ->> 'error', 'state', public.rk_state(p_token, p_game_id));
+  end if;
+  select * into g from public.rk_games where id = p_game_id;
+  select * into me from public.rk_players where game_id = p_game_id and student_id = v_sid;
+
+  -- 모양: 세트 60개까지, 세트마다 정수 타일 13장까지
+  if jsonb_typeof(p_board) <> 'array' or jsonb_array_length(p_board) > 60 then
+    return jsonb_build_object('ok', false, 'error', 'BAD_SET', 'bad', '[]'::jsonb, 'state', public.rk_state(p_token, p_game_id));
+  end if;
+  v_n := jsonb_array_length(p_board);
+  for i in 0 .. v_n - 1 loop
+    if jsonb_typeof(p_board -> i) <> 'array' or jsonb_array_length(p_board -> i) > 13
+       or exists (select 1 from jsonb_array_elements(p_board -> i) e
+                  where jsonb_typeof(e) <> 'number' or (e #>> '{}')::numeric <> floor((e #>> '{}')::numeric)
+                     or (e #>> '{}')::numeric not between 0 and 105) then
+      return jsonb_build_object('ok', false, 'error', 'BAD_SET', 'bad', jsonb_build_array(i), 'state', public.rk_state(p_token, p_game_id));
+    end if;
+    v_set := array(select (e #>> '{}')::int from jsonb_array_elements(p_board -> i) e);
+    v_new := v_new || v_set;
+    v_keys := v_keys || array_to_string(array(select x from unnest(v_set) x order by x), ',');
+    if public._rk_set_value(v_set) is null then
+      v_bad := v_bad || i;
+    end if;
+  end loop;
+  v_old := array(select (e #>> '{}')::int from jsonb_array_elements(g.board) s, jsonb_array_elements(s) e);
+
+  if (select count(*) from unnest(v_new)) <> (select count(distinct x) from unnest(v_new) x)
+     or exists (select unnest(v_old) except select unnest(v_new)) then
+    v_err := 'LOST';
+  else
+    v_played := array(select unnest(v_new) except select unnest(v_old));
+    if not v_played <@ me.rack then
+      v_err := 'NOT_MINE';
+    elsif cardinality(v_bad) > 0 then
+      v_err := 'BAD_SET';
+    elsif cardinality(v_played) = 0 then
+      v_err := 'NONE';
+    elsif not me.melded then
+      -- 턴 시작 때 세트가 모두 그대로 있어야 한다(같은 타일 묶음). 남은 새 세트 점수가 30 이상
+      for v_i in 0 .. jsonb_array_length(g.board) - 1 loop
+        v_k := array_to_string(array(select (e #>> '{}')::int as x from jsonb_array_elements(g.board -> v_i) e order by x), ',');
+        v_found := false;
+        for j in 1 .. coalesce(array_length(v_keys, 1), 0) loop
+          if v_keys[j] = v_k then
+            v_keys[j] := null;
+            v_found := true;
+            exit;
+          end if;
+        end loop;
+        if not v_found then
+          v_err := 'FIRST_TOUCH';
+          exit;
+        end if;
+      end loop;
+      if v_err is null then
+        for i in 0 .. v_n - 1 loop
+          if v_keys[i + 1] is not null then
+            v_meld := v_meld + public._rk_set_value(array(select (e #>> '{}')::int from jsonb_array_elements(p_board -> i) e));
+          end if;
+        end loop;
+        if v_meld < 30 then
+          v_err := 'FIRST_30';
+        end if;
+      end if;
+    end if;
+  end if;
+  if v_err is not null then
+    return jsonb_build_object('ok', false, 'error', v_err, 'bad', to_jsonb(v_bad), 'meld', v_meld,
+      'state', public.rk_state(p_token, p_game_id));
+  end if;
+
+  update public.rk_players
+  set rack = array(select t from unnest(rack) with ordinality u(t, o) where not t = any(v_played) order by o),
+      melded = true, timeouts = 0
+  where game_id = p_game_id and student_id = v_sid;
+  update public.rk_games
+  set board = p_board, passes = 0,
+      last = jsonb_build_object('seat', me.seat, 'kind', 'play', 'n', cardinality(v_played), 'tiles', to_jsonb(v_played))
+  where id = p_game_id;
+
+  if not exists (select 1 from public.rk_players where game_id = p_game_id and student_id = v_sid and cardinality(rack) > 0) then
+    perform public._rk_end(p_game_id, me.seat, 'out');
+  else
+    perform public._rk_next(p_game_id, now());
+  end if;
+  return public.rk_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.rk_play(text, uuid, int, jsonb) from public;
+grant execute on function public.rk_play(text, uuid, int, jsonb) to anon, authenticated;

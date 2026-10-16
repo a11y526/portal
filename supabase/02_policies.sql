@@ -169,3 +169,28 @@ drop policy if exists worksheet_answers_teacher_all on public.worksheet_answers;
 create policy worksheet_answers_teacher_all on public.worksheet_answers
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 오목 판 (2026-10-15): 학생은 start_omok·submit_omok로만
+alter table public.omok_games enable row level security;
+revoke all on public.omok_games from anon;
+
+drop policy if exists omok_games_teacher_all on public.omok_games;
+create policy omok_games_teacher_all on public.omok_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+-- 루미큐브 (2026-10-16): 학생은 rk_* 함수로만
+alter table public.rk_games enable row level security;
+alter table public.rk_players enable row level security;
+revoke all on public.rk_games from anon;
+revoke all on public.rk_players from anon;
+
+drop policy if exists rk_games_teacher_all on public.rk_games;
+create policy rk_games_teacher_all on public.rk_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists rk_players_teacher_all on public.rk_players;
+create policy rk_players_teacher_all on public.rk_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -67,6 +67,48 @@ insert into public.avatar_items (id, slot, name, price, rarity, min_level, sort)
   ('bg_elements',    'bg',     '원소 기호',     80, 'rare',   1,  12)
 on conflict (id) do nothing;
 
+-- 2026-10-16 꾸미기 아이템 추가 (5코인부터. 그림은 avatar-parts.js, 미리보기 docs/design/shop-parts-new.html)
+insert into public.avatar_items (id, slot, name, price, rarity, min_level, sort) values
+  ('hair_buzz',      'hair',   '까까머리',       10, 'common', 1, 21),
+  ('hair_side',      'hair',   '옆가르마',       15, 'common', 1, 22),
+  ('hair_bun',       'hair',   '똥머리',        20, 'common', 1, 23),
+  ('hair_twin',      'hair',   '양갈래',        25, 'common', 1, 24),
+  ('eyes_dot',       'eyes',   '점 눈',          5, 'common', 1, 21),
+  ('eyes_wink',      'eyes',   '윙크',          10, 'common', 1, 22),
+  ('eyes_heart',     'eyes',   '하트 눈',        15, 'common', 1, 23),
+  ('eyes_star',      'eyes',   '별 눈',          60, 'rare',   1, 24),
+  ('mouth_o',        'mouth',  '오',             5, 'common', 1, 21),
+  ('mouth_cat',      'mouth',  '고양이 입',       5, 'common', 1, 22),
+  ('mouth_smirk',    'mouth',  '씩 웃기',        10, 'common', 1, 23),
+  ('mouth_teeth',    'mouth',  '앞니',          15, 'common', 1, 24),
+  ('outfit_stripe',  'outfit', '줄무늬 티',      15, 'common', 1, 21),
+  ('outfit_jersey',  'outfit', '체육복',        20, 'common', 1, 22),
+  ('outfit_vest',    'outfit', '니트 조끼',      25, 'common', 1, 23),
+  ('outfit_shirt',   'outfit', '셔츠와 넥타이',   30, 'common', 1, 24),
+  ('outfit_tux',     'outfit', '턱시도',        80, 'rare',   1, 25),
+  ('acc_bandaid',    'acc',    '반창고',         5, 'common', 1, 21),
+  ('acc_pencil',     'acc',    '귀에 연필',      10, 'common', 1, 22),
+  ('acc_bow',        'acc',    '리본 핀',        10, 'common', 1, 23),
+  ('acc_scarf',      'acc',    '목도리',        20, 'common', 1, 24),
+  ('acc_beaker',     'acc',    '비커',          25, 'common', 1, 25),
+  ('acc_cap',        'acc',    '야구 모자',      30, 'common', 1, 26),
+  ('acc_magnifier',  'acc',    '돋보기',        30, 'common', 1, 27),
+  ('acc_hat_chick',  'acc',    '병아리 모자',    35, 'common', 1, 31),
+  ('acc_hat_frog',   'acc',    '개구리 모자',    40, 'common', 1, 32),
+  ('acc_hat_cat',    'acc',    '고양이 모자',    40, 'common', 1, 33),
+  ('acc_hat_bear',   'acc',    '곰 모자',       40, 'common', 1, 34),
+  ('acc_hat_rabbit', 'acc',    '토끼 모자',      45, 'common', 1, 35),
+  ('acc_hat_dino',   'acc',    '공룡 모자',      80, 'rare',   1, 36),
+  ('acc_flask',      'acc',    '빛나는 플라스크', 80, 'rare',   1, 41),
+  ('acc_halo',       'acc',    '전자 고리',     250, 'legend', 8, 42),
+  ('bg_dots',        'bg',     '물방울',         5, 'common', 1, 21),
+  ('bg_check',       'bg',     '체크',          10, 'common', 1, 22),
+  ('bg_hex',         'bg',     '분자 구조',      30, 'common', 1, 23),
+  ('bg_planet',      'bg',     '행성',          80, 'rare',   1, 24),
+  ('bg_dna',         'bg',     'DNA',          100, 'rare',   1, 25),
+  ('bg_galaxy',      'bg',     '은하',         200, 'legend', 5, 26)
+on conflict (id) do nothing;
+
 -- 4단계: 보상 (교사 승인 필요)
 insert into public.shop_items (id, name, cost, kind, sort) values
   ('pair_ticket', '모둠 선택권', 50,  'pair',  1),
@@ -80,7 +122,12 @@ on conflict (key) do nothing;
 
 -- 오목: AI에게 이기면 받는 XP·코인, 하루에 받을 수 있는 횟수(한국 시간 0시에 새로)
 insert into public.settings (key, value) values
-  ('omok', '{"xp": 2, "coins": 2, "daily": 3}'::jsonb)
+  ('omok', '{"xp": 2, "coins": 2, "daily": 7}'::jsonb)
+on conflict (key) do nothing;
+
+-- 루미큐브: 1등이 받는 XP·코인, 하루 판 수(시작된 판), 한 턴 제한 시간(초)
+insert into public.settings (key, value) values
+  ('rummikub', '{"xp": 5, "coins": 5, "daily": 5, "turn": 60}'::jsonb)
 on conflict (key) do nothing;
 
 -- 선생님 체험 계정: 반마다 0번, 코드 823727 (사용자 결정 2026-10-15: 파일에 써도 됨).

@@ -3582,7 +3582,7 @@ begin
 
   if g.status = 'playing' then
     v_item := g.items -> g.q;
-    select pg ->> 'html' into v_html
+    select regexp_replace(pg ->> 'html', '<img[^>]*>', '', 'gi') into v_html
     from public.boards b join public.worksheets w on w.lesson_code = b.lesson_code,
          lateral (select w.pages -> (v_item ->> 'page')::int as pg) x
     where b.id = g.board_id;
@@ -3684,7 +3684,8 @@ begin
     'board_id',    b.id,
     'lesson_code', b.lesson_code,
     'group_no',    v_my,
-    'count',       jsonb_array_length(public._qb_items(b.lesson_code)),
+    'count',       case when g.status in ('playing', 'done') then jsonb_array_length(g.items)
+                        else jsonb_array_length(public._qb_items(b.lesson_code)) end,
     'xp',          (v_set ->> 'xp')::int,
     'coins',       (v_set ->> 'coins')::int,
     'avatar',      s.avatar,

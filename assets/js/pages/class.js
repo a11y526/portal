@@ -815,6 +815,29 @@ function renderGroups(data) {
   groupStates = new Map(groups.map((g) => [g.no, g.state]));
 }
 
+// 퀴즈 배틀 카드: 선생님이 열었거나 우리 모둠 판이 있을 때. 로그인·그날 모둠이 있어야 들어감
+let quizKey;
+function renderQuiz(data) {
+  const q = data?.board ? data.quiz : null;
+  const show = !!q && (q.open || !!q.state);
+  const key = JSON.stringify([show, q?.open, q?.state, !!login, data?.my_group]);
+  if (key === quizKey) return;
+  quizKey = key;
+  $('quiz-card').classList.toggle('hidden', !show);
+  if (!show) return;
+  const go = $('quiz-go');
+  let sub;
+  if (!login) { sub = '로그인하면 할 수 있어요'; go.textContent = '로그인'; go.href = 'index.html'; }
+  else if (data.my_group == null) { sub = '오늘 모둠 명단에 없어요'; go.textContent = '들어가기'; go.href = 'quiz.html'; }
+  else {
+    sub = q.state === 'done' ? '우리 모둠 결과 보기' : q.state === 'playing' ? '우리 모둠이 푸는 중' : `${data.my_group}모둠끼리 오늘 학습지 문제`;
+    go.textContent = q.state === 'done' ? '결과 보기' : '들어가기';
+    go.href = 'quiz.html';
+  }
+  $('quiz-s').textContent = sub;
+  go.classList.toggle('hidden', !!login && data.my_group == null);
+}
+
 function renderLesson(board) {
   const text = board ? [board.lesson_code && `${board.lesson_code}차시`, board.title].filter(Boolean).join(' · ') : '';
   if (text === shown.lesson) return;
@@ -879,6 +902,7 @@ async function load() {
     renderSims(board?.sim_links);
     renderMine(data);
     renderGroups(data);
+    renderQuiz(data);
     syncSheet(data);
     updateSide();
     if (!board) showEmpty('오늘 수업이 아직 없어요');

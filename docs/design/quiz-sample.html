@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>퀴즈 배틀 디자인 시안</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../../assets/css/design.css">
+<link rel="stylesheet" href="../../assets/css/site.css">
+<style>
+  .qb-wrap { max-width: 960px; padding: 28px 20px 64px; gap: 18px; }
+  .qb-demo-bar {
+    display: flex; flex-wrap: wrap; align-items: center; gap: 8px; padding: 12px 16px;
+    border-radius: var(--r-md); border: 1.5px dashed rgba(36,87,230,.35); background: rgba(255,255,255,.75);
+  }
+  .qb-demo-bar > b { font-size: 14px; color: var(--accent); margin-right: 4px; }
+
+  /* 대기실: 모둠원 3~5명 유동 배치 */
+  .qb-lobby {
+    position: relative; overflow: hidden; border-radius: var(--r-lg); padding: 32px 24px;
+    display: flex; flex-direction: column; align-items: center; gap: 18px; text-align: center;
+  }
+  .qb-seats {
+    display: flex; flex-wrap: wrap; justify-content: center; gap: 16px; width: 100%;
+  }
+  .qb-seat {
+    width: 124px; padding: 16px 10px 14px; border-radius: 22px; background: rgba(255,255,255,.55);
+    border: 1.5px solid rgba(78,88,104,.16); display: flex; flex-direction: column; align-items: center; gap: 8px;
+    transition: transform .2s var(--ease), border-color .2s;
+  }
+  .qb-seat.is-in {
+    background: rgba(255,255,255,.9); border-color: rgba(36,87,230,.45);
+    box-shadow: 0 10px 24px rgba(36,87,230,.1);
+  }
+  .qb-seat.is-wait .qb-seat-av { opacity: .42; filter: grayscale(1); }
+  .qb-seat-name { font-size: 15px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 100%; }
+
+  /* 대국 상단: 모둠원(3~5명) 점수 및 제출 상태 */
+  .qb-players {
+    display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 10px;
+  }
+  .qb-p {
+    position: relative; display: flex; align-items: center; gap: 10px; padding: 10px 14px;
+    border-radius: 20px; transition: transform .2s var(--ease), box-shadow .2s;
+  }
+  .qb-p.is-me { box-shadow: inset 0 0 0 2px rgba(36,87,230,.45); }
+  .qb-p.is-done { background: rgba(255,255,255,.92); }
+  .qb-p-av { flex: none; width: 48px; height: 48px; display: flex; align-items: center; justify-content: center; }
+  .qb-p-main { min-width: 0; flex: 1; display: flex; flex-direction: column; gap: 2px; }
+  .qb-p-top { display: flex; align-items: center; gap: 6px; }
+  .qb-p-top b { font-size: 15px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .qb-p-pts { font-size: 14px; font-weight: 900; color: var(--accent); }
+  .qb-p-gain {
+    position: absolute; right: 12px; top: -10px; padding: 3px 10px; border-radius: var(--r-pill);
+    background: var(--passed-solid); color: #fff; font-size: 13px; font-weight: 900;
+    box-shadow: 0 6px 14px rgba(15,138,95,.28); animation: pop .35s var(--ease-back) both;
+  }
+  .qb-p-gain.is-wrong { background: var(--returned-solid); box-shadow: 0 6px 14px rgba(194,65,12,.25); }
+
+  /* 상단 진행 바 & 타이머 */
+  .qb-bar {
+    position: relative; overflow: hidden; display: flex; align-items: center; gap: 12px;
+    padding: 12px 18px; border-radius: 20px;
+  }
+  .qb-round { font-size: 16px; font-weight: 900; color: var(--accent); }
+  .qb-step-dots { display: flex; gap: 5px; align-items: center; flex-wrap: wrap; }
+  .qb-step-dots i {
+    width: 8px; height: 8px; border-radius: 999px; background: rgba(78,88,104,.22);
+  }
+  .qb-step-dots i.done { background: var(--passed-solid); }
+  .qb-step-dots i.now { width: 18px; background: var(--accent); }
+  .qb-clock { margin-left: auto; font-size: 18px; font-weight: 900; }
+  .qb-clock.warn { color: var(--returned-fg); }
+  .qb-timer-track {
+    position: absolute; left: 0; right: 0; bottom: 0; height: 4px; background: rgba(36,87,230,.12);
+  }
+  .qb-timer-fill {
+    height: 100%; width: 100%; background: var(--accent); transform-origin: left center;
+    transform: scaleX(var(--left, 1)); transition: transform .25s linear;
+  }
+
+  /* 문제 본문 카드 (학습지 문맥 그대로 + 지금 풀 칸 강조) */
+  .qb-card {
+    position: relative; overflow: hidden; border-radius: 28px; padding: 26px 24px;
+    display: flex; flex-direction: column; gap: 18px; min-height: 260px;
+  }
+  .qb-q-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; }
+  .qb-q-title { margin: 0; font-size: 18px; font-weight: 900; color: var(--ink-2); }
+  .qb-q-body {
+    font-size: 19px; line-height: 1.75; color: var(--ink); padding: 18px 20px;
+    border-radius: 20px; background: rgba(255,255,255,.65); border: 1px solid rgba(78,88,104,.14);
+  }
+  /* 학습지 안의 칸 표현: 이미 푼 칸 / 지금 문제 칸 / 뒤쪽 칸 */
+  .qb-slot-solved {
+    display: inline-flex; align-items: center; padding: 2px 12px; margin: 0 3px;
+    border-radius: 10px; background: var(--passed-bg); color: var(--passed-fg);
+    font-weight: 800; font-size: .92em; vertical-align: baseline;
+  }
+  .qb-slot-target {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 76px;
+    padding: 3px 16px; margin: 0 4px; border-radius: 12px;
+    background: var(--accent); color: #fff; font-weight: 900;
+    box-shadow: 0 6px 16px rgba(36,87,230,.32); vertical-align: baseline;
+  }
+  .qb-slot-target.is-reveal {
+    background: var(--passed-solid); box-shadow: 0 6px 16px rgba(15,138,95,.32);
+  }
+  .qb-slot-later {
+    display: inline-flex; align-items: center; justify-content: center; min-width: 52px;
+    padding: 2px 10px; margin: 0 3px; border-radius: 10px;
+    background: rgba(78,88,104,.12); color: var(--ink-2); font-weight: 700; font-size: .88em;
+  }
+
+  /* 답 고르기 / 입력 영역 */
+  .qb-ans-area { display: flex; flex-direction: column; gap: 12px; margin-top: auto; }
+  .qb-choices { display: flex; flex-wrap: wrap; gap: 12px; justify-content: center; }
+  .qb-opt {
+    flex: 1 1 160px; max-width: 280px; min-height: 58px; padding: 0 22px;
+    border-radius: 20px; border: 2px solid rgba(78,88,104,.22); background: rgba(255,255,255,.88);
+    font: inherit; font-size: 20px; font-weight: 900; color: var(--ink); cursor: pointer;
+    transition: transform .15s var(--ease), border-color .15s, background .15s;
+  }
+  .qb-opt:hover:not([disabled]) { border-color: var(--accent); transform: translateY(-2px); }
+  .qb-opt.is-picked { border-color: var(--accent); background: var(--accent-tint); color: var(--accent); }
+  .qb-opt.is-right { border-color: var(--passed-solid); background: var(--passed-bg); color: var(--passed-fg); }
+  .qb-opt.is-wrong { border-color: var(--returned-solid); background: var(--returned-bg); color: var(--returned-fg); }
+
+  .qb-blank-form { display: flex; gap: 10px; max-width: 520px; width: 100%; margin: 0 auto; }
+  .qb-blank-in {
+    flex: 1; height: 56px; border-radius: 18px; border: 2px solid rgba(78,88,104,.25);
+    background: rgba(255,255,255,.92); padding: 0 18px; font: inherit; font-size: 20px; font-weight: 700;
+  }
+  .qb-blank-in:focus { outline: 3px solid rgba(36,87,230,.35); border-color: var(--accent); }
+  .qb-status-line { text-align: center; font-size: 15px; font-weight: 700; color: var(--ink-2); min-height: 22px; }
+</style>
+</head>
+<body>
+<main class="wrap qb-wrap">
+  <!-- 시안 전환 컨트롤 바 (실제 학생 화면에는 없음) -->
+  <section class="qb-demo-bar" aria-label="시안 화면 전환">
+    <b>시안 미리보기</b>
+    <button type="button" class="btn btn-line btn-small press" data-view="lobby">① 모둠 대기실</button>
+    <button type="button" class="btn btn-line btn-small press" data-view="play-choice">② 문제 (고르기)</button>
+    <button type="button" class="btn btn-line btn-small press" data-view="play-sym">③ 문제 (부등호)</button>
+    <button type="button" class="btn btn-line btn-small press" data-view="play-blank">④ 문제 (단어 빈칸)</button>
+    <button type="button" class="btn btn-line btn-small press" data-view="reveal">⑤ 라운드 채점 (3초)</button>
+    <button type="button" class="btn btn-line btn-small press" data-view="result">⑥ 최종 결과 (1등)</button>
+    <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center">
+      <small class="muted">모둠 인원:</small>
+      <button type="button" class="btn btn-line btn-small" data-members="3">3명</button>
+      <button type="button" class="btn btn-line btn-small" data-members="4">4명</button>
+      <button type="button" class="btn btn-line btn-small" data-members="5">5명</button>
+    </span>
+  </section>
+
+  <!-- 상단 네비게이션 -->
+  <div class="page-top">
+    <a href="../../index.html" class="icon-btn glass lift" aria-label="처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <div class="row-actions">
+      <button type="button" class="nav-link glass lift" id="btn-help">규칙</button>
+      <a href="../../me.html" class="nav-link glass lift">마이페이지</a>
+    </div>
+  </div>
+
+  <!-- 영웅 카드 (대기실에서 표시) -->
+  <section class="glass-strong omok-hero rise" id="hero">
+    <div class="omok-av" id="hero-av"></div>
+    <div class="omok-hero-main">
+      <div class="me-name-row">
+        <h1 class="me-name">퀴즈 배틀</h1>
+        <span class="chip" id="group-chip">3모둠 · 612차시 (12문제)</span>
+      </div>
+      <p class="omok-reward">우리 모둠 1등 <b class="num">4</b> XP · <b class="num">4</b>코인</p>
+      <div class="omok-today">
+        <span>오늘 한 판</span>
+        <span class="omok-dots" aria-hidden="true"><i class="on"></i><i class="on"></i><i></i><i></i><i></i></span>
+        <b class="num">2 / 5</b>
+      </div>
+    </div>
+  </section>
+
+  <!-- ① 모둠 대기실 -->
+  <section class="glass-strong qb-lobby rise" id="v-lobby">
+    <div class="qb-seats" id="lobby-seats"></div>
+    <b class="rk-lobby-h" id="lobby-title">우리 모둠원이 모이면 시작해요</b>
+    <span class="muted num" id="lobby-sub">오늘 612차시 학습지의 빈칸·고르기·부등호 12문제가 모두 나와요</span>
+    <div class="row-actions">
+      <button type="button" class="btn btn-primary btn-big press" id="btn-start">지금 시작 (3명)</button>
+      <button type="button" class="btn btn-line press">나가기</button>
+    </div>
+  </section>
+
+  <!-- ②~⑥ 문제 풀이 & 결과 화면 -->
+  <section class="hidden" id="v-table" style="display:flex;flex-direction:column;gap:14px">
+    <!-- 모둠원 실시간 점수·제출 표시 -->
+    <div class="qb-players" id="table-players"></div>
+
+    <!-- 진행 바 & 타이머 -->
+    <div class="glass qb-bar" id="bar" style="--left:0.65">
+      <span class="qb-round num" id="q-num">문제 4 / 12</span>
+      <div class="qb-step-dots" id="q-dots" aria-hidden="true"></div>
+      <span class="muted" id="q-type-chip" style="font-size:13px;font-weight:700">고르기</span>
+      <span class="qb-clock num" id="q-clock">10초</span>
+      <div class="qb-timer-track" aria-hidden="true"><div class="qb-timer-fill"></div></div>
+    </div>
+
+    <!-- 문제 본문 + 답안 + 최종 결과 덮개 -->
+    <div class="glass-strong qb-card">
+      <div class="qb-q-head">
+        <h2 class="qb-q-title" id="q-title">수업자료 8쪽 · 압력과 기체의 부피</h2>
+        <span class="tag tag-today" id="q-pts-tag">맞히면 +10점 · 선착순 보너스 +5 / +3 / +1점</span>
+      </div>
+
+      <div class="qb-q-body" id="q-body"></div>
+
+      <div class="qb-ans-area" id="q-ans"></div>
+      <div class="qb-status-line" id="q-status"></div>
+
+      <!-- ⑥ 최종 결과 덮개 -->
+      <div class="omok-cover hidden" id="v-result">
+        <div class="omok-cover-card glass-strong pop rk-result is-win" id="result-card">
+          <span class="confetti-bit" aria-hidden="true" style="left:12%;background:#2457E6;--d:0s"></span>
+          <span class="confetti-bit" aria-hidden="true" style="left:28%;background:#F59E0B;--d:.5s"></span>
+          <span class="confetti-bit" aria-hidden="true" style="left:46%;background:#22C582;--d:.2s"></span>
+          <span class="confetti-bit" aria-hidden="true" style="left:64%;background:#B79CFF;--d:.8s"></span>
+          <span class="confetti-bit" aria-hidden="true" style="left:82%;background:#FF7A45;--d:.35s"></span>
+          <b class="omok-result-h">우리 모둠 1등!</b>
+          <span class="omok-result-s">+4 XP · +4코인</span>
+          <div class="rk-scores" id="result-scores"></div>
+          <div class="row-actions">
+            <button type="button" class="btn btn-primary press" data-view="lobby">한 판 더</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<script type="module">
+  import { initUI } from '../../assets/js/ui.js';
+  import { avatarSVG, react, bindReactions } from '../../assets/js/avatar.js';
+
+  initUI();
+  bindReactions();
+
+  const ALL_MEMBERS = [
+    { me: true,  nick: '나',         ready: true,  done: true,  pts: 45, gain: '+15점 (1등!)', ok: true,
+      av: { face: 'face_round', hair: 'hair_short', eyes: 'eyes_sparkle', mouth: 'mouth_grin', outfit: 'outfit_labcoat', acc: 'acc_goggles', bg: 'bg_circle' } },
+    { me: false, nick: '보일장인',   ready: true,  done: true,  pts: 38, gain: '+13점 (2등)',  ok: true,
+      av: { face: 'face_slim',  hair: 'hair_bob',   eyes: 'eyes_smile',   mouth: 'mouth_smile', outfit: 'outfit_hood', acc: 'acc_glasses', bg: 'bg_dots' } },
+    { me: false, nick: '닉네임 미정', ready: true,  done: false, pts: 24, gain: '틀림',         ok: false,
+      av: { face: 'face_square', hair: 'hair_curly', eyes: 'eyes_round',  mouth: 'mouth_o',     outfit: 'outfit_tee', acc: 'acc_bandaid', bg: 'bg_circle' } },
+    { me: false, nick: '입자탐험가', ready: false, done: true,  pts: 21, gain: '+11점 (3등)',  ok: true,
+      av: { face: 'face_round', hair: 'hair_twin',  eyes: 'eyes_wink',    mouth: 'mouth_cat',   outfit: 'outfit_vest', acc: 'acc_bow', bg: 'bg_check' } },
+    { me: false, nick: '샤를법칙',   ready: false, done: false, pts: 10, gain: '시간 초과',     ok: false,
+      av: { face: 'face_slim',  hair: 'hair_spiky', eyes: 'eyes_sleepy',  mouth: 'mouth_flat',  outfit: 'outfit_jersey', acc: 'acc_headphones', bg: 'bg_circle' } },
+  ];
+
+  let memberCount = 4;
+  let currentView = 'lobby';
+
+  document.getElementById('hero-av').innerHTML = avatarSVG(ALL_MEMBERS[0].av, 112, { label: '내 캐릭터' });
+
+  function getMembers() {
+    return ALL_MEMBERS.slice(0, memberCount);
+  }
+
+  function renderLobby() {
+    const list = getMembers();
+    const readyCount = list.filter((m) => m.ready).length;
+    document.getElementById('group-chip').textContent = `3모둠 (${memberCount}명) · 612차시`;
+    document.getElementById('lobby-seats').innerHTML = list.map((m) => `
+      <div class="qb-seat ${m.ready ? 'is-in pop' : 'is-wait'}">
+        <div class="qb-seat-av">${avatarSVG(m.av, 72, { label: m.nick })}</div>
+        <span class="qb-seat-name">${m.nick}</span>
+        <span class="tag ${m.ready ? 'tag-done' : 'tag-off'}">${m.ready ? '준비 완료' : '기다리는 중'}</span>
+      </div>
+    `).join('');
+    document.getElementById('lobby-title').textContent = `우리 모둠 ${readyCount} / ${memberCount}명 모였어요`;
+    document.getElementById('btn-start').textContent = readyCount === memberCount ? '모두 모였어요 · 시작!' : `지금 시작 (${readyCount}명)`;
+  }
+
+  function renderPlayers(isReveal) {
+    const list = getMembers();
+    document.getElementById('table-players').innerHTML = list.map((m) => `
+      <div class="glass qb-p ${m.me ? 'is-me' : ''} ${m.done || isReveal ? 'is-done' : ''}">
+        ${isReveal ? `<span class="qb-p-gain ${m.ok ? '' : 'is-wrong'}">${m.gain}</span>` : ''}
+        <div class="qb-p-av">${avatarSVG(m.av, 48, { label: m.nick })}</div>
+        <div class="qb-p-main">
+          <div class="qb-p-top">
+            <b>${m.nick}</b>
+            <span class="tag ${isReveal ? (m.ok ? 'tag-done' : 'tag-warn') : (m.done ? 'tag-done' : 'tag-off')}">
+              ${isReveal ? (m.ok ? '정답' : '오답') : (m.done ? '냈음 ✓' : '푸는 중')}
+            </span>
+          </div>
+          <span class="qb-p-pts num">${m.pts + (isReveal && m.ok ? (m.me ? 15 : 13) : 0)}점</span>
+        </div>
+      </div>
+    `).join('');
+
+    if (isReveal) {
+      document.querySelectorAll('#table-players svg.av').forEach((svg, i) => {
+        react(svg, list[i].ok ? 'jump' : 'tilt', { delay: i * 90 });
+      });
+    }
+  }
+
+  function renderDots(cur, total = 12) {
+    document.getElementById('q-dots').innerHTML = Array.from({ length: total }, (_, i) => {
+      const cls = i < cur - 1 ? 'done' : i === cur - 1 ? 'now' : '';
+      return `<i class="${cls}"></i>`;
+    }).join('');
+  }
+
+  function setView(view) {
+    currentView = view;
+    const isLobby = view === 'lobby';
+    document.getElementById('hero').classList.toggle('hidden', !isLobby);
+    document.getElementById('v-lobby').classList.toggle('hidden', !isLobby);
+    document.getElementById('v-table').classList.toggle('hidden', isLobby);
+    document.getElementById('v-result').classList.toggle('hidden', view !== 'result');
+
+    if (isLobby) {
+      renderLobby();
+      return;
+    }
+
+    const isReveal = view === 'reveal';
+    renderPlayers(isReveal);
+
+    const qBody = document.getElementById('q-body');
+    const qAns = document.getElementById('q-ans');
+    const qStatus = document.getElementById('q-status');
+    const qType = document.getElementById('q-type-chip');
+    const qClock = document.getElementById('q-clock');
+    const bar = document.getElementById('bar');
+
+    if (view === 'play-choice' || view === 'reveal' || view === 'result') {
+      document.getElementById('q-num').textContent = '문제 4 / 12';
+      renderDots(4, 12);
+      qType.textContent = '고르기 (.ox)';
+      qClock.textContent = isReveal ? '채점 결과' : '10초';
+      bar.style.setProperty('--left', isReveal ? 0 : 0.66);
+
+      // 같은 문장 안의 앞 칸(이미 푼 칸)은 초록색으로 정답이 채워져 보이고, 지금 풀 칸만 파란 [ ? ]로 강조!
+      qBody.innerHTML = `
+        일정한 온도에서 주사기 피스톤을 누르면 기체 입자 사이의 거리가
+        <span class="qb-slot-solved">가까워</span>지고, 용기 벽에 충돌하는 횟수가
+        <span class="qb-slot-target ${isReveal ? 'is-reveal' : ''}">${isReveal ? '증가' : '?'}</span>하여
+        기체의 압력이 <span class="qb-slot-later">다음 빈칸</span>한다.
+      `;
+      qAns.innerHTML = `
+        <div class="qb-choices">
+          <button type="button" class="qb-opt press ${isReveal ? 'is-right' : 'is-picked'}" ${isReveal ? 'disabled' : ''}>증가</button>
+          <button type="button" class="qb-opt press" ${isReveal ? 'disabled' : ''}>감소</button>
+          <button type="button" class="qb-opt press" ${isReveal ? 'disabled' : ''}>일정</button>
+        </div>
+      `;
+      qStatus.textContent = isReveal
+        ? '정답은 [증가]! 3초 뒤 5번 문제(다음 빈칸)로 넘어갑니다'
+        : '내가 고른 답: 증가 · 아직 안 낸 모둠원을 기다리는 중 (2 / 4명 제출)';
+    } else if (view === 'play-sym') {
+      document.getElementById('q-num').textContent = '문제 7 / 12';
+      renderDots(7, 12);
+      qType.textContent = '부등호 (.ineq)';
+      qClock.textContent = '12초';
+      bar.style.setProperty('--left', 0.8);
+      qBody.innerHTML = `
+        <strong>[실험 비교]</strong> 주사기 입구를 막고 피스톤을 누르기 전과 후의 물리량을 부등호로 비교해 보자.<br>
+        · 주사기 안 기체 입자의 총개수: 누르기 전 <span class="qb-slot-solved">=</span> 누른 후<br>
+        · 주사기 안 기체의 압력: 누르기 전 <span class="qb-slot-target">?</span> 누른 후
+      `;
+      qAns.innerHTML = `
+        <div class="qb-choices">
+          <button type="button" class="qb-opt press">&lt;</button>
+          <button type="button" class="qb-opt press">=</button>
+          <button type="button" class="qb-opt press">&gt;</button>
+        </div>
+      `;
+      qStatus.textContent = '알맞은 부등호 버튼을 누르면 바로 제출됩니다';
+    } else if (view === 'play-blank') {
+      document.getElementById('q-num').textContent = '문제 11 / 12';
+      renderDots(11, 12);
+      qType.textContent = '단어 빈칸 (.bl)';
+      qClock.textContent = '8초';
+      bar.style.setProperty('--left', 0.53);
+      qBody.innerHTML = `
+        온도가 일정할 때 기체의 압력과 부피는 서로 반비례한다는 법칙을
+        <span class="qb-slot-target">?</span> 법칙이라고 한다.
+      `;
+      qAns.innerHTML = `
+        <form class="qb-blank-form" onsubmit="event.preventDefault()">
+          <input type="text" class="qb-blank-in" placeholder="정답을 입력하세요" value="보일">
+          <button type="submit" class="btn btn-primary btn-big press">내기</button>
+        </form>
+      `;
+      qStatus.textContent = '띄어쓰기나 대소문자는 달라도 정답으로 인정됩니다';
+    }
+
+    if (view === 'result') {
+      const list = getMembers();
+      document.getElementById('result-scores').innerHTML = list.map((m, i) => `
+        <div class="rk-score ${i === 0 ? 'win' : ''}">
+          <span>${i + 1}위 · ${m.nick}</span>
+          <b class="num">${140 - i * 18}점 (${12 - i} / 12 맞힘)</b>
+        </div>
+      `).join('');
+    }
+  }
+
+  document.querySelectorAll('[data-view]').forEach((b) => {
+    b.addEventListener('click', () => setView(b.dataset.view));
+  });
+  document.querySelectorAll('[data-members]').forEach((b) => {
+    b.addEventListener('click', () => {
+      memberCount = Number(b.dataset.members);
+      setView(currentView);
+    });
+  });
+  document.getElementById('btn-start').addEventListener('click', () => setView('play-choice'));
+
+  setView('lobby');
+</script>
+</body>
+</html>

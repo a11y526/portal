@@ -1,0 +1,94 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>퀴즈 배틀</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<div class="net-badge glass-strong hidden" id="net" role="status">연결 확인 중</div>
+<main class="wrap me-wrap qb-wrap">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" id="back" aria-label="반 페이지로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <div class="row-actions">
+      <a href="me.html" class="nav-link glass lift">마이페이지</a>
+    </div>
+  </div>
+
+  <!-- 들어갈 수 없을 때(로그인·닫힘·모둠 없음·문제 없음) -->
+  <section class="glass-strong me-card omok-msg hidden rise" id="v-msg">
+    <h1 class="omok-msg-h">퀴즈 배틀</h1>
+    <p class="muted" id="msg-t"></p>
+    <a class="btn btn-primary press" href="index.html" id="msg-btn">로그인</a>
+  </section>
+
+  <!-- 대기실 -->
+  <div class="qb-body hidden" id="v-lobby">
+    <section class="glass-strong omok-hero rise" id="hero">
+      <div class="omok-av" id="hero-av"></div>
+      <div class="omok-hero-main">
+        <div class="me-name-row">
+          <h1 class="me-name">퀴즈 배틀</h1>
+          <span class="chip num" id="group-chip"></span>
+        </div>
+        <p class="omok-reward">우리 모둠 1등 <b class="num" id="rw-xp">4</b> XP · <b class="num" id="rw-co">4</b>코인</p>
+      </div>
+    </section>
+
+    <section class="glass-strong qb-lobby rise" style="--d:.06s">
+      <div class="qb-seats" id="seats"></div>
+      <b class="rk-lobby-h" id="lobby-h"></b>
+      <span class="muted num" id="lobby-s"></span>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary btn-big press" id="join">들어가기</button>
+        <button type="button" class="btn btn-primary btn-big press hidden" id="start">시작</button>
+        <button type="button" class="btn btn-line press hidden" id="leave">나가기</button>
+      </div>
+    </section>
+  </div>
+
+  <!-- 문제 풀이 -->
+  <section class="qb-table hidden" id="v-table">
+    <div class="qb-players" id="players"></div>
+
+    <div class="glass qb-bar" id="bar">
+      <span class="qb-round num" id="q-num"></span>
+      <div class="qb-step-dots" id="q-dots" aria-hidden="true"></div>
+      <span class="qb-type" id="q-type"></span>
+      <span class="qb-clock num" id="q-clock" aria-live="off"></span>
+      <div class="qb-timer-track" aria-hidden="true"><div class="qb-timer-fill" id="q-fill"></div></div>
+    </div>
+
+    <div class="glass-strong qb-card">
+      <div class="qb-q-head">
+        <h2 class="qb-q-title" id="q-title"></h2>
+        <span class="tag tag-today">맞히면 +10점</span>
+      </div>
+      <div class="qb-q-body ws-page" id="q-body" aria-live="polite"></div>
+      <div class="qb-ans-area" id="q-ans"></div>
+      <div class="qb-status-line" id="q-status" role="status"></div>
+
+      <div class="omok-cover hidden" id="v-result">
+        <div class="omok-cover-card glass-strong pop rk-result" id="result-card">
+          <div id="result-fx" aria-hidden="true"></div>
+          <b class="omok-result-h" id="result-h"></b>
+          <span class="omok-result-s" id="result-s"></span>
+          <div class="rk-scores" id="result-scores"></div>
+          <div class="row-actions">
+            <a class="btn btn-primary press" href="index.html" id="result-back">반 페이지로</a>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+</main>
+<script type="module" src="assets/js/pages/quiz.js"></script>
+</body>
+</html>

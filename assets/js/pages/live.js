@@ -6,7 +6,7 @@ import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
-  getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, sendWsOpen,
+  getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, sendWsOpen, setQuizOpen, listQuizGames,
 } from '../db.js';
 import { renderPage, closeSims } from '../worksheet.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
@@ -254,8 +254,9 @@ async function loadGroups() {
   if (loadingGroups) { loadAgain = true; return; }
   loadingGroups = true;
   try {
-    const [rows, subs] = await Promise.all([getBoardGroupMembers(board.id), listSubmissions(board.id)]);
+    const [rows, subs, games] = await Promise.all([getBoardGroupMembers(board.id), listSubmissions(board.id), listQuizGames(board.id).catch(() => [])]);
     hasSubs = subs.length > 0;
+    quiz.games = games;
     const latest = new Map(); // 모둠별 마지막 제출 (제출 시각 순으로 오므로 뒤가 마지막)
     subs.forEach((s) => latest.set(s.group_no, s.status));
     const max = rows.reduce((m, r) => Math.max(m, r.group_no), 0);
@@ -281,10 +282,13 @@ function renderGroupsPane() {
   if (editing) mountGroupsEditor();
   $('groups-embed').classList.toggle('hidden', !editing);
   $('lg-grid').classList.toggle('hidden', editing);
-  const canRegroup = !hasSubs && board?.status !== 'revealed';
-  $('lg-foot').classList.toggle('hidden', none || !canRegroup);
+  const canRegroup = !hasSubs && !quiz.games.length && board?.status !== 'revealed';
+  $('lg-foot').classList.toggle('hidden', none);
+  $('regroup').classList.toggle('hidden', !canRegroup);
   $('regroup').textContent = regrouping ? '모둠 카드 보기' : '편성 다시 하기';
+  $('quiz-toggle').classList.toggle('hidden', editing);
   if (!editing) renderCards();
+  quiz.paint();
 }
 
 function mountGroupsEditor() {
@@ -336,7 +340,7 @@ function renderCards() {
     grid.innerHTML = groups.map((g, i) => `
       <article class="lg-card glass-strong rise" style="--d:${(i * 0.05).toFixed(2)}s" data-g="${g.no}">
         <header>
-          <b>${g.no}모둠</b>
+          <b>${g.no}모둠<span class="lg-quiz hidden"></span></b>
           <span class="lg-state"></span>
         </header>
         <div class="lg-mates">${g.members.map(memberHTML).join('')}</div>
@@ -386,6 +390,66 @@ function fitGroups() {
   $('lg-grid').style.setProperty('--av', `${Math.floor(Math.min(best, 160))}px`);
 }
 addEventListener('resize', fitGroups);
+
+/* =========================================================
+   퀴즈 배틀: [모둠] 탭 아래 [열기/닫기]. 연 보드에서만 학생이 모둠끼리 한 판.
+   닫으면 하던 판은 그 점수로 끝나고 1등에게 지급. 모둠 카드에 'n/전체' 또는 '퀴즈 끝'
+   ========================================================= */
+const QUIZ_POLL_MS = 5000;
+const quiz = {
+  games: [],
+  busy: false,
+
+  paint() {
+    const open = !!board?.quiz_open;
+    const btn = $('quiz-toggle');
+    btn.textContent = open ? '퀴즈 배틀 닫기' : '퀴즈 배틀 열기';
+    btn.classList.toggle('btn-primary', !open);
+    btn.classList.toggle('btn-line', open);
+    btn.disabled = this.busy || !board;
+    const done = this.games.filter((x) => x.status === 'done').length;
+    const playing = this.games.filter((x) => x.status === 'playing').length;
+    $('quiz-note').textContent = open || this.games.length
+      ? [open ? '퀴즈 배틀 열림' : '퀴즈 배틀 닫힘', playing ? `푸는 중 ${playing}` : '', done ? `끝 ${done}` : ''].filter(Boolean).join(' · ') : '';
+    $('lg-grid').querySelectorAll('.lg-card').forEach((card) => {
+      const g = this.games.find((x) => x.group_no === Number(card.dataset.g));
+      const tag = card.querySelector('.lg-quiz');
+      if (!tag) return;
+      tag.classList.toggle('hidden', !g || g.status === 'lobby');
+      tag.classList.toggle('is-done', g?.status === 'done');
+      if (g) tag.textContent = g.status === 'done' ? '퀴즈 끝' : g.status === 'playing' ? `퀴즈 ${Math.min(g.q + 1, g.total)}/${g.total}` : '';
+    });
+  },
+
+  async toggle() {
+    if (!board || this.busy) return;
+    const open = !board.quiz_open;
+    if (!open && this.games.some((x) => x.status === 'playing') && !confirm('푸는 중인 모둠은 지금 점수로 끝나요. 닫을까요?')) return;
+    this.busy = true;
+    this.paint();
+    try {
+      await setQuizOpen(board.id, open);
+      board.quiz_open = open;
+      sendClassRefresh(classId);
+      toast(open ? '퀴즈 배틀을 열었어요' : '퀴즈 배틀을 닫았어요', 'ok');
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.busy = false;
+      loadGroups();
+    }
+  },
+
+  async refresh() {
+    if (!board || !coverOpen || tab !== 'groups' || !(board.quiz_open || this.games.some((x) => x.status === 'playing'))) return;
+    try {
+      this.games = await listQuizGames(board.id);
+      this.paint();
+    } catch (err) { console.error(err); }
+  },
+};
+$('quiz-toggle').addEventListener('click', () => quiz.toggle());
 
 /* ---------- 갱신: Realtime + 15초 ---------- */
 let refreshTimer;
@@ -848,6 +912,7 @@ teacherGate($('app'), async () => {
     if (!row?.board_id || row.board_id === board.id) scheduleGroups();
   });
   setInterval(() => { if (!document.hidden) loadGroups(); }, REFRESH_MS);
+  setInterval(() => { if (!document.hidden) quiz.refresh(); }, QUIZ_POLL_MS);
 });
 
 setTab('groups');

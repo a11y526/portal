@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -830,12 +830,15 @@ $('level-del').addEventListener('click', () => {
   if (l.length > 2) renderLevels(l.slice(0, -1));
 });
 
+let quizRules = {}; // settings.quiz_battle (xp·coins만 여기서 바꾼다)
+
 async function refreshPoints() {
   const lv = await getLevelThresholds();
   savedLevels = Array.isArray(lv) && lv.length >= 2 ? lv.map(Number) : DEFAULT_LEVELS;
   renderLevels(savedLevels);
   const ws = (await getWorksheetRules()) ?? {};
   const wf = (await getWsFirstRules()) ?? {};
+  quizRules = (await getQuizRules()) ?? {};
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -848,6 +851,8 @@ async function refreshPoints() {
   f.ws_coins.value = ws.coins ?? 5;
   f.wf_xp.value = wf.xp ?? 1;
   f.wf_coins.value = wf.coins ?? 1;
+  f.qb_xp.value = quizRules.xp ?? 4;
+  f.qb_coins.value = quizRules.coins ?? 4;
   renderPointsSum();
   const hub = $('hub-points');
   if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
@@ -874,6 +879,7 @@ $('points-form').addEventListener('submit', async (e) => {
     const q = (k) => Math.min(1000, Math.max(0, Math.round(Number(f[k].value) || 0)));
     await saveWorksheetRules({ xp: q('ws_xp'), coins: q('ws_coins') });
     await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins') });
+    await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
     toast('저장했어요', 'ok');
@@ -913,6 +919,7 @@ function eventKind(e) {
   if (e.board_id) return '순위 발표';
   if (e.worksheet_board_id || (e.reason || '').startsWith('학습지 ')) return '학습지';
   if (e.ws_first_id || (e.reason || '').startsWith('첫 답 ')) return '첫 답';
+  if (e.qb_game_id || (e.reason || '').startsWith('퀴즈 배틀')) return '퀴즈 배틀';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   if (e.reason === '오목 승리') return '오목';
   if (e.reason === '루미큐브 승리') return '루미큐브';

@@ -109,6 +109,33 @@ export async function getOmokRank(token = null) {
   return unwrap(await need().rpc('get_omok_rank', { p_token: token }));
 }
 
+// 퀴즈 배틀 (그날 모둠끼리, 선생님이 연 보드에서만). 결과: { ok: true, open, board_id, lesson_code, group_no, count(문제 수), xp, coins, avatar,
+//   members: [{ nickname, avatar, me, joined, online }],
+//   game: null | { id, status(lobby|playing|done), phase(lobby|ready|ask|reveal|done), version, total, q, start_ms, left_ms, next_ms, gain,
+//                  item: { no, total, key, type(blank|choice|sym), slide, title, options, html, solved, later, answer(공개 뒤), mine, dur },
+//                  players: [{ me, nickname, avatar, online, correct, answered, ok }] } }
+export async function qbState(token) {
+  return unwrap(await need().rpc('qb_state', { p_token: token }));
+}
+
+// 들어가기 / 시작 / 나가기(시작 전만): qbState와 같은 결과 또는 error = 'CLOSED' | 'NO_GROUP' | 'NO_ITEMS' | 'NOT_PLAYER'
+export async function qbJoin(token) {
+  return unwrap(await need().rpc('qb_join', { p_token: token }));
+}
+
+export async function qbStart(token) {
+  return unwrap(await need().rpc('qb_start', { p_token: token }));
+}
+
+export async function qbLeave(token) {
+  return unwrap(await need().rpc('qb_leave', { p_token: token }));
+}
+
+// 답 내기(지금 문제에 한 번): qbState와 같은 결과 또는 error = 'OVER' | 'STALE' | 'ALREADY' | 'EMPTY'
+export async function qbAnswer(token, gameId, q, answer) {
+  return unwrap(await need().rpc('qb_answer', { p_token: token, p_game_id: gameId, p_q: q, p_answer: answer }));
+}
+
 export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
 }
@@ -439,7 +466,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -456,7 +483,7 @@ async function readAll(build) {
 
 export async function exportPointEvents() {
   return readAll(() => need().from('point_events')
-    .select('id, xp, coins, reason, board_id, worksheet_board_id, ws_first_id, created_at, student:students(class_id, number, nickname)')
+    .select('id, xp, coins, reason, board_id, worksheet_board_id, ws_first_id, qb_game_id, created_at, student:students(class_id, number, nickname)')
     .order('created_at').order('id'));
 }
 
@@ -620,6 +647,27 @@ export function onWsFirstsChange(fn) {
   need().channel('ws-firsts-watch')
     .on('postgres_changes', { event: '*', schema: 'public', table: 'ws_firsts' }, fn)
     .subscribe();
+}
+
+// 퀴즈 배틀 { xp, coins(모둠 안 1등), pick·blank(문제마다 초), reveal(정답 공개 초) }
+export async function getQuizRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'quiz_battle'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveQuizRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'quiz_battle', value }, { onConflict: 'key' }));
+}
+
+// 수업 모드 [모둠] 탭: 퀴즈 배틀 열기/닫기 (닫으면 하던 판은 그 점수로 끝남)
+export async function setQuizOpen(boardId, open) {
+  return unwrap(await need().rpc('set_quiz_open', { p_board_id: boardId, p_open: open }));
+}
+
+// 모둠별 퀴즈 배틀 판: [{ group_no, status, q, total }]
+export async function listQuizGames(boardId) {
+  const rows = unwrap(await need().from('qb_games').select('group_no, status, q, items').eq('board_id', boardId));
+  return rows.map((r) => ({ group_no: r.group_no, status: r.status, q: r.q, total: Array.isArray(r.items) ? r.items.length : 0 }));
 }
 
 // { xp, coins } 쪽별 첫 답을 인정받았을 때

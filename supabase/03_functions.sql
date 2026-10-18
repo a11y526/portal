@@ -3371,7 +3371,7 @@ grant execute on function public.rk_play(text, uuid, int, jsonb) to anon, authen
 -- ---------------------------------------------------------
 -- 퀴즈 배틀 (2026-10-16): 그날 모둠끼리 오늘 차시 학습지 문제를 한 문제씩 함께 푼다.
 -- 교사가 수업 모드 [모둠] 탭에서 연 보드(boards.quiz_open)에서만. 모둠마다 한 판.
--- 출제: 학습지의 빈칸·고르기·부등호 중 정답이 있는 칸 전부를 f1부터 순서대로(서술·점 찍기·정답 없는 고르기는 뺀다)
+-- 출제: 학습지의 빈칸·고르기·부등호 중 정답이 있는 칸(서술·점 찍기·정답 없는 고르기는 뺀다)에서 판마다 count개(처음 20)를 무작위로, 학습지 순서대로
 -- 진행은 모두 서버 시각으로: 문제마다 q_at(시작) ~ q_end(마감) 동안 답을 받고, 접속한 모둠원이 모두 내면 마감을 앞당긴다.
 -- 마감 뒤 reveal초 동안 정답 공개, 그 뒤 다음 문제. 누가 qb_*를 부르든 밀린 진행을 _qb_tick이 처리한다.
 -- 맞히면 10점(먼저 낸 순서 보너스 없음). 끝나면 모둠 안 1등(동점이면 모두, 2명 이상 한 판, 1문제 이상 맞힘)에게 XP·코인 한 번.
@@ -3387,9 +3387,10 @@ as $$
   select jsonb_build_object(
     'xp',     coalesce((v ->> 'xp')::int, 4),
     'coins',  coalesce((v ->> 'coins')::int, 4),
-    'pick',   least(greatest(coalesce((v ->> 'pick')::int, 15), 5), 120),
-    'blank',  least(greatest(coalesce((v ->> 'blank')::int, 25), 5), 120),
-    'reveal', least(greatest(coalesce((v ->> 'reveal')::int, 3), 1), 10))
+    'pick',   least(greatest(coalesce((v ->> 'pick')::int, 10), 5), 120),
+    'blank',  least(greatest(coalesce((v ->> 'blank')::int, 10), 5), 120),
+    'reveal', least(greatest(coalesce((v ->> 'reveal')::int, 3), 1), 10),
+    'count',  least(greatest(coalesce((v ->> 'count')::int, 20), 1), 200))
   from (select (select value from public.settings where key = 'quiz_battle') as v) x;
 $$;
 revoke all on function public._qb_settings() from public, anon, authenticated;
@@ -3428,6 +3429,23 @@ as $$
     and exists (select 1 from jsonb_array_elements_text(f.spec -> 'answers') a where btrim(a) <> '');
 $$;
 revoke all on function public._qb_items(text) from public, anon, authenticated;
+
+-- 한 판에 낼 문항: 전체(_qb_items) 중 settings.quiz_battle.count개를 무작위로 골라 학습지 순서대로(앞 칸 정답 표시가 맞게)
+create or replace function public._qb_pick(p_lesson text)
+returns jsonb
+language sql
+volatile
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(x.it order by x.n), '[]'::jsonb)
+  from (
+    select e.it, e.n
+    from jsonb_array_elements(public._qb_items(p_lesson)) with ordinality as e(it, n)
+    order by random()
+    limit (public._qb_settings() ->> 'count')::int
+  ) x;
+$$;
+revoke all on function public._qb_pick(text) from public, anon, authenticated;
 
 -- 한 문제에 주는 시간(초)
 create or replace function public._qb_dur(p_item jsonb)
@@ -3685,7 +3703,7 @@ begin
     'lesson_code', b.lesson_code,
     'group_no',    v_my,
     'count',       case when g.status in ('playing', 'done') then jsonb_array_length(g.items)
-                        else jsonb_array_length(public._qb_items(b.lesson_code)) end,
+                        else least(jsonb_array_length(public._qb_items(b.lesson_code)), (v_set ->> 'count')::int) end,
     'xp',          (v_set ->> 'xp')::int,
     'coins',       (v_set ->> 'coins')::int,
     'avatar',      s.avatar,
@@ -3807,7 +3825,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'NOT_PLAYER');
   end if;
   if g.status = 'lobby' then
-    v_items := public._qb_items(b.lesson_code);
+    v_items := public._qb_pick(b.lesson_code);
     if jsonb_array_length(v_items) = 0 then
       return jsonb_build_object('ok', false, 'error', 'NO_ITEMS');
     end if;

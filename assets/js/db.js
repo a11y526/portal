@@ -649,7 +649,7 @@ export function onWsFirstsChange(fn) {
     .subscribe();
 }
 
-// 퀴즈 배틀 { xp, coins(모둠 안 1등), pick·blank(문제마다 초), reveal(정답 공개 초) }
+// 퀴즈 배틀 { xp, coins(모둠 안 1등), count(한 판 문제 수, 무작위), pick·blank(문제마다 초), reveal(정답 공개 초) }
 export async function getQuizRules() {
   const rows = unwrap(await need().from('settings').select('value').eq('key', 'quiz_battle'));
   return rows[0]?.value ?? null;

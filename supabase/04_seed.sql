@@ -135,9 +135,9 @@ insert into public.settings (key, value) values
   ('ws_first', '{"xp": 1, "coins": 1}'::jsonb)
 on conflict (key) do nothing;
 
--- 퀴즈 배틀: 모둠 안 1등이 받는 XP·코인, 문제마다 받는 시간(초: 고르기·부등호 / 빈칸), 정답 공개(초)
+-- 퀴즈 배틀: 모둠 안 1등이 받는 XP·코인, 한 판 문제 수(무작위), 문제마다 받는 시간(초: 고르기·부등호 / 빈칸), 정답 공개(초)
 insert into public.settings (key, value) values
-  ('quiz_battle', '{"xp": 4, "coins": 4, "pick": 15, "blank": 25, "reveal": 3}'::jsonb)
+  ('quiz_battle', '{"xp": 4, "coins": 4, "count": 20, "pick": 10, "blank": 10, "reveal": 3}'::jsonb)
 on conflict (key) do nothing;
 
 -- 선생님 체험 계정: 반마다 0번, 코드 823727 (사용자 결정 2026-10-15: 파일에 써도 됨).

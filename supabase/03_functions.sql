@@ -2011,8 +2011,8 @@ grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) t
 -- ---------------------------------------------------------
 -- 쪽별 첫 답 (2026-10-16)
 -- 학생이 쪽 칸을 모두 채워 제출하면 먼저 낸 순서로 쪽마다 5명까지 줄에 넣는다(맞았는지는 따지지 않음).
--- 수업 모드가 한 명씩 띄우고 교사가 [인정](XP·코인) 또는 [넘기기](다음 사람). 지급은 쪽마다 한 명뿐이고,
--- 지급한 뒤에도 줄의 나머지는 차례로 뜬다(지급 없이 [다음]만). 0번(체험 계정)은 넣지 않는다
+-- 수업 모드가 지금 수업자료 쪽의 줄만 한 명씩 띄우고 교사가 [인정](XP·코인) 또는 [넘기기](다음 사람).
+-- [인정]하면 그 쪽은 끝(남은 대기는 closed, 새로 줄에 들어오지 않음). 0번(체험 계정)은 넣지 않는다
 -- ---------------------------------------------------------
 create or replace function public._ws_first_enter(p_board_id uuid, p_page int, p_slide int, p_sid uuid, p_answers jsonb)
 returns void
@@ -2028,7 +2028,7 @@ begin
   -- 같은 쪽에 동시에 들어와도 5명을 넘지 않게
   perform pg_advisory_xact_lock(hashtext('ws_first|' || p_board_id::text || '|' || p_page::text));
   if exists (select 1 from public.ws_firsts
-             where board_id = p_board_id and page = p_page and student_id = p_sid) then
+             where board_id = p_board_id and page = p_page and (student_id = p_sid or status = 'accepted')) then
     return;
   end if;
   if (select count(*) from public.ws_firsts where board_id = p_board_id and page = p_page) >= 5 then
@@ -2041,10 +2041,11 @@ end;
 $$;
 revoke all on function public._ws_first_enter(uuid, int, int, uuid, jsonb) from public, anon, authenticated;
 
--- 수업 모드: 지금 띄울 첫 답 하나 (교사). 먼저 낸 것부터.
+-- 수업 모드: 지금 띄울 첫 답 하나 (교사). p_slide를 주면 그 수업자료 쪽의 것만, 먼저 낸 것부터.
 -- 결과: {item: null} 또는 {item: {id, page, slide, pos(그 쪽 몇 번째), count(그 쪽 줄 수), wait(전체 남은 수), paid(그 쪽은 이미 지급),
 --        number, nickname, avatar, answers, sheet_page(학습지 그 쪽 본문, 정답 없음)}}
-create or replace function public.get_ws_first(p_board_id uuid)
+drop function if exists public.get_ws_first(uuid);
+create or replace function public.get_ws_first(p_board_id uuid, p_slide int default null)
 returns jsonb
 language plpgsql
 stable
@@ -2061,14 +2062,14 @@ begin
     raise exception 'NOT_TEACHER';
   end if;
   select x.* into f from public.ws_firsts x
-  where x.board_id = p_board_id and x.status = 'wait'
+  where x.board_id = p_board_id and x.status = 'wait' and (p_slide is null or x.slide = p_slide)
   order by x.created_at, x.id
   limit 1;
   if not found then
     return jsonb_build_object('item', null);
   end if;
   select count(*)::int into v_wait from public.ws_firsts x
-  where x.board_id = p_board_id and x.status = 'wait';
+  where x.board_id = p_board_id and x.status = 'wait' and (p_slide is null or x.slide = p_slide);
   select * into s from public.students where id = f.student_id;
   select w.pages -> f.page into v_page
   from public.boards b join public.worksheets w on w.lesson_code = b.lesson_code
@@ -2093,10 +2094,10 @@ begin
   ));
 end;
 $$;
-revoke all on function public.get_ws_first(uuid) from public, anon;
-grant execute on function public.get_ws_first(uuid) to authenticated;
+revoke all on function public.get_ws_first(uuid, int) from public, anon;
+grant execute on function public.get_ws_first(uuid, int) to authenticated;
 
--- [인정] (교사): 그 학생에게 settings.ws_first XP·코인. 쪽마다 한 명만, 두 번 눌러도 한 번만
+-- [인정] (교사): 그 학생에게 settings.ws_first XP·코인, 같은 쪽 남은 대기는 끝(closed). 쪽마다 한 명만, 두 번 눌러도 한 번만
 -- 결과: {ok: true, xp, coins, class_id, already} · {ok: false, error: 'TAKEN'(그 쪽은 이미 다른 학생에게 지급) | 'SKIPPED'}
 create or replace function public.accept_ws_first(p_id uuid)
 returns jsonb
@@ -2139,6 +2140,8 @@ begin
   end if;
 
   update public.ws_firsts set status = 'accepted', decided_at = now() where id = f.id;
+  update public.ws_firsts set status = 'closed', decided_at = now()
+  where board_id = f.board_id and page = f.page and status = 'wait' and id <> f.id;
 
   select value into v_set from public.settings where key = 'ws_first';
   v_xp := coalesce((v_set ->> 'xp')::int, 1);
@@ -2301,12 +2304,14 @@ begin
     'has_sheet', exists (select 1 from public.worksheets where lesson_code = b.lesson_code),
     'done',      v_done,
     'total',     v_total,
-    -- 쪽별 제출 열기·첫 답: 칸이 있는 쪽의 수업자료 쪽 번호, 연 쪽(pages 순서), 아직 안 본 첫 답 수
+    -- 쪽별 제출 열기·첫 답: 칸이 있는 쪽의 수업자료 쪽 번호, 연 쪽(pages 순서), 수업자료 쪽별 아직 안 본 첫 답 수 {"18": 3}
     'pages',     (select coalesce(jsonb_agg(jsonb_build_object('page', e.i - 1, 'slide', (e.p ->> 'slide')::int) order by e.i), '[]'::jsonb)
                   from public.worksheets w, jsonb_array_elements(w.pages) with ordinality as e(p, i)
                   where w.lesson_code = b.lesson_code and jsonb_array_length(coalesce(e.p -> 'fields', '[]'::jsonb)) > 0),
     'opened',    (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id),
-    'waiting',   (select count(*)::int from public.ws_firsts f where f.board_id = b.id and f.status = 'wait')
+    'waiting',   (select coalesce(jsonb_object_agg(z.slide::text, z.n), '{}'::jsonb)
+                  from (select f.slide, count(*)::int as n from public.ws_firsts f
+                        where f.board_id = b.id and f.status = 'wait' and f.slide is not null group by f.slide) z)
   );
 end;
 $$;

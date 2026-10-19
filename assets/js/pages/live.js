@@ -687,8 +687,9 @@ const sheetBand = {
     const start = !here.length ? ''
       : open ? '<span class="ws-band-on">제출 받는 중</span>'
       : `<button type="button" class="btn btn-primary btn-small press" data-act="open"${this.opening ? ' disabled' : ''}>제출 시작<kbd>S</kbd></button>`;
-    const view = st.waiting > 0
-      ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${st.waiting}</b><kbd>V</kbd></button>` : '';
+    const waiting = st.waiting?.[this.slide] ?? 0;
+    const view = waiting > 0
+      ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${waiting}</b><kbd>V</kbd></button>` : '';
     const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}`;
     if (html !== this.html) band.innerHTML = this.html = html;
     band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
@@ -739,13 +740,15 @@ $('ws-band').addEventListener('click', (e) => {
 
 /* =========================================================
    쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로(쪽마다 5명까지) 한 명씩 띄운다.
-   [제출한 것 보기](V)를 눌러야 뜬다. [인정] 1 XP·1코인(쪽마다 한 명)하고 창을 닫는다 · [넘기기] 다음 사람.
-   지급한 쪽은 [다음]만. 다 보면 창이 닫힌다(인정·Esc로 닫으면 남은 것은 다음에 V로 다시 보기).
+   [제출한 것 보기](V)를 눌러야 뜨고, 지금 보이는 수업자료 쪽의 줄만 보여 준다.
+   [인정] 1 XP·1코인 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람.
+   다 넘기면 창이 닫힌다. Esc로 닫으면 남은 것은 그 쪽에서 V로 다시 보기
    덮개가 열려 있는 동안은 숨겨 두었다가 닫으면 다시 보인다
    ========================================================= */
 const wsFirst = {
   item: null,
   viewing: false,
+  slide: null,   // 보고 있는 수업자료 쪽
   busy: false,
   loading: false,
   again: false,
@@ -753,10 +756,12 @@ const wsFirst = {
   isOpen() { return this.viewing && !!this.item && !coverOpen; },
 
   async view() {
-    if (!board || this.viewing) return;
+    const slide = lessonFrame.currentSlide();
+    if (!board || this.viewing || !slide) return;
+    this.slide = slide;
     this.viewing = true;
     await this.refresh();
-    if (!this.item) { this.viewing = false; toast('아직 낸 학생이 없어요'); }
+    if (!this.item) { this.viewing = false; toast('이 쪽에 낸 학생이 없어요'); }
   },
 
   close() {
@@ -770,7 +775,7 @@ const wsFirst = {
     if (this.loading || this.busy) { this.again = true; return; }
     this.loading = true;
     try {
-      const res = await getWsFirst(board.id);
+      const res = await getWsFirst(board.id, this.slide);
       this.show(res?.item ?? null);
     } catch (err) {
       console.error(err);

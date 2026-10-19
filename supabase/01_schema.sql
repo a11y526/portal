@@ -349,9 +349,9 @@ create index if not exists rk_players_student_idx on public.rk_players (student_
 
 -- ---------------------------------------------------------
 -- 쪽별 첫 답 (2026-10-16): 학습지 쪽 칸을 모두 채워 [이 쪽 제출]한 학생을 먼저 낸 순서로 쪽마다 5명까지 줄 세운다(맞았는지는 따지지 않음).
--- 수업 모드에 한 명씩 띄우고 교사가 [인정](1 XP·1코인) 또는 [넘기기](다음 사람). 지급은 쪽마다 한 명,
--- 지급한 뒤 줄의 나머지는 지급 없이 차례로 보여 준다
--- status: wait 대기 · accepted 인정(지급) · skipped 넘김 · closed (예전 값, 지금은 안 씀)
+-- 수업 모드에서 지금 수업자료 쪽의 줄만 한 명씩 띄우고 교사가 [인정](1 XP·1코인) 또는 [넘기기](다음 사람).
+-- [인정]하면 그 쪽은 끝: 남은 대기는 closed, 새로 들어오지 않음
+-- status: wait 대기 · accepted 인정(지급) · skipped 넘김 · closed 같은 쪽에서 다른 학생이 인정받아 끝남
 -- ---------------------------------------------------------
 create table if not exists public.ws_firsts (
   id          uuid primary key default gen_random_uuid(),

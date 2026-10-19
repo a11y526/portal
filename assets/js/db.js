@@ -688,14 +688,14 @@ export async function resetWorksheetUpto(boardId, slide) {
   return unwrap(await need().rpc('reset_worksheet_upto', { p_board_id: boardId, p_slide: slide }));
 }
 
-// 수업 모드 띠: { has_sheet, done, total, pages: [{ page, slide }](칸이 있는 쪽), opened: [page], waiting(안 본 첫 답) }
+// 수업 모드 띠: { has_sheet, done, total, pages: [{ page, slide }](칸이 있는 쪽), opened: [page], waiting: { 수업자료 쪽: 안 본 첫 답 수 } }
 export async function getWorksheetStats(boardId) {
   return unwrap(await need().rpc('get_worksheet_stats', { p_board_id: boardId }));
 }
 
-// 쪽별 첫 답: 지금 띄울 하나 { item: null | { id, page, slide, pos, count, wait, class_id, number, nickname, avatar, answers, sheet_page } }
-export async function getWsFirst(boardId) {
-  return unwrap(await need().rpc('get_ws_first', { p_board_id: boardId }));
+// 쪽별 첫 답: 수업자료 slide쪽에서 지금 띄울 하나 { item: null | { id, page, slide, pos, count, wait, class_id, number, nickname, avatar, answers, sheet_page } }
+export async function getWsFirst(boardId, slide) {
+  return unwrap(await need().rpc('get_ws_first', { p_board_id: boardId, p_slide: slide }));
 }
 
 // [인정]: { ok, xp, coins, class_id, already } · { ok: false, error: 'TAKEN' | 'SKIPPED' }

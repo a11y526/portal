@@ -391,6 +391,7 @@ revoke all on function public._ws_view(jsonb, int) from public, anon, authentica
 -- worksheet: 오늘 보드의 차시에 학습지가 있으면 {lesson_code, title, version, pages(쪽 수), done(내가 완료했는지), upto(진도, null이면 전부 열림)}.
 --   학습지 본문은 무거워서 여기 싣지 않고 get_worksheet로 따로 받는다(version이 바뀔 때만)
 -- quiz: 퀴즈 배틀 {open(교사가 열었는지), state(우리 모둠 판 lobby·playing·done 또는 null)}
+-- posts_v: 게시판 버전(보이는 칸의 글 수:마지막 고친 시각). 본문은 get_posts로 따로
 -- ---------------------------------------------------------
 drop function if exists public.get_class_page(int);
 drop function if exists public.get_class_page(int, int);
@@ -527,7 +528,12 @@ begin
     -- 퀴즈 배틀: 교사가 열었는지, 우리 모둠 판 상태(lobby·playing·done, 없으면 null)
     'quiz',       case when b.id is null then null else jsonb_build_object(
                     'open',  b.quiz_open,
-                    'state', (select q.status from public.qb_games q where q.board_id = b.id and q.group_no = v_my)) end
+                    'state', (select q.status from public.qb_games q where q.board_id = b.id and q.group_no = v_my)) end,
+    -- 게시판: 보이는 칸(내 모둠, 발표 뒤에는 모두)의 글 수·마지막 고친 시각. 바뀔 때만 get_posts를 부른다
+    'posts_v',    case when b.id is null then null else (
+                    select count(*)::text || ':' || coalesce(max(p.updated_at)::text, '')
+                    from public.posts p
+                    where p.board_id = b.id and (b.status = 'revealed' or p.group_no = v_my)) end
   );
 end;
 $$;
@@ -4324,3 +4330,274 @@ end;
 $$;
 revoke all on function public.get_omok_rank(text) from public;
 grant execute on function public.get_omok_rank(text) to anon, authenticated;
+
+-- =========================================================
+-- 모둠 칸 게시판 (2026-10-19, 패들렛 대체)
+-- 학생은 오늘 보드의 그날 자기 모둠 칸에만 쓴다. 우리 모둠이 검사 대기·통과면 잠김('다시'를 받으면 다시 열림).
+-- 발표('revealed') 전에는 내 모둠 칸만 내보내고, 발표 뒤에는 모든 칸.
+-- 사진: post_upload_ticket으로 경로를 받아 Storage에 직접 올린 뒤 save_post에 그 경로를 넣는다.
+-- =========================================================
+
+-- 쓸 수 있는지 (내부용). 결과: {ok: true, group_no} 또는 {ok: false, error}
+--   NO_SESSION · BOARD_CHANGED(오늘 보드 아님) · CLOSED(보드가 열려 있지 않음) · NO_GROUP · LOCKED(검사 대기·통과)
+create or replace function public._post_gate(p_sid uuid, p_board_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_class int;
+  v_today uuid;
+  b       public.boards;
+  v_group smallint;
+begin
+  if p_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select class_id into v_class from public.students where id = p_sid;
+  select today_board_id into v_today from public.classes where id = v_class;
+  select * into b from public.boards where id = p_board_id;
+  if not found or b.class_id <> v_class or v_today is distinct from b.id then
+    return jsonb_build_object('ok', false, 'error', 'BOARD_CHANGED');
+  end if;
+  if b.status <> 'open' then
+    return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+  select group_no into v_group from public.board_groups where board_id = b.id and student_id = p_sid;
+  if v_group is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
+  end if;
+  if exists (select 1 from public.submissions where board_id = b.id and group_no = v_group and status in ('pending', 'passed')) then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED', 'group_no', v_group);
+  end if;
+  return jsonb_build_object('ok', true, 'group_no', v_group);
+end;
+$$;
+revoke all on function public._post_gate(uuid, uuid) from public, anon, authenticated;
+
+-- 한 모둠 칸의 게시물 (내부용). 쓴 사람은 승인된 닉네임·캐릭터만(번호 없음), mine: 내가 쓴 것
+create or replace function public._post_list(p_board_id uuid, p_group int, p_sid uuid)
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'id',       p.id,
+           'title',    p.title,
+           'body',     p.body,
+           'link',     p.link,
+           'photo',    p.photo,
+           'nickname', s.nickname,
+           'avatar',   s.avatar,
+           'teacher',  s.number = 0,
+           'mine',     p.student_id = p_sid,
+           'at',       p.created_at
+         ) order by p.created_at, p.id), '[]'::jsonb)
+  from public.posts p
+  left join public.students s on s.id = p.student_id
+  where p.board_id = p_board_id and p.group_no = p_group;
+$$;
+revoke all on function public._post_list(uuid, int, uuid) from public, anon, authenticated;
+
+-- 반 페이지 게시판 (누구나)
+-- 결과: {board_id(오늘 보드, 없으면 null), status, my_group, can_write, why(못 쓰는 이유: NO_SESSION·CLOSED·NO_GROUP·LOCKED),
+--        groups: [{no, posts(보이는 칸만, 가린 칸은 null)}]}
+create or replace function public.get_posts(p_class_id int, p_token text default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  b      public.boards;
+  v_sid  uuid;
+  v_my   smallint;
+  v_gate jsonb;
+  v_rev  boolean;
+begin
+  select bb.* into b from public.classes c join public.boards bb on bb.id = c.today_board_id where c.id = p_class_id;
+  if b.id is null then
+    return jsonb_build_object('board_id', null, 'groups', '[]'::jsonb);
+  end if;
+  if p_token is not null then
+    select s.id into v_sid from public.students s where s.id = public._session_student(p_token) and s.class_id = p_class_id;
+    if v_sid is not null then
+      select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
+    end if;
+  end if;
+  v_gate := public._post_gate(v_sid, b.id);
+  v_rev := b.status = 'revealed';
+
+  return jsonb_build_object(
+    'board_id',  b.id,
+    'status',    b.status,
+    'my_group',  v_my,
+    'can_write', (v_gate ->> 'ok')::boolean,
+    'why',       v_gate ->> 'error',
+    'groups',    coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'no',    g.no,
+               'posts', case when v_rev or g.no = v_my then public._post_list(b.id, g.no, v_sid) end
+             ) order by g.no)
+      from (select distinct group_no::int as no from public.board_groups where board_id = b.id) g
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+revoke all on function public.get_posts(int, text) from public;
+grant execute on function public.get_posts(int, text) to anon, authenticated;
+
+-- 사진 올리기 표 (학생): 쓸 수 있을 때만 '보드/모둠/무작위.jpg' 경로를 만들어 둔다(15분 안에 올려야 함).
+-- 한 학생 한 보드 40장까지. 결과: {ok: true, path} 또는 {ok: false, error}(_post_gate와 같음, FULL)
+create or replace function public.post_upload_ticket(p_token text, p_board_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid  uuid := public._session_student(p_token);
+  v_gate jsonb := public._post_gate(v_sid, p_board_id);
+  v_path text;
+begin
+  if not (v_gate ->> 'ok')::boolean then
+    return v_gate;
+  end if;
+  if (select count(*) from public.post_uploads where board_id = p_board_id and student_id = v_sid) >= 40 then
+    return jsonb_build_object('ok', false, 'error', 'FULL');
+  end if;
+  v_path := p_board_id::text || '/' || (v_gate ->> 'group_no') || '/' || replace(gen_random_uuid()::text, '-', '') || '.jpg';
+  insert into public.post_uploads (path, board_id, student_id) values (v_path, p_board_id, v_sid);
+  return jsonb_build_object('ok', true, 'path', v_path);
+end;
+$$;
+revoke all on function public.post_upload_ticket(text, uuid) from public;
+grant execute on function public.post_upload_ticket(text, uuid) to anon, authenticated;
+
+-- Storage 정책용: 15분 안에 받은 올리기 표의 경로인지
+create or replace function public._post_upload_ok(p_name text)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select exists (select 1 from public.post_uploads where path = p_name and created_at > now() - interval '15 minutes');
+$$;
+revoke all on function public._post_upload_ok(text) from public;
+grant execute on function public._post_upload_ok(text) to anon, authenticated;
+
+-- 글 쓰기·고치기 (학생). p_post_id가 null이면 새 글(모둠 칸마다 30개까지), 있으면 우리 모둠 글 고치기.
+-- 제목 60자, 본문 2000자, 링크는 http(s) 주소 500자. 사진은 내가 받은 올리기 표 경로이거나 그 글의 원래 사진.
+-- 결과: {ok: true, id} 또는 {ok: false, error}(_post_gate와 같음, EMPTY · BAD_LINK · BAD_PHOTO · FULL · NOT_FOUND)
+create or replace function public.save_post(p_token text, p_board_id uuid, p_post_id uuid,
+  p_title text, p_body text, p_link text, p_photo text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid   uuid := public._session_student(p_token);
+  v_gate  jsonb := public._post_gate(v_sid, p_board_id);
+  v_group smallint;
+  v_title text := left(btrim(coalesce(p_title, '')), 60);
+  v_body  text := left(btrim(coalesce(p_body, '')), 2000);
+  v_link  text := nullif(btrim(coalesce(p_link, '')), '');
+  v_photo text := nullif(btrim(coalesce(p_photo, '')), '');
+  p       public.posts;
+  v_id    uuid;
+begin
+  if not (v_gate ->> 'ok')::boolean then
+    return v_gate;
+  end if;
+  v_group := (v_gate ->> 'group_no')::smallint;
+
+  if p_post_id is not null then
+    select * into p from public.posts where id = p_post_id and board_id = p_board_id and group_no = v_group for update;
+    if not found then
+      return jsonb_build_object('ok', false, 'error', 'NOT_FOUND');
+    end if;
+  end if;
+
+  if v_link is not null and (char_length(v_link) > 500 or v_link !~* '^https?://[^\s]+$') then
+    return jsonb_build_object('ok', false, 'error', 'BAD_LINK');
+  end if;
+  if v_photo is not null and v_photo is distinct from p.photo
+     and not exists (select 1 from public.post_uploads where path = v_photo and board_id = p_board_id and student_id = v_sid) then
+    return jsonb_build_object('ok', false, 'error', 'BAD_PHOTO');
+  end if;
+  if v_title = '' and v_body = '' and v_link is null and v_photo is null then
+    return jsonb_build_object('ok', false, 'error', 'EMPTY');
+  end if;
+
+  if p.id is null then
+    if (select count(*) from public.posts where board_id = p_board_id and group_no = v_group) >= 30 then
+      return jsonb_build_object('ok', false, 'error', 'FULL');
+    end if;
+    insert into public.posts (board_id, group_no, student_id, title, body, link, photo)
+    values (p_board_id, v_group, v_sid, v_title, v_body, v_link, v_photo)
+    returning id into v_id;
+  else
+    update public.posts
+    set title = v_title, body = v_body, link = v_link, photo = v_photo, updated_at = now()
+    where id = p.id;
+    v_id := p.id;
+  end if;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end;
+$$;
+revoke all on function public.save_post(text, uuid, uuid, text, text, text, text) from public;
+grant execute on function public.save_post(text, uuid, uuid, text, text, text, text) to anon, authenticated;
+
+-- 글 지우기 (학생): 우리 모둠 글만, 쓸 수 있을 때만. 사진 파일은 오늘 보드가 바뀔 때 교사 화면이 지운다
+-- 결과: {ok: true} 또는 {ok: false, error}(_post_gate와 같음, NOT_FOUND)
+create or replace function public.delete_post(p_token text, p_post_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid  uuid := public._session_student(p_token);
+  p      public.posts;
+  v_gate jsonb;
+begin
+  select * into p from public.posts where id = p_post_id;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', case when v_sid is null then 'NO_SESSION' else 'NOT_FOUND' end);
+  end if;
+  v_gate := public._post_gate(v_sid, p.board_id);
+  if not (v_gate ->> 'ok')::boolean then
+    return v_gate;
+  end if;
+  if p.group_no <> (v_gate ->> 'group_no')::smallint then
+    return jsonb_build_object('ok', false, 'error', 'NOT_FOUND');
+  end if;
+  delete from public.posts where id = p.id;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.delete_post(text, uuid) from public;
+grant execute on function public.delete_post(text, uuid) to anon, authenticated;
+
+-- 사진 버킷 정책: 학생(anon)은 받은 경로에 새로 올리기만, 교사는 모두(지우기 포함)
+do $$
+begin
+  if to_regclass('storage.objects') is not null then
+    execute 'drop policy if exists posts_upload_ticket on storage.objects';
+    execute $p$create policy posts_upload_ticket on storage.objects for insert to anon, authenticated
+              with check (bucket_id = 'posts' and public._post_upload_ok(name))$p$;
+    execute 'drop policy if exists posts_teacher_all on storage.objects';
+    execute $p$create policy posts_teacher_all on storage.objects for all to authenticated
+              using (bucket_id = 'posts' and public.is_teacher()) with check (bucket_id = 'posts' and public.is_teacher())$p$;
+  end if;
+end $$;

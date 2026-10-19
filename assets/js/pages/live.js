@@ -1,4 +1,4 @@
-// 수업 모드 (프로젝터): 수업자료 HTML이 화면 가득, G키로 모둠활동 덮개(모둠·패들렛·순위 발표)를 열고 닫는다
+// 수업 모드 (프로젝터): 수업자료 HTML이 화면 가득, G키로 모둠활동 덮개(모둠·게시판·순위 발표)를 열고 닫는다
 // live.html?c=<반>&l=<차시>
 // 수업자료 iframe은 한 번 만들면 없애거나 다시 불러오지 않는다(보던 쪽과 시뮬레이션 상태가 남게)
 import { CLASSES, GRADE } from '../config.js';
@@ -7,7 +7,9 @@ import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, sendWsOpen, setQuizOpen, listQuizGames,
+  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos,
 } from '../db.js';
+import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -121,7 +123,7 @@ function handleKey(e) {
   }
   switch (e.code) {
     case 'Digit1': case 'Numpad1': setTab('groups'); return true;
-    case 'Digit2': case 'Numpad2': setTab('padlet'); return true;
+    case 'Digit2': case 'Numpad2': setTab('board'); return true;
     case 'Digit3': case 'Numpad3': setTab('reveal'); return true;
     case 'KeyT': if (!e.repeat) timer.toggle(); return true;
   }
@@ -194,7 +196,7 @@ function setTab(next) {
   });
   document.querySelectorAll('[data-pane]').forEach((p) => p.classList.toggle('hidden', p.dataset.pane !== next));
   if (next === 'groups') fitGroups();
-  if (next === 'padlet') mountPadlet();
+  if (next === 'board') postBoard.show();
   if (next === 'reveal') mountReveal();
   focusPane();
 }
@@ -207,7 +209,7 @@ document.querySelector('.cover-tabs').addEventListener('click', (e) => {
 function focusPane() {
   if (!coverOpen) return;
   const frame = document.querySelector(`[data-pane="${tab}"] .cover-embed:not(.hidden) iframe`);
-  if (frame && tab !== 'padlet') {
+  if (frame && tab !== 'board') {
     frame.focus();
     try { frame.contentWindow.focus(); } catch {}
   } else {
@@ -266,6 +268,7 @@ async function loadGroups() {
       state: displayState(latest.get(i + 1)),
     }));
     renderGroupsPane();
+    postBoard.paint();
   } catch (err) {
     console.error(err);
     if (!groups.length) toast(errMsg(err), 'error');
@@ -465,28 +468,90 @@ async function refreshBoard() {
   } catch (err) { console.error(err); }
   membersKey = undefined; // 발표 뒤 '통과 · n위'로
   loadGroups();
+  postBoard.paint(); // 발표 뒤에는 모든 칸
 }
 
 /* =========================================================
-   [패들렛] [순위 발표] 탭: 처음 열 때 만든다
+   [게시판] 탭: 모둠 칸 게시판(패들렛 대체)
+   발표 전에는 칸마다 글 수만 보이고, [보기]를 누른 칸만 글이 보인다(발표 뒤에는 모두)
    ========================================================= */
-let padletMounted = false;
-function mountPadlet() {
-  if (padletMounted) return;
-  if (!board) return showMsg('padlet-msg', noBoardHTML());
-  if (!/^https?:\/\//i.test(board.padlet_src || '')) {
-    return showMsg('padlet-msg', '<div class="empty cover-empty"><strong>패들렛이 연결되지 않은 보드예요</strong></div>');
-  }
-  padletMounted = true;
-  const f = document.createElement('iframe');
-  f.className = 'cover-frame';
-  f.title = '패들렛';
-  f.src = board.padlet_src;
-  f.allow = 'camera;microphone;geolocation;display-capture;clipboard-write';
-  f.referrerPolicy = 'strict-origin-when-cross-origin';
-  $('padlet-embed').replaceChildren(f);
-}
+const postBoard = {
+  rows: [],
+  open: new Set(), // 발표 전에 교사가 펼친 칸
+  loaded: false,
+  timer: null,
+  async load() {
+    if (!board) return;
+    try {
+      this.rows = await listPosts(board.id);
+      this.loaded = true;
+      this.paint();
+    } catch (err) { console.error(err); }
+  },
+  schedule() {
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.load(), 400);
+  },
+  show() {
+    if (!board) return showMsg('board-msg', noBoardHTML());
+    if (!this.loaded) this.load();
+    else this.paint();
+  },
+  paint() {
+    if (!board || tab !== 'board') return;
+    const revealed = board.status === 'revealed';
+    const nos = groups.length ? groups.map((g) => g.no) : [...new Set(this.rows.map((r) => r.group_no))].sort((a, b) => a - b);
+    const box = $('live-board');
+    if (!nos.length) {
+      box.classList.add('hidden');
+      showMsg('board-msg', '<div class="empty cover-empty"><strong>아직 모둠이 정해지지 않았어요</strong></div>');
+      return;
+    }
+    showMsg('board-msg', '');
+    box.classList.remove('hidden');
+    const cols = nos.map((no) => {
+      const list = this.rows.filter((r) => r.group_no === no).map((r) => ({
+        id: r.id, title: r.title, body: r.body, link: r.link, photo: r.photo, at: r.created_at,
+        nickname: r.student?.nickname, avatar: r.student?.avatar, teacher: r.student?.number === 0,
+      }));
+      return { no, count: list.length, posts: revealed || this.open.has(no) ? list : null };
+    });
+    const html = boardHTML(cols, {
+      remove: true,
+      hiddenText: (g) => `글 ${g.count}개`,
+      colExtra: (g) => revealed ? `<span class="muted num">${g.count}개</span>`
+        : `<button type="button" class="btn btn-line btn-small" data-col-toggle="${g.no}">${this.open.has(g.no) ? '가리기' : '보기'}</button>`,
+    });
+    if (html !== box.dataset.html) {
+      box.innerHTML = html;
+      box.dataset.html = html;
+    }
+  },
+};
 
+$('live-board').addEventListener('click', async (e) => {
+  const t = e.target.closest('[data-col-toggle]');
+  if (t) {
+    const no = Number(t.dataset.colToggle);
+    if (postBoard.open.has(no)) postBoard.open.delete(no); else postBoard.open.add(no);
+    postBoard.paint();
+    return;
+  }
+  const del = e.target.closest('[data-post-del]');
+  if (!del) return;
+  const row = postBoard.rows.find((r) => r.id === del.dataset.postDel);
+  if (!row || !confirm(`${row.group_no}모둠 글을 지울까요?`)) return;
+  del.disabled = true;
+  try {
+    await teacherDeletePost(row);
+    sendClassRefresh(classId);
+  } catch (err) { toast(errMsg(err), 'error'); }
+  postBoard.load();
+});
+
+/* =========================================================
+   [순위 발표] 탭: 처음 열 때 만든다
+   ========================================================= */
 let revealMounted = false;
 function mountReveal() {
   if (revealMounted) return;
@@ -911,6 +976,13 @@ teacherGate($('app'), async () => {
     const row = p.new?.board_id ? p.new : p.old;
     if (!row?.board_id || row.board_id === board.id) scheduleGroups();
   });
+  // 게시판: 지운 글은 board_id가 안 올 수 있어서 모두 다시 읽는다
+  onPostsChange((p) => {
+    const row = p.new?.board_id ? p.new : p.old;
+    if (!row?.board_id || row.board_id === board.id) postBoard.schedule();
+  });
+  setInterval(() => { if (!document.hidden && coverOpen && tab === 'board') postBoard.load(); }, 5000);
+  cleanupPostPhotos().catch((err) => console.error(err)); // 끝난 차시 사진 지우기
   setInterval(() => { if (!document.hidden) loadGroups(); }, REFRESH_MS);
   setInterval(() => { if (!document.hidden) quiz.refresh(); }, QUIZ_POLL_MS);
 });

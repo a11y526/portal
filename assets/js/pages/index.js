@@ -1,5 +1,5 @@
 // 입구: 로그인(반·번호·코드) → 왼쪽 내 캐릭터, 오른쪽 수업·마이페이지·이번 달 순위
-// 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(패들렛)만 볼 수도 있다.
+// 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(게시판)만 볼 수도 있다.
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
 import { studentLogin, studentLogout, getMyPage, getOmok, rkState, omState } from '../db.js';

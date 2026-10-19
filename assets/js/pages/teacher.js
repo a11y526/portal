@@ -4,7 +4,7 @@
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
-  listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, toPadletEmbed,
+  listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, cleanupPostPhotos,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
@@ -100,19 +100,6 @@ document.addEventListener('click', (e) => {
   if (add) addSimRow(add.closest('.field').querySelector('[data-sims]'));
 });
 
-/* ---------- 패들렛 주소 입력 + 변환 결과 표시 ---------- */
-function bindPadletHint(input, hint) {
-  const update = () => {
-    const v = input.value.trim();
-    if (!v) { hint.textContent = ''; hint.classList.remove('bad'); return; }
-    const embed = toPadletEmbed(v);
-    hint.textContent = embed ? '→ ' + embed : '패들렛 주소가 아니에요';
-    hint.classList.toggle('bad', !embed);
-  };
-  input.addEventListener('input', update);
-  update();
-}
-
 /* ---------- 오늘 보드 ---------- */
 function renderToday() {
   $('today-list').innerHTML = classes.map((c) => {
@@ -185,8 +172,7 @@ function renderBoards() {
             <span class="cls">${b.class_id}반</span>
             ${todayIds.has(b.id) ? '<span class="tag tag-today">오늘</span>' : ''}
             ${b.status === 'revealed' ? '<span class="tag tag-done">발표함</span>' : ''}
-            ${b.padlet_src ? '' : '<span class="tag tag-warn">패들렛 없음</span>'}
-            <span class="src">${esc(b.padlet_src || '')}</span>
+            <span class="src"></span>
             <button type="button" class="btn btn-line btn-small" data-edit="${b.id}">수정</button>
             <button type="button" class="btn btn-danger btn-small" data-del="${b.id}">삭제</button>
           </div>`).join('')}
@@ -241,15 +227,8 @@ $('board-groups').addEventListener('click', async (e) => {
 
 /* ---------- 보드 만들기 ---------- */
 function renderCreateForm() {
-  $('padlet-rows').innerHTML = CLASSES.map((n) => `
-    <div class="padlet-row">
-      <label class="check"><input type="checkbox" data-include="${n}" checked> ${n}반</label>
-      <input class="input" data-padlet="${n}" placeholder="패들렛 주소 또는 임베드 코드" aria-label="${n}반 패들렛 주소">
-      <div class="hint" data-hint="${n}"></div>
-    </div>`).join('');
-  for (const n of CLASSES) {
-    bindPadletHint($('padlet-rows').querySelector(`[data-padlet="${n}"]`), $('padlet-rows').querySelector(`[data-hint="${n}"]`));
-  }
+  $('class-picks').innerHTML = CLASSES.map((n) => `
+    <label class="check"><input type="checkbox" data-include="${n}" checked> ${n}반</label>`).join('');
   const sims = $('create').querySelector('[data-sims]');
   sims.innerHTML = '';
   addSimRow(sims);
@@ -267,16 +246,6 @@ $('create').lesson_code.addEventListener('change', (e) => {
   found.forEach((s) => addSimRow(sims, s));
 });
 
-$('copy-first').addEventListener('click', () => {
-  const inputs = [...$('padlet-rows').querySelectorAll('[data-padlet]')];
-  const first = inputs.find((i) => i.value.trim());
-  if (!first) { toast('먼저 주소를 하나 넣어 주세요', 'error'); return; }
-  for (const i of inputs) {
-    i.value = first.value;
-    i.dispatchEvent(new Event('input'));
-  }
-});
-
 $('create').addEventListener('submit', async (e) => {
   e.preventDefault();
   const f = e.currentTarget;
@@ -288,14 +257,7 @@ $('create').addEventListener('submit', async (e) => {
   const items = [];
   for (const n of CLASSES) {
     if (!f.querySelector(`[data-include="${n}"]`).checked) continue;
-    const raw = f.querySelector(`[data-padlet="${n}"]`).value.trim();
-    const padlet_src = raw ? toPadletEmbed(raw) : null;
-    if (raw && !padlet_src) {
-      toast(`${n}반 패들렛 주소를 확인해 주세요`, 'error');
-      f.querySelector(`[data-padlet="${n}"]`).focus();
-      return;
-    }
-    items.push({ class_id: n, padlet_src });
+    items.push({ class_id: n });
   }
   if (!items.length) { toast('반을 하나 이상 골라 주세요', 'error'); return; }
 
@@ -318,7 +280,6 @@ $('create').addEventListener('submit', async (e) => {
 /* ---------- 보드 수정 ---------- */
 let editing = null;
 const editForm = $('edit-form');
-bindPadletHint(editForm.padlet, $('edit-hint'));
 
 function openEdit(b) {
   if (!b) return;
@@ -326,8 +287,6 @@ function openEdit(b) {
   $('edit-title').textContent = `${b.class_id}반 보드 수정`;
   editForm.lesson_code.value = b.lesson_code;
   editForm.elements.title.value = b.title;
-  editForm.padlet.value = b.padlet_src || '';
-  editForm.padlet.dispatchEvent(new Event('input'));
   const sims = editForm.querySelector('[data-sims]');
   sims.innerHTML = '';
   (b.sim_links?.length ? b.sim_links : [{ name: '', url: '' }]).forEach((s) => addSimRow(sims, s));
@@ -339,9 +298,6 @@ $('edit-cancel').addEventListener('click', () => $('edit').close());
 editForm.addEventListener('submit', async (e) => {
   e.preventDefault();
   if (!editing) return;
-  const raw = editForm.padlet.value.trim();
-  const padlet_src = raw ? toPadletEmbed(raw) : null;
-  if (raw && !padlet_src) { toast('패들렛 주소를 확인해 주세요', 'error'); return; }
   const sim_links = await readSims(editForm.querySelector('[data-sims]'));
   if (!sim_links) return;
   try {
@@ -349,7 +305,6 @@ editForm.addEventListener('submit', async (e) => {
     await updateBoard(editing.id, {
       lesson_code,
       title: editForm.elements.title.value.trim(),
-      padlet_src,
       sim_links,
     });
     await setLessonSims(lesson_code, sim_links);
@@ -1287,7 +1242,7 @@ $('lesson-list').addEventListener('click', async (e) => {
     const classId = Number(clsBtn.dataset.live);
     win.querySelectorAll('[data-live]').forEach((b) => { b.disabled = true; });
     try {
-      // 그 반에 이 차시 보드가 있으면 오늘 보드로 (학생 반 페이지도 바로 그 차시 패들렛으로)
+      // 그 반에 이 차시 보드가 있으면 오늘 보드로 (학생 반 페이지도 바로 그 차시 게시판으로)
       const b = lessonBoard(classId, code);
       const c = classes.find((x) => x.id === classId);
       if (b && c?.today_board_id !== b.id) {
@@ -1545,6 +1500,8 @@ async function refresh() {
   renderOmok();
   renderLessons();
   if (location.hash === '#data') renderArchive();
+  // 모둠 게시판 사진은 그 차시가 끝나면(어느 반의 오늘 보드도 아니면) 지운다
+  cleanupPostPhotos().catch((err) => console.error(err));
 }
 
 renderCreateForm();

@@ -68,9 +68,9 @@
           <button type="button" class="btn btn-line btn-small" id="regroup">편성 다시 하기</button>
         </div>
       </div>
-      <div class="cover-pane hidden" data-pane="padlet">
-        <div class="cover-embed" id="padlet-embed"></div>
-        <div class="cover-msg hidden" id="padlet-msg"></div>
+      <div class="cover-pane hidden" data-pane="board">
+        <div class="post-board live-board" id="live-board" aria-live="polite"></div>
+        <div class="cover-msg hidden" id="board-msg"></div>
       </div>
       <div class="cover-pane hidden" data-pane="reveal">
         <div class="cover-embed" id="reveal-embed"></div>
@@ -80,7 +80,7 @@
 
     <nav class="cover-tabs glass-strong" aria-label="모둠활동">
       <button type="button" class="cover-tab press" data-tab="groups"><span>모둠</span><kbd>1</kbd></button>
-      <button type="button" class="cover-tab press" data-tab="padlet"><span>패들렛</span><kbd>2</kbd></button>
+      <button type="button" class="cover-tab press" data-tab="board"><span>게시판</span><kbd>2</kbd></button>
       <button type="button" class="cover-tab press" data-tab="reveal"><span>순위 발표</span><kbd>3</kbd></button>
       <button type="button" class="cover-tab cover-close press" id="cover-close"><span>수업자료로</span><kbd>G</kbd></button>
     </nav>

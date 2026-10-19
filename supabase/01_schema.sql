@@ -474,3 +474,55 @@ create table if not exists public.om_players (
   primary key (game_id, student_id)
 );
 create index if not exists om_players_student_idx on public.om_players (student_id, joined_at);
+
+-- ---------------------------------------------------------
+-- 모둠 칸 게시판 (2026-10-19, 패들렛 대체)
+-- 보드(차시×반)마다 그날 모둠별 칸. 학생은 그날 자기 모둠 칸에만 쓴다(post_* 함수로만).
+-- 사진은 Storage 'posts' 버킷. 그 반의 오늘 보드가 바뀌면 교사 화면이 사진을 지운다(post_uploads가 올린 파일 목록)
+-- ---------------------------------------------------------
+create table if not exists public.posts (
+  id         uuid primary key default gen_random_uuid(),
+  board_id   uuid not null references public.boards(id) on delete cascade,
+  group_no   smallint not null,
+  student_id uuid null references public.students(id) on delete set null,  -- 쓴 학생
+  title      text not null default '' check (char_length(title) <= 60),
+  body       text not null default '' check (char_length(body) <= 2000),
+  link       text null check (link is null or char_length(link) <= 500),
+  photo      text null,                                                    -- 'posts' 버킷 안 경로
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists posts_board_group_idx on public.posts (board_id, group_no, created_at);
+
+-- 학생이 받은 사진 올리기 표(경로). 보드를 지워도 파일을 찾아 지울 수 있게 외래 키를 걸지 않는다
+create table if not exists public.post_uploads (
+  path       text primary key,
+  board_id   uuid not null,
+  student_id uuid not null,
+  created_at timestamptz not null default now()
+);
+create index if not exists post_uploads_board_idx on public.post_uploads (board_id);
+create index if not exists post_uploads_student_idx on public.post_uploads (student_id, created_at);
+
+-- 수업 모드·검사 화면이 게시물 변경을 실시간으로 받도록
+do $$
+begin
+  if exists (select 1 from pg_publication where pubname = 'supabase_realtime')
+     and not exists (
+       select 1 from pg_publication_tables
+       where pubname = 'supabase_realtime' and schemaname = 'public' and tablename = 'posts'
+     ) then
+    alter publication supabase_realtime add table public.posts;
+  end if;
+end $$;
+
+-- 사진 버킷: 공개 읽기(경로는 무작위), 3MB까지, jpeg만(화면이 줄여서 jpeg로 올림)
+do $$
+begin
+  if to_regclass('storage.buckets') is not null then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('posts', 'posts', true, 3145728, array['image/jpeg'])
+    on conflict (id) do update
+      set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+  end if;
+end $$;

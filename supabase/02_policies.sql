@@ -250,3 +250,19 @@ drop policy if exists om_players_teacher_all on public.om_players;
 create policy om_players_teacher_all on public.om_players
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 모둠 칸 게시판 (2026-10-19): 학생은 post_* 함수로만. 사진 버킷 정책은 03 끝(_post_upload_ok 뒤)
+alter table public.posts enable row level security;
+alter table public.post_uploads enable row level security;
+revoke all on public.posts from anon;
+revoke all on public.post_uploads from anon;
+
+drop policy if exists posts_teacher_all on public.posts;
+create policy posts_teacher_all on public.posts
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists post_uploads_teacher_all on public.post_uploads;
+create policy post_uploads_teacher_all on public.post_uploads
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

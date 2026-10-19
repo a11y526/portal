@@ -39,6 +39,38 @@ export async function submitGroup(boardId, token) {
   return unwrap(await need().rpc('submit_group', { p_board_id: boardId, p_token: token }));
 }
 
+/* ---------- 모둠 칸 게시판 (패들렛 대체) ---------- */
+
+// { board_id, status, my_group, can_write, why, groups: [{ no, posts: [...] | null(가린 칸) }] }
+export async function getPosts(classId, token = null) {
+  return unwrap(await need().rpc('get_posts', { p_class_id: classId, p_token: token }));
+}
+
+// 아래 결과: { ok: true, ... } 또는 error = 'NO_SESSION' | 'BOARD_CHANGED' | 'CLOSED' | 'NO_GROUP' | 'LOCKED' | ...
+// 사진 올리기: 경로를 받아(post_upload_ticket) 'posts' 버킷에 jpeg로 올린다. 결과: { ok, path } 또는 { ok: false, error }
+export async function uploadPostPhoto(token, boardId, blob) {
+  const t = unwrap(await need().rpc('post_upload_ticket', { p_token: token, p_board_id: boardId }));
+  if (!t?.ok) return t;
+  const { error } = await need().storage.from(POST_BUCKET).upload(t.path, blob, { contentType: 'image/jpeg', upsert: false, cacheControl: '86400' });
+  if (error) throw error;
+  return t;
+}
+
+// post: { title, body, link, photo }. postId가 null이면 새 글. 결과: { ok, id } 또는 error = 'EMPTY' | 'BAD_LINK' | 'BAD_PHOTO' | 'FULL' | 'NOT_FOUND' | ...
+export async function savePost(token, boardId, postId, post) {
+  return unwrap(await need().rpc('save_post', {
+    p_token: token, p_board_id: boardId, p_post_id: postId,
+    p_title: post.title ?? '', p_body: post.body ?? '', p_link: post.link ?? '', p_photo: post.photo ?? '',
+  }));
+}
+
+export async function deletePost(token, postId) {
+  return unwrap(await need().rpc('delete_post', { p_token: token, p_post_id: postId }));
+}
+
+export const POST_BUCKET = 'posts';
+export const postPhotoUrl = (path) => `${SUPABASE_URL}/storage/v1/object/public/${POST_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`;
+
 // 내 기록: 레벨, XP, 순위, 코인, 받은 기록, 닉네임, 캐릭터, 입을 수 있는 부품
 export async function getMyPage(token) {
   return unwrap(await need().rpc('get_my_page', { p_token: token }));
@@ -302,13 +334,12 @@ export async function archiveBoards(ids, on = true) {
   unwrap(await need().from('boards').update({ archived_at: on ? new Date().toISOString() : null }).in('id', ids));
 }
 
-// items: [{ class_id, padlet_src }]
+// items: [{ class_id }]
 export async function createBoards({ lesson_code, title, sim_links, items, setToday }) {
   const rows = items.map((it) => ({
     class_id: it.class_id,
     lesson_code,
     title,
-    padlet_src: it.padlet_src || null,
     sim_links,
   }));
   const created = unwrap(await need().from('boards').insert(rows).select('id, class_id'));
@@ -567,6 +598,46 @@ export function onSubmissionsChange(fn) {
     .subscribe();
 }
 
+/* ---------- 교사: 모둠 칸 게시판 ---------- */
+
+// [{ id, group_no, title, body, link, photo, created_at, student: { number, nickname, avatar } }]
+export async function listPosts(boardId) {
+  return unwrap(await need().from('posts')
+    .select('id, group_no, title, body, link, photo, created_at, student:students(number, nickname, avatar)')
+    .eq('board_id', boardId)
+    .order('created_at'));
+}
+
+export async function teacherDeletePost(post) {
+  unwrap(await need().from('posts').delete().eq('id', post.id));
+  if (post.photo) await need().storage.from(POST_BUCKET).remove([post.photo]).catch(() => {});
+}
+
+// posts 표가 바뀌면 fn(payload)
+export function onPostsChange(fn) {
+  need().channel('posts-watch')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'posts' }, fn)
+    .subscribe();
+}
+
+// 사진은 그 차시가 끝나면 지운다: 어느 반의 오늘 보드도 아닌 보드에 올린 사진 파일을 지우고 글에서 뺀다.
+// 교사 화면(관리, 수업 모드)이 열릴 때와 오늘 보드를 바꿀 때 부른다. 결과: 지운 파일 수
+export async function cleanupPostPhotos() {
+  const today = unwrap(await need().from('classes').select('today_board_id'))
+    .map((c) => c.today_board_id).filter(Boolean);
+  let query = need().from('post_uploads').select('path').limit(1000);
+  if (today.length) query = query.not('board_id', 'in', `(${today.join(',')})`);
+  const paths = unwrap(await query).map((r) => r.path);
+  for (let i = 0; i < paths.length; i += 100) {
+    const part = paths.slice(i, i + 100);
+    const { error } = await need().storage.from(POST_BUCKET).remove(part);
+    if (error) throw error;
+    unwrap(await need().from('posts').update({ photo: null, updated_at: new Date().toISOString() }).in('photo', part));
+    unwrap(await need().from('post_uploads').delete().in('path', part));
+  }
+  return paths.length;
+}
+
 /* ---------- 교사: 차시별 수업자료 (수업 모드) ---------- */
 
 export async function listLessons() {
@@ -718,26 +789,4 @@ export async function getRummikubRules() {
 
 export async function saveRummikubRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'rummikub', value }, { onConflict: 'key' }));
-}
-
-/* ---------- 패들렛 주소 ---------- */
-
-// 임베드 코드(<iframe ...>), 보드 주소, 임베드 주소 중 무엇을 넣어도 임베드 주소로 바꾼다.
-// 바꿀 수 없으면 null.
-export function toPadletEmbed(input) {
-  if (!input) return null;
-  let s = String(input).trim();
-  const m = s.match(/src\s*=\s*["']([^"']+)["']/i);
-  if (m) s = m[1];
-  if (!/^https?:\/\//i.test(s)) s = 'https://' + s;
-  let url;
-  try { url = new URL(s); } catch { return null; }
-  if (!/padlet\.(com|org)$/i.test(url.hostname) && !/\.padlet\.(com|org)$/i.test(url.hostname)) return null;
-  const parts = url.pathname.split('/').filter(Boolean);
-  if (!parts.length) return null;
-  if (parts[0] === 'embed' && parts[1]) return `${url.origin}/embed/${parts[1]}`;
-  const last = parts[parts.length - 1];
-  const id = last.includes('-') ? last.slice(last.lastIndexOf('-') + 1) : last;
-  if (!/^[a-z0-9]{6,}$/i.test(id)) return null;
-  return `${url.origin}/embed/${id}`;
 }

@@ -33,7 +33,7 @@
     <button type="button" class="class-tab press" role="tab" data-tab="group" id="tab-group" aria-controls="group-tab" aria-selected="true">모둠활동</button>
   </nav>
 
-  <!-- 개인 학습지: 수업자료 쪽에 맞춰 한 쪽씩 (패들렛은 만들지 않는다) -->
+  <!-- 개인 학습지: 수업자료 쪽에 맞춰 한 쪽씩 (게시판은 그리지 않는다) -->
   <section class="ws-card glass-strong hidden" id="sheet" role="tabpanel" aria-labelledby="tab-sheet">
     <header class="ws-head">
       <div class="ws-where">
@@ -69,18 +69,12 @@
       </div>
       <a class="btn btn-primary btn-big press" id="quiz-go" href="quiz.html">들어가기</a>
     </section>
-    <section class="padlet-card glass rise" aria-labelledby="padlet-h">
-      <div class="padlet-head">
-        <h2 id="padlet-h">오늘의 패들렛</h2>
-        <div class="padlet-actions hidden" id="padlet-actions">
-          <button type="button" class="btn btn-line btn-small" id="padlet-full">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 9V4h5"/><path d="M20 9V4h-5"/><path d="M4 15v5h5"/><path d="M20 15v5h-5"/></svg>
-            <span>크게 보기</span>
-          </button>
-          <a id="padlet-open" href="#" target="_blank" rel="noopener">새 탭에서 열기 ↗</a>
-        </div>
+    <section class="board-card glass rise" aria-labelledby="board-h">
+      <div class="board-head">
+        <h2 id="board-h">모둠 게시판</h2>
+        <span class="board-note muted" id="board-note"></span>
       </div>
-      <div id="padlet-slot"><div class="skeleton padlet-empty"></div></div>
+      <div class="post-board" id="post-board"><div class="skeleton board-empty"></div></div>
     </section>
 
     <div class="side hidden" id="side">
@@ -104,6 +98,29 @@
       </section>
     </div>
   </div>
+  <!-- 게시판 글쓰기 -->
+  <dialog class="sheet" id="compose" aria-labelledby="compose-h">
+    <form class="card glass-strong compose" id="compose-form" method="dialog">
+      <h2 id="compose-h">글쓰기</h2>
+      <input class="input" name="title" maxlength="60" placeholder="제목" aria-label="제목" autocomplete="off">
+      <textarea class="input compose-body" name="body" maxlength="2000" rows="5" placeholder="내용" aria-label="내용"></textarea>
+      <div class="compose-photo hidden" id="compose-photo">
+        <img alt="올릴 사진" id="compose-img">
+        <button type="button" class="btn btn-line btn-small" id="compose-unphoto">사진 빼기</button>
+      </div>
+      <input class="input" name="link" type="text" maxlength="500" placeholder="링크 (https://…)" aria-label="링크" autocomplete="off" inputmode="url">
+      <div class="compose-acts">
+        <label class="btn btn-line press compose-pick">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="5" width="18" height="15" rx="3"/><circle cx="12" cy="12.5" r="3.5"/><path d="M8 5l1.5-2h5L16 5"/></svg>
+          <span>사진</span>
+          <input type="file" accept="image/*" id="compose-file" hidden>
+        </label>
+        <span class="compose-gap"></span>
+        <button type="button" class="btn btn-line press" id="compose-cancel">취소</button>
+        <button type="submit" class="btn btn-primary press" id="compose-go">게시</button>
+      </div>
+    </form>
+  </dialog>
   <!-- 학습지 완료 (모든 쪽을 제출했을 때) -->
   <div class="wsdone hidden" id="wsdone" role="dialog" aria-modal="true" aria-labelledby="wsdone-h">
     <div class="wsdone-fx" id="wsdone-fx" aria-hidden="true"></div>

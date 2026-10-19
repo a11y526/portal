@@ -1,12 +1,13 @@
-// 반 페이지: [개인 학습지] [모둠활동] 탭. 모둠활동은 오늘 보드(패들렛 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
-// 학생 기기가 느리고 와이파이가 약해서: 패들렛은 [패들렛 열기]를 눌러야 불러오고,
-// 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
+// 반 페이지: [개인 학습지] [모둠활동] 탭. 모둠활동은 오늘 보드(모둠 게시판 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
+// 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp } from '../ui.js';
-import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen } from '../db.js';
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen,
+  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 import { renderPage, markFields, closeSims } from '../worksheet.js';
+import { boardHTML, shrinkPhoto } from '../posts.js';
 
 initUI();
 bindReactions();
@@ -29,64 +30,27 @@ const isHttp = (u) => typeof u === 'string' && /^https?:\/\//i.test(u);
 
 const ICON_BOARD = `<svg width="44" height="44" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>`;
 
-let shown = { padlet: undefined, sims: undefined, lesson: undefined, groups: undefined };
+let shown = { board: undefined, sims: undefined, lesson: undefined, groups: undefined };
 const reduceMotion = matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-// 오른쪽 칸에 보여 줄 것이 없으면 패들렛을 넓게
+// 오른쪽 칸에 보여 줄 것이 없으면 게시판을 넓게
 function updateSide() {
   $('side').classList.toggle('hidden', !$('side').querySelector('section:not(.hidden)'));
 }
 
 function showEmpty(message, withRetry = false) {
   const key = 'empty:' + message;
-  if (key === shown.padlet && !withRetry) return;
-  shown.padlet = key;
-  $('padlet-actions').classList.add('hidden');
-  $('padlet-slot').innerHTML = `
-    <div class="empty padlet-empty">
+  if (key === shown.board && !withRetry) return;
+  shown.board = key;
+  postsKey = undefined;
+  $('board-note').textContent = '';
+  $('post-board').innerHTML = `
+    <div class="empty board-empty">
       ${ICON_BOARD}
       <strong>${esc(message)}</strong>
       ${withRetry ? '<button type="button" class="btn btn-line" id="retry">다시 불러오기</button>' : ''}
     </div>`;
   if (withRetry) $('retry').addEventListener('click', load);
-}
-
-// 이 탭에서 한 번 열면 갱신 때 닫거나 다시 불러오지 않는다
-let padletOpen = false;
-
-function renderPadlet(src) {
-  if (!isHttp(src)) {
-    showEmpty('패들렛이 아직 연결되지 않았어요');
-    return;
-  }
-  if (!padletOpen) {
-    const key = 'closed:' + src;
-    if (key === shown.padlet) return;
-    shown.padlet = key;
-    $('padlet-actions').classList.add('hidden');
-    $('padlet-slot').innerHTML = `
-      <div class="empty padlet-empty padlet-closed">
-        ${ICON_BOARD}
-        <button type="button" class="btn btn-primary btn-big press" id="padlet-go">패들렛 열기</button>
-      </div>`;
-    $('padlet-go').addEventListener('click', () => {
-      padletOpen = true;
-      renderPadlet(src);
-    });
-    return;
-  }
-  if (src === shown.padlet) return;
-  shown.padlet = src;
-  const frame = document.createElement('iframe');
-  frame.className = 'padlet-frame';
-  frame.src = src;
-  frame.title = '오늘의 패들렛';
-  frame.allow = 'camera;microphone;geolocation;display-capture;clipboard-write';
-  frame.referrerPolicy = 'strict-origin-when-cross-origin';
-  $('padlet-slot').replaceChildren(frame);
-  $('padlet-open').href = src;
-  $('padlet-actions').classList.remove('hidden');
-  fitFrame();
 }
 
 function renderSims(list) {
@@ -113,7 +77,7 @@ const SUBMIT_ERR = {
   ALREADY: '이미 제출했어요',
 };
 
-// 로그인(출입증)이 이 반 것일 때만 쓴다. 로그인 안 했으면 패들렛만 보이고 제출 칸은 로그인 버튼
+// 로그인(출입증)이 이 반 것일 때만 쓴다. 로그인 안 했으면 게시판만 보이고 제출 칸은 로그인 버튼
 let login = readLogin();
 if (login && login.class_id !== classId) login = null;
 
@@ -331,7 +295,7 @@ function applyTab() {
     b.setAttribute('aria-selected', String(on));
   });
   if (sheetOn) ensureSheet();
-  else { closeSims($('sheet')); fitFrame(); }
+  else closeSims($('sheet'));
 }
 
 $('tabs').addEventListener('click', (e) => {
@@ -846,39 +810,188 @@ function renderLesson(board) {
   $('lesson').classList.toggle('hidden', !text);
 }
 
-// 패들렛 창이 화면 아래로 잘리지 않게 남은 높이에 맞춘다
-// (창 위에서 휠을 굴리면 페이지가 아니라 패들렛이 움직여서, 잘린 부분으로 내려갈 수 없기 때문)
-const BOTTOM_SPACE = 46; // 카드 아래 안쪽 여백 + 페이지 아래 여백
-function fitFrame() {
-  const frame = document.querySelector('.padlet-frame');
-  if (!frame || maxed) return;
-  const top = frame.getBoundingClientRect().top + scrollY;
-  frame.style.height = Math.max(360, innerHeight - top - BOTTOM_SPACE) + 'px';
-}
-addEventListener('resize', fitFrame);
-document.querySelector('.padlet-card').addEventListener('animationend', fitFrame);
+/* ---------- 모둠 게시판 (패들렛 대체) ----------
+   그날 모둠별 칸. 우리 모둠 칸에만 쓰고, 발표 전에는 다른 모둠 칸이 가려진다(서버가 막음).
+   get_class_page의 posts_v(보이는 글 수·고친 시각)나 우리 모둠 상태가 바뀔 때만 get_posts를 부른다 */
+const BOARD_WHY = { NO_SESSION: '로그인하면 쓸 수 있어요', NO_GROUP: '오늘 모둠 명단에 없어요', LOCKED: '제출한 뒤에는 고칠 수 없어요' };
+const POST_ERR = {
+  ...SUBMIT_ERR,
+  LOCKED: '제출한 뒤에는 고칠 수 없어요',
+  EMPTY: '내용을 써 주세요',
+  BAD_LINK: '링크는 https://로 시작하는 주소만 돼요',
+  BAD_PHOTO: '사진을 다시 골라 주세요',
+  BAD_IMAGE: '이 사진은 열 수 없어요',
+  FULL: '더 올릴 수 없어요',
+  NOT_FOUND: '이미 지워진 글이에요',
+};
+const POST_UPLOAD_WAIT_MS = 30000;
+let postsKey;
+let posts = null; // get_posts 결과
 
-// 크게 보기: 전체 화면, 막혀 있으면 브라우저 창 안에서 꽉 채우기
-const card = document.querySelector('.padlet-card');
-const fullBtn = $('padlet-full');
-let maxed = false;
-function setMax(on) {
-  maxed = on;
-  card.classList.toggle('is-max', on);
-  document.body.style.overflow = on ? 'hidden' : '';
-  fullBtn.querySelector('span').textContent = on ? '작게 보기' : '크게 보기';
-  const frame = document.querySelector('.padlet-frame');
-  if (frame) frame.style.height = '';
-  if (!on) fitFrame();
+function syncBoard(data) {
+  const g = (data.groups ?? []).find((x) => x.no === data.my_group);
+  const key = [data.board.id, data.board.status, data.posts_v, data.my_group, g?.state, !!login].join('|');
+  if (key === postsKey) return;
+  postsKey = key;
+  getPosts(classId, login?.token ?? null)
+    .then((res) => { posts = res; renderBoard(); })
+    .catch((err) => { console.error(err); postsKey = undefined; });
 }
-fullBtn.addEventListener('click', () => {
-  if (document.fullscreenElement) document.exitFullscreen();
-  else if (maxed) setMax(false);
-  else if (card.requestFullscreen) card.requestFullscreen().catch(() => setMax(true));
-  else setMax(true);
+
+function renderBoard() {
+  if (!posts?.board_id) return;
+  const groups = posts.groups ?? [];
+  const my = posts.my_group;
+  $('board-note').textContent = posts.can_write || posts.status === 'revealed' ? '' : (BOARD_WHY[posts.why] ?? '');
+  let html;
+  if (!groups.length) {
+    html = `<div class="empty board-empty">${ICON_BOARD}<strong>아직 모둠이 정해지지 않았어요</strong></div>`;
+  } else {
+    // 우리 모둠 칸을 맨 앞에
+    const ordered = [...groups].sort((a, b) => (b.no === my) - (a.no === my) || a.no - b.no);
+    html = boardHTML(ordered, { myGroup: my, canWrite: posts.can_write });
+  }
+  if (html === shown.board) return;
+  shown.board = html;
+  $('post-board').innerHTML = html;
+}
+
+const myPost = (id) => posts?.groups?.find((g) => g.no === posts.my_group)?.posts?.find((p) => p.id === id) ?? null;
+
+$('post-board').addEventListener('click', (e) => {
+  if (e.target.closest('[data-post-new]')) return openCompose(null);
+  const edit = e.target.closest('[data-post-edit]');
+  if (edit) return openCompose(myPost(edit.dataset.postEdit));
+  const del = e.target.closest('[data-post-del]');
+  if (del) onDeletePost(del.dataset.postDel, del);
 });
-document.addEventListener('fullscreenchange', () => setMax(!!document.fullscreenElement));
-document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && maxed && !document.fullscreenElement) setMax(false); });
+
+function postFail(err, fallback) {
+  console.error(err);
+  toast(POST_ERR[err.message] || fallback, 'error');
+  if (err.message === 'NO_SESSION') {
+    clearLogin();
+    login = null;
+    mineKey = undefined;
+  }
+}
+
+async function afterPostChange() {
+  sendClassRefresh(classId); // 모둠원 화면도 바로
+  postsKey = undefined;
+  await load();
+}
+
+async function onDeletePost(id, btn) {
+  if (!login || !confirm('이 글을 지울까요?')) return;
+  btn.disabled = true;
+  try {
+    const res = await withTimeout(deletePost(login.token, id), SUBMIT_WAIT_MS);
+    if (!res?.ok) throw new Error(res?.error || 'FAIL');
+  } catch (err) {
+    postFail(err, '지우지 못했어요');
+  }
+  await afterPostChange();
+}
+
+// 글쓰기 창: 제목·내용·사진·링크. 사진은 고를 때 줄여 두고, [게시]를 누르면 올린 뒤 글을 저장
+const form = $('compose-form');
+// 'phet.colorado.edu'처럼 주소만 쓰면 https://를 붙인다
+const withScheme = (v) => {
+  const t = v.trim();
+  return t && !/^[a-z][a-z0-9+.-]*:/i.test(t) && /^[^\s/]+\.[^\s/]+/.test(t) ? 'https://' + t : t;
+};
+let editing = null;   // 고치는 글 (새 글이면 null)
+let photoBlob = null; // 새로 고른 사진(줄인 것)
+let photoPath = null; // 이미 올린 사진 경로 (고치는 글의 원래 사진, 또는 실패 뒤 다시 보낼 때)
+let previewUrl = null;
+let posting = false;
+
+function setPreview(src) {
+  if (previewUrl) { URL.revokeObjectURL(previewUrl); previewUrl = null; }
+  $('compose-photo').classList.toggle('hidden', !src);
+  $('compose-img').src = src || '';
+}
+
+function openCompose(post) {
+  if (!posts?.can_write || !login) return;
+  editing = post;
+  photoBlob = null;
+  photoPath = post?.photo ?? null;
+  form.reset();
+  form.elements.title.value = post?.title ?? '';
+  form.elements.body.value = post?.body ?? '';
+  form.elements.link.value = post?.link ?? '';
+  setPreview(photoPath ? postPhotoUrl(photoPath) : null);
+  $('compose-h').textContent = post ? '글 고치기' : `${posts.my_group}모둠 칸에 글쓰기`;
+  $('compose-go').textContent = post ? '저장' : '게시';
+  $('compose').showModal();
+}
+
+$('compose-cancel').addEventListener('click', () => $('compose').close());
+$('compose').addEventListener('close', () => setPreview(null));
+
+$('compose-file').addEventListener('change', async (e) => {
+  const file = e.target.files?.[0];
+  e.target.value = '';
+  if (!file) return;
+  try {
+    photoBlob = await shrinkPhoto(file);
+    photoPath = null;
+    setPreview(null);
+    previewUrl = URL.createObjectURL(photoBlob);
+    $('compose-photo').classList.remove('hidden');
+    $('compose-img').src = previewUrl;
+  } catch (err) {
+    postFail(new Error('BAD_IMAGE'), '');
+  }
+});
+
+$('compose-unphoto').addEventListener('click', () => {
+  photoBlob = null;
+  photoPath = null;
+  setPreview(null);
+});
+
+form.addEventListener('submit', async (e) => {
+  e.preventDefault();
+  if (posting || !posts?.board_id || !login) return;
+  const btn = $('compose-go');
+  const label = editing ? '저장' : '게시';
+  posting = true;
+  btn.disabled = true;
+  btn.textContent = '보내는 중';
+  try {
+    if (photoBlob) {
+      const up = await withTimeout(uploadPostPhoto(login.token, posts.board_id, photoBlob), POST_UPLOAD_WAIT_MS);
+      if (!up?.ok) throw new Error(up?.error || 'FAIL');
+      photoPath = up.path; // 다시 보낼 때 또 올리지 않게
+      photoBlob = null;
+    }
+    const res = await withTimeout(savePost(login.token, posts.board_id, editing?.id ?? null, {
+      title: form.elements.title.value,
+      body: form.elements.body.value,
+      link: withScheme(form.elements.link.value),
+      photo: photoPath,
+    }), SUBMIT_WAIT_MS);
+    if (!res?.ok) throw new Error(res?.error || 'FAIL');
+    btn.textContent = label;
+    $('compose').close();
+    await afterPostChange();
+  } catch (err) {
+    postFail(err, '보내지 못했어요. 다시 보내 주세요');
+    btn.textContent = '다시 보내기';
+    // 더 쓸 수 없게 된 경우(제출함, 마감, 오늘 수업 바뀜, 로그아웃)는 창을 닫는다
+    if (['LOCKED', 'CLOSED', 'BOARD_CHANGED', 'NO_GROUP', 'NO_SESSION', 'NOT_FOUND'].includes(err.message)) {
+      btn.textContent = label;
+      $('compose').close();
+      await afterPostChange();
+    }
+  } finally {
+    posting = false;
+    btn.disabled = false;
+  }
+});
 
 /* ---------- 연결 끊김: 마지막 화면을 그대로 두고 위쪽에 작은 표시만 ---------- */
 let netDown = false;
@@ -906,14 +1019,14 @@ async function load() {
     syncSheet(data);
     updateSide();
     if (!board) showEmpty('오늘 수업이 아직 없어요');
-    else renderPadlet(board.padlet_src);
+    else syncBoard(data);
     setNetDown(false);
     if (ws.dirty) saveSheet(); // 끊겨서 못 보낸 학습지 답
   } catch (err) {
     console.error(err);
     if (err.message === 'NOT_CONFIGURED') showEmpty('config.js에 Supabase 주소와 키를 넣어야 해요');
     else {
-      if (shown.padlet === undefined) showEmpty('불러오지 못했어요', true);
+      if (shown.board === undefined) showEmpty('불러오지 못했어요', true);
       // 이미 보이는 화면은 그대로 둔다
       setNetDown(true);
     }

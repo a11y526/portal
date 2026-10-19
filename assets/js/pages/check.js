@@ -3,8 +3,9 @@ import { CLASSES } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, getBoard, listSubmissions, listPresets, reviewSubmission,
-  onSubmissionsChange, sendClassRefresh,
+  onSubmissionsChange, sendClassRefresh, listPosts, teacherDeletePost,
 } from '../db.js';
+import { postCardHTML } from '../posts.js';
 import { teacherGate, errMsg } from '../gate.js';
 
 initUI({
@@ -112,7 +113,7 @@ function makeCard(s) {
         <b>${s.group_no}모둠</b>
         <span class="num">${fmtTime(s.submitted_at)} 제출${who}</span>
       </div>
-      ${board?.padlet_src ? `<a class="padlet-go" href="${esc(board.padlet_src)}" target="_blank" rel="noopener">패들렛 보기 ↗</a>` : ''}
+      <button type="button" class="posts-go press" data-posts="${s.group_no}">게시물 보기</button>
     </div>
     <div class="sub-actions" data-main>
       <button type="button" class="act act-again press" data-act="open">다시</button>
@@ -228,3 +229,45 @@ teacherGate($('app'), async () => {
   setInterval(() => { if (!document.hidden) load(); }, POLL_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
 });
+
+/* ---------- 모둠 게시물 보기 (게시판, 패들렛 대체) ---------- */
+let postsGroup = null;
+let postRows = [];
+
+async function showPosts(no) {
+  if (!board) return;
+  postsGroup = no;
+  $('posts-h').textContent = `${no}모둠 게시물`;
+  $('posts-list').innerHTML = '<div class="skeleton" style="height:120px"></div>';
+  if (!$('posts-sheet').open) $('posts-sheet').showModal();
+  try {
+    postRows = (await listPosts(board.id)).filter((r) => r.group_no === no);
+    $('posts-list').innerHTML = postRows.length
+      ? postRows.map((r) => postCardHTML({
+          id: r.id, title: r.title, body: r.body, link: r.link, photo: r.photo, at: r.created_at,
+          nickname: r.student?.nickname, avatar: r.student?.avatar, teacher: r.student?.number === 0,
+        }, { remove: true })).join('')
+      : '<div class="col-empty">아직 글이 없어요</div>';
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  }
+}
+
+document.addEventListener('click', (e) => {
+  const go = e.target.closest('[data-posts]');
+  if (go) showPosts(Number(go.dataset.posts));
+});
+$('posts-close').addEventListener('click', () => $('posts-sheet').close());
+$('posts-list').addEventListener('click', async (e) => {
+  const del = e.target.closest('[data-post-del]');
+  if (!del) return;
+  const row = postRows.find((r) => r.id === del.dataset.postDel);
+  if (!row || !confirm('이 글을 지울까요?')) return;
+  del.disabled = true;
+  try {
+    await teacherDeletePost(row);
+    sendClassRefresh(classId);
+  } catch (err) { toast(errMsg(err), 'error'); }
+  showPosts(postsGroup);
+});
+

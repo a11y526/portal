@@ -59,6 +59,8 @@ function renderInfo() {
   if (!info) return;
   $('rw-xp').textContent = info.xp;
   $('rw-co').textContent = info.coins;
+  const cap = info.reward_daily ?? 1;
+  $('rw-today').textContent = `${Math.min(info.rewarded ?? 0, cap)} / ${cap}`;
   $('dots').innerHTML = Array.from({ length: info.daily }, (_, i) => `<i class="${i < info.today ? 'on' : ''}"></i>`).join('');
   $('today').textContent = `${Math.min(info.today, info.daily)} / ${info.daily}`;
 }
@@ -232,6 +234,7 @@ function renderResult() {
     $('result-h').textContent = winMe ? '1등!' : `${w ? nameOf(w) : ''} 1등`;
     $('result-s').textContent = g.reward ? `+${g.reward.xp} XP · +${g.reward.coins}코인`
       : winMe && g.end_reason === 'left' ? '모두 나가서 끝난 판은 보상이 없어요'
+      : winMe && (info?.rewarded ?? 0) >= (info?.reward_daily ?? 1) ? '오늘 보상은 다 받았어요'
       : g.end_reason === 'pool' ? '타일이 다 떨어져 남은 점수로 정했어요' : '';
   }
   setHTML($('scores'), g.status === 'done' ? [...g.players].sort((a, b) => (b.seat === g.winner) - (a.seat === g.winner) || a.points - b.points).map((p) => `
@@ -277,6 +280,7 @@ function openHelp() {
     $('help-turn').textContent = info.turn;
     $('help-reward').textContent = `${info.xp} XP · ${info.coins}코인`;
     $('help-daily').textContent = info.daily;
+    $('help-rdaily').textContent = info.reward_daily ?? 1;
   }
   $('help').showModal();
   const body = $('help').querySelector('.rk-help-body');

@@ -1341,12 +1341,13 @@ $('omp-form').addEventListener('submit', async (e) => {
 });
 
 // 루미큐브 하루 판 수: settings.rummikub.daily (xp·coins·turn은 그대로 둔다)
-const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, turn: 60 };
+const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, reward_daily: 1, turn: 60 };
 async function refreshRkRules() {
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   $('rk-daily').value = rkRules.daily;
   $('rk-turn').textContent = rkRules.turn;
   $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.coins}코인`;
+  $('rk-rdaily').textContent = rkRules.reward_daily;
   updateHub();
 }
 

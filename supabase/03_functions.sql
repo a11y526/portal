@@ -2797,12 +2797,26 @@ as $$
     'xp',    coalesce((v ->> 'xp')::int, 5),
     'coins', coalesce((v ->> 'coins')::int, 5),
     'daily', coalesce((v ->> 'daily')::int, 5),
+    'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
     'turn',  greatest(coalesce((v ->> 'turn')::int, 60), 15))
   from (select (select value from public.settings where key = 'rummikub') as v) x;
 $$;
 revoke all on function public._rk_settings() from public, anon, authenticated;
 
--- 판 끝내기. 손패를 다 냈거나(out) 더미가 비고 모두 넘겼으면(pool) 1등에게 보상(반이 켜져 있을 때, 판마다 한 번).
+-- 오늘(KST) 보상을 받은 루미큐브 승리 수 (내부용). 하루 settings.rummikub.reward_daily번까지만 지급(2026-10-19 사용자 결정: 하루 1번)
+create or replace function public._rk_paid_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int from public.point_events
+  where student_id = p_student_id and reason = '루미큐브 승리'
+    and created_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._rk_paid_today(uuid) from public, anon, authenticated;
+
+-- 판 끝내기. 손패를 다 냈거나(out) 더미가 비고 모두 넘겼으면(pool) 1등에게 보상(반이 켜져 있을 때, 판마다 한 번), 오늘 reward_daily번까지.
 -- 다른 사람이 모두 나가서 끝나면(left) 보상 없음
 create or replace function public._rk_end(p_game_id uuid, p_winner int, p_reason text)
 returns void
@@ -2818,7 +2832,8 @@ begin
   select student_id into v_sid from public.rk_players where game_id = p_game_id and seat = p_winner;
   if p_reason in ('out', 'pool') and v_sid is not null
      and coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false)
-     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'coins')::int <> 0) then
+     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'coins')::int <> 0)
+     and public._rk_paid_today(v_sid) < (v_set ->> 'reward_daily')::int then
     insert into public.point_events (student_id, xp, coins, reason)
     values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'coins')::int, '루미큐브 승리');
     v_pay := true;
@@ -3079,6 +3094,8 @@ begin
     'daily',  (v_set ->> 'daily')::int,
     'xp',     (v_set ->> 'xp')::int,
     'coins',  (v_set ->> 'coins')::int,
+    'reward_daily', (v_set ->> 'reward_daily')::int,
+    'rewarded', public._rk_paid_today(v_sid),
     'turn',   (v_set ->> 'turn')::int,
     'avatar', s.avatar,
     'game',   case when v_gid is null then null else public._rk_view(v_gid, v_sid) end

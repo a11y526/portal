@@ -1,0 +1,307 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>모둠 결론 만들기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--ink:#1D1D1F;--muted:#6E6E73;--line:#E3E3E8;--blue:#0066CC;--red:#FF3B30;--pearl:#FAFAFC;--font:'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+*{box-sizing:border-box}
+html,body{margin:0;background:#fff;color:var(--ink);font-family:var(--font)}
+main{max-width:1100px;margin:0 auto;padding:18px 16px 40px}
+header{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+h1{font-size:26px;font-weight:800;margin:0;letter-spacing:-.02em}
+.sub{color:var(--muted);font-weight:700;font-size:16px}
+header .sp{flex:1}
+select{font:800 17px var(--font);color:var(--ink);border:1.5px solid #D1D1D6;border-radius:999px;padding:7px 12px;background:#fff;min-height:42px}
+section.box{border:1px solid var(--line);border-radius:18px;background:var(--pearl);padding:16px;margin-top:14px}
+section.box h2{font-size:19px;font-weight:800;margin:0 0 10px;display:flex;align-items:center;gap:8px}
+section.box h2 i{font-style:normal;width:28px;height:28px;border-radius:50%;background:var(--blue);color:#fff;display:grid;place-items:center;font-size:15px;flex:none}
+.tools{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:10px}
+.btn{font:700 17px var(--font);color:var(--blue);background:#fff;border:1.5px solid var(--blue);border-radius:999px;padding:8px 16px;cursor:pointer;min-height:44px;touch-action:manipulation}
+.btn:active{background:#E8F1FB}
+.btn.main{background:var(--blue);color:#fff;font-size:19px;padding:10px 26px}
+.seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden;background:#fff}
+.seg .btn{border:0;border-radius:0;color:#515154;padding:8px 14px}
+.seg .btn.on{background:var(--blue);color:#fff}
+.tools .sp{flex:1}
+.panels{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+.panel{background:#fff;border:1px solid var(--line);border-radius:16px;padding:10px;display:flex;flex-direction:column;gap:8px}
+.panel .cap{display:flex;align-items:center;justify-content:center;gap:8px;font-size:19px;font-weight:800;flex-wrap:wrap}
+.panel svg{display:block;width:100%;height:auto;touch-action:none;user-select:none;-webkit-user-select:none}
+.panel .cnt{text-align:center;font-size:14px;font-weight:700;color:var(--muted)}
+.q{font-size:18px;font-weight:700;margin:4px 0 8px;line-height:1.5}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+textarea{width:100%;min-height:84px;font:500 17px/1.6 var(--font);color:var(--ink);border:1.5px solid #D1D1D6;border-radius:14px;padding:10px 12px;resize:vertical;background:#fff}
+textarea:focus,select:focus{outline:2px solid var(--blue);outline-offset:1px}
+.miss{outline:2.5px solid var(--red)!important;outline-offset:2px}
+.foot{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-top:18px}
+#msg{font-weight:700;font-size:16px;color:var(--red)}
+#msg.ok{color:#0B6B47}
+@media (max-width:720px){.panels{grid-template-columns:1fr}h1{font-size:22px}}
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>모둠 결론 만들기</h1>
+    <span class="sub">감압 용기 속 고무풍선</span>
+    <span class="sp"></span>
+    <select id="group" aria-label="모둠"><option value="">모둠</option></select>
+  </header>
+
+  <section class="box" id="sec1">
+    <h2><i>1</i>고무풍선 속 기체 입자의 운동</h2>
+    <div class="tools">
+      <div class="seg" id="mode"></div>
+      <span class="sp"></span>
+      <button class="btn" type="button" id="undo">되돌리기</button>
+      <button class="btn" type="button" id="clear">모두 지우기</button>
+    </div>
+    <div class="panels" id="panels"></div>
+  </section>
+
+  <section class="box" id="sec2">
+    <h2><i>2</i>풍선 벽에 충돌하는 횟수</h2>
+    <div class="q">두 고무풍선 속 기체 입자가 풍선 벽에 충돌하는 횟수가 더 많은 쪽은?</div>
+    <div class="chips seg" id="more"></div>
+    <div class="q" style="margin-top:12px">그렇게 생각한 까닭</div>
+    <textarea id="why" maxlength="200"></textarea>
+  </section>
+
+  <section class="box" id="sec3">
+    <h2><i>3</i>우리 모둠 결론</h2>
+    <div class="q">기체에 작용하는 압력이 달라지면 기체의 부피와 입자가 벽에 충돌하는 횟수는 어떻게 달라질까?</div>
+    <textarea id="concl" maxlength="300"></textarea>
+  </section>
+
+  <div class="foot">
+    <button class="btn main" type="button" id="save">이미지로 저장</button>
+    <span id="msg" role="status"></span>
+  </div>
+</main>
+
+<script>
+(function(){
+'use strict';
+var FONT="'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+var NS='http://www.w3.org/2000/svg';
+var W=300, H=340, PR=8;
+var KEY='612-conclusion';
+var BALLOONS=[{cx:152,cy:200,rx:92,ry:84},{cx:162,cy:254,rx:46,ry:43}];
+var WORDS=['뺄','넣을'];
+
+var st=load()||{group:'',word:['',''],parts:[[],[]],arrows:[[],[]],more:'',why:'',concl:''};
+var hist=[], mode='p', panels=[];
+
+function load(){ try{ var s=JSON.parse(localStorage.getItem(KEY)); if(s&&s.parts&&s.arrows&&s.word) return s; }catch(e){} return null; }
+function save(){ try{ localStorage.setItem(KEY, JSON.stringify(st)); }catch(e){} }
+function $(id){ return document.getElementById(id); }
+function mk(tag, attrs, parent){ var e=document.createElementNS(NS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function button(parent,label,fn){ var b=document.createElement('button'); b.type='button'; b.className='btn'; b.textContent=label; b.addEventListener('click',function(){ fn(b); }); parent.appendChild(b); return b; }
+function segment(parent, items, cur, fn){
+  var bs=items.map(function(it){ var b=button(parent,it[0],function(){ bs.forEach(function(x){ x.classList.toggle('on',x===b); }); fn(it[1]); }); if(it[1]===cur) b.classList.add('on'); return b; });
+  return bs;
+}
+
+/* ---------- 감압 용기 그림 (화면·저장 공통) ---------- */
+function jarMarkup(i){
+  var b=BALLOONS[i], kx=b.cx-b.rx, ky=b.cy;
+  return ''+
+  '<defs><marker id="ah'+i+'" viewBox="0 0 10 10" refX="8" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse"><path d="M0,0 L10,5 L0,10 z" fill="#1D1D1F"/></marker>'+
+  '<radialGradient id="pg'+i+'" cx=".35" cy=".35" r=".7"><stop offset="0" stop-color="#9CC3F5"/><stop offset="1" stop-color="#2F6FC4"/></radialGradient></defs>'+
+  '<rect x="0" y="0" width="'+W+'" height="'+H+'" fill="#fff"/>'+
+  '<ellipse cx="150" cy="306" rx="118" ry="17" fill="#E7DCCB" stroke="#B9AD9A" stroke-width="1.5"/>'+
+  '<path d="M40 84 L46 300 Q150 326 254 300 L260 84 Z" fill="#EAF1F8" stroke="#8FA0B4" stroke-width="2"/>'+
+  '<path d="M58 100 L62 290" stroke="#fff" stroke-width="8" stroke-linecap="round" opacity=".8"/>'+
+  '<rect x="30" y="62" width="240" height="24" rx="8" fill="#F3F6FA" stroke="#8FA0B4" stroke-width="2"/>'+
+  '<rect x="30" y="86" width="240" height="7" rx="3" fill="#3E7CC8"/>'+
+  '<rect x="116" y="42" width="68" height="22" rx="4" fill="#C3E3A0" stroke="#7FA65A" stroke-width="2"/>'+
+  '<rect x="128" y="20" width="44" height="24" rx="3" fill="#fff" stroke="#8FA0B4" stroke-width="2"/>'+
+  '<path d="M'+(kx+3)+' '+ky+' l-12 -8 l2 16 z" fill="#fff" stroke="#222" stroke-width="2" stroke-linejoin="round"/>'+
+  '<ellipse cx="'+b.cx+'" cy="'+b.cy+'" rx="'+b.rx+'" ry="'+b.ry+'" fill="#fff" stroke="#222" stroke-width="2.5"/>';
+}
+function drawMarkup(i){
+  var s='';
+  st.arrows[i].forEach(function(a){ s+='<line x1="'+a[0]+'" y1="'+a[1]+'" x2="'+a[2]+'" y2="'+a[3]+'" stroke="#1D1D1F" stroke-width="2.6" stroke-linecap="round" marker-end="url(#ah'+i+')"/>'; });
+  st.parts[i].forEach(function(p){ s+='<circle cx="'+p[0]+'" cy="'+p[1]+'" r="'+PR+'" fill="url(#pg'+i+')" stroke="#1E4F95" stroke-width="1.5"/>'; });
+  return s;
+}
+function svgString(i){
+  return '<svg xmlns="'+NS+'" viewBox="0 0 '+W+' '+H+'" width="'+(W*2)+'" height="'+(H*2)+'">'+jarMarkup(i)+drawMarkup(i)+'</svg>';
+}
+
+/* ---------- 패널 ---------- */
+function inBalloon(i,x,y,m){ var b=BALLOONS[i]; var dx=(x-b.cx)/(b.rx-m), dy=(y-b.cy)/(b.ry-m); return dx*dx+dy*dy<=1; }
+function pt(svg,e){ var r=svg.getBoundingClientRect(); return [ (e.clientX-r.left)*W/r.width, (e.clientY-r.top)*H/r.height ]; }
+function near(list,x,y,d){ var best=-1, bd=d*d; list.forEach(function(p,k){ var dd=(p[0]-x)*(p[0]-x)+(p[1]-y)*(p[1]-y); if(dd<bd){ bd=dd; best=k; } }); return best; }
+function segDist(a,x,y){ var vx=a[2]-a[0], vy=a[3]-a[1], L=vx*vx+vy*vy||1, t=Math.max(0,Math.min(1,((x-a[0])*vx+(y-a[1])*vy)/L)); var px=a[0]+t*vx-x, py=a[1]+t*vy-y; return Math.sqrt(px*px+py*py); }
+function r1(v){ return Math.round(v*10)/10; }
+
+function buildPanel(i){
+  var box=document.createElement('div'); box.className='panel';
+  var cap=document.createElement('div'); cap.className='cap';
+  cap.appendChild(document.createTextNode('공기를'));
+  var sg=document.createElement('div'); sg.className='seg'; cap.appendChild(sg);
+  segment(sg, WORDS.map(function(w){ return [w,w]; }), st.word[i], function(v){ st.word[i]=v; sg.classList.remove('miss'); save(); });
+  cap.appendChild(document.createTextNode('때'));
+  box.appendChild(cap);
+  var svg=mk('svg',{viewBox:'0 0 '+W+' '+H,'aria-label':'고무풍선 '+(i+1)}); box.appendChild(svg);
+  svg.innerHTML=jarMarkup(i);
+  var layer=mk('g',{},svg), prev=mk('line',{stroke:'#0066CC','stroke-width':2.6,'stroke-linecap':'round','stroke-dasharray':'5 4',visibility:'hidden'},svg);
+  var cnt=document.createElement('div'); cnt.className='cnt'; box.appendChild(cnt);
+  var drag=null;
+  function render(){ layer.innerHTML=drawMarkup(i); cnt.textContent='입자 '+st.parts[i].length+'개 · 화살표 '+st.arrows[i].length+'개'; }
+  svg.addEventListener('pointerdown',function(e){
+    var p=pt(svg,e), x=p[0], y=p[1];
+    if(mode==='p'){
+      if(!inBalloon(i,x,y,PR+2)) return;
+      if(near(st.parts[i],x,y,PR*2)>=0) return;
+      var np=[r1(x),r1(y)]; st.parts[i].push(np); hist.push({i:i,kind:'parts',item:np}); after();
+    }else if(mode==='a'){
+      var k=near(st.parts[i],x,y,PR*2.4);
+      if(k>=0){ x=st.parts[i][k][0]; y=st.parts[i][k][1]; }
+      drag={x:x,y:y,id:e.pointerId}; svg.setPointerCapture(e.pointerId);
+      prev.setAttribute('x1',x); prev.setAttribute('y1',y); prev.setAttribute('x2',x); prev.setAttribute('y2',y); prev.setAttribute('visibility','visible');
+    }else{
+      var kp=near(st.parts[i],x,y,PR*1.8);
+      if(kp>=0){ hist.push({i:i,kind:'parts',item:st.parts[i][kp],removed:kp}); st.parts[i].splice(kp,1); after(); return; }
+      var ka=-1, bd=12; st.arrows[i].forEach(function(a,k){ var d=segDist(a,x,y); if(d<bd){ bd=d; ka=k; } });
+      if(ka>=0){ hist.push({i:i,kind:'arrows',item:st.arrows[i][ka],removed:ka}); st.arrows[i].splice(ka,1); after(); }
+    }
+    e.preventDefault();
+  });
+  svg.addEventListener('pointermove',function(e){
+    if(!drag||e.pointerId!==drag.id) return;
+    var p=pt(svg,e); prev.setAttribute('x2',p[0]); prev.setAttribute('y2',p[1]);
+  });
+  function end(e){
+    if(!drag||e.pointerId!==drag.id) return;
+    var p=pt(svg,e), sx=drag.x, sy=drag.y; drag=null; prev.setAttribute('visibility','hidden');
+    var dx=p[0]-sx, dy=p[1]-sy, L=Math.sqrt(dx*dx+dy*dy);
+    if(L<14) return;
+    var off=near(st.parts[i],sx,sy,0.5)>=0 ? PR+1 : 0;
+    var a=[r1(sx+dx/L*off),r1(sy+dy/L*off),r1(Math.max(4,Math.min(W-4,p[0]))),r1(Math.max(4,Math.min(H-4,p[1])))];
+    st.arrows[i].push(a); hist.push({i:i,kind:'arrows',item:a}); after();
+  }
+  svg.addEventListener('pointerup',end);
+  svg.addEventListener('pointercancel',function(){ drag=null; prev.setAttribute('visibility','hidden'); });
+  render();
+  return {box:box, render:render, seg:sg, svg:svg};
+}
+function after(){ panels.forEach(function(p){ p.render(); }); panels.forEach(function(p,i){ if(st.parts[i].length) p.svg.classList.remove('miss'); }); save(); }
+
+/* ---------- 화면 만들기 ---------- */
+var gsel=$('group');
+for(var g=1; g<=8; g++){ var o=document.createElement('option'); o.value=String(g); o.textContent=g+'모둠'; gsel.appendChild(o); }
+gsel.value=st.group||''; gsel.addEventListener('change',function(){ st.group=gsel.value; gsel.classList.remove('miss'); save(); });
+
+segment($('mode'), [['입자','p'],['화살표','a'],['지우기','e']], mode, function(v){ mode=v; });
+$('undo').addEventListener('click',function(){
+  var h=hist.pop(); if(!h) return;
+  var list=st[h.kind][h.i];
+  if(h.removed!=null) list.splice(h.removed,0,h.item);
+  else { var k=list.indexOf(h.item); if(k>=0) list.splice(k,1); }
+  after();
+});
+$('clear').addEventListener('click',function(){
+  if(!st.parts[0].length&&!st.parts[1].length&&!st.arrows[0].length&&!st.arrows[1].length) return;
+  if(!confirm('두 풍선에 그린 입자와 화살표를 모두 지울까요?')) return;
+  st.parts=[[],[]]; st.arrows=[[],[]]; hist=[]; after();
+});
+var pbox=$('panels');
+for(var i=0;i<2;i++){ var p=buildPanel(i); panels.push(p); pbox.appendChild(p.box); }
+
+var MORE=[['큰 풍선','big'],['작은 풍선','small'],['같다','same']];
+segment($('more'), MORE, st.more, function(v){ st.more=v; $('more').classList.remove('miss'); save(); });
+['why','concl'].forEach(function(id){ var t=$(id); t.value=st[id]||''; t.addEventListener('input',function(){ st[id]=t.value; t.classList.remove('miss'); save(); }); });
+
+/* ---------- 이미지로 저장 ---------- */
+function check(){
+  var miss=[];
+  if(!st.group) miss.push(gsel);
+  panels.forEach(function(p,i){ if(!st.word[i]) miss.push(p.seg); if(!st.parts[i].length) miss.push(p.svg); });
+  if(!st.more) miss.push($('more'));
+  if(!st.why.trim()) miss.push($('why'));
+  if(!st.concl.trim()) miss.push($('concl'));
+  document.querySelectorAll('.miss').forEach(function(e){ e.classList.remove('miss'); });
+  miss.forEach(function(e){ e.classList.add('miss'); });
+  return miss;
+}
+function loadImg(src){ return new Promise(function(ok,no){ var im=new Image(); im.onload=function(){ ok(im); }; im.onerror=no; im.src=src; }); }
+function wrap(ctx,text,maxW){
+  var out=[];
+  String(text).split(/\n/).forEach(function(par){
+    var line='';
+    Array.from(par).forEach(function(ch){ if(ctx.measureText(line+ch).width>maxW&&line){ out.push(line); line=ch.trim()?ch:''; } else line+=ch; });
+    out.push(line);
+  });
+  return out;
+}
+function render(){
+  var CW=1600, M=60, PW=(CW-M*2-40)/2, PH=PW*H/W;
+  var probe=document.createElement('canvas').getContext('2d');
+  var tw=CW-M*2-40;
+  probe.font='500 34px '+FONT;
+  var whyL=wrap(probe,st.why.trim(),tw), conL=wrap(probe,st.concl.trim(),tw);
+  var CH=Math.ceil(M+70+30+64+PH+40+  60+56+ whyL.length*52 +40+ 60+ conL.length*52 + M);
+  var cv=document.createElement('canvas'); cv.width=CW; cv.height=CH;
+  var ctx=cv.getContext('2d');
+  ctx.fillStyle='#fff'; ctx.fillRect(0,0,CW,CH);
+  ctx.textBaseline='alphabetic';
+  var y=M+48;
+  ctx.fillStyle='#1D1D1F'; ctx.font='800 48px '+FONT; ctx.fillText(st.group+'모둠 결론',M,y);
+  ctx.fillStyle='#6E6E73'; ctx.font='700 30px '+FONT; ctx.textAlign='right'; ctx.fillText('감압 용기 속 고무풍선',CW-M,y); ctx.textAlign='left';
+  y+=40;
+  return Promise.all([0,1].map(function(i){ return loadImg('data:image/svg+xml;charset=utf-8,'+encodeURIComponent(svgString(i))); })).then(function(ims){
+    ims.forEach(function(im,i){
+      var x=M+i*(PW+40);
+      ctx.fillStyle='#FAFAFC'; ctx.strokeStyle='#E3E3E8'; ctx.lineWidth=2;
+      rr(ctx,x,y,PW,PH+64,20); ctx.fill(); ctx.stroke();
+      ctx.fillStyle='#1D1D1F'; ctx.font='800 34px '+FONT; ctx.textAlign='center';
+      ctx.fillText('공기를 ( '+st.word[i]+' ) 때',x+PW/2,y+46); ctx.textAlign='left';
+      ctx.drawImage(im,x+10,y+60,PW-20,(PW-20)*H/W);
+    });
+    y+=PH+64+60;
+    var name=(MORE.filter(function(m){ return m[1]===st.more; })[0]||['',''])[0];
+    label(ctx,'충돌 횟수가 더 많은 쪽',M,y); ctx.fillStyle='#0066CC'; ctx.font='800 36px '+FONT; ctx.fillText(name,M+420,y);
+    y+=56;
+    ctx.fillStyle='#1D1D1F'; ctx.font='500 34px '+FONT;
+    whyL.forEach(function(l){ ctx.fillText(l,M+40,y); y+=52; });
+    y+=40;
+    label(ctx,'우리 모둠 결론',M,y); y+=60;
+    ctx.fillStyle='#1D1D1F'; ctx.font='500 34px '+FONT;
+    conL.forEach(function(l){ ctx.fillText(l,M+40,y); y+=52; });
+    var out=document.createElement('canvas'); out.width=CW; out.height=Math.min(CH,Math.ceil(y-52+M));
+    out.getContext('2d').drawImage(cv,0,0);
+    return out;
+  });
+}
+function label(ctx,t,x,y){ ctx.fillStyle='#0066CC'; ctx.beginPath(); ctx.arc(x+10,y-12,10,0,Math.PI*2); ctx.fill(); ctx.fillStyle='#1D1D1F'; ctx.font='800 36px '+FONT; ctx.fillText(t,x+34,y); }
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+
+var busy=false;
+$('save').addEventListener('click',function(){
+  var msg=$('msg'); msg.className='';
+  if(busy) return;
+  if(check().length){ msg.textContent='빨간 곳을 채워 주세요'; return; }
+  busy=true; msg.textContent='';
+  var fonts=document.fonts&&document.fonts.load ? Promise.all([document.fonts.load('800 36px "Noto Sans KR"'),document.fonts.load('500 34px "Noto Sans KR"')]).catch(function(){}) : Promise.resolve();
+  Promise.race([fonts, new Promise(function(ok){ setTimeout(ok,1500); })])
+  .then(render).then(function(cv){
+    return new Promise(function(ok){ cv.toBlob(ok,'image/jpeg',0.9); });
+  }).then(function(blob){
+    var a=document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='612_'+st.group+'모둠_결론.jpg';
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(function(){ URL.revokeObjectURL(a.href); },4000);
+    msg.className='ok'; msg.textContent='저장했어요. 모둠 게시판에 올리고 제출하세요.';
+  }).catch(function(){ msg.textContent='저장하지 못했어요. 다시 눌러 주세요.'; })
+  .then(function(){ busy=false; });
+});
+})();
+</script>
+</body>
+</html>

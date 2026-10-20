@@ -696,7 +696,7 @@ const sheetBand = {
       : `<button type="button" class="btn btn-primary btn-small press" data-act="toggle"${dis}>${wasOpen ? '다시 열기' : '제출 시작'}<kbd>S</kbd></button>`;
     const acc = st.accepted?.[this.slide];
     const undo = acc != null
-      ? `<button type="button" class="btn btn-line btn-small press" data-act="review"><span class="num">${acc}번</span> 인정 보기</button><button type="button" class="btn btn-line btn-small press" data-act="undo"${this.undoing ? ' disabled' : ''}>인정 취소</button>` : '';
+      ? `<button type="button" class="btn btn-line btn-small press" data-act="review">인정한 답 보기</button><button type="button" class="btn btn-line btn-small press" data-act="undo"${this.undoing ? ' disabled' : ''}>인정 취소</button>` : '';
     const waiting = st.waiting?.[this.slide] ?? 0;
     const view = waiting > 0
       ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${waiting}</b><kbd>V</kbd></button>` : '';
@@ -750,13 +750,13 @@ const sheetBand = {
     const slide = this.slide;
     const no = this.st?.accepted?.[slide];
     if (!board || this.undoing || no == null) return;
-    if (!confirm(`${no}번 인정을 취소할까요? 준 XP·코인을 거둬요`)) return false;
+    if (!confirm('인정을 취소할까요? 준 XP·코인을 거둬요')) return false;
     this.undoing = true;
     this.render();
     try {
       const r = await unacceptWsFirst(board.id, slide);
       if (r?.ok) {
-        toast(`${r.number}번 인정 취소 (−${r.xp} XP · −${r.coins}코인)`, 'ok');
+        toast(`인정 취소 (−${r.xp} XP · −${r.coins}코인)`, 'ok');
         sendClassRefresh(classId);
         return true;
       } else {
@@ -849,8 +849,9 @@ const wsFirst = {
   },
 
   render(it) {
-    const name = `${it.number}번${it.nickname ? ` ${it.nickname}` : ''}`;
-    $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${it.number}번 캐릭터` });
+    // 프로젝터라 번호는 보이지 않게 승인된 닉네임만 (3절 6)
+    const name = it.nickname || '닉네임 미정';
+    $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${name} 캐릭터` });
     $('wsf-name').textContent = name;
     $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', `${it.pos}번째로 냄`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
     const box = $('wsf-page');
@@ -917,7 +918,7 @@ const wsFirst = {
       if (accept) {
         const r = await acceptWsFirst(it.id);
         if (r?.ok) {
-          toast(`${it.number}번 +${r.xp} XP · +${r.coins}코인`, 'ok');
+          toast(`${it.nickname || '닉네임 미정'} +${r.xp} XP · +${r.coins}코인`, 'ok');
           sendClassRefresh(classId);
           done = true;
         } else {

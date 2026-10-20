@@ -145,6 +145,11 @@ export function countUp(el, to, duration = 1400) {
 }
 
 /* ---------- HTML 이스케이프 ---------- */
+// 모둠 이름. 0은 선생님 체험 계정 혼자 있는 '선생님 모둠'
+export function groupName(no) {
+  return no === 0 ? '선생님 모둠' : `${no}모둠`;
+}
+
 export function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }

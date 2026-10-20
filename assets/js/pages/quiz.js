@@ -1,7 +1,7 @@
 // 퀴즈 배틀: 그날 모둠끼리 오늘 차시 학습지의 빈칸·고르기·부등호를 한 문제씩 함께 푼다.
 // 선생님이 수업 모드에서 열었을 때만. 모둠마다 한 판, 끝나면 모둠 안 1등(동점이면 모두)이 XP·코인.
 // 진행은 모두 서버 시각(qb_state의 남은 ms)으로. 판 채널(qb-<판>) Broadcast 신호 + 2초마다 qb_state. 신호 내용은 믿지 않는다.
-import { initUI, toast, esc } from '../ui.js';
+import { initUI, toast, esc, groupName } from '../ui.js';
 import { sb, qbState, qbJoin, qbStart, qbLeave, qbAnswer, onGameRefresh, sendGameRefresh, onClassRefresh } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
 import { avatarSVG, react, bindReactions } from '../avatar.js';
@@ -65,7 +65,7 @@ function render() {
   if (!st) return;
   const g = st.game;
   if (!g || g.status === 'lobby') {
-    if (!st.group_no) return showMsg(st.board_id ? '오늘 모둠 명단에 없어요' : '오늘 수업이 아직 없어요');
+    if (st.group_no == null) return showMsg(st.board_id ? '오늘 모둠 명단에 없어요' : '오늘 수업이 아직 없어요');
     if (!st.open) return showMsg('지금은 퀴즈 배틀이 닫혀 있어요');
     if (!st.count) return showMsg('오늘 차시에 낼 문제가 없어요');
     $('v-msg').classList.add('hidden');
@@ -86,7 +86,7 @@ function renderLobby() {
   const ready = joined.filter((m) => m.online);
   const meIn = list.some((m) => m.me && m.joined);
   if (!$('hero-av')._done) { $('hero-av').innerHTML = avatarSVG(st.avatar, 112, { label: '내 캐릭터', live: true }); $('hero-av')._done = true; }
-  $('group-chip').textContent = `${st.group_no}모둠 · ${st.lesson_code}차시 (${st.count}문제)`;
+  $('group-chip').textContent = `${groupName(st.group_no)} · ${st.lesson_code}차시 (${st.count}문제)`;
   $('rw-xp').textContent = st.xp;
   $('rw-co').textContent = st.coins;
   setHTML($('seats'), list.map((m) => {

@@ -43,7 +43,7 @@ async function loadReady() {
     $('ready-warn').classList.add('hidden');
     return;
   }
-  const subs = await listSubmissions(board.id);
+  const subs = (await listSubmissions(board.id)).filter((s) => s.group_no !== 0); // 선생님 모둠은 순위에 없음
   const passed = subs.filter((s) => s.status === 'passed').length;
   const pending = subs.filter((s) => s.status === 'pending').length;
   const revealed = board.status === 'revealed';

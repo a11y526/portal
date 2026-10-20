@@ -1,6 +1,6 @@
 // 모둠 칸 게시판(패들렛 대체) 그리기: 반 페이지·수업 모드·검사 화면이 같이 쓴다
 // 칸 = 그날 모둠. 카드 = 쓴 사람(닉네임·캐릭터), 시각, 제목, 사진, 본문, 링크
-import { esc } from './ui.js';
+import { esc, groupName } from './ui.js';
 import { avatarSVG } from './avatar.js';
 import { postPhotoUrl } from './db.js';
 
@@ -60,13 +60,13 @@ export function boardHTML(groups, { myGroup = null, canWrite = false, hiddenText
     else if (!posts.length) body = mine && canWrite ? '' : '<div class="col-empty">아직 글이 없어요</div>';
     else body = posts.map((p) => postCardHTML(p, { edit: mine && canWrite, remove })).join('');
     return `
-      <section class="post-col${mine ? ' is-mine' : ''}${hidden ? ' is-hidden' : ''}" data-col="${g.no}" aria-label="${g.no}모둠">
+      <section class="post-col${mine ? ' is-mine' : ''}${hidden ? ' is-hidden' : ''}" data-col="${g.no}" aria-label="${groupName(g.no)}">
         <header class="col-head">
-          <h3>${g.no}모둠${mine ? '<span class="chip">우리</span>' : ''}</h3>
+          <h3>${groupName(g.no)}${mine ? '<span class="chip">우리</span>' : ''}</h3>
           ${colExtra ? colExtra(g) : ''}
         </header>
         ${mine && canWrite ? `
-          <button type="button" class="col-add press" data-post-new aria-label="${g.no}모둠 칸에 글 쓰기">
+          <button type="button" class="col-add press" data-post-new aria-label="${groupName(g.no)} 칸에 글 쓰기">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           </button>` : ''}
         <div class="col-posts">${body}</div>

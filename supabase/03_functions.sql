@@ -381,6 +381,25 @@ $$;
 revoke all on function public._ws_view(jsonb, int) from public, anon, authenticated;
 
 -- ---------------------------------------------------------
+-- 그날 내 모둠 (내부용). 0번(선생님 체험 계정)은 편성과 상관없이 늘 '선생님 모둠'(0)에 혼자 있다.
+-- 모둠 0은 board_groups에 저장하지 않으므로 모둠 현황·발표·인원 수에는 나오지 않는다(2026-10-20)
+-- ---------------------------------------------------------
+create or replace function public._group_of(p_board_id uuid, p_sid uuid)
+returns smallint
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case
+    when p_board_id is null or p_sid is null then null
+    when exists (select 1 from public.students where id = p_sid and number = 0) then 0::smallint
+    else (select group_no from public.board_groups where board_id = p_board_id and student_id = p_sid)
+  end;
+$$;
+revoke all on function public._group_of(uuid, uuid) from public, anon, authenticated;
+
+-- ---------------------------------------------------------
 -- 반 페이지 (누구나)
 -- 오늘 보드 + 그날 모둠별 상태·교사 메모. 제출 시각·순서는 주지 않는다.
 -- has_roster: 이 반에 명단이 있는지
@@ -430,11 +449,14 @@ begin
     select s.id into v_sid from public.students s
     where s.id = public._session_student(p_token) and s.class_id = p_class_id;
     if v_sid is not null and b.id is not null then
-      select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
+      v_my := public._group_of(b.id, v_sid);
     end if;
   end if;
 
-  if v_my is not null then
+  if v_my = 0 then
+    select jsonb_build_array(jsonb_build_object('nickname', s.nickname, 'avatar', s.avatar, 'me', true))
+    into v_members from public.students s where s.id = v_sid;
+  elsif v_my is not null then
     select coalesce(jsonb_agg(jsonb_build_object(
              'nickname', s.nickname,
              'avatar',   s.avatar,
@@ -464,6 +486,8 @@ begin
     from public.board_groups
     where board_id = b.id
     group by group_no
+    union all
+    select 0::smallint, 1 where v_my = 0   -- 선생님 모둠은 선생님 화면에만
   ) g
   left join lateral (
     select x.status, x.feedback
@@ -579,7 +603,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'CLOSED');
   end if;
 
-  select group_no into v_group from public.board_groups where board_id = b.id and student_id = v_sid;
+  v_group := public._group_of(b.id, v_sid);
   if v_group is null then
     return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
   end if;
@@ -670,7 +694,7 @@ begin
   if b.status = 'revealed' then
     raise exception 'BOARD_REVEALED';
   end if;
-  if exists (select 1 from public.submissions where board_id = b.id) then
+  if exists (select 1 from public.submissions where board_id = b.id and group_no <> 0) then
     raise exception 'HAS_SUBMISSIONS';
   end if;
 
@@ -680,7 +704,7 @@ begin
   select b.id, s.id, g.ord::smallint
   from jsonb_array_elements(coalesce(p_groups, '[]'::jsonb)) with ordinality as g(nums, ord)
   cross join lateral jsonb_array_elements_text(g.nums) as n(num)
-  join public.students s on s.class_id = b.class_id and s.number = n.num::int and s.active
+  join public.students s on s.class_id = b.class_id and s.number = n.num::int and s.active and s.number > 0
   on conflict (board_id, student_id) do nothing;
 
   get diagnostics v_count = row_count;
@@ -739,7 +763,7 @@ begin
   v_bonus_co := coalesce(v_pts -> 'rank_bonus_coins', v_bonus);          -- 순위 보너스 코인 (없으면 XP와 같게)
 
   -- 순위 변화(▲▼)용: 이번 발표로 포인트가 나갈 때만, 주기 직전의 이번 달 순위를 찍어 둔다
-  if exists (select 1 from public.submissions where board_id = b.id and status = 'passed') then
+  if exists (select 1 from public.submissions where board_id = b.id and status = 'passed' and group_no <> 0) then
     delete from public.rank_snapshots where true;
     insert into public.rank_snapshots (student_id, rank, month, board_id)
     select m.student_id, m.rnk, public._month_key(), b.id from public._month_ranks() m;
@@ -748,7 +772,7 @@ begin
   for r in
     select x.group_no, (row_number() over (order by x.submitted_at, x.id))::int as rn
     from public.submissions x
-    where x.board_id = b.id and x.status = 'passed'
+    where x.board_id = b.id and x.status = 'passed' and x.group_no <> 0   -- 선생님 모둠은 순위에서 뺀다
     order by x.submitted_at, x.id
   loop
     v_extra    := coalesce((v_bonus ->> (r.rn - 1))::int, 0);
@@ -1111,7 +1135,7 @@ begin
 
   select today_board_id into v_board from public.classes where id = s.class_id;
   if v_board is not null then
-    select group_no into v_group from public.board_groups where board_id = v_board and student_id = v_sid;
+    v_group := public._group_of(v_board, v_sid);
   end if;
 
   return jsonb_build_object(
@@ -3782,7 +3806,7 @@ begin
   if b.id is null then
     return jsonb_build_object('ok', true, 'open', false, 'board_id', null, 'group_no', null);
   end if;
-  select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
+  v_my := public._group_of(b.id, v_sid);
   if v_my is not null then
     select * into g from public.qb_games where board_id = b.id and group_no = v_my;
   end if;
@@ -3809,10 +3833,10 @@ begin
                               'joined',   p.student_id is not null,
                               'online',   coalesce(p.seen_at > now() - interval '12 seconds', false)
                             ) order by st.number), '[]'::jsonb)
-                     from public.board_groups bg
-                     join public.students st on st.id = bg.student_id
-                     left join public.qb_players p on p.game_id = g.id and p.student_id = bg.student_id
-                     where bg.board_id = b.id and bg.group_no = v_my) end,
+                     from public.students st
+                     left join public.qb_players p on p.game_id = g.id and p.student_id = st.id
+                     where (v_my = 0 and st.id = v_sid)
+                        or st.id in (select bg.student_id from public.board_groups bg where bg.board_id = b.id and bg.group_no = v_my)) end,
     'game',        case when g.id is null then null else public._qb_view(g.id, v_sid) end
   );
 end;
@@ -3844,7 +3868,7 @@ begin
   if b.id is null or not b.quiz_open then
     return jsonb_build_object('ok', false, 'error', 'CLOSED');
   end if;
-  select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
+  v_my := public._group_of(b.id, v_sid);
   if v_my is null then
     return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
   end if;
@@ -4453,7 +4477,7 @@ begin
   if b.status <> 'open' then
     return jsonb_build_object('ok', false, 'error', 'CLOSED');
   end if;
-  select group_no into v_group from public.board_groups where board_id = b.id and student_id = p_sid;
+  v_group := public._group_of(b.id, p_sid);
   if v_group is null then
     return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
   end if;
@@ -4515,7 +4539,7 @@ begin
   if p_token is not null then
     select s.id into v_sid from public.students s where s.id = public._session_student(p_token) and s.class_id = p_class_id;
     if v_sid is not null then
-      select group_no into v_my from public.board_groups where board_id = b.id and student_id = v_sid;
+      v_my := public._group_of(b.id, v_sid);
     end if;
   end if;
   v_gate := public._post_gate(v_sid, b.id);
@@ -4532,7 +4556,8 @@ begin
                'no',    g.no,
                'posts', case when v_rev or g.no = v_my then public._post_list(b.id, g.no, v_sid) end
              ) order by g.no)
-      from (select distinct group_no::int as no from public.board_groups where board_id = b.id) g
+      from (select distinct group_no::int as no from public.board_groups where board_id = b.id
+            union select 0 where v_my = 0) g   -- 선생님 모둠은 선생님 화면에만
     ), '[]'::jsonb)
   );
 end;

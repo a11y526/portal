@@ -259,9 +259,11 @@ async function loadGroups() {
   if (loadingGroups) { loadAgain = true; return; }
   loadingGroups = true;
   try {
-    const [rows, subs, games] = await Promise.all([getBoardGroupMembers(board.id), listSubmissions(board.id), listQuizGames(board.id).catch(() => [])]);
+    let [rows, subs, games] = await Promise.all([getBoardGroupMembers(board.id), listSubmissions(board.id), listQuizGames(board.id).catch(() => [])]);
+    // 선생님 모둠(0)은 프로젝터에 보이지 않고 편성 다시 하기도 막지 않는다
+    subs = subs.filter((s) => s.group_no !== 0);
     hasSubs = subs.length > 0;
-    quiz.games = games;
+    quiz.games = games.filter((g) => g.group_no !== 0);
     const latest = new Map(); // 모둠별 마지막 제출 (제출 시각 순으로 오므로 뒤가 마지막)
     subs.forEach((s) => latest.set(s.group_no, s.status));
     const max = rows.reduce((m, r) => Math.max(m, r.group_no), 0);

@@ -1,7 +1,7 @@
 // 반 페이지: [개인 학습지] [모둠활동] [게시판] 탭. 게시판은 선생님이 반마다 섹션을 짜고 올린 자료(로그인한 학생만). 모둠활동은 오늘 보드(모둠 게시판 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
 // 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
-import { initUI, esc, toast, prepareDraw, countUp } from '../ui.js';
+import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
 import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen,
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
@@ -190,7 +190,7 @@ function renderMine(data) {
     login = null;
   }
   const myGroup = login ? data.my_group : null;
-  $('mine-h').textContent = myGroup ? `우리 모둠 · ${myGroup}모둠` : '우리 모둠';
+  $('mine-h').textContent = myGroup != null ? `우리 모둠 · ${groupName(myGroup)}` : '우리 모둠';
   $('num-change').classList.toggle('hidden', !login);
   if (login) $('num-change').textContent = login.number === 0 ? '선생님' : `${login.number}번`;
 
@@ -819,7 +819,7 @@ function renderGroups(data) {
     return `
       <div class="gs is-${g.state}${g.no === myGroup ? ' is-mine' : ''}${changed ? ' morph' : ''}">
         <span class="dot" aria-hidden="true"></span>
-        <b>${g.no}모둠</b>
+        <b>${groupName(g.no)}</b>
         <span class="lbl">${label}</span>
       </div>`;
   }).join('');
@@ -841,7 +841,7 @@ function renderQuiz(data) {
   if (!login) { sub = '로그인하면 할 수 있어요'; go.textContent = '로그인'; go.href = 'index.html'; }
   else if (data.my_group == null) { sub = '오늘 모둠 명단에 없어요'; go.textContent = '들어가기'; go.href = 'quiz.html'; }
   else {
-    sub = q.state === 'done' ? '우리 모둠 결과 보기' : q.state === 'playing' ? '우리 모둠이 푸는 중' : `${data.my_group}모둠끼리 오늘 학습지 문제`;
+    sub = q.state === 'done' ? '우리 모둠 결과 보기' : q.state === 'playing' ? '우리 모둠이 푸는 중' : `${groupName(data.my_group)}끼리 오늘 학습지 문제`;
     go.textContent = q.state === 'done' ? '결과 보기' : '들어가기';
     go.href = 'quiz.html';
   }
@@ -970,7 +970,7 @@ function openCompose(post) {
   form.elements.body.value = post?.body ?? '';
   form.elements.link.value = post?.link ?? '';
   setPreview(photoPath ? postPhotoUrl(photoPath) : null);
-  $('compose-h').textContent = post ? '글 고치기' : `${posts.my_group}모둠 칸에 글쓰기`;
+  $('compose-h').textContent = post ? '글 고치기' : `${groupName(posts.my_group)} 칸에 글쓰기`;
   $('compose-go').textContent = post ? '저장' : '게시';
   $('compose').showModal();
 }

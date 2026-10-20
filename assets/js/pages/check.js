@@ -1,6 +1,6 @@
 // 검사 화면 (휴대폰 우선): 반을 고르면 오늘 보드의 제출이 제출 순서대로 쌓인다
 import { CLASSES } from '../config.js';
-import { initUI, toast, esc } from '../ui.js';
+import { initUI, toast, esc, groupName } from '../ui.js';
 import {
   listClasses, getBoard, listSubmissions, listPresets, reviewSubmission,
   onSubmissionsChange, sendClassRefresh, listPosts, teacherDeletePost,
@@ -110,7 +110,7 @@ function makeCard(s) {
   el.innerHTML = `
     <div class="sub-top">
       <div class="sub-name">
-        <b>${s.group_no}모둠</b>
+        <b>${groupName(s.group_no)}</b>
         <span class="num">${fmtTime(s.submitted_at)} 제출${who}</span>
       </div>
       <button type="button" class="posts-go press" data-posts="${s.group_no}">게시물 보기</button>
@@ -141,7 +141,7 @@ function renderDone() {
     const fresh = !firstPaint && !doneIds.has(s.id);
     return `
       <div class="done-row${fresh ? ' rise' : ''}">
-        <b>${s.group_no}모둠</b>
+        <b>${groupName(s.group_no)}</b>
         <span class="num muted">${fmtTime(s.submitted_at)}</span>
         <span class="done-tag status ${ok ? 'is-passed' : 'is-returned'}">${ok ? '통과' : '다시 보냄'}</span>
       </div>`;
@@ -237,7 +237,7 @@ let postRows = [];
 async function showPosts(no) {
   if (!board) return;
   postsGroup = no;
-  $('posts-h').textContent = `${no}모둠 게시물`;
+  $('posts-h').textContent = `${groupName(no)} 게시물`;
   $('posts-list').innerHTML = '<div class="skeleton" style="height:120px"></div>';
   if (!$('posts-sheet').open) $('posts-sheet').showModal();
   try {

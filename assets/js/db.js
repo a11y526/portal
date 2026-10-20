@@ -559,7 +559,7 @@ export async function listSubmissions(boardId) {
 }
 
 export async function countSubmissions(boardId) {
-  const { count, error } = await need().from('submissions').select('id', { count: 'exact', head: true }).eq('board_id', boardId);
+  const { count, error } = await need().from('submissions').select('id', { count: 'exact', head: true }).eq('board_id', boardId).neq('group_no', 0);
   if (error) throw error;
   return count ?? 0;
 }

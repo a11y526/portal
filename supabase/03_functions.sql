@@ -4782,3 +4782,37 @@ begin
               using (bucket_id = 'materials' and public.is_teacher()) with check (bucket_id = 'materials' and public.is_teacher())$p$;
   end if;
 end $$;
+
+-- ---------------------------------------------------------
+-- 캘린더 구독 (2026-10-20): 아이폰·맥 캘린더가 Edge Function 'calendar'(?t=비밀 주소)를 읽는다.
+-- 함수는 공개 키로 이것만 부른다. settings.calendar.token(32자 이상)과 같을 때만 수업일·진도 재료를 준다
+-- (학생 정보 없음: 반·교시·구분·메모·차시만)
+-- ---------------------------------------------------------
+create or replace function public.calendar_feed(p_token text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_cfg jsonb := (select value from public.settings where key = 'calendar');
+begin
+  if p_token is null or length(p_token) < 32 or coalesce(v_cfg ->> 'token', '') = '' or p_token <> v_cfg ->> 'token' then
+    return jsonb_build_object('ok', false);
+  end if;
+  return jsonb_build_object(
+    'ok', true,
+    'periods', coalesce(v_cfg -> 'periods', '[]'::jsonb),
+    'days', coalesce((select jsonb_agg(jsonb_build_object('id', d.id, 'day', d.day, 'period', d.period, 'class_id', d.class_id,
+        'kind', d.kind, 'memo', d.memo, 'lesson_code', d.lesson_code) order by d.day, d.period)
+      from public.class_days d where d.day >= (now() at time zone 'Asia/Seoul')::date - 60), '[]'::jsonb),
+    'lessons', coalesce((select jsonb_agg(jsonb_build_object('code', l.code, 'title', l.title, 'unit', l.unit, 'sort', l.sort, 'slide_count', l.slide_count) order by l.sort, l.code)
+      from public.lessons l), '[]'::jsonb),
+    'boards', coalesce((select jsonb_agg(jsonb_build_object('class_id', b.class_id, 'lesson_code', b.lesson_code, 'slide_max', b.slide_max, 'status', b.status))
+      from public.boards b), '[]'::jsonb),
+    'classes', coalesce((select jsonb_agg(jsonb_build_object('id', c.id, 'next_lesson', c.next_lesson)) from public.classes c), '[]'::jsonb)
+  );
+end $$;
+revoke all on function public.calendar_feed(text) from public;
+grant execute on function public.calendar_feed(text) to anon, authenticated;

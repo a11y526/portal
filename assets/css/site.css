@@ -1617,3 +1617,7 @@ dialog.rk-help { width: min(680px, calc(100vw - 32px)); }
 .pg-table .chip { padding: 2px 9px; font-size: 12px; }
 .pg-chip-done { color: var(--passed-fg); background: var(--passed-bg); }
 .pg-chip-group { color: var(--accent); background: var(--accent-tint); }
+.pg-cal-url { display: flex; flex-direction: column; gap: 8px; }
+.pg-cal-url .input { font-size: 13px; }
+.pg-ptable { max-width: 360px; }
+.pg-ptable .input { width: 120px; }

@@ -184,6 +184,22 @@
         <p class="muted" style="margin:0">이미 있는 날짜·교시는 그대로 두고 빈 곳만 만들어요.</p>
       </section>
 
+      <section class="card glass rise" aria-labelledby="h-pg-cal">
+        <h2 id="h-pg-cal">캘린더 구독</h2>
+        <p class="muted" style="margin:0">아이폰·맥 캘린더에 수업일이 보여요(포털 → 캘린더 한 방향, 1시간마다 새로). 앞으로의 수업에는 예정 차시가 붙어요.</p>
+        <div class="pg-cal-url hidden" id="pg-cal-url">
+          <input class="input" id="pg-cal-link" readonly aria-label="구독 주소">
+          <div class="row-actions">
+            <button type="button" class="btn btn-line btn-small" id="pg-cal-copy">주소 복사</button>
+            <a class="btn btn-primary btn-small" id="pg-cal-open" href="#">캘린더에 추가</a>
+          </div>
+        </div>
+        <div class="row-actions">
+          <button type="button" class="btn btn-line btn-small" id="pg-cal-new">구독 주소 만들기</button>
+        </div>
+        <div class="pg-scroll" id="pg-periods"></div>
+      </section>
+
       <section class="card glass rise" aria-labelledby="h-pg-lessons">
         <h2 id="h-pg-lessons">차시</h2>
         <p class="muted" style="margin:0">단원이 있는 차시만 '남은 차시'에 들어가요. 순서대로 진도가 나가요.</p>

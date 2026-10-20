@@ -994,3 +994,16 @@ export async function setLessonSlideCount(code, n) {
 export async function listProgressBoards() {
   return unwrap(await need().from('boards').select('class_id, lesson_code, slide_max, status'));
 }
+
+// 캘린더 구독 { token, periods: [[시작, 끝], …] } (1교시부터)
+export async function getCalendarSettings() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'calendar'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveCalendarSettings(value) {
+  unwrap(await need().from('settings').upsert({ key: 'calendar', value }, { onConflict: 'key' }));
+}
+
+// 구독 주소 (Edge Function 'calendar')
+export const calendarFeedUrl = (token) => `${SUPABASE_URL}/functions/v1/calendar?t=${encodeURIComponent(token)}`;

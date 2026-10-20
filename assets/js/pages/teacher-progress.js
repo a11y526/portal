@@ -7,6 +7,7 @@ import {
   kstDay, listProgressClasses, updateClassProgress, getProgressRules, saveProgressRules,
   listTimetable, saveTimetableCell, listClassDays, updateClassDay, setDayKind, makeClassDays,
   useWeekdayTimetable, listLessons, saveLesson, listProgressBoards,
+  getCalendarSettings, saveCalendarSettings, calendarFeedUrl,
 } from '../db.js';
 import { errMsg } from '../gate.js';
 
@@ -20,6 +21,7 @@ let classes = [];
 let lessons = [];   // 모든 차시 (순서·차시 번호 순)
 let tt = [];
 let boards = [];  // 진도 계산용 보드
+let cal = { token: '', periods: [] };
 let days = [];      // 오늘 ~ 마감, 보는 주를 모두 덮는 수업일
 let deadline = DEFAULT_DEADLINE;
 let weekStart = monday(kstDay());
@@ -42,8 +44,9 @@ const lessonName = (code) => {
 
 export async function refreshProgress() {
   const today = kstDay();
-  const [c, l, t, rules, b] = await Promise.all([listProgressClasses(), listLessons(), listTimetable(), getProgressRules(), listProgressBoards()]);
+  const [c, l, t, rules, b, k] = await Promise.all([listProgressClasses(), listLessons(), listTimetable(), getProgressRules(), listProgressBoards(), getCalendarSettings()]);
   boards = b;
+  cal = { token: k?.token || '', periods: Array.isArray(k?.periods) ? k.periods : [] };
   classes = c.filter((x) => CLASSES.includes(x.id));
   lessons = l;
   tt = t;
@@ -215,7 +218,27 @@ function renderLessons() {
     : '<p class="muted pg-empty">관리 \'수업 시작\'에서 차시를 추가해 주세요</p>';
 }
 
+function renderCalendar() {
+  const on = !!cal.token;
+  $('pg-cal-url').classList.toggle('hidden', !on);
+  $('pg-cal-new').textContent = on ? '새 주소로 바꾸기' : '구독 주소 만들기';
+  if (on) {
+    const url = calendarFeedUrl(cal.token);
+    $('pg-cal-link').value = url;
+    $('pg-cal-open').href = url.replace(/^https?:/, 'webcal:');
+  }
+  let rows = '';
+  for (let p = 1; p <= PERIODS; p++) {
+    const [a = '', b = ''] = cal.periods[p - 1] ?? [];
+    rows += `<tr><th class="num">${p}교시</th>
+      <td><input class="input" type="time" value="${esc(a)}" data-per="${p}-0" aria-label="${p}교시 시작"></td>
+      <td><input class="input" type="time" value="${esc(b)}" data-per="${p}-1" aria-label="${p}교시 끝"></td></tr>`;
+  }
+  $('pg-periods').innerHTML = `<table class="pg-table pg-ptable"><thead><tr><th>교시</th><th>시작</th><th>끝</th></tr></thead><tbody>${rows}</tbody></table>`;
+}
+
 function render() {
+  renderCalendar();
   renderToday();
   renderClasses();
   renderWeek();
@@ -261,6 +284,12 @@ panel.addEventListener('change', (e) => {
   } else if (d.lunit) {
     const l = lessons.find((x) => x.code === d.lunit);
     if (l) run(() => saveLesson({ code: l.code, unit: el.value.trim().slice(0, 40) }));
+  } else if (d.per) {
+    const [p, k] = d.per.split('-').map(Number);
+    if (!/^\d{2}:\d{2}$/.test(el.value)) return;
+    const periods = Array.from({ length: PERIODS }, (_, i) => [...(cal.periods[i] ?? ['', ''])]);
+    periods[p - 1][k] = el.value;
+    run(() => saveCalendarSettings({ ...cal, periods }));
   } else if (el.id === 'pg-deadline') {
     if (!/^\d{4}-\d{2}-\d{2}$/.test(el.value)) return;
     run(() => saveProgressRules({ deadline: el.value }), '마감일을 바꿨어요');
@@ -279,4 +308,21 @@ $('pg-make').addEventListener('click', () => {
     const n = await makeClassDays(from, to);
     toast(n ? `수업 ${n}개를 만들었어요` : '새로 만들 수업이 없어요');
   });
+});
+
+// 구독 주소: 무작위 48자. 바꾸면 예전 주소로 구독한 캘린더는 더 안 새로 고쳐진다
+$('pg-cal-new').addEventListener('click', () => {
+  if (cal.token && !confirm('새 주소로 바꿀까요?\n예전 주소로 구독한 캘린더는 더 이상 바뀌지 않아요.')) return;
+  const bytes = crypto.getRandomValues(new Uint8Array(24));
+  const token = [...bytes].map((x) => x.toString(16).padStart(2, '0')).join('');
+  run(() => saveCalendarSettings({ ...cal, token }), '구독 주소를 만들었어요');
+});
+
+$('pg-cal-copy').addEventListener('click', async () => {
+  try {
+    await navigator.clipboard.writeText($('pg-cal-link').value);
+    toast('주소를 복사했어요');
+  } catch {
+    $('pg-cal-link').select();
+  }
 });

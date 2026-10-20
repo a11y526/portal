@@ -166,3 +166,8 @@ where key = 'rummikub' and not (value ? 'reward_daily');
 insert into public.settings (key, value) values
   ('progress', '{"deadline": "2026-12-04"}'::jsonb)
 on conflict (key) do nothing;
+
+-- 캘린더 구독: 교시 시간(1교시부터 [시작, 끝]). token은 관리 '진도 관리'에서 만든다(비어 있으면 구독 주소 없음)
+insert into public.settings (key, value) values
+  ('calendar', '{"token": "", "periods": [["08:50","09:35"],["09:45","10:30"],["10:40","11:25"],["11:35","12:20"],["13:10","13:55"],["14:05","14:50"],["15:00","15:45"]]}'::jsonb)
+on conflict (key) do nothing;

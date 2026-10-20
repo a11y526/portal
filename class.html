@@ -27,11 +27,21 @@
     </nav>
   </div>
 
-  <!-- 오늘 차시에 학습지가 있으면: [개인 학습지] [모둠활동] -->
-  <nav class="class-tabs glass hidden" id="tabs" role="tablist" aria-label="오늘 수업">
-    <button type="button" class="class-tab press" role="tab" data-tab="sheet" id="tab-sheet" aria-controls="sheet" aria-selected="false">개인 학습지</button>
+  <!-- [개인 학습지](오늘 차시에 학습지가 있을 때만) [모둠활동] [게시판] -->
+  <nav class="class-tabs glass" id="tabs" role="tablist" aria-label="오늘 수업">
+    <button type="button" class="class-tab press hidden" role="tab" data-tab="sheet" id="tab-sheet" aria-controls="sheet" aria-selected="false">개인 학습지</button>
     <button type="button" class="class-tab press" role="tab" data-tab="group" id="tab-group" aria-controls="group-tab" aria-selected="true">모둠활동</button>
+    <button type="button" class="class-tab press" role="tab" data-tab="mats" id="tab-mats" aria-controls="mats" aria-selected="false">게시판</button>
   </nav>
+
+  <!-- 반 게시판: 선생님이 섹션을 짜고 올린 자료 (로그인한 학생만) -->
+  <section class="board-card glass hidden" id="mats" role="tabpanel" aria-labelledby="tab-mats">
+    <div class="state-box is-idle login-need hidden" id="mats-login">
+      <span class="state-title">로그인하면 볼 수 있어요</span>
+      <a class="btn btn-primary press" href="index.html">로그인</a>
+    </div>
+    <div class="post-board" id="mats-board"><div class="skeleton board-empty"></div></div>
+  </section>
 
   <!-- 개인 학습지: 수업자료 쪽에 맞춰 한 쪽씩 (게시판은 그리지 않는다) -->
   <section class="ws-card glass-strong hidden" id="sheet" role="tabpanel" aria-labelledby="tab-sheet">

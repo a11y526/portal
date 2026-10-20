@@ -48,6 +48,10 @@
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M15 14.2a4.5 4.5 0 0 1 5.5 4.8"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>모둠 편성</b><span>그날 모둠 무작위</span>
           </a>
+          <a class="hub-item glass glass-live lift rise" style="--d:0.13s" href="#mats">
+            <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
+            <b>반 게시판</b><span>반마다 섹션 · 자료 올리기</span>
+          </a>
         </div>
       </section>
       <section class="hub-group g-student" aria-label="학생">
@@ -122,6 +126,21 @@
         <div><button class="btn btn-line" type="submit">+ 차시 추가</button></div>
       </form>
     </div>
+
+    <section class="card glass rise panel hidden mat-admin" data-panel="mats" data-title="반 게시판" aria-label="반 게시판">
+      <div class="mat-admin-bar">
+        <label class="class-pick glass">
+          <select id="mat-class" aria-label="반"></select>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </label>
+        <span class="muted" id="mat-count"></span>
+        <span class="gap"></span>
+        <button type="button" class="btn btn-line btn-small" id="mat-copy">다른 반에서 가져오기</button>
+        <button type="button" class="btn btn-primary btn-small" id="mat-add-sec">+ 섹션</button>
+      </div>
+      <p class="muted" style="margin:0">학생 반 페이지의 [게시판] 탭에 이 순서대로 보여요(그 반에 로그인한 학생만).</p>
+      <div class="post-board" id="mat-board"></div>
+    </section>
 
     <div class="panel hidden" data-panel="boards" data-title="보드">
     <section class="card glass rise" aria-labelledby="h-today">
@@ -373,6 +392,26 @@
         <button class="btn btn-line" type="button" id="ws-dlg-cancel">취소</button>
       </div>
     </div>
+  </dialog>
+
+  <!-- 반 게시판 자료 올리기·고치기 -->
+  <dialog class="sheet" id="mat-dlg" aria-labelledby="mat-dlg-h">
+    <form class="card glass-strong compose" method="dialog" id="mat-form">
+      <h2 id="mat-dlg-h">자료 올리기</h2>
+      <input class="input" name="title" maxlength="80" placeholder="제목" aria-label="제목" autocomplete="off">
+      <textarea class="input compose-body" name="body" maxlength="4000" rows="5" placeholder="내용" aria-label="내용"></textarea>
+      <input class="input" name="link" maxlength="500" placeholder="링크 또는 유튜브 주소" aria-label="링크" autocomplete="off" inputmode="url">
+      <div class="mat-file-now hidden" id="mat-file-now"></div>
+      <div class="compose-acts">
+        <label class="btn btn-line btn-small compose-pick">
+          사진 · PDF 고르기
+          <input type="file" id="mat-file" accept="image/jpeg,image/png,application/pdf" hidden>
+        </label>
+        <span class="compose-gap"></span>
+        <button class="btn btn-line" type="button" id="mat-cancel">취소</button>
+        <button class="btn btn-primary" type="button" id="mat-save">저장</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- 보드 수정 -->

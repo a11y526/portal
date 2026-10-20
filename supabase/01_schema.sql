@@ -529,3 +529,44 @@ end $$;
 
 -- 쪽 잠그기 (2026-10-20): 열었던 쪽을 교사가 다시 잠그면 closed_at. 열린 쪽 = 줄이 있고 closed_at이 비어 있음
 alter table public.ws_page_open add column if not exists closed_at timestamptz null;
+
+-- ---------------------------------------------------------
+-- 반 게시판 (2026-10-20): 교사가 반마다 섹션(칸)을 짜고 자료(글·사진·PDF·링크·유튜브)를 올린다.
+-- 차시와 상관없이 교사가 지울 때까지 남는다. 학생은 그 반에 로그인했을 때 get_class_materials로 보기만
+-- 파일은 Storage 'materials' 버킷(공개 읽기, 경로는 무작위)
+-- ---------------------------------------------------------
+create table if not exists public.class_sections (
+  id         uuid primary key default gen_random_uuid(),
+  class_id   smallint not null references public.classes(id) on delete cascade,
+  name       text not null check (char_length(name) between 1 and 30),
+  sort       int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists class_sections_class_idx on public.class_sections (class_id, sort);
+
+create table if not exists public.class_materials (
+  id         uuid primary key default gen_random_uuid(),
+  section_id uuid not null references public.class_sections(id) on delete cascade,
+  title      text not null default '' check (char_length(title) <= 80),
+  body       text not null default '' check (char_length(body) <= 4000),
+  link       text null check (link is null or char_length(link) <= 500),
+  file       text null check (file is null or char_length(file) <= 300),       -- 'materials' 버킷 안 경로
+  file_type  text null check (file_type is null or file_type in ('image', 'pdf')),
+  file_name  text null check (file_name is null or char_length(file_name) <= 120), -- 올린 파일 원래 이름(PDF 표시용)
+  sort       int not null default 0,
+  created_at timestamptz not null default now(),
+  updated_at timestamptz not null default now()
+);
+create index if not exists class_materials_section_idx on public.class_materials (section_id, sort);
+
+-- 자료 버킷: 공개 읽기, 20MB까지, jpeg·png·pdf
+do $$
+begin
+  if to_regclass('storage.buckets') is not null then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('materials', 'materials', true, 20971520, array['image/jpeg', 'image/png', 'application/pdf'])
+    on conflict (id) do update
+      set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+  end if;
+end $$;

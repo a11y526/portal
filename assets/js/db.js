@@ -71,6 +71,17 @@ export async function deletePost(token, postId) {
 export const POST_BUCKET = 'posts';
 export const postPhotoUrl = (path) => `${SUPABASE_URL}/storage/v1/object/public/${POST_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`;
 
+/* ---------- 반 게시판 (교사가 올리는 자료, 반마다 섹션) ---------- */
+
+// 그 반에 로그인한 학생만. v가 지금 버전과 같으면 { ok, v, same: true }
+// { ok: true, v, sections: [{ id, name, items: [{ id, title, body, link, file, file_type, file_name }] }] } 또는 error = 'NO_SESSION'
+export async function getClassMaterials(classId, token, v = null) {
+  return unwrap(await need().rpc('get_class_materials', { p_class_id: classId, p_token: token, p_v: v }));
+}
+
+export const MATERIAL_BUCKET = 'materials';
+export const materialUrl = (path) => `${SUPABASE_URL}/storage/v1/object/public/${MATERIAL_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`;
+
 // 내 기록: 레벨, XP, 순위, 코인, 받은 기록, 닉네임, 캐릭터, 입을 수 있는 부품
 export async function getMyPage(token) {
   return unwrap(await need().rpc('get_my_page', { p_token: token }));
@@ -801,4 +812,88 @@ export async function getRummikubRules() {
 
 export async function saveRummikubRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'rummikub', value }, { onConflict: 'key' }));
+}
+
+
+/* ---------- 교사: 반 게시판 ---------- */
+
+// [{ id, name, sort, items: [{ id, section_id, title, body, link, file, file_type, file_name, sort }] }] (순서대로)
+export async function listSections(classId) {
+  const secs = unwrap(await need().from('class_sections')
+    .select('id, name, sort, created_at, items:class_materials(id, section_id, title, body, link, file, file_type, file_name, sort, created_at)')
+    .eq('class_id', classId)
+    .order('sort').order('created_at'));
+  const byOrder = (a, b) => a.sort - b.sort || String(a.created_at).localeCompare(String(b.created_at));
+  for (const s of secs) s.items.sort(byOrder);
+  return secs;
+}
+
+export async function addSection(classId, name, sort) {
+  return unwrap(await need().from('class_sections').insert({ class_id: classId, name, sort }).select('id').single());
+}
+
+export async function updateSection(id, fields) {
+  unwrap(await need().from('class_sections').update({ ...fields, updated_at: new Date().toISOString() }).eq('id', id));
+}
+
+// 섹션을 지우면 자료도 지워지고(외래 키), 파일도 지운다
+export async function deleteSection(section) {
+  const files = (section.items ?? []).map((m) => m.file).filter(Boolean);
+  unwrap(await need().from('class_sections').delete().eq('id', section.id));
+  if (files.length) await need().storage.from(MATERIAL_BUCKET).remove(files).catch(() => {});
+}
+
+// 파일 올리기: 반/무작위.확장자 경로. 결과: 경로
+export async function uploadMaterialFile(classId, file, type) {
+  const ext = type === 'pdf' ? 'pdf' : (file.type === 'image/png' ? 'png' : 'jpg');
+  const path = `${classId}/${crypto.randomUUID()}.${ext}`;
+  const { error } = await need().storage.from(MATERIAL_BUCKET)
+    .upload(path, file, { contentType: type === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg'), upsert: false, cacheControl: '86400' });
+  if (error) throw error;
+  return path;
+}
+
+export async function removeMaterialFiles(paths) {
+  const list = paths.filter(Boolean);
+  if (list.length) await need().storage.from(MATERIAL_BUCKET).remove(list).catch(() => {});
+}
+
+// m: { section_id, title, body, link, file, file_type, file_name, sort }. id가 있으면 고치기
+export async function saveMaterial(id, m) {
+  if (id) {
+    unwrap(await need().from('class_materials').update({ ...m, updated_at: new Date().toISOString() }).eq('id', id));
+    return id;
+  }
+  return unwrap(await need().from('class_materials').insert(m).select('id').single()).id;
+}
+
+export async function updateMaterialSort(id, sort) {
+  unwrap(await need().from('class_materials').update({ sort, updated_at: new Date().toISOString() }).eq('id', id));
+}
+
+export async function deleteMaterial(m) {
+  unwrap(await need().from('class_materials').delete().eq('id', m.id));
+  await removeMaterialFiles([m.file]);
+}
+
+// 다른 반의 섹션·자료를 이 반 뒤에 덧붙인다. 파일은 새 경로로 복사(한 반에서 지워도 다른 반은 남게)
+export async function copySections(fromClass, toClass) {
+  const src = await listSections(fromClass);
+  const base = (await listSections(toClass)).length;
+  for (const [i, s] of src.entries()) {
+    const { id } = await addSection(toClass, s.name, base + i);
+    for (const [j, m] of s.items.entries()) {
+      let file = null;
+      if (m.file) {
+        file = `${toClass}/${crypto.randomUUID()}.${m.file.split('.').pop()}`;
+        const { error } = await need().storage.from(MATERIAL_BUCKET).copy(m.file, file);
+        if (error) throw error;
+      }
+      await saveMaterial(null, {
+        section_id: id, title: m.title, body: m.body, link: m.link,
+        file, file_type: file ? m.file_type : null, file_name: file ? m.file_name : null, sort: j,
+      });
+    }
+  }
+  return src.length;
 }

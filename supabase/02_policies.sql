@@ -266,3 +266,19 @@ drop policy if exists post_uploads_teacher_all on public.post_uploads;
 create policy post_uploads_teacher_all on public.post_uploads
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 반 게시판 (2026-10-20): 교사만 표를 읽고 쓴다. 학생은 get_class_materials로 보기만. 버킷 정책은 03 끝
+alter table public.class_sections enable row level security;
+alter table public.class_materials enable row level security;
+revoke all on public.class_sections from anon;
+revoke all on public.class_materials from anon;
+
+drop policy if exists class_sections_teacher_all on public.class_sections;
+create policy class_sections_teacher_all on public.class_sections
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists class_materials_teacher_all on public.class_materials;
+create policy class_materials_teacher_all on public.class_materials
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

@@ -1,13 +1,14 @@
-// 반 페이지: [개인 학습지] [모둠활동] 탭. 모둠활동은 오늘 보드(모둠 게시판 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
+// 반 페이지: [개인 학습지] [모둠활동] [게시판] 탭. 게시판은 선생님이 반마다 섹션을 짜고 올린 자료(로그인한 학생만). 모둠활동은 오늘 보드(모둠 게시판 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
 // 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp } from '../ui.js';
 import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen,
-  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl } from '../db.js';
+  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 import { renderPage, markFields, closeSims } from '../worksheet.js';
 import { boardHTML, shrinkPhoto } from '../posts.js';
+import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
 
 initUI();
 bindReactions();
@@ -281,21 +282,24 @@ const store = {
   del(k) { try { localStorage.removeItem(k); } catch {} },
 };
 
-let tab = store.get('classTab') === 'group' ? 'group' : 'sheet';
+let tab = ['group', 'mats'].includes(store.get('classTab')) ? store.get('classTab') : 'sheet';
 let hasSheet = false;
 
 function applyTab() {
-  const sheetOn = hasSheet && tab === 'sheet';
-  $('tabs').classList.toggle('hidden', !hasSheet);
-  $('sheet').classList.toggle('hidden', !sheetOn);
-  $('group-tab').classList.toggle('hidden', sheetOn);
+  const now = tab === 'sheet' && !hasSheet ? 'group' : tab;
+  $('tab-sheet').classList.toggle('hidden', !hasSheet);
+  $('sheet').classList.toggle('hidden', now !== 'sheet');
+  $('group-tab').classList.toggle('hidden', now !== 'group');
+  $('mats').classList.toggle('hidden', now !== 'mats');
   document.querySelectorAll('.class-tab').forEach((b) => {
-    const on = b.dataset.tab === (sheetOn ? 'sheet' : 'group');
+    const on = b.dataset.tab === now;
     b.classList.toggle('on', on);
     b.setAttribute('aria-selected', String(on));
   });
-  if (sheetOn) ensureSheet();
+  if (now === 'sheet') ensureSheet();
   else closeSims($('sheet'));
+  if (now === 'mats') loadMats();
+  else closeVideos($('mats'));
 }
 
 $('tabs').addEventListener('click', (e) => {
@@ -305,6 +309,44 @@ $('tabs').addEventListener('click', (e) => {
   store.set('classTab', tab);
   applyTab();
 });
+
+/* ---------- 반 게시판 ----------
+   [게시판] 탭이 보일 때만 받는다. 버전(v)이 같으면 서버가 내용을 빼고 돌려준다 */
+const mats = { v: null, busy: false };
+bindVideos($('mats-board'));
+
+function matsEmpty(text) {
+  $('mats-board').innerHTML = `<div class="empty board-empty">${ICON_BOARD}<strong>${esc(text)}</strong></div>`;
+}
+
+async function loadMats() {
+  if (tab !== 'mats' || mats.busy) return;
+  $('mats-login').classList.toggle('hidden', !!login);
+  if (!login) {
+    mats.v = null;
+    $('mats-board').innerHTML = '';
+    return;
+  }
+  mats.busy = true;
+  try {
+    const res = await getClassMaterials(classId, login.token, mats.v);
+    if (!res?.ok) {
+      if (res?.error === 'NO_SESSION') { clearLogin(); login = null; mats.v = null; load(); loadMatsLater(); }
+      return;
+    }
+    if (res.same) return;
+    mats.v = res.v;
+    closeVideos($('mats'));
+    if (!res.sections.length) matsEmpty('아직 올린 자료가 없어요');
+    else $('mats-board').innerHTML = materialsHTML(res.sections);
+  } catch (err) {
+    console.error(err);
+    if (mats.v === null) matsEmpty('불러오지 못했어요');
+  } finally {
+    mats.busy = false;
+  }
+}
+function loadMatsLater() { setTimeout(loadMats, 0); }
 
 /* ---------- 개인 학습지 ----------
    본문(get_worksheet)은 무거워서 버전이 바뀔 때만 받는다. 15초 갱신에는 완료 여부만 온다.
@@ -1061,7 +1103,7 @@ if (sb) onClassRefresh(classId, () => {
   if (!document.hidden) setTimeout(load, Math.random() * 2000);
 });
 document.addEventListener('visibilitychange', () => {
-  if (document.hidden) closeSims(); // 학습지 시뮬레이션은 화면이 숨겨지면 없앤다(학생 기기 부담)
+  if (document.hidden) { closeSims(); closeVideos(); } // 학습지 시뮬레이션·영상은 화면이 숨겨지면 없앤다(학생 기기 부담)
   else load();
 });
 addEventListener('online', () => { load(); saveSheet(); });

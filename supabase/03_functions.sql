@@ -4689,3 +4689,74 @@ begin
               using (bucket_id = 'posts' and public.is_teacher()) with check (bucket_id = 'posts' and public.is_teacher())$p$;
   end if;
 end $$;
+
+-- ---------------------------------------------------------
+-- 반 게시판 (2026-10-20)
+-- ---------------------------------------------------------
+
+-- 학생(그 반에 로그인한 학생만). p_v가 지금 버전과 같으면 {ok, v, same: true}만 돌려준다(15초 갱신 가볍게)
+-- 결과: {ok: true, v, sections: [{id, name, items: [{id, title, body, link, file, file_type, file_name, updated_at}]}]}
+--       또는 {ok: false, error: 'NO_SESSION'}
+create or replace function public.get_class_materials(p_class_id int, p_token text, p_v text default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_sid uuid;
+  v_v   text;
+begin
+  select s.id into v_sid from public.students s
+  where s.id = public._session_student(p_token) and s.class_id = p_class_id;
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+
+  select concat_ws(':',
+           (select count(*) from public.class_sections where class_id = p_class_id),
+           (select extract(epoch from max(updated_at))::bigint from public.class_sections where class_id = p_class_id),
+           count(m.id),
+           extract(epoch from max(m.updated_at))::bigint)
+    into v_v
+  from public.class_sections s join public.class_materials m on m.section_id = s.id
+  where s.class_id = p_class_id;
+
+  if p_v is not null and p_v = v_v then
+    return jsonb_build_object('ok', true, 'v', v_v, 'same', true);
+  end if;
+
+  return jsonb_build_object(
+    'ok', true,
+    'v',  v_v,
+    'sections', coalesce((
+      select jsonb_agg(jsonb_build_object(
+               'id',    s.id,
+               'name',  s.name,
+               'items', coalesce((
+                 select jsonb_agg(jsonb_build_object(
+                          'id', m.id, 'title', m.title, 'body', m.body, 'link', m.link,
+                          'file', m.file, 'file_type', m.file_type, 'file_name', m.file_name,
+                          'updated_at', m.updated_at
+                        ) order by m.sort, m.created_at)
+                 from public.class_materials m where m.section_id = s.id
+               ), '[]'::jsonb)
+             ) order by s.sort, s.created_at)
+      from public.class_sections s where s.class_id = p_class_id
+    ), '[]'::jsonb)
+  );
+end;
+$$;
+revoke all on function public.get_class_materials(int, text, text) from public;
+grant execute on function public.get_class_materials(int, text, text) to anon, authenticated;
+
+-- 자료 버킷: 교사만 올리고 지운다(읽기는 공개 버킷 주소)
+do $$
+begin
+  if to_regclass('storage.objects') is not null then
+    execute 'drop policy if exists materials_teacher_all on storage.objects';
+    execute $p$create policy materials_teacher_all on storage.objects for all to authenticated
+              using (bucket_id = 'materials' and public.is_teacher()) with check (bucket_id = 'materials' and public.is_teacher())$p$;
+  end if;
+end $$;

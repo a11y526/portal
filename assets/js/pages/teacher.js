@@ -29,6 +29,7 @@ let omokRules = null;   // settings.omok
 let rkRules = null;     // settings.rummikub
 let ompRules = null;    // settings.omok_pvp
 let boards = [];
+let lessonMeta = [];   // 보드 화면 진도(쪽 수)·차시 제목
 let students = [];
 let presets = [];
 
@@ -105,23 +106,23 @@ document.addEventListener('click', (e) => {
 
 /* ---------- 오늘 보드 ---------- */
 function renderToday() {
-  $('today-list').innerHTML = classes.map((c) => {
-    const opts = boards.filter((b) => b.class_id === c.id)
-      .map((b) => `<option value="${b.id}" ${b.id === c.today_board_id ? 'selected' : ''}>${esc(boardLabel(b))}</option>`)
-      .join('');
-    return `
-      <div class="today-row">
-        <span class="cls">${c.id}반</span>
-        <select class="input" data-today="${c.id}" aria-label="${c.id}반 오늘 보드">
+  $('today-list').innerHTML = `<table class="nd-table"><thead><tr><th>반</th><th>오늘 보드</th><th></th></tr></thead><tbody>${
+    classes.map((c) => {
+      const opts = boards.filter((b) => b.class_id === c.id)
+        .map((b) => `<option value="${b.id}" ${b.id === c.today_board_id ? 'selected' : ''}>${esc(boardLabel(b))}</option>`)
+        .join('');
+      return `<tr>
+        <td style="width:64px">${c.id}반</td>
+        <td><select class="nd-ghost${c.today_board_id ? '' : ' dim'}" data-today="${c.id}" aria-label="${c.id}반 오늘 보드">
           <option value="" ${c.today_board_id ? '' : 'selected'}>없음</option>${opts}
-        </select>
-        <div class="today-links">
-          <a class="btn btn-line btn-small" href="../class.html?c=${c.id}" target="_blank" rel="noopener">보기 ↗</a>
-          <a class="btn btn-line btn-small" href="groups.html?c=${c.id}">모둠</a>
-          <a class="btn btn-line btn-small" href="reveal.html?c=${c.id}">발표</a>
-        </div>
-      </div>`;
-  }).join('');
+        </select></td>
+        <td><div class="nd-row-acts">
+          <a class="nd-btn" href="../class.html?c=${c.id}" target="_blank" rel="noopener">반 페이지 ↗</a>
+          <a class="nd-btn" href="groups.html?c=${c.id}">모둠</a>
+          <a class="nd-btn" href="reveal.html?c=${c.id}">발표</a>
+        </div></td>
+      </tr>`;
+    }).join('')}</tbody></table>`;
   updateHub();
 }
 
@@ -152,38 +153,45 @@ function renderBoards() {
     groups.get(key).push(b);
   }
   if (!groups.size) {
-    $('board-groups').innerHTML = '<div class="empty"><strong>아직 만든 보드가 없어요</strong></div>';
+    $('board-groups').innerHTML = '<div class="nd-empty">아직 만든 보드가 없어요</div>';
     return;
   }
-  $('board-groups').innerHTML = [...groups.entries()].map(([key, list]) => {
-    list.sort((a, b) => a.class_id - b.class_id);
-    const allToday = list.every((b) => todayIds.has(b.id));
-    const anyToday = list.some((b) => todayIds.has(b.id));
-    return `
-      <div class="board-group">
-        <header>
-          <b>${esc(list[0].lesson_code)}차시${list[0].title ? ' · ' + esc(list[0].title) : ''}</b>
-          <span class="muted num" style="font-size:13px">${fmtDate(list[0].created_at)}</span>
-          <button type="button" class="btn btn-line btn-small" style="margin-left:auto" data-group-today="${esc(key)}" ${allToday ? 'disabled' : ''}>
-            ${allToday ? '모두 오늘 보드' : '이 차시를 오늘 보드로'}
-          </button>
-          <button type="button" class="btn btn-line btn-small" data-group-archive="${esc(key)}" ${allToday ? 'disabled' : ''}
-            ${anyToday ? 'title="오늘 보드는 빼고 보관해요"' : ''}>보관</button>
-        </header>
+  const pages = (b) => {
+    const total = lessonMeta.find((l) => l.code === b.lesson_code)?.slide_count;
+    if (!b.slide_max) return '<span class="muted">—</span>';
+    return total ? `${Math.min(b.slide_max, total)}/${total}쪽` : `${b.slide_max}쪽까지`;
+  };
+  $('board-groups').innerHTML = `<table class="nd-table"><thead><tr><th>반</th><th>상태</th><th>오늘 보드</th><th>진도</th><th>만든 날</th><th></th></tr></thead><tbody>${
+    [...groups.entries()].map(([key, list]) => {
+      list.sort((a, b) => a.class_id - b.class_id);
+      const allToday = list.every((b) => todayIds.has(b.id));
+      const name = lessonMeta.find((l) => l.code === list[0].lesson_code)?.title;
+      return `
+        <tr class="nd-group">
+          <td colspan="5">${esc(list[0].lesson_code)}${list[0].title ? ' · ' + esc(list[0].title) : name && name !== list[0].lesson_code ? ' ' + esc(name) : ''}
+            <span class="muted" style="font-weight:400;margin-left:6px">${list.length}개</span></td>
+          <td><div class="nd-row-acts"><details class="nd-menu"><summary aria-label="${esc(list[0].lesson_code)}차시 메뉴">⋯</summary><div class="nd-menu-list">
+            <button type="button" class="nd-btn" data-group-today="${esc(key)}" ${allToday ? 'disabled' : ''}>${allToday ? '모두 오늘 보드예요' : '이 차시를 오늘 보드로'}</button>
+            <button type="button" class="nd-btn" data-group-archive="${esc(key)}" ${allToday ? 'disabled' : ''}>보관 (오늘 보드는 빼고)</button>
+          </div></details></div></td>
+        </tr>
         ${list.map((b) => `
-          <div class="board-item">
-            <span class="cls">${b.class_id}반</span>
-            ${todayIds.has(b.id) ? '<span class="tag tag-today">오늘</span>' : ''}
-            ${b.status === 'revealed' ? '<span class="tag tag-done">발표함</span>' : ''}
-            <span class="src"></span>
-            <button type="button" class="btn btn-line btn-small" data-edit="${b.id}">수정</button>
-            <button type="button" class="btn btn-danger btn-small" data-del="${b.id}">삭제</button>
-          </div>`).join('')}
-      </div>`;
-  }).join('');
+          <tr>
+            <td style="width:64px">${b.class_id}반</td>
+            <td>${b.status === 'revealed' ? '<span class="nd-tag green">발표함</span>' : '<span class="nd-tag yellow">진행 중</span>'}</td>
+            <td>${todayIds.has(b.id) ? '<span class="nd-tag blue">오늘</span>' : ''}</td>
+            <td>${pages(b)}</td>
+            <td class="muted">${fmtDate(b.created_at)}</td>
+            <td><div class="nd-row-acts"><details class="nd-menu"><summary aria-label="${b.class_id}반 보드 메뉴">⋯</summary><div class="nd-menu-list">
+              <button type="button" class="nd-btn" data-edit="${b.id}">수정</button>
+              <button type="button" class="nd-btn danger" data-del="${b.id}">삭제</button>
+            </div></details></div></td>
+          </tr>`).join('')}`;
+    }).join('')}</tbody></table>`;
 }
 
 $('board-groups').addEventListener('click', async (e) => {
+  if (e.target.closest('.nd-menu-list button')) e.target.closest('details')?.removeAttribute('open');
   const groupBtn = e.target.closest('[data-group-today]');
   const archiveBtn = e.target.closest('[data-group-archive]');
   const editBtn = e.target.closest('[data-edit]');
@@ -270,6 +278,7 @@ $('create').addEventListener('submit', async (e) => {
     await createBoards({ lesson_code, title, sim_links, items, setToday: f.set_today.checked });
     if (sim_links.length) await setLessonSims(lesson_code, sim_links);
     toast(`${items.length}개 반에 보드를 만들었어요`, 'ok');
+    $('create-dlg').close();
     f.reset();
     renderCreateForm();
     await refresh();
@@ -278,6 +287,26 @@ $('create').addEventListener('submit', async (e) => {
   } finally {
     btn.disabled = false;
   }
+});
+
+// 보기 탭 (차시별 · 오늘 보드), 마지막 탭 기억
+let bdView = (() => { try { return localStorage.getItem('bdView') || 'list'; } catch { return 'list'; } })();
+function renderBdView() {
+  document.querySelectorAll('[data-bd-view]').forEach((b) => b.setAttribute('aria-selected', String(b.dataset.bdView === bdView)));
+  $('board-groups').classList.toggle('hidden', bdView !== 'list');
+  $('today-list').classList.toggle('hidden', bdView !== 'today');
+}
+document.querySelectorAll('[data-bd-view]').forEach((b) => b.addEventListener('click', () => {
+  bdView = b.dataset.bdView;
+  try { localStorage.setItem('bdView', bdView); } catch {}
+  renderBdView();
+}));
+renderBdView();
+$('bd-new').addEventListener('click', () => $('create-dlg').showModal());
+$('create-cancel').addEventListener('click', () => $('create-dlg').close());
+// 메뉴 밖을 누르면 닫기
+document.addEventListener('click', (e) => {
+  for (const m of document.querySelectorAll('[data-panel="boards"] .nd-menu[open]')) if (!m.contains(e.target)) m.removeAttribute('open');
 });
 
 /* ---------- 보드 수정 ---------- */
@@ -1493,6 +1522,8 @@ function route() {
   $('hub').classList.toggle('hidden', !!open);
   $('hub-back').classList.toggle('hidden', !open);
   $('admin-h').textContent = open ? open.dataset.title : '관리';
+  // 진도 관리·보드는 노션식 흰 문서 화면
+  document.body.classList.toggle('doc', key === 'progress' || key === 'boards');
   markSide(open ? key : '');
   scrollTo(0, 0);
   if (key === 'nick') refreshNicks().catch(() => {});
@@ -1517,7 +1548,7 @@ route();
 
 /* ---------- 시작 ---------- */
 async function refresh() {
-  [classes, boards] = await Promise.all([listClasses(), listBoards()]);
+  [classes, boards, lessonMeta] = await Promise.all([listClasses(), listBoards(), listLessons().catch(() => [])]);
   renderToday();
   renderBoards();
   renderLocks();

@@ -1628,44 +1628,91 @@ dialog.rk-help { width: min(680px, calc(100vw - 32px)); }
 .mat-file-now { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
 .mat-file-now img { display: block; max-width: 100%; max-height: 200px; border-radius: 12px; }
 
-/* ---------- 관리: 진도 관리 ---------- */
-.pg { display: flex; flex-direction: column; gap: 18px; }
-.pg .card { display: flex; flex-direction: column; gap: 12px; }
-.pg-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pg-head .gap { flex: 1; }
-.pg-inline { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
-.pg-inline .input { width: auto; height: 40px; }
-.pg-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-.pg-table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
-.pg-table th { text-align: left; font-size: 13px; font-weight: 700; color: var(--ink-2); padding: 6px 8px; white-space: nowrap; }
-.pg-table td { padding: 4px 8px; border-top: 1px solid rgba(78,88,104,.12); vertical-align: middle; white-space: nowrap; }
-.pg-table td.num, .pg-table th.num { text-align: center; }
-.pg-table .input { height: 38px; min-width: 0; font-size: 14px; padding: 0 8px; }
-.pg-table select.input { max-width: 260px; }
-.pg-memo { width: 100%; min-width: 140px; }
-.pg-sort { width: 72px; text-align: center; }
-.pg-now td { background: var(--accent-tint); }
-.pg-dayhead td { padding-top: 14px; border-top: none; }
-.pg-dayhead-in { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pg-dayhead-in .input { width: auto; height: 36px; }
-.pg-kind[data-kind-v="수업"] { color: var(--accent); font-weight: 700; }
-.pg-kind[data-kind-v="휴강"] { color: var(--idle-fg); background: rgba(154,163,178,.16); }
-.pg-kind[data-kind-v="자습"] { color: var(--pending-fg); background: var(--pending-bg); }
-.pg-kind[data-kind-v="수행평가"] { color: var(--returned-fg); background: var(--returned-bg); }
-.pg-kind[data-kind-v="미정"] { color: #9A4A00; background: rgba(255,160,70,.18); }
-.pg-spare { display: inline-block; min-width: 44px; padding: 3px 10px; border-radius: var(--r-pill); font-weight: 900; }
-.pg-good { color: var(--passed-fg); background: var(--passed-bg); }
-.pg-warn { color: var(--pending-fg); background: var(--pending-bg); }
-.pg-bad { color: var(--returned-fg); background: var(--returned-bg); }
-.pg-ttable td { padding: 3px 4px; }
-.pg-tt { width: 100%; min-width: 54px; padding: 0 4px !important; text-align: center; color: var(--ink-2); }
-.pg-tt.on { color: var(--ink); font-weight: 700; background: var(--accent-tint); }
-.pg-make { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
-.pg-empty { margin: 0; }
-.pg-table .chip { padding: 2px 9px; font-size: 12px; }
-.pg-chip-done { color: var(--passed-fg); background: var(--passed-bg); }
-.pg-chip-group { color: var(--accent); background: var(--accent-tint); }
-.pg-cal-url { display: flex; flex-direction: column; gap: 8px; }
-.pg-cal-url .input { font-size: 13px; }
-.pg-ptable { max-width: 360px; }
-.pg-ptable .input { width: 120px; }
+/* ---------- 관리: 노션식 문서 화면 (진도 관리 · 보드) ----------
+   body.doc: 흰 바탕, 배경 원·유리 없음. 표는 얇은 선, 칸은 평소엔 글자처럼 보이고 누르면 고친다(nd-ghost) */
+body.doc { background: #fff; }
+body.doc .bg { display: none; }
+body.doc .admin-top .icon-btn, body.doc .admin-top .btn-line {
+  background: #fff; border: 1px solid #ECEDEF; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+.nd { --nd-ink: #1F2328; --nd-ink2: #6B7280; --nd-ink3: #9CA3AF; --nd-line: #ECEDEF; --nd-hover: #F5F6F7;
+  display: flex; flex-direction: column; width: 100%; max-width: 980px; color: var(--nd-ink); font-size: 14px; font-variant-numeric: tabular-nums; }
+.nd .muted { color: var(--nd-ink3); }
+.nd-props { display: grid; grid-template-columns: 110px minmax(0, 1fr); gap: 4px 12px; align-items: center; margin: 0 0 28px; }
+.nd-props > span:nth-child(odd) { color: var(--nd-ink2); }
+.nd-views { display: flex; align-items: center; gap: 2px; border-bottom: 1px solid var(--nd-line); flex-wrap: wrap; }
+.nd-views [role="tab"] { border: 0; background: none; padding: 8px 10px; font: inherit; font-size: 14px; color: var(--nd-ink2); cursor: pointer;
+  border-bottom: 2px solid transparent; margin-bottom: -1px; min-height: 40px; }
+.nd-views [role="tab"][aria-selected="true"] { color: var(--nd-ink); border-bottom-color: var(--nd-ink); font-weight: 700; }
+.nd-views .gap { flex: 1; }
+.nd-views .nd-bar { display: flex; align-items: center; gap: 4px; color: var(--nd-ink2); }
+.nd-btn { border: 0; background: none; font: inherit; font-size: 14px; color: var(--nd-ink2); padding: 6px 10px; border-radius: 6px; cursor: pointer; min-height: 34px; text-decoration: none; display: inline-flex; align-items: center; }
+.nd-btn:hover { background: var(--nd-hover); color: var(--nd-ink); }
+.nd-btn:disabled { opacity: .45; cursor: default; background: none; }
+.nd-btn.primary { background: var(--accent); color: #fff; font-weight: 700; }
+.nd-btn.primary:hover { background: var(--accent-hover); color: #fff; }
+.nd-btn.danger { color: #A6321A; }
+/* 넓은 화면에서는 ⋯ 메뉴가 잘리지 않게 넘침을 두고, 좁은 화면에서만 옆으로 밀기 */
+.nd-scroll { overflow: visible; }
+@media (max-width: 760px) { .nd-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; } }
+.nd-table { width: 100%; border-collapse: collapse; }
+.nd-table th { text-align: left; font-weight: 400; color: var(--nd-ink2); font-size: 13px; padding: 8px 10px; border-bottom: 1px solid var(--nd-line); white-space: nowrap; }
+.nd-table td { padding: 5px 10px; border-bottom: 1px solid var(--nd-line); white-space: nowrap; vertical-align: middle; height: 40px; }
+.nd-table tbody tr:hover td { background: var(--nd-hover); }
+.nd-table td.n { color: var(--nd-ink2); width: 52px; }
+.nd-table td.clip { max-width: 220px; overflow: hidden; text-overflow: ellipsis; }
+.nd-table tr.nd-now td { background: #F3F7FF; }
+.nd-table tr.nd-group td { background: #FAFAFB; font-weight: 700; height: 44px; }
+.nd-table tr.nd-group:hover td { background: #FAFAFB; }
+.nd-table tr.nd-day td { color: var(--nd-ink2); font-size: 13px; padding-top: 16px; height: auto; }
+.nd-table tr.nd-day:hover td { background: none; }
+.nd-table tr.nd-day b { color: var(--nd-ink); font-weight: 700; margin-right: 8px; font-size: 14px; }
+.nd-row-acts { display: flex; align-items: center; gap: 2px; justify-content: flex-end; }
+.nd-empty { padding: 18px 10px; color: var(--nd-ink3); }
+/* 평소엔 글자처럼, 마우스를 올리면 옅은 회색, 누르면 고치기 */
+.nd-ghost { appearance: none; -webkit-appearance: none; border: 0; background: transparent; font: inherit; color: inherit; padding: 4px 6px; margin: 0 -6px;
+  border-radius: 5px; min-height: 30px; max-width: 100%; cursor: pointer; }
+.nd-ghost:hover { background: #ECEDEF; }
+.nd-ghost:focus { outline: 2px solid rgba(36,87,230,.35); background: #fff; }
+input.nd-ghost { cursor: text; width: 100%; min-width: 90px; }
+input.nd-ghost::placeholder { color: transparent; }
+input.nd-ghost:hover::placeholder, input.nd-ghost:focus::placeholder { color: var(--nd-ink3); }
+select.nd-ghost.dim { color: var(--nd-ink3); }
+/* 색 태그 */
+.nd-tag { display: inline-block; padding: 1px 8px; border-radius: 5px; font-size: 13px; line-height: 22px; margin: 0; min-height: 0; white-space: nowrap; }
+select.nd-tag { padding: 1px 8px; margin: 0; }
+.nd-tag.blue, .nd-tag[data-kind-v="수업"] { background: #E3ECFD; color: #1F4FC9; }
+.nd-tag.gray, .nd-tag[data-kind-v="휴강"] { background: #EFF0F2; color: #5B616B; }
+.nd-tag.yellow, .nd-tag[data-kind-v="자습"] { background: #FCF1D2; color: #8A5A00; }
+.nd-tag.red, .nd-tag[data-kind-v="수행평가"] { background: #FDE4DF; color: #A6321A; }
+.nd-tag.orange, .nd-tag[data-kind-v="미정"] { background: #FDE9D6; color: #9A4A00; }
+.nd-tag.green { background: #DDF3E8; color: #0B6B47; }
+.nd-tag.purple { background: #EEE7FC; color: #5B3BB0; }
+.nd-bar-in { display: inline-block; width: 72px; height: 6px; border-radius: 3px; background: var(--nd-line); vertical-align: middle; margin-right: 8px; overflow: hidden; }
+.nd-bar-in i { display: block; height: 100%; background: var(--accent); border-radius: 3px; }
+.nd-bar-in.done i { background: #22A06B; }
+.nd-good { color: #0B6B47; font-weight: 700; }
+.nd-warn { color: #8A5A00; font-weight: 700; }
+.nd-bad { color: #A6321A; font-weight: 700; }
+/* ⋯ 메뉴 */
+.nd-menu { position: relative; display: inline-block; }
+.nd-menu > summary { list-style: none; cursor: pointer; color: var(--nd-ink3); padding: 2px 8px; border-radius: 5px; font-size: 16px; line-height: 26px; }
+.nd-menu > summary::-webkit-details-marker { display: none; }
+.nd-menu > summary:hover, .nd-menu[open] > summary { background: #ECEDEF; color: var(--nd-ink); }
+.nd-menu-list { position: absolute; right: 0; top: calc(100% + 4px); z-index: 20; min-width: 180px; background: #fff; border-radius: 8px; padding: 4px;
+  box-shadow: 0 0 0 1px rgba(15,23,42,.06), 0 8px 24px rgba(15,23,42,.14); display: flex; flex-direction: column; }
+.nd-menu-list .nd-btn { justify-content: flex-start; width: 100%; white-space: nowrap; }
+/* 설정(접기) */
+.nd-more { margin-top: 36px; border-top: 1px solid var(--nd-line); }
+.nd-more > summary { cursor: pointer; padding: 12px 0; color: var(--nd-ink2); list-style: none; }
+.nd-more > summary::-webkit-details-marker { display: none; }
+.nd-more > summary::before { content: '▸'; display: inline-block; width: 16px; }
+.nd-more[open] > summary::before { content: '▾'; }
+.nd-sec { margin: 8px 0 28px; display: flex; flex-direction: column; gap: 8px; }
+.nd-sec h3 { margin: 0; font-size: 15px; font-weight: 700; }
+.nd-sec .nd-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; color: var(--nd-ink2); }
+.nd input[type="date"].nd-ghost, .nd input[type="time"].nd-ghost { width: auto; min-width: 0; }
+.nd-tt td { padding: 2px 4px; text-align: center; }
+.nd-tt select.nd-ghost { width: 100%; min-width: 44px; text-align: center; text-align-last: center; }
+.nd-tt select.nd-ghost.on { background: #E3ECFD; color: #1F4FC9; font-weight: 700; }
+.nd-url { font-size: 12px; color: var(--nd-ink2); word-break: break-all; background: #FAFAFB; border-radius: 6px; padding: 8px 10px; }
+@media (max-width: 640px) { .nd-props { grid-template-columns: 90px minmax(0, 1fr); } }

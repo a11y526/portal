@@ -149,100 +149,68 @@
       <div class="post-board" id="mat-board"></div>
     </section>
 
-    <div class="panel hidden pg" data-panel="progress" data-title="진도 관리">
-      <section class="card glass rise" aria-labelledby="h-pg-today">
-        <div class="pg-head"><h2 id="h-pg-today">오늘 수업</h2><span class="muted" id="pg-today-date"></span></div>
-        <div class="pg-scroll" id="pg-today"></div>
-      </section>
+    <div class="panel hidden nd" data-panel="progress" data-title="진도 관리">
+      <div class="nd-props">
+        <span>진도 마감</span><span><input class="nd-ghost" type="date" id="pg-deadline" aria-label="진도 마감"></span>
+        <span>오늘</span><span id="pg-today-date"></span>
+      </div>
 
-      <section class="card glass rise" aria-labelledby="h-pg-classes">
-        <div class="pg-head">
-          <h2 id="h-pg-classes">반별 진도</h2>
-          <span class="gap"></span>
-          <label class="pg-inline"><span>진도 마감</span><input class="input" type="date" id="pg-deadline"></label>
+      <div class="nd-views" role="tablist" aria-label="보기">
+        <button type="button" role="tab" data-pg-view="today">오늘 수업</button>
+        <button type="button" role="tab" data-pg-view="classes">반별 진도</button>
+        <button type="button" role="tab" data-pg-view="week">주간</button>
+        <span class="gap"></span>
+        <span class="nd-bar hidden" id="pg-week-bar">
+          <button type="button" class="nd-btn" id="pg-prev" aria-label="지난주">‹</button>
+          <button type="button" class="nd-btn" id="pg-this"></button>
+          <button type="button" class="nd-btn" id="pg-next" aria-label="다음 주">›</button>
+        </span>
+      </div>
+      <div class="nd-scroll" id="pg-view"></div>
+
+      <details class="nd-more" id="pg-more">
+        <summary>설정 — 기본 시간표 · 수업일 만들기 · 교시 시간 · 캘린더 구독 · 차시 순서</summary>
+        <div class="nd-sec">
+          <h3>기본 시간표</h3>
+          <div class="nd-scroll" id="pg-tt"></div>
         </div>
-        <div class="pg-scroll" id="pg-classes"></div>
-      </section>
-
-      <section class="card glass rise" aria-labelledby="h-pg-week">
-        <div class="pg-head">
-          <h2 id="h-pg-week">주간</h2>
-          <span class="muted" id="pg-week-label"></span>
-          <span class="gap"></span>
-          <button type="button" class="btn btn-line btn-small" id="pg-prev" aria-label="지난주">◀</button>
-          <button type="button" class="btn btn-line btn-small" id="pg-this">이번 주</button>
-          <button type="button" class="btn btn-line btn-small" id="pg-next" aria-label="다음 주">▶</button>
-        </div>
-        <div class="pg-scroll" id="pg-week"></div>
-      </section>
-
-      <section class="card glass rise" aria-labelledby="h-pg-tt">
-        <h2 id="h-pg-tt">기본 시간표</h2>
-        <div class="pg-scroll" id="pg-tt"></div>
-        <div class="pg-make">
-          <label class="pg-inline"><span>수업일 만들기</span><input class="input" type="date" id="pg-from"></label>
-          <label class="pg-inline"><span>~</span><input class="input" type="date" id="pg-to"></label>
-          <button type="button" class="btn btn-line btn-small" id="pg-make">시간표대로 만들기</button>
-        </div>
-        <p class="muted" style="margin:0">이미 있는 날짜·교시는 그대로 두고 빈 곳만 만들어요.</p>
-      </section>
-
-      <section class="card glass rise" aria-labelledby="h-pg-cal">
-        <h2 id="h-pg-cal">캘린더 구독</h2>
-        <p class="muted" style="margin:0">아이폰·맥 캘린더에 수업일이 보여요(포털 → 캘린더 한 방향, 1시간마다 새로). 앞으로의 수업에는 예정 차시가 붙어요.</p>
-        <div class="pg-cal-url hidden" id="pg-cal-url">
-          <input class="input" id="pg-cal-link" readonly aria-label="구독 주소">
-          <div class="row-actions">
-            <button type="button" class="btn btn-line btn-small" id="pg-cal-copy">주소 복사</button>
-            <a class="btn btn-primary btn-small" id="pg-cal-open" href="#">캘린더에 추가</a>
+        <div class="nd-sec">
+          <h3>수업일 만들기</h3>
+          <div class="nd-line">
+            <input class="nd-ghost" type="date" id="pg-from" aria-label="시작 날짜"> ~
+            <input class="nd-ghost" type="date" id="pg-to" aria-label="끝 날짜">
+            <button type="button" class="nd-btn primary" id="pg-make">시간표대로 만들기</button>
           </div>
+          <span class="muted">이미 있는 날짜·교시는 그대로 두고 빈 곳만 만들어요.</span>
         </div>
-        <div class="row-actions">
-          <button type="button" class="btn btn-line btn-small" id="pg-cal-new">구독 주소 만들기</button>
+        <div class="nd-sec">
+          <h3>캘린더 구독</h3>
+          <span class="muted">아이폰·맥 캘린더에 수업일이 보여요(포털 → 캘린더 한 방향, 1시간마다 새로). 앞으로의 수업에는 예정 차시가 붙어요.</span>
+          <div class="nd-url hidden" id="pg-cal-url"></div>
+          <div class="nd-line">
+            <button type="button" class="nd-btn hidden" id="pg-cal-copy">주소 복사</button>
+            <a class="nd-btn primary hidden" id="pg-cal-open" href="#">캘린더에 추가</a>
+            <button type="button" class="nd-btn" id="pg-cal-new">구독 주소 만들기</button>
+          </div>
+          <div class="nd-scroll" id="pg-periods"></div>
         </div>
-        <div class="pg-scroll" id="pg-periods"></div>
-      </section>
-
-      <section class="card glass rise" aria-labelledby="h-pg-lessons">
-        <h2 id="h-pg-lessons">차시</h2>
-        <p class="muted" style="margin:0">단원이 있는 차시만 '남은 차시'에 들어가요. 순서대로 진도가 나가요.</p>
-        <div class="pg-scroll" id="pg-lessons"></div>
-      </section>
+        <div class="nd-sec">
+          <h3>차시</h3>
+          <span class="muted">단원이 있는 차시만 진도에 들어가요. 순서대로 나가요.</span>
+          <div class="nd-scroll" id="pg-lessons"></div>
+        </div>
+      </details>
     </div>
 
-    <div class="panel hidden" data-panel="boards" data-title="보드">
-    <section class="card glass rise" aria-labelledby="h-today">
-      <h2 id="h-today">오늘 보드</h2>
-      <div class="today-list" id="today-list"></div>
-    </section>
-
-
-    <form class="card glass rise" style="--d:.06s" id="create" aria-labelledby="h-create">
-      <h2 id="h-create">보드 만들기</h2>
-      <div class="grid-2">
-        <label class="field"><span>차시</span><input class="input" name="lesson_code" placeholder="523" required></label>
-        <label class="field"><span>제목</span><input class="input" name="title"></label>
+    <div class="panel hidden nd" data-panel="boards" data-title="보드">
+      <div class="nd-views" role="tablist" aria-label="보기">
+        <button type="button" role="tab" data-bd-view="list">차시별</button>
+        <button type="button" role="tab" data-bd-view="today">오늘 보드</button>
+        <span class="gap"></span>
+        <button type="button" class="nd-btn primary" id="bd-new">+ 새 보드</button>
       </div>
-
-      <div class="field">
-        <span>시뮬레이션 링크 (같은 차시 모든 반에 함께 저장)</span>
-        <div class="sim-rows" data-sims></div>
-        <div><button type="button" class="btn btn-line btn-small" data-add-sim>+ 링크 추가</button></div>
-      </div>
-
-      <div class="field">
-        <span>반</span>
-        <div class="class-picks" id="class-picks"></div>
-      </div>
-
-      <label class="check"><input type="checkbox" name="set_today" checked> 만들고 바로 오늘 보드로 지정</label>
-      <div><button class="btn btn-primary" type="submit">보드 만들기</button></div>
-    </form>
-
-    <section class="card glass rise" style="--d:.12s" aria-labelledby="h-boards">
-      <h2 id="h-boards">보드 목록</h2>
-      <div class="board-groups" id="board-groups"></div>
-    </section>
+      <div class="nd-scroll" id="board-groups"></div>
+      <div class="nd-scroll hidden" id="today-list"></div>
     </div>
 
     <section class="card glass rise panel hidden" data-panel="nick" data-title="닉네임 승인" aria-labelledby="h-nick">
@@ -480,6 +448,34 @@
         <button class="btn btn-primary" type="button" id="mat-save">저장</button>
       </div>
     </form>
+  </dialog>
+
+  <!-- 보드 만들기 -->
+  <dialog class="sheet" id="create-dlg">
+    <form class="card glass-strong" id="create" aria-labelledby="h-create">
+        <h2 id="h-create">보드 만들기</h2>
+        <div class="grid-2">
+          <label class="field"><span>차시</span><input class="input" name="lesson_code" placeholder="523" required></label>
+          <label class="field"><span>제목</span><input class="input" name="title"></label>
+        </div>
+
+        <div class="field">
+          <span>시뮬레이션 링크 (같은 차시 모든 반에 함께 저장)</span>
+          <div class="sim-rows" data-sims></div>
+          <div><button type="button" class="btn btn-line btn-small" data-add-sim>+ 링크 추가</button></div>
+        </div>
+
+        <div class="field">
+          <span>반</span>
+          <div class="class-picks" id="class-picks"></div>
+        </div>
+
+        <label class="check"><input type="checkbox" name="set_today" checked> 만들고 바로 오늘 보드로 지정</label>
+        <div class="row-actions">
+          <button class="btn btn-primary" type="submit">보드 만들기</button>
+          <button class="btn btn-line" type="button" id="create-cancel">취소</button>
+        </div>
+      </form>
   </dialog>
 
   <!-- 보드 수정 -->

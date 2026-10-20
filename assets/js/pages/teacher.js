@@ -794,6 +794,8 @@ async function refreshPoints() {
   const ws = (await getWorksheetRules()) ?? {};
   const wf = (await getWsFirstRules()) ?? {};
   quizRules = (await getQuizRules()) ?? {};
+  omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
+  rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -808,6 +810,10 @@ async function refreshPoints() {
   f.wf_coins.value = wf.coins ?? 1;
   f.qb_xp.value = quizRules.xp ?? 4;
   f.qb_coins.value = quizRules.coins ?? 4;
+  f.om_xp.value = omokRules.xp ?? 2;
+  f.om_coins.value = omokRules.coins ?? 2;
+  f.rk_xp.value = rkRules.xp;
+  f.rk_coins.value = rkRules.coins;
   renderPointsSum();
   const hub = $('hub-points');
   if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
@@ -835,8 +841,12 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveWorksheetRules({ xp: q('ws_xp'), coins: q('ws_coins') });
     await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins') });
     await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
+    // 오목·루미큐브는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
+    await saveOmokRules({ xp: 2, coins: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), coins: q('om_coins') });
+    await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: q('rk_xp'), coins: q('rk_coins') });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
+    await Promise.all([refreshOmokRules(), refreshRkRules()]);
     toast('저장했어요', 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -1302,7 +1312,7 @@ $('lock-list').addEventListener('click', async (e) => {
 });
 
 /* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
-// 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·coins는 그대로 둔다)
+// 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·coins는 '포인트 규칙'에서)
 async function refreshOmokRules() {
   omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
   $('omok-daily').value = omokRules.daily ?? 7;
@@ -1340,30 +1350,35 @@ $('omp-form').addEventListener('submit', async (e) => {
   }
 });
 
-// 루미큐브 하루 판 수: settings.rummikub.daily (xp·coins·turn은 그대로 둔다)
+// 루미큐브 하루 판 수·보상 받는 1등: settings.rummikub.daily·reward_daily (xp·coins는 '포인트 규칙'에서, turn은 그대로)
 const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, reward_daily: 1, turn: 60 };
 async function refreshRkRules() {
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   $('rk-daily').value = rkRules.daily;
   $('rk-turn').textContent = rkRules.turn;
   $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.coins}코인`;
-  $('rk-rdaily').textContent = rkRules.reward_daily;
+  $('rk-rdaily').value = rkRules.reward_daily;
   updateHub();
 }
 
 $('rk-form').addEventListener('submit', async (e) => {
   e.preventDefault();
   const daily = Math.round(Number($('rk-daily').value));
+  const rewardDaily = Math.round(Number($('rk-rdaily').value));
   if (!(daily >= 1 && daily <= 100)) {
     toast('1~100판으로 정해 주세요', 'error');
+    return;
+  }
+  if (!(rewardDaily >= 0 && rewardDaily <= 100)) {
+    toast('보상 받는 1등은 0~100번으로 정해 주세요', 'error');
     return;
   }
   const btn = e.currentTarget.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
-    await saveRummikubRules({ ...RK_DEFAULT, ...rkRules, daily });
+    await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), daily, reward_daily: rewardDaily });
     await refreshRkRules();
-    toast(`루미큐브 하루 ${daily}판으로 바꿨어요`, 'ok');
+    toast(`루미큐브 하루 ${daily}판, 보상 ${rewardDaily}번으로 바꿨어요`, 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
   } finally {
@@ -1386,7 +1401,7 @@ $('omok-form').addEventListener('submit', async (e) => {
   const btn = e.currentTarget.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
-    await saveOmokRules({ xp: 2, coins: 2, ...omokRules, daily, reward_daily: rewardDaily });
+    await saveOmokRules({ xp: 2, coins: 2, ...((await getOmokRules()) ?? {}), daily, reward_daily: rewardDaily });
     await refreshOmokRules();
     toast(`하루 ${daily}판, 보상 ${rewardDaily}번으로 바꿨어요`, 'ok');
   } catch (err) {

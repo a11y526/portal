@@ -657,6 +657,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
   border-radius: var(--r-lg); text-decoration: none; color: var(--ink);
 }
 .home-item:hover { color: var(--ink); }
+.home-item[hidden] { display: none; }
 .home-ic { flex: none; width: 60px; height: 60px; border-radius: 18px; background: var(--accent-tint); color: var(--accent); display: inline-flex; align-items: center; justify-content: center; }
 .home-txt { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
 .home-txt b { font-size: 26px; font-weight: 900; letter-spacing: -0.02em; }

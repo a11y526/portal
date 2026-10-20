@@ -120,18 +120,20 @@ async function showHome(login) {
     $('go-shop-sub').textContent = `코인 ${me.coins}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
     getOmok(login.token).then((o) => {
-      if (o?.ok) $('go-omok-sub').textContent = o.open ? `오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판` : '지금은 닫혀 있어요';
+      if (!o?.ok) return;
+      $('go-omok').hidden = !o.open;
+      $('go-omok-sub').textContent = `오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판`;
     }).catch(() => {});
     omState(login.token).then((r) => {
       if (!r?.ok) return;
-      $('go-omp-sub').textContent = !r.open ? '지금은 닫혀 있어요'
-        : r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
+      $('go-omp').hidden = !r.open;
+      $('go-omp-sub').textContent = r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
         : `오늘 ${Math.min(r.today, r.daily)} / ${r.daily}판`;
     }).catch(() => {});
     rkState(login.token).then((r) => {
       if (!r?.ok) return;
-      $('go-rk-sub').textContent = !r.open ? '지금은 닫혀 있어요'
-        : r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
+      $('go-rk').hidden = !r.open;
+      $('go-rk-sub').textContent = r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
         : `오늘 ${Math.min(r.today, r.daily)} / ${r.daily}판`;
     }).catch(() => {});
     try {

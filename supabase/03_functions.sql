@@ -1977,7 +1977,7 @@ begin
   end if;
 
   v_chk := public._ws_check(v_pkey, a.answers);
-  -- 이 쪽 칸을 모두 채웠으면 맞았는지와 상관없이 첫 답 줄에 (쪽마다 5명까지)
+  -- 이 쪽 칸을 모두 채웠으면 맞았는지와 상관없이 첫 답 줄에
   if jsonb_array_length(v_chk -> 'empty') = 0 and array_length(v_keys, 1) > 0 then
     perform public._ws_first_enter(p_board_id, p_page, (v_pages -> p_page ->> 'slide')::int, v_sid,
       (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(a.answers) as e where e.key = any(v_keys)));
@@ -2034,7 +2034,7 @@ grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) t
 
 -- ---------------------------------------------------------
 -- 쪽별 첫 답 (2026-10-16)
--- 학생이 쪽 칸을 모두 채워 제출하면 먼저 낸 순서로 쪽마다 5명까지 줄에 넣는다(맞았는지는 따지지 않음).
+-- 학생이 쪽 칸을 모두 채워 제출하면 먼저 낸 순서로 쪽마다 모두 줄에 넣는다(맞았는지는 따지지 않음).
 -- 수업 모드가 지금 수업자료 쪽의 줄만 한 명씩 띄우고 교사가 [인정](XP·코인) 또는 [넘기기](다음 사람).
 -- [인정]하면 그 쪽은 끝(남은 대기는 closed, 새로 줄에 들어오지 않음). 0번(체험 계정)은 넣지 않는다
 -- ---------------------------------------------------------
@@ -2049,13 +2049,10 @@ begin
   if exists (select 1 from public.students where id = p_sid and number = 0) then
     return;
   end if;
-  -- 같은 쪽에 동시에 들어와도 5명을 넘지 않게
+  -- 같은 쪽에 동시에 들어와도 순서가 섞이지 않게
   perform pg_advisory_xact_lock(hashtext('ws_first|' || p_board_id::text || '|' || p_page::text));
   if exists (select 1 from public.ws_firsts
              where board_id = p_board_id and page = p_page and (student_id = p_sid or status = 'accepted')) then
-    return;
-  end if;
-  if (select count(*) from public.ws_firsts where board_id = p_board_id and page = p_page) >= 5 then
     return;
   end if;
   insert into public.ws_firsts (board_id, page, slide, student_id, answers)

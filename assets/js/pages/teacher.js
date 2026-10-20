@@ -18,6 +18,7 @@ import { teacherGate, errMsg } from '../gate.js';
 import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../worksheet.js';
 import { refreshMats } from './teacher-mats.js';
 import { refreshProgress } from './teacher-progress.js';
+import { initSide, markSide, syncSideBadges } from './teacher-side.js';
 
 initUI();
 
@@ -1478,6 +1479,7 @@ function updateHub() {
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
   $('hub-buys-badge').classList.toggle('hidden', !buyReqs.length);
+  syncSideBadges();
 }
 
 function route() {
@@ -1491,6 +1493,7 @@ function route() {
   $('hub').classList.toggle('hidden', !!open);
   $('hub-back').classList.toggle('hidden', !open);
   $('admin-h').textContent = open ? open.dataset.title : '관리';
+  markSide(open ? key : '');
   scrollTo(0, 0);
   if (key === 'nick') refreshNicks().catch(() => {});
   loadPanel(key);
@@ -1508,6 +1511,7 @@ function loadPanel(key) {
   if (key === 'mats') refreshMats().catch(() => {});
   if (key === 'progress') refreshProgress().catch(() => {});
 }
+initSide();
 addEventListener('hashchange', route);
 route();
 

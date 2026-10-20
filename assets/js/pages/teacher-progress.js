@@ -7,7 +7,7 @@ import {
   kstDay, listProgressClasses, updateClassProgress, getProgressRules, saveProgressRules,
   listTimetable, saveTimetableCell, listClassDays, updateClassDay, setDayKind, makeClassDays,
   useWeekdayTimetable, listLessons, saveLesson, listProgressBoards,
-  getCalendarSettings, saveCalendarSettings, calendarFeedUrl,
+  getCalendarSettings, saveCalendarSettings, calendarFeedUrl, listTaughtRows,
 } from '../db.js';
 import { errMsg } from '../gate.js';
 
@@ -22,6 +22,7 @@ let lessons = [];   // 모든 차시 (순서·차시 번호 순)
 let tt = [];
 let boards = [];  // 진도 계산용 보드
 let cal = { token: '', periods: [] };
+let taught = [];   // 차시를 적은 수업 줄 (class_id, lesson_code)
 let days = [];      // 오늘 ~ 마감, 보는 주를 모두 덮는 수업일
 let deadline = DEFAULT_DEADLINE;
 let weekStart = monday(kstDay());
@@ -45,7 +46,8 @@ const lessonName = (code) => {
 
 export async function refreshProgress() {
   const today = kstDay();
-  const [c, l, t, rules, b, k] = await Promise.all([listProgressClasses(), listLessons(), listTimetable(), getProgressRules(), listProgressBoards(), getCalendarSettings()]);
+  const [c, l, t, rules, b, k, tr] = await Promise.all([listProgressClasses(), listLessons(), listTimetable(), getProgressRules(), listProgressBoards(), getCalendarSettings(), listTaughtRows()]);
+  taught = tr;
   boards = b;
   cal = { token: k?.token || '', periods: Array.isArray(k?.periods) ? k.periods : [] };
   classes = c.filter((x) => CLASSES.includes(x.id));
@@ -92,13 +94,26 @@ function autoOf(c) {
   return { auto: true, cur, nextIdx: cur.done ? cur.i + 1 : cur.i };
 }
 
+// 남은 차시(시간): 다음 차시부터 끝까지 각 차시의 시간 수 합. 지금 차시를 덜 끝냈으면 그 차시를 이미 한 시간만큼 뺀다(적어도 1)
+const hours = (l) => l?.periods || 1;
+function needOf(c, a) {
+  const p = plan();
+  let need = 0;
+  for (let i = a.nextIdx; i < p.length; i++) need += hours(p[i]);
+  if (a.cur && !a.cur.done && a.nextIdx === a.cur.i) {
+    const did = taught.filter((r) => r.class_id === c.id && r.lesson_code === a.cur.lesson.code).length;
+    need -= Math.min(did, hours(a.cur.lesson) - 1);
+  }
+  return need;
+}
+
 // 남은 수업은 오늘(이미 차시를 적은 오늘 수업은 빼고) ~ 마감의 '수업' 줄 수. 남은 차시는 지금 차시(덜 끝났으면)부터 끝까지
 function progressOf(c) {
   const today = kstDay();
   const left = days.filter((r) => r.class_id === c.id && r.kind === '수업' && r.day >= today && r.day <= deadline
     && !(r.day === today && r.lesson_code)).length;
   const a = autoOf(c);
-  const need = Math.max(0, plan().length - a.nextIdx);
+  const need = needOf(c, a);
   return { left, need, spare: left - need, a, next: plan()[a.nextIdx]?.code ?? null };
 }
 
@@ -213,12 +228,13 @@ function renderTimetable() {
 
 function renderLessons() {
   $('pg-lessons').innerHTML = lessons.length
-    ? `<table class="nd-table"><thead><tr><th>순서</th><th>차시</th><th>제목</th><th>단원</th><th>쪽 수</th></tr></thead><tbody>${
+    ? `<table class="nd-table"><thead><tr><th>순서</th><th>차시</th><th>제목</th><th>단원</th><th>차시 수</th><th>쪽 수</th></tr></thead><tbody>${
       lessons.map((l) => `<tr>
         <td style="width:90px"><input class="nd-ghost" type="number" min="0" max="999" value="${l.sort}" data-lsort="${esc(l.code)}" aria-label="순서" style="min-width:0;width:70px"></td>
         <td>${esc(l.code)}</td>
         <td>${esc(l.title)}</td>
         <td><input class="nd-ghost" value="${esc(l.unit)}" maxlength="40" placeholder="단원" data-lunit="${esc(l.code)}" aria-label="단원" autocomplete="off"></td>
+        <td style="width:80px"><input class="nd-ghost" type="number" min="1" max="9" value="${l.periods || 1}" data-lperiods="${esc(l.code)}" aria-label="${esc(l.code)} 차시 수" style="min-width:0;width:56px"></td>
         <td class="muted">${l.slide_count ?? '—'}</td>
       </tr>`).join('')}</tbody></table>`
     : '<div class="nd-empty">관리 \'수업 시작\'에서 차시를 추가해 주세요</div>';
@@ -270,6 +286,10 @@ panel.addEventListener('change', (e) => {
     const v = Math.max(0, Math.min(999, Math.round(Number(el.value) || 0)));
     const l = lessons.find((x) => x.code === d.lsort);
     if (l) run(() => saveLesson({ code: l.code, sort: v }));
+  } else if (d.lperiods) {
+    const v = Math.max(1, Math.min(9, Math.round(Number(el.value) || 1)));
+    const l = lessons.find((x) => x.code === d.lperiods);
+    if (l) run(() => saveLesson({ code: l.code, periods: v }));
   } else if (d.lunit) {
     const l = lessons.find((x) => x.code === d.lunit);
     if (l) run(() => saveLesson({ code: l.code, unit: el.value.trim().slice(0, 40) }));

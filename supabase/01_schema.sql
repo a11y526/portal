@@ -609,4 +609,12 @@ create index if not exists class_days_class_idx on public.class_days (class_id, 
 -- 반의 진도 = 진도 계획에서 가장 뒤 차시 보드의 slide_max. 마지막 쪽까지 갔으면 그 차시는 끝
 alter table public.lessons add column if not exists slide_count int null;
 alter table public.boards add column if not exists slide_max int null;
+
+-- 차시마다 걸리는 수업 시간 수(2026-10-20: 621은 2시간). 남은 차시·캘린더 예정 차시가 이만큼 시간을 차지한다
+alter table public.lessons add column if not exists periods smallint not null default 1;
+do $$ begin
+  if not exists (select 1 from pg_constraint where conname = 'lessons_periods_check') then
+    alter table public.lessons add constraint lessons_periods_check check (periods between 1 and 9);
+  end if;
+end $$;
 update public.boards set slide_max = ws_upto where slide_max is null and ws_upto between 1 and 9998;

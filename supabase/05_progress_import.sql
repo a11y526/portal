@@ -27,6 +27,10 @@ on conflict (code) do update
 update public.lessons set slide_count = 20 where code = '611' and slide_count is null;
 update public.lessons set slide_count = 18 where code = '612' and slide_count is null;
 
+-- 2026-10-20 사용자: 613은 안 나감(단원을 비워 진도에서 뺌. 623은 노션 차시에 없음), 621은 2시간
+update public.lessons set unit = '' where code = '613';
+update public.lessons set periods = 2 where code = '621';
+
 -- 기본 주간 시간표 (요일, 교시, 반)
 delete from public.timetable;
 insert into public.timetable (weekday, period, class_id) values

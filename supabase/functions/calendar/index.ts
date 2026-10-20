@@ -1,10 +1,10 @@
 // 캘린더 구독 피드 (아이폰·맥 캘린더 '구독 캘린더'): GET /functions/v1/calendar?t=<비밀 주소>
 // 공개 키로 calendar_feed RPC만 부른다(service_role 안 씀). 토큰이 맞을 때만 수업일을 .ics로 돌려준다.
-// 앞으로의 수업에는 진도 관리와 같은 규칙으로 '예정 차시'를 붙인다(한 시간에 한 차시씩)
+// 앞으로의 수업에는 진도 관리와 같은 규칙으로 '예정 차시'를 붙인다(차시마다 그 차시 수만큼 시간을 차지)
 // 배포: verify_jwt 끔(캘린더 앱은 로그인 정보를 보낼 수 없음, 토큰으로 확인)
 
 type Day = { id: string; day: string; period: number; class_id: number; kind: string; memo: string; lesson_code: string | null };
-type Lesson = { code: string; title: string; unit: string; sort: number; slide_count: number | null };
+type Lesson = { code: string; title: string; unit: string; sort: number; slide_count: number | null; periods?: number };
 type Board = { class_id: number; lesson_code: string; slide_max: number | null; status: string };
 type Feed = { ok: boolean; periods: [string, string][]; days: Day[]; lessons: Lesson[]; boards: Board[]; classes: { id: number; next_lesson: string | null }[] };
 
@@ -52,14 +52,21 @@ function ics(feed: Feed): string {
     .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.code.localeCompare(b.code));
   const title = (code: string) => { const l = feed.lessons.find((x) => x.code === code); return l?.title ? `${code} ${l.title}` : code; };
   const today = kstToday();
-  // 반마다 앞으로의 수업에 예정 차시를 차례로
+  // 반마다 앞으로의 수업에 예정 차시를 차례로. 덜 끝낸 지금 차시는 이미 한 시간만큼 빼고 남은 시간부터
+  const hours = (l: Lesson) => l.periods || 1;
   const planned = new Map<string, string>();
   for (const c of feed.classes) {
     let i = nextIdx(c.id, plan, feed.boards, c.next_lesson);
+    let used = 0;
+    if (plan[i]) {
+      const did = feed.days.filter((d) => d.class_id === c.id && d.lesson_code === plan[i].code).length;
+      used = Math.min(did, hours(plan[i]) - 1);
+    }
     for (const d of feed.days) {
       if (d.class_id !== c.id || d.kind !== '수업' || d.day < today || d.lesson_code) continue;
-      if (i < plan.length) planned.set(d.id, plan[i].code);
-      i++;
+      if (i >= plan.length) break;
+      planned.set(d.id, plan[i].code);
+      if (++used >= hours(plan[i])) { i++; used = 0; }
     }
   }
   const now = new Date().toISOString().replace(/[-:]/g, '').slice(0, 15) + 'Z';

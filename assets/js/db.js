@@ -652,7 +652,7 @@ export async function cleanupPostPhotos() {
 /* ---------- 교사: 차시별 수업자료 (수업 모드) ---------- */
 
 export async function listLessons() {
-  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, unit, slide_count, created_at').order('sort').order('code'));
+  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, unit, slide_count, periods, created_at').order('sort').order('code'));
 }
 
 export async function getLesson(code) {
@@ -1007,3 +1007,8 @@ export async function saveCalendarSettings(value) {
 
 // 구독 주소 (Edge Function 'calendar')
 export const calendarFeedUrl = (token) => `${SUPABASE_URL}/functions/v1/calendar?t=${encodeURIComponent(token)}`;
+
+// 진도 계산용: 차시를 적은 수업 줄 [{ class_id, lesson_code }] (여러 시간짜리 차시를 몇 시간 했는지)
+export async function listTaughtRows() {
+  return unwrap(await need().from('class_days').select('class_id, lesson_code').not('lesson_code', 'is', null));
+}

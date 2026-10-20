@@ -4807,7 +4807,8 @@ begin
     'days', coalesce((select jsonb_agg(jsonb_build_object('id', d.id, 'day', d.day, 'period', d.period, 'class_id', d.class_id,
         'kind', d.kind, 'memo', d.memo, 'lesson_code', d.lesson_code) order by d.day, d.period)
       from public.class_days d where d.day >= (now() at time zone 'Asia/Seoul')::date - 60), '[]'::jsonb),
-    'lessons', coalesce((select jsonb_agg(jsonb_build_object('code', l.code, 'title', l.title, 'unit', l.unit, 'sort', l.sort, 'slide_count', l.slide_count) order by l.sort, l.code)
+    'lessons', coalesce((select jsonb_agg(jsonb_build_object('code', l.code, 'title', l.title, 'unit', l.unit, 'sort', l.sort,
+        'slide_count', l.slide_count, 'periods', l.periods) order by l.sort, l.code)
       from public.lessons l), '[]'::jsonb),
     'boards', coalesce((select jsonb_agg(jsonb_build_object('class_id', b.class_id, 'lesson_code', b.lesson_code, 'slide_max', b.slide_max, 'status', b.status))
       from public.boards b), '[]'::jsonb),

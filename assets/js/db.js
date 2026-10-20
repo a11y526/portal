@@ -695,8 +695,9 @@ export async function getWorksheetStats(boardId) {
 }
 
 // 쪽별 첫 답: 수업자료 slide쪽에서 지금 띄울 하나 { item: null | { id, page, slide, pos, count, wait, class_id, number, nickname, avatar, answers, sheet_page } }
-export async function getWsFirst(boardId, slide) {
-  return unwrap(await need().rpc('get_ws_first', { p_board_id: boardId, p_slide: slide }));
+// accepted면 대기 대신 그 쪽에서 인정한 답
+export async function getWsFirst(boardId, slide, accepted = false) {
+  return unwrap(await need().rpc('get_ws_first', { p_board_id: boardId, p_slide: slide, p_accepted: accepted }));
 }
 
 // [인정]: { ok, xp, coins, class_id, already } · { ok: false, error: 'TAKEN' | 'SKIPPED' }

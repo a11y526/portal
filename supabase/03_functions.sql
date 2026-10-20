@@ -2042,10 +2042,12 @@ $$;
 revoke all on function public._ws_first_enter(uuid, int, int, uuid, jsonb) from public, anon, authenticated;
 
 -- 수업 모드: 지금 띄울 첫 답 하나 (교사). p_slide를 주면 그 수업자료 쪽의 것만, 먼저 낸 것부터.
+-- p_accepted면 대기 대신 그 쪽에서 인정한 답(다시 보기·인정 취소용)
 -- 결과: {item: null} 또는 {item: {id, page, slide, pos(그 쪽 몇 번째), count(그 쪽 줄 수), wait(전체 남은 수), paid(그 쪽은 이미 지급),
 --        number, nickname, avatar, answers, sheet_page(학습지 그 쪽 본문, 정답 없음)}}
 drop function if exists public.get_ws_first(uuid);
-create or replace function public.get_ws_first(p_board_id uuid, p_slide int default null)
+drop function if exists public.get_ws_first(uuid, int);
+create or replace function public.get_ws_first(p_board_id uuid, p_slide int default null, p_accepted boolean default false)
 returns jsonb
 language plpgsql
 stable
@@ -2062,7 +2064,8 @@ begin
     raise exception 'NOT_TEACHER';
   end if;
   select x.* into f from public.ws_firsts x
-  where x.board_id = p_board_id and x.status = 'wait' and (p_slide is null or x.slide = p_slide)
+  where x.board_id = p_board_id and (p_slide is null or x.slide = p_slide)
+    and x.status = case when p_accepted then 'accepted' else 'wait' end
   order by x.created_at, x.id
   limit 1;
   if not found then
@@ -2094,8 +2097,8 @@ begin
   ));
 end;
 $$;
-revoke all on function public.get_ws_first(uuid, int) from public, anon;
-grant execute on function public.get_ws_first(uuid, int) to authenticated;
+revoke all on function public.get_ws_first(uuid, int, boolean) from public, anon;
+grant execute on function public.get_ws_first(uuid, int, boolean) to authenticated;
 
 -- [인정] (교사): 그 학생에게 settings.ws_first XP·코인, 같은 쪽 남은 대기는 끝(closed). 쪽마다 한 명만, 두 번 눌러도 한 번만
 -- 결과: {ok: true, xp, coins, class_id, already} · {ok: false, error: 'TAKEN'(그 쪽은 이미 다른 학생에게 지급) | 'SKIPPED'}

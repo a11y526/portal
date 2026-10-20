@@ -94,7 +94,8 @@ const lessonFrame = {
    G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기 · Shift+W: 지금 쪽 뒤로 다시 잠그기
    덮개가 열려 있으면 1·2·3 탭, T 타이머 시작·일시정지
    S: 지금 쪽 학습지 [제출 시작] / 열려 있으면 [잠그기] / 잠갔으면 [다시 열기] · V: [제출한 것 보기]
-   첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, Esc 닫기
+   첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, Esc 닫기.
+   띠의 [n번 인정]으로 인정한 답을 다시 띄우면 Enter·Esc 닫기, [인정 취소]는 눌러서만
    한글 자판에서도 먹게 e.code로 본다 */
 const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
 
@@ -108,8 +109,10 @@ function handleKey(e) {
   }
   if (wsFirst.isOpen()) {
     switch (e.code) {
-      case 'Enter': case 'NumpadEnter': if (!e.repeat) wsFirst.decide(!wsFirst.item.paid); return true;
-      case 'KeyN': if (!e.repeat) wsFirst.decide(false); return true;
+      case 'Enter': case 'NumpadEnter':
+        if (!e.repeat) { if (wsFirst.review) wsFirst.close(); else wsFirst.decide(!wsFirst.item.paid); }
+        return true;
+      case 'KeyN': if (!e.repeat && !wsFirst.review) wsFirst.decide(false); return true;
       case 'Escape': wsFirst.close(); return true;
     }
     return false;
@@ -693,7 +696,7 @@ const sheetBand = {
       : `<button type="button" class="btn btn-primary btn-small press" data-act="toggle"${dis}>${wasOpen ? '다시 열기' : '제출 시작'}<kbd>S</kbd></button>`;
     const acc = st.accepted?.[this.slide];
     const undo = acc != null
-      ? `<span class="ws-band-h num">${acc}번 인정</span><button type="button" class="btn btn-line btn-small press" data-act="undo"${this.undoing ? ' disabled' : ''}>인정 취소</button>` : '';
+      ? `<button type="button" class="btn btn-line btn-small press" data-act="review"><span class="num">${acc}번</span> 인정 보기</button><button type="button" class="btn btn-line btn-small press" data-act="undo"${this.undoing ? ' disabled' : ''}>인정 취소</button>` : '';
     const waiting = st.waiting?.[this.slide] ?? 0;
     const view = waiting > 0
       ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${waiting}</b><kbd>V</kbd></button>` : '';
@@ -747,7 +750,7 @@ const sheetBand = {
     const slide = this.slide;
     const no = this.st?.accepted?.[slide];
     if (!board || this.undoing || no == null) return;
-    if (!confirm(`${no}번 인정을 취소할까요? 준 XP·코인을 거둬요`)) return;
+    if (!confirm(`${no}번 인정을 취소할까요? 준 XP·코인을 거둬요`)) return false;
     this.undoing = true;
     this.render();
     try {
@@ -755,6 +758,7 @@ const sheetBand = {
       if (r?.ok) {
         toast(`${r.number}번 인정 취소 (−${r.xp} XP · −${r.coins}코인)`, 'ok');
         sendClassRefresh(classId);
+        return true;
       } else {
         toast('취소할 인정이 없어요', 'error');
       }
@@ -776,6 +780,7 @@ $('ws-band').addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (b?.dataset.act === 'toggle') sheetBand.togglePage();
   if (b?.dataset.act === 'undo') sheetBand.undoAccept();
+  if (b?.dataset.act === 'review') wsFirst.view(true);
   if (b?.dataset.act === 'view') wsFirst.view();
   lessonFrame.focus();
 });
@@ -790,6 +795,7 @@ $('ws-band').addEventListener('click', (e) => {
 const wsFirst = {
   item: null,
   viewing: false,
+  review: false, // 인정한 답 다시 보기(띠의 [n번 인정 보기])
   slide: null,   // 보고 있는 수업자료 쪽
   busy: false,
   loading: false,
@@ -797,17 +803,23 @@ const wsFirst = {
 
   isOpen() { return this.viewing && !!this.item && !coverOpen; },
 
-  async view() {
+  async view(review = false) {
     const slide = lessonFrame.currentSlide();
     if (!board || this.viewing || !slide) return;
     this.slide = slide;
+    this.review = review;
     this.viewing = true;
     await this.refresh();
-    if (!this.item) { this.viewing = false; toast('이 쪽에 낸 학생이 없어요'); }
+    if (!this.item) {
+      this.viewing = false;
+      this.review = false;
+      toast(review ? '이 쪽에 인정한 답이 없어요' : '이 쪽에 낸 학생이 없어요');
+    }
   },
 
   close() {
     this.viewing = false;
+    this.review = false;
     this.item = null;
     this.paint();
   },
@@ -817,7 +829,7 @@ const wsFirst = {
     if (this.loading || this.busy) { this.again = true; return; }
     this.loading = true;
     try {
-      const res = await getWsFirst(board.id, this.slide);
+      const res = await getWsFirst(board.id, this.slide, this.review);
       this.show(res?.item ?? null);
     } catch (err) {
       console.error(err);
@@ -830,7 +842,7 @@ const wsFirst = {
   show(item) {
     const same = item && this.item && item.id === this.item.id;
     this.item = item;
-    if (!item) this.viewing = false;
+    if (!item) { this.viewing = false; this.review = false; }
     if (item && !same) this.render(item);
     else if (item) this.renderFoot(item);
     this.paint();
@@ -840,7 +852,7 @@ const wsFirst = {
     const name = `${it.number}번${it.nickname ? ` ${it.nickname}` : ''}`;
     $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${it.number}번 캐릭터` });
     $('wsf-name').textContent = name;
-    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', `${it.pos}번째로 냄`].filter(Boolean).join(' · ');
+    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', `${it.pos}번째로 냄`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
     const box = $('wsf-page');
     closeSims(box);
     if (it.sheet_page) renderPage(box, it.sheet_page, it.answers, { locked: true });
@@ -850,6 +862,26 @@ const wsFirst = {
   },
 
   renderFoot(it) {
+    const ok = $('wsf-ok');
+    const skip = $('wsf-skip');
+    if (this.review) {
+      $('wsf-badge').textContent = '인정함';
+      $('wsf-badge').classList.add('is-paid');
+      $('wsf-note').textContent = '';
+      ok.classList.remove('hidden', 'btn-primary');
+      ok.classList.add('btn-line');
+      ok.querySelector('span').textContent = '인정 취소';
+      ok.querySelector('kbd').classList.add('hidden');
+      skip.classList.remove('btn-line');
+      skip.classList.add('btn-primary');
+      skip.querySelector('span').textContent = '닫기';
+      skip.querySelector('kbd').textContent = 'Esc';
+      return;
+    }
+    ok.classList.remove('btn-line');
+    ok.classList.add('btn-primary');
+    ok.querySelector('span').textContent = '인정';
+    ok.querySelector('kbd').classList.remove('hidden');
     const left = Math.max(0, (it.wait ?? 1) - 1);
     $('wsf-badge').textContent = it.paid ? '지급함' : '첫 답';
     $('wsf-badge').classList.toggle('is-paid', !!it.paid);
@@ -872,6 +904,12 @@ const wsFirst = {
   async decide(accept) {
     const it = this.item;
     if (!it || this.busy) return;
+    if (this.review) {
+      // 다시 보기: [인정 취소]는 확인 창 뒤 취소하고 닫기, [닫기]는 그냥 닫기
+      if (accept && !(await sheetBand.undoAccept())) return;
+      this.close();
+      return;
+    }
     this.busy = true;
     $('wsf-ok').disabled = $('wsf-skip').disabled = true;
     let done = false; // 인정하면 창을 닫는다

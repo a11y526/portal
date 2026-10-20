@@ -140,11 +140,14 @@ insert into public.settings (key, value) values
   ('quiz_battle', '{"xp": 4, "coins": 4, "count": 20, "pick": 10, "blank": 10, "reveal": 3}'::jsonb)
 on conflict (key) do nothing;
 
--- 선생님 체험 계정: 반마다 0번, 코드 823727 (사용자 결정 2026-10-15: 파일에 써도 됨).
--- 다시 실행하면 코드가 이 값으로 돌아간다. 순위·명단·코드 발급 등에서는 빠진다(01_schema 0번 설명)
-insert into public.students (class_id, number, code_hash)
-select id, 0, extensions.crypt('823727', extensions.gen_salt('bf')) from public.classes
-on conflict (class_id, number) do update set code_hash = excluded.code_hash, active = true;
+-- 선생님 체험 계정: 반마다 0번. 코드는 이 파일에 쓰지 않는다(공개 저장소, 2026-10-20 코드가 알려져 바꿈).
+-- 여기서는 0번 줄만 만들고 코드는 건드리지 않는다. 코드는 SQL Editor에서 따로 정한다(저장하지 않음):
+--   update public.students set code_hash = extensions.crypt('새코드', extensions.gen_salt('bf')) where number = 0;
+--   delete from public.student_sessions where student_id in (select id from public.students where number = 0);
+-- 순위·명단·코드 발급 등에서는 빠진다(01_schema 0번 설명)
+insert into public.students (class_id, number)
+select id, 0 from public.classes
+on conflict (class_id, number) do update set active = true;
 
 -- 오목 1대1: 하루 판 수(시작된 판), 한 수 제한 시간(초). 보상 없음
 insert into public.settings (key, value) values

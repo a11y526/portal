@@ -161,3 +161,8 @@ where key = 'omok' and not (value ? 'reward_daily');
 -- 루미큐브 보상은 하루 1등 1번까지(2026-10-19). 이미 있는 설정에도 넣는다(값이 있으면 그대로)
 update public.settings set value = value || '{"reward_daily": 1}'::jsonb
 where key = 'rummikub' and not (value ? 'reward_daily');
+
+-- 진도 관리: 진도 마감일(이날까지 남은 수업을 셈)
+insert into public.settings (key, value) values
+  ('progress', '{"deadline": "2026-12-04"}'::jsonb)
+on conflict (key) do nothing;

@@ -652,11 +652,11 @@ export async function cleanupPostPhotos() {
 /* ---------- 교사: 차시별 수업자료 (수업 모드) ---------- */
 
 export async function listLessons() {
-  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, created_at').order('sort').order('code'));
+  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, unit, slide_count, created_at').order('sort').order('code'));
 }
 
 export async function getLesson(code) {
-  return unwrap(await need().from('lessons').select('code, title, lesson_src').eq('code', code).maybeSingle());
+  return unwrap(await need().from('lessons').select('code, title, lesson_src, slide_count').eq('code', code).maybeSingle());
 }
 
 // { code, title, lesson_src, sort }
@@ -896,4 +896,101 @@ export async function copySections(fromClass, toClass) {
     }
   }
   return src.length;
+}
+
+/* ---------- 교사: 진도 관리 ---------- */
+
+// 오늘(한국 시간) 'YYYY-MM-DD'
+export const kstDay = (d = new Date()) => d.toLocaleDateString('sv-SE', { timeZone: 'Asia/Seoul' });
+
+export async function listProgressClasses() {
+  return unwrap(await need().from('classes').select('id, label, next_lesson, progress_memo').order('id'));
+}
+
+export async function updateClassProgress(classId, fields) {
+  unwrap(await need().from('classes').update(fields).eq('id', classId));
+}
+
+export async function getProgressRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'progress'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveProgressRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'progress', value }, { onConflict: 'key' }));
+}
+
+// [{ weekday, period, class_id }]
+export async function listTimetable() {
+  return unwrap(await need().from('timetable').select('weekday, period, class_id').order('weekday').order('period'));
+}
+
+// 시간표 한 칸: classId가 없으면 비움
+export async function saveTimetableCell(weekday, period, classId) {
+  if (!classId) unwrap(await need().from('timetable').delete().eq('weekday', weekday).eq('period', period));
+  else unwrap(await need().from('timetable').upsert({ weekday, period, class_id: classId }, { onConflict: 'weekday,period' }));
+}
+
+// 수업일 [{ id, day, period, class_id, kind, memo, lesson_code }] (날짜·교시 순)
+export async function listClassDays(from, to) {
+  return unwrap(await need().from('class_days').select('id, day, period, class_id, kind, memo, lesson_code')
+    .gte('day', from).lte('day', to).order('day').order('period'));
+}
+
+export async function updateClassDay(id, fields) {
+  unwrap(await need().from('class_days').update(fields).eq('id', id));
+}
+
+// 하루 전체의 구분·메모
+export async function setDayKind(day, kind, memo) {
+  unwrap(await need().from('class_days').update({ kind, memo }).eq('day', day));
+}
+
+// 시간표로 수업일 만들기(이미 있는 날짜·교시는 그대로). 결과: 새로 만든 줄 수
+export async function makeClassDays(from, to) {
+  const tt = await listTimetable();
+  const rows = [];
+  for (let d = new Date(`${from}T00:00:00Z`); kstDayUTC(d) <= to; d.setUTCDate(d.getUTCDate() + 1)) {
+    const wd = d.getUTCDay();
+    for (const t of tt) if (t.weekday === wd) rows.push({ day: kstDayUTC(d), period: t.period, class_id: t.class_id });
+  }
+  if (!rows.length) return 0;
+  const made = unwrap(await need().from('class_days').upsert(rows, { onConflict: 'day,period', ignoreDuplicates: true }).select('id'));
+  return made.length;
+}
+const kstDayUTC = (d) => d.toISOString().slice(0, 10);
+
+// 그날을 다른 요일 시간표로 바꾸기(그날 줄을 지우고 새로)
+export async function useWeekdayTimetable(day, weekday, memo) {
+  const tt = (await listTimetable()).filter((t) => t.weekday === weekday);
+  unwrap(await need().from('class_days').delete().eq('day', day));
+  if (tt.length) unwrap(await need().from('class_days').insert(tt.map((t) => ({ day, period: t.period, class_id: t.class_id, memo }))));
+}
+
+// 수업 모드를 열 때: 오늘 그 반 '수업' 줄(아직 차시가 없는 첫 줄)에 차시를 적는다. 결과: 오늘 그 반 수업이 있는지
+export async function recordLessonTaught(classId, code) {
+  const rows = unwrap(await need().from('class_days').select('id, lesson_code')
+    .eq('day', kstDay()).eq('class_id', classId).eq('kind', '수업').order('period'));
+  if (!rows.length) return false;
+  if (!rows.some((r) => r.lesson_code === code)) {
+    const row = rows.find((r) => !r.lesson_code);
+    if (row) await updateClassDay(row.id, { lesson_code: code });
+  }
+  return true;
+}
+
+// 수업 모드: 보드에서 실제로 간 가장 뒤 쪽(줄지 않음)
+export async function setBoardSlideMax(boardId, slide) {
+  unwrap(await need().from('boards').update({ slide_max: slide }).eq('id', boardId)
+    .or(`slide_max.is.null,slide_max.lt.${Number(slide)}`));
+}
+
+// 수업 모드: 수업자료 쪽 수
+export async function setLessonSlideCount(code, n) {
+  unwrap(await need().from('lessons').update({ slide_count: n }).eq('code', code));
+}
+
+// 진도 계산용 보드 (보관한 것 포함): [{ class_id, lesson_code, slide_max, status }]
+export async function listProgressBoards() {
+  return unwrap(await need().from('boards').select('class_id, lesson_code, slide_max, status'));
 }

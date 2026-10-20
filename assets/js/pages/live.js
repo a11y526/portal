@@ -7,7 +7,7 @@ import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
-  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos,
+  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
@@ -79,6 +79,14 @@ const lessonFrame = {
   },
 
   // 지금 보이는 쪽 번호(1부터). 수업자료가 .slide 중 .active 하나를 보여 주는 구조일 때만. 모르면 null
+  slideCount() {
+    try {
+      return this.el.contentWindow.document.querySelectorAll('.slide').length || null;
+    } catch {
+      return null;
+    }
+  },
+
   currentSlide() {
     try {
       const slides = [...this.el.contentWindow.document.querySelectorAll('.slide')];
@@ -788,7 +796,7 @@ $('ws-band').addEventListener('click', (e) => {
 });
 
 /* =========================================================
-   쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로(쪽마다 5명까지) 한 명씩 띄운다.
+   쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로 한 명씩 띄운다.
    [제출한 것 보기](V)를 눌러야 뜨고, 지금 보이는 수업자료 쪽의 줄만 보여 준다.
    [인정] 1 XP·1코인 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람.
    다 넘기면 창이 닫힌다. Esc로 닫으면 남은 것은 그 쪽에서 V로 다시 보기
@@ -1011,6 +1019,28 @@ const sheetUpto = {
   },
 };
 
+// 진도 관리: 수업자료 쪽 수를 차시에 적고, 이 보드에서 실제로 간 가장 뒤 쪽을 보드에 적는다(W 전부 열기와 상관없음)
+const progressMark = {
+  max: 0,
+  counted: false,
+  start(lesson) {
+    this.max = board?.slide_max ?? 0;
+    setInterval(() => {
+      const n = lessonFrame.slideCount();
+      if (n && !this.counted) {
+        this.counted = true;
+        if (lesson?.slide_count !== n) setLessonSlideCount(code, n).catch((err) => console.warn('쪽 수', err));
+      }
+      const slide = lessonFrame.currentSlide();
+      if (board && slide > this.max) {
+        const before = this.max;
+        this.max = slide;
+        setBoardSlideMax(board.id, slide).catch((err) => { this.max = before; console.warn('진도', err); });
+      }
+    }, UPTO_POLL_MS);
+  },
+};
+
 /* =========================================================
    시작
    ========================================================= */
@@ -1040,8 +1070,12 @@ teacherGate($('app'), async () => {
     setOmokOpen(classId, false).then(() => sendClassRefresh(classId)).catch((err) => toast(errMsg(err), 'error'));
   }
 
+  // 진도 관리: 오늘 이 반 수업 줄에 이 차시를 적고 다음 차시를 넘긴다(오늘 이 반 수업이 없으면 그대로)
+  recordLessonTaught(classId, code).catch((err) => console.warn('진도 기록', err));
+
   if (lesson?.lesson_src) lessonFrame.mount(lesson.lesson_src);
   else fail(`${code}차시 수업자료 주소가 없어요`);
+  progressMark.start(lesson);
 
   timer.init(`timer-${board?.id ?? `c${classId}-${code}`}`);
 

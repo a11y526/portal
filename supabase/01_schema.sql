@@ -570,3 +570,43 @@ begin
       set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
   end if;
 end $$;
+
+-- ---------------------------------------------------------
+-- 진도 관리 (2026-10-20, 노션 '2학기 진도관리'를 옮김). 교사만
+-- ---------------------------------------------------------
+
+-- 차시의 단원. 단원이 있는 차시만 진도 계획에 든다(남은 차시 계산)
+alter table public.lessons add column if not exists unit text not null default '';
+
+-- 반별 다음 차시(lessons.code)와 진도 메모
+alter table public.classes add column if not exists next_lesson text null;
+alter table public.classes add column if not exists progress_memo text not null default '';
+
+-- 기본 주간 시간표: 요일(1 월 ~ 5 금) × 교시마다 반 하나
+create table if not exists public.timetable (
+  weekday  smallint not null check (weekday between 1 and 5),
+  period   smallint not null check (period between 1 and 9),
+  class_id smallint not null references public.classes(id) on delete cascade,
+  primary key (weekday, period)
+);
+
+-- 수업일: 날짜 × 교시마다 한 줄. 시간표로 만들고 휴강·바뀐 시간표는 줄마다 고친다.
+-- lesson_code = 그 시간에 한 차시(수업 모드를 열면 자동으로 적힘)
+create table if not exists public.class_days (
+  id          uuid primary key default gen_random_uuid(),
+  day         date not null,
+  period      smallint not null check (period between 1 and 9),
+  class_id    smallint not null references public.classes(id) on delete cascade,
+  kind        text not null default '수업' check (kind in ('수업', '휴강', '자습', '수행평가', '미정')),
+  memo        text not null default '' check (char_length(memo) <= 60),
+  lesson_code text null,
+  created_at  timestamptz not null default now(),
+  unique (day, period)
+);
+create index if not exists class_days_class_idx on public.class_days (class_id, day);
+
+-- 자동 진도: 수업자료 쪽 수(수업 모드가 열 때 적음)와 보드마다 수업 모드에서 실제로 간 가장 뒤 쪽(W 전부 열기와 상관없음).
+-- 반의 진도 = 진도 계획에서 가장 뒤 차시 보드의 slide_max. 마지막 쪽까지 갔으면 그 차시는 끝
+alter table public.lessons add column if not exists slide_count int null;
+alter table public.boards add column if not exists slide_max int null;
+update public.boards set slide_max = ws_upto where slide_max is null and ws_upto between 1 and 9998;

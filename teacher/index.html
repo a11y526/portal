@@ -52,6 +52,10 @@
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>반 게시판</b><span>반마다 섹션 · 자료 올리기</span>
           </a>
+          <a class="hub-item glass glass-live lift rise" style="--d:0.14s" href="#progress">
+            <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14.5l2.2 2.2 4.3-4.3"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
+            <b>진도 관리</b><span id="hub-progress">오늘 수업 · 반별 진도 · 시간표</span>
+          </a>
         </div>
       </section>
       <section class="hub-group g-student" aria-label="학생">
@@ -141,6 +145,51 @@
       <p class="muted" style="margin:0">학생 반 페이지의 [게시판] 탭에 이 순서대로 보여요(그 반에 로그인한 학생만).</p>
       <div class="post-board" id="mat-board"></div>
     </section>
+
+    <div class="panel hidden pg" data-panel="progress" data-title="진도 관리">
+      <section class="card glass rise" aria-labelledby="h-pg-today">
+        <div class="pg-head"><h2 id="h-pg-today">오늘 수업</h2><span class="muted" id="pg-today-date"></span></div>
+        <div class="pg-scroll" id="pg-today"></div>
+      </section>
+
+      <section class="card glass rise" aria-labelledby="h-pg-classes">
+        <div class="pg-head">
+          <h2 id="h-pg-classes">반별 진도</h2>
+          <span class="gap"></span>
+          <label class="pg-inline"><span>진도 마감</span><input class="input" type="date" id="pg-deadline"></label>
+        </div>
+        <div class="pg-scroll" id="pg-classes"></div>
+      </section>
+
+      <section class="card glass rise" aria-labelledby="h-pg-week">
+        <div class="pg-head">
+          <h2 id="h-pg-week">주간</h2>
+          <span class="muted" id="pg-week-label"></span>
+          <span class="gap"></span>
+          <button type="button" class="btn btn-line btn-small" id="pg-prev" aria-label="지난주">◀</button>
+          <button type="button" class="btn btn-line btn-small" id="pg-this">이번 주</button>
+          <button type="button" class="btn btn-line btn-small" id="pg-next" aria-label="다음 주">▶</button>
+        </div>
+        <div class="pg-scroll" id="pg-week"></div>
+      </section>
+
+      <section class="card glass rise" aria-labelledby="h-pg-tt">
+        <h2 id="h-pg-tt">기본 시간표</h2>
+        <div class="pg-scroll" id="pg-tt"></div>
+        <div class="pg-make">
+          <label class="pg-inline"><span>수업일 만들기</span><input class="input" type="date" id="pg-from"></label>
+          <label class="pg-inline"><span>~</span><input class="input" type="date" id="pg-to"></label>
+          <button type="button" class="btn btn-line btn-small" id="pg-make">시간표대로 만들기</button>
+        </div>
+        <p class="muted" style="margin:0">이미 있는 날짜·교시는 그대로 두고 빈 곳만 만들어요.</p>
+      </section>
+
+      <section class="card glass rise" aria-labelledby="h-pg-lessons">
+        <h2 id="h-pg-lessons">차시</h2>
+        <p class="muted" style="margin:0">단원이 있는 차시만 '남은 차시'에 들어가요. 순서대로 진도가 나가요.</p>
+        <div class="pg-scroll" id="pg-lessons"></div>
+      </section>
+    </div>
 
     <div class="panel hidden" data-panel="boards" data-title="보드">
     <section class="card glass rise" aria-labelledby="h-today">

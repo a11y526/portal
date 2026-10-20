@@ -1579,3 +1579,41 @@ dialog.rk-help { width: min(680px, calc(100vw - 32px)); }
 .mat-admin-bar .gap { flex: 1; }
 .mat-file-now { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; font-size: 14px; }
 .mat-file-now img { display: block; max-width: 100%; max-height: 200px; border-radius: 12px; }
+
+/* ---------- 관리: 진도 관리 ---------- */
+.pg { display: flex; flex-direction: column; gap: 18px; }
+.pg .card { display: flex; flex-direction: column; gap: 12px; }
+.pg-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pg-head .gap { flex: 1; }
+.pg-inline { display: inline-flex; align-items: center; gap: 8px; font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.pg-inline .input { width: auto; height: 40px; }
+.pg-scroll { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+.pg-table { width: 100%; border-collapse: collapse; font-size: 15px; font-variant-numeric: tabular-nums; }
+.pg-table th { text-align: left; font-size: 13px; font-weight: 700; color: var(--ink-2); padding: 6px 8px; white-space: nowrap; }
+.pg-table td { padding: 4px 8px; border-top: 1px solid rgba(78,88,104,.12); vertical-align: middle; white-space: nowrap; }
+.pg-table td.num, .pg-table th.num { text-align: center; }
+.pg-table .input { height: 38px; min-width: 0; font-size: 14px; padding: 0 8px; }
+.pg-table select.input { max-width: 260px; }
+.pg-memo { width: 100%; min-width: 140px; }
+.pg-sort { width: 72px; text-align: center; }
+.pg-now td { background: var(--accent-tint); }
+.pg-dayhead td { padding-top: 14px; border-top: none; }
+.pg-dayhead-in { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pg-dayhead-in .input { width: auto; height: 36px; }
+.pg-kind[data-kind-v="수업"] { color: var(--accent); font-weight: 700; }
+.pg-kind[data-kind-v="휴강"] { color: var(--idle-fg); background: rgba(154,163,178,.16); }
+.pg-kind[data-kind-v="자습"] { color: var(--pending-fg); background: var(--pending-bg); }
+.pg-kind[data-kind-v="수행평가"] { color: var(--returned-fg); background: var(--returned-bg); }
+.pg-kind[data-kind-v="미정"] { color: #9A4A00; background: rgba(255,160,70,.18); }
+.pg-spare { display: inline-block; min-width: 44px; padding: 3px 10px; border-radius: var(--r-pill); font-weight: 900; }
+.pg-good { color: var(--passed-fg); background: var(--passed-bg); }
+.pg-warn { color: var(--pending-fg); background: var(--pending-bg); }
+.pg-bad { color: var(--returned-fg); background: var(--returned-bg); }
+.pg-ttable td { padding: 3px 4px; }
+.pg-tt { width: 100%; min-width: 54px; padding: 0 4px !important; text-align: center; color: var(--ink-2); }
+.pg-tt.on { color: var(--ink); font-weight: 700; background: var(--accent-tint); }
+.pg-make { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.pg-empty { margin: 0; }
+.pg-table .chip { padding: 2px 9px; font-size: 12px; }
+.pg-chip-done { color: var(--passed-fg); background: var(--passed-bg); }
+.pg-chip-group { color: var(--accent); background: var(--accent-tint); }

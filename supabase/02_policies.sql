@@ -282,3 +282,19 @@ drop policy if exists class_materials_teacher_all on public.class_materials;
 create policy class_materials_teacher_all on public.class_materials
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 진도 관리 (2026-10-20): 교사만
+alter table public.timetable enable row level security;
+alter table public.class_days enable row level security;
+revoke all on public.timetable from anon;
+revoke all on public.class_days from anon;
+
+drop policy if exists timetable_teacher_all on public.timetable;
+create policy timetable_teacher_all on public.timetable
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists class_days_teacher_all on public.class_days;
+create policy class_days_teacher_all on public.class_days
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

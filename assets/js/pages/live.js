@@ -6,7 +6,7 @@ import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
-  getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, sendWsOpen, setQuizOpen, listQuizGames,
+  getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
@@ -93,7 +93,7 @@ const lessonFrame = {
 /* ---------- 키 ----------
    G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기 · Shift+W: 지금 쪽 뒤로 다시 잠그기
    덮개가 열려 있으면 1·2·3 탭, T 타이머 시작·일시정지
-   S: 지금 쪽 학습지 [제출 시작] · V: [제출한 것 보기]
+   S: 지금 쪽 학습지 [제출 시작] / 열려 있으면 [잠그기] / 잠갔으면 [다시 열기] · V: [제출한 것 보기]
    첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, Esc 닫기
    한글 자판에서도 먹게 e.code로 본다 */
 const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
@@ -116,7 +116,7 @@ function handleKey(e) {
   }
   if (!coverOpen) {
     switch (e.code) {
-      case 'KeyS': if (!e.repeat) sheetBand.openPage(); return true;
+      case 'KeyS': if (!e.repeat) sheetBand.togglePage(); return true;
       case 'KeyV': if (!e.repeat) wsFirst.view(); return true;
     }
     return false;
@@ -674,7 +674,8 @@ const sheetBand = {
     }
   },
 
-  // 지금 쪽에 칸이 있는 학습지 쪽이 있으면 [제출 시작] 또는 '제출 받는 중'. 낸 학생이 있으면 [제출한 것 보기 n]
+  // 지금 쪽에 칸이 있는 학습지 쪽이 있으면 [제출 시작] / [잠그기](열려 있을 때) / [다시 열기](잠갔을 때).
+  // 낸 학생이 있으면 [제출한 것 보기 n], 인정한 학생이 있으면 'n번 인정' [인정 취소]
   render() {
     const st = this.st;
     const band = $('ws-band');
@@ -683,17 +684,23 @@ const sheetBand = {
     const upto = sheetUpto.sent >= ALL_PAGES ? '모두 열림' : sheetUpto.sent > 0 ? `${sheetUpto.sent}쪽까지` : '';
     const here = (st.pages ?? []).filter((p) => p.slide === this.slide);
     const opened = new Set(st.opened ?? []);
+    const paused = new Set(st.paused ?? []);
     const open = here.length > 0 && here.every((p) => opened.has(p.page));
+    const wasOpen = here.some((p) => paused.has(p.page));
+    const dis = this.opening ? ' disabled' : '';
     const start = !here.length ? ''
-      : open ? '<span class="ws-band-on">제출 받는 중</span>'
-      : `<button type="button" class="btn btn-primary btn-small press" data-act="open"${this.opening ? ' disabled' : ''}>제출 시작<kbd>S</kbd></button>`;
+      : open ? `<span class="ws-band-on">쓰는 중</span><button type="button" class="btn btn-line btn-small press" data-act="toggle"${dis}>잠그기<kbd>S</kbd></button>`
+      : `<button type="button" class="btn btn-primary btn-small press" data-act="toggle"${dis}>${wasOpen ? '다시 열기' : '제출 시작'}<kbd>S</kbd></button>`;
+    const acc = st.accepted?.[this.slide];
+    const undo = acc != null
+      ? `<span class="ws-band-h num">${acc}번 인정</span><button type="button" class="btn btn-line btn-small press" data-act="undo"${this.undoing ? ' disabled' : ''}>인정 취소</button>` : '';
     const waiting = st.waiting?.[this.slide] ?? 0;
     const view = waiting > 0
       ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${waiting}</b><kbd>V</kbd></button>` : '';
-    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}`;
+    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}${undo}`;
     if (html !== this.html) band.innerHTML = this.html = html;
     band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
-    band.classList.toggle('has-act', !!(start || view));
+    band.classList.toggle('has-act', !!(start || view || undo));
   },
 
   setSlide(slide) {
@@ -702,26 +709,60 @@ const sheetBand = {
     if (this.st) this.render();
   },
 
-  // [제출 시작]: 지금 수업자료 쪽에 해당하는 학습지 쪽의 제출을 연다
-  async openPage() {
+  // S: 지금 수업자료 쪽에 해당하는 학습지 쪽을 연다(쓰기·제출). 열려 있으면 잠근다
+  async togglePage() {
     const slide = lessonFrame.currentSlide();
     if (!board || this.opening || !slide) return;
+    const here = (this.st?.pages ?? []).filter((p) => p.slide === slide);
+    const opened = new Set(this.st?.opened ?? []);
+    const close = here.length > 0 && here.every((p) => opened.has(p.page));
     this.opening = true;
     this.render();
     try {
+      if (close) {
+        await closeWsPage(board.id, slide);
+        sendWsOpen(classId);
+        toast(`${slide}쪽 잠금`, 'ok');
+        return;
+      }
       await sheetUpto.push(slide);
       const pages = await openWsPage(board.id, slide);
       if (!pages?.length) {
         toast('이 쪽에는 낼 학습지 칸이 없어요');
       } else {
         sendWsOpen(classId);
-        toast(`${slide}쪽 제출 시작`, 'ok');
+        toast(`${slide}쪽 열림`, 'ok');
       }
     } catch (err) {
       console.error(err);
       toast(errMsg(err), 'error');
     } finally {
       this.opening = false;
+      this.refresh();
+    }
+  },
+
+  // [인정 취소]: 지금 쪽에서 인정한 학생의 XP·코인을 거두고, 닫혔던 줄을 다시 V로 볼 수 있게
+  async undoAccept() {
+    const slide = this.slide;
+    const no = this.st?.accepted?.[slide];
+    if (!board || this.undoing || no == null) return;
+    if (!confirm(`${no}번 인정을 취소할까요? 준 XP·코인을 거둬요`)) return;
+    this.undoing = true;
+    this.render();
+    try {
+      const r = await unacceptWsFirst(board.id, slide);
+      if (r?.ok) {
+        toast(`${r.number}번 인정 취소 (−${r.xp} XP · −${r.coins}코인)`, 'ok');
+        sendClassRefresh(classId);
+      } else {
+        toast('취소할 인정이 없어요', 'error');
+      }
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.undoing = false;
       this.refresh();
     }
   },
@@ -733,7 +774,8 @@ const sheetBand = {
 };
 $('ws-band').addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
-  if (b?.dataset.act === 'open') sheetBand.openPage();
+  if (b?.dataset.act === 'toggle') sheetBand.togglePage();
+  if (b?.dataset.act === 'undo') sheetBand.undoAccept();
   if (b?.dataset.act === 'view') wsFirst.view();
   lessonFrame.focus();
 });

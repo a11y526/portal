@@ -688,7 +688,8 @@ export async function resetWorksheetUpto(boardId, slide) {
   return unwrap(await need().rpc('reset_worksheet_upto', { p_board_id: boardId, p_slide: slide }));
 }
 
-// 수업 모드 띠: { has_sheet, done, total, pages: [{ page, slide }](칸이 있는 쪽), opened: [page], waiting: { 수업자료 쪽: 안 본 첫 답 수 } }
+// 수업 모드 띠: { has_sheet, done, total, pages: [{ page, slide }](칸이 있는 쪽), opened: [page], paused: [page](잠근 쪽),
+//   accepted: { 수업자료 쪽: 인정한 학생 번호 }, waiting: { 수업자료 쪽: 안 본 첫 답 수 } }
 export async function getWorksheetStats(boardId) {
   return unwrap(await need().rpc('get_worksheet_stats', { p_board_id: boardId }));
 }
@@ -706,6 +707,16 @@ export async function acceptWsFirst(id) {
 // [제출 시작]: 수업자료 그 쪽에 해당하는 학습지 쪽의 제출을 연다. 결과: 열린 학습지 쪽 번호 목록
 export async function openWsPage(boardId, slide) {
   return unwrap(await need().rpc('open_ws_page', { p_board_id: boardId, p_slide: slide }));
+}
+
+// [잠그기]: 수업자료 그 쪽에 해당하는 학습지 쪽의 쓰기·제출을 멈춘다. 다시 열기는 openWsPage
+export async function closeWsPage(boardId, slide) {
+  return unwrap(await need().rpc('close_ws_page', { p_board_id: boardId, p_slide: slide }));
+}
+
+// [인정 취소]: 수업자료 그 쪽에서 인정한 학생의 지급을 지우고 줄을 다시 살린다. { ok, number, xp, coins } · { ok: false, error: 'NONE' }
+export async function unacceptWsFirst(boardId, slide) {
+  return unwrap(await need().rpc('unaccept_ws_first', { p_board_id: boardId, p_slide: slide }));
 }
 
 // [넘기기]

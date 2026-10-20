@@ -526,3 +526,6 @@ begin
       set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
   end if;
 end $$;
+
+-- 쪽 잠그기 (2026-10-20): 열었던 쪽을 교사가 다시 잠그면 closed_at. 열린 쪽 = 줄이 있고 closed_at이 비어 있음
+alter table public.ws_page_open add column if not exists closed_at timestamptz null;

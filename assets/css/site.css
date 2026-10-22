@@ -2014,3 +2014,11 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
 .qs-band { display: flex; align-items: center; gap: 12px; padding: 14px 18px; border-radius: var(--r-md); text-decoration: none; color: var(--ink); }
 .qs-band b { font-size: 18px; font-weight: 900; }
 .qs-band span { flex: 1; color: var(--ink-2); font-weight: 700; }
+
+/* 반 페이지 [퀴즈 쇼] 탭: quizshow.html을 안에 띄운다 */
+.qs-tab-box { border-radius: var(--r-lg); overflow: hidden; padding: 0; }
+.qs-frame { display: block; width: 100%; height: min(78vh, 760px); border: 0; background: transparent; }
+.embed .qsp-top > #back { display: none; }
+.embed.qsp-body, .embed .qsp-body { background: transparent; }
+.embed .bg { display: none; }
+.qsh-set-go { margin-top: auto; align-self: flex-end; background: var(--accent); color: #fff; font-weight: 900; font-size: 14px; border-radius: 999px; padding: 6px 14px; }

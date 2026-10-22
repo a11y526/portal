@@ -553,9 +553,9 @@ begin
     'quiz',       case when b.id is null then null else jsonb_build_object(
                     'open',  b.quiz_open,
                     'state', (select q.status from public.qb_games q where q.board_id = b.id and q.group_no = v_my)) end,
-    -- 퀴즈 쇼: 이 반에 열린 판(대기실·진행 중)이 있으면 {id, status}
+    -- 퀴즈 쇼: 학생이 볼 판(열린 판, 없으면 10분 안에 끝난 판. 그만둔 판은 빼고)이 있으면 {id, status}
     'quizshow',   (select jsonb_build_object('id', g.id, 'status', g.status) from public.qs_games g
-                   where g.class_id = p_class_id and g.status <> 'done' order by g.created_at desc limit 1),
+                   where g.id = public._qs_current(p_class_id)),
     -- 게시판: 보이는 칸(내 모둠, 발표 뒤에는 모두)의 글 수·마지막 고친 시각. 바뀔 때만 get_posts를 부른다
     'posts_v',    case when b.id is null then null else (
                     select count(*)::text || ':' || coalesce(max(p.updated_at)::text, '')

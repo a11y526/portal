@@ -6,6 +6,9 @@ import { readLogin, clearLogin } from '../login.js';
 import { avatarSVG, react, bindReactions } from '../avatar.js';
 import { TYPES, POINTS, shapeSVG, optionHTML, imageURL, sliderValue } from '../quizshow.js';
 
+// embed=1: 반 페이지 [퀴즈 쇼] 탭 안. 뒤로 가기·배경은 숨긴다
+if (new URLSearchParams(location.search).get('embed') === '1') document.documentElement.classList.add('embed');
+
 initUI();
 bindReactions();
 

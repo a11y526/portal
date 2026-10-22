@@ -97,7 +97,7 @@ async function showPicker() {
         ${sets.length ? sets.map((s) => {
           const n = (s.questions ?? []).filter((x) => !problemOf(x)).length;
           return `<button type="button" class="qsh-set glass-strong lift press" data-set="${s.id}" ${n ? '' : 'disabled'}>
-            <b>${esc(s.title || '제목 없음')}</b><span class="muted num">${n}문제</span></button>`;
+            <b>${esc(s.title || '제목 없음')}</b><span class="muted num">${n}문제</span><span class="qsh-set-go">대기실 열기 ▶</span></button>`;
         }).join('') : '<div class="empty"><strong>만든 퀴즈가 없어요</strong><a class="btn btn-primary" href="quizshow-edit.html" target="_blank" rel="noopener">퀴즈 만들기 ↗</a></div>'}
       </div>
     </section>`;
@@ -250,8 +250,8 @@ function lobbyHTML() {
   return `
     <section class="qsh-lobby">
       <div class="qsh-join glass-strong">
-        <span>학생은 반 페이지에서</span>
-        <b>퀴즈 쇼 → 들어가기</b>
+        <span>학생은 반 페이지의</span>
+        <b>[퀴즈 쇼] 탭</b>
       </div>
       <div class="qsh-count"><b class="num" data-live="joined">${st.joined}</b><span>명 들어옴</span></div>
       <div class="qsh-lobby-list${st.mode === 'team' ? ' is-team' : ''}">${lobbyListHTML()}</div>

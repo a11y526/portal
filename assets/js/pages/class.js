@@ -284,10 +284,17 @@ const store = {
 
 let tab = ['group', 'mats'].includes(store.get('classTab')) ? store.get('classTab') : 'sheet';
 let hasSheet = false;
+let hasQs = false;   // 선생님이 퀴즈 쇼를 열었을 때만 [퀴즈 쇼] 탭
 
 function applyTab() {
-  const now = tab === 'sheet' && !hasSheet ? 'group' : tab;
+  const now = tab === 'sheet' && !hasSheet ? 'group' : tab === 'qs' && !hasQs ? (hasSheet ? 'sheet' : 'group') : tab;
   $('tab-sheet').classList.toggle('hidden', !hasSheet);
+  $('tab-qs').classList.toggle('hidden', !hasQs);
+  $('qs-tab').classList.toggle('hidden', now !== 'qs');
+  // 퀴즈 쇼 화면은 탭을 열 때만 만들고, 다른 탭으로 가면 없앤다(학생 기기 부담)
+  if (now === 'qs' && !$('qs-tab').firstChild) {
+    $('qs-tab').innerHTML = '<iframe class="qs-frame" src="quizshow.html?embed=1" title="퀴즈 쇼"></iframe>';
+  } else if (now !== 'qs') $('qs-tab').replaceChildren();
   $('sheet').classList.toggle('hidden', now !== 'sheet');
   $('group-tab').classList.toggle('hidden', now !== 'group');
   $('mats').classList.toggle('hidden', now !== 'mats');
@@ -306,7 +313,7 @@ $('tabs').addEventListener('click', (e) => {
   const b = e.target.closest('.class-tab');
   if (!b || b.dataset.tab === tab) return;
   tab = b.dataset.tab;
-  store.set('classTab', tab);
+  if (tab !== 'qs') store.set('classTab', tab);
   applyTab();
 });
 
@@ -849,19 +856,19 @@ function renderQuiz(data) {
   go.classList.toggle('hidden', !!login && data.my_group == null);
 }
 
-// 퀴즈 쇼 카드: 선생님이 이 반에 열었을 때(대기실·진행 중). 로그인해야 들어감
-let qsKey;
+// 퀴즈 쇼 탭: 선생님이 이 반에 열었을 때(대기실·진행 중, 끝난 뒤 10분은 결과 보기)만 보인다. 새 판이 열리면 한 번 저절로 그 탭으로
+let qsShown = null;
 function renderQuizShow(data) {
   const g = data?.quizshow ?? null;
-  const key = JSON.stringify([g?.id, g?.status, !!login]);
-  if (key === qsKey) return;
-  qsKey = key;
-  $('qs-card').classList.toggle('hidden', !g);
-  if (!g) return;
-  const go = $('qs-go');
-  $('qs-s').textContent = !login ? '로그인하면 할 수 있어요' : g.status === 'lobby' ? '선생님이 곧 시작해요' : '지금 하는 중이에요';
-  go.textContent = login ? '들어가기' : '로그인';
-  go.href = login ? 'quizshow.html' : 'index.html';
+  const had = hasQs;
+  hasQs = !!g;
+  if (g && g.id !== qsShown && g.status !== 'done') {
+    qsShown = g.id;
+    tab = 'qs';
+  }
+  // 퀴즈가 사라지면 그 전에 보던 탭으로
+  if (!g && tab === 'qs') tab = ['group', 'mats'].includes(store.get('classTab')) ? store.get('classTab') : 'sheet';
+  if (had !== hasQs || tab === 'qs') applyTab();
 }
 
 function renderLesson(board) {

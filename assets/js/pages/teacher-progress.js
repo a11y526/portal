@@ -38,7 +38,8 @@ function wdOf(day) { return new Date(`${day}T00:00:00Z`).getUTCDay(); }
 function monday(day) { const w = wdOf(day); return addDays(day, w === 0 ? -6 : 1 - w); }
 const md = (day) => `${Number(day.slice(5, 7))}/${Number(day.slice(8, 10))}`;
 
-const plan = () => lessons.filter((l) => l.unit);
+// 반의 진도 계획: 단원이 있고 그 반이 하는 차시(classes가 비면 모든 반)
+const planOf = (c) => lessons.filter((l) => l.unit && (!l.classes?.length || l.classes.includes(c.id)));
 const lessonName = (code) => {
   const l = lessons.find((x) => x.code === code);
   return l ? `${l.code} ${l.title}` : code;
@@ -78,7 +79,7 @@ async function run(fn, done) {
 // 그 차시 보드에서 간 가장 뒤 쪽(slide_max)이 마지막 쪽이면 그 차시는 끝, 다음 차시로 넘어간다.
 // 보드 기록이 없는 반은 손으로 고른 다음 차시(classes.next_lesson)
 function autoOf(c) {
-  const p = plan();
+  const p = planOf(c);
   let cur = null;
   p.forEach((l, i) => {
     const bs = boards.filter((b) => b.class_id === c.id && b.lesson_code === l.code);
@@ -97,7 +98,7 @@ function autoOf(c) {
 // 남은 차시(시간): 다음 차시부터 끝까지 각 차시의 시간 수 합. 지금 차시를 덜 끝냈으면 그 차시를 이미 한 시간만큼 뺀다(적어도 1)
 const hours = (l) => l?.periods || 1;
 function needOf(c, a) {
-  const p = plan();
+  const p = planOf(c);
   let need = 0;
   for (let i = a.nextIdx; i < p.length; i++) need += hours(p[i]);
   if (a.cur && !a.cur.done && a.nextIdx === a.cur.i) {
@@ -114,7 +115,7 @@ function progressOf(c) {
     && !(r.day === today && r.lesson_code)).length;
   const a = autoOf(c);
   const need = needOf(c, a);
-  return { left, need, spare: left - need, a, next: plan()[a.nextIdx]?.code ?? null };
+  return { left, need, spare: left - need, a, next: planOf(c)[a.nextIdx]?.code ?? null };
 }
 
 /* ---------- 그리기 (노션식: 칸은 글자처럼 보이고 누르면 고친다) ---------- */
@@ -131,11 +132,33 @@ function lessonSelect(attr, value, empty) {
 
 const memoInput = (attr, value) => `<input class="nd-ghost" ${attr} value="${esc(value)}" maxlength="60" placeholder="메모" aria-label="메모" autocomplete="off">`;
 
+// 반의 앞으로 빈 수업 줄마다 예정 차시(캘린더와 같은 규칙): 다음 차시부터 차시 수만큼 줄을 차지하며 차례로.
+// 앞으로의 줄에 이미 적어 둔 차시는 그 날 하므로 건너뛴다(덜 끝낸 지금 차시는 빼고)
+function plannedOf(c) {
+  const today = kstDay();
+  const p = planOf(c);
+  const a = autoOf(c);
+  const rows = days.filter((r) => r.class_id === c.id && r.day >= today);
+  const busy = a.cur && !a.cur.done ? a.cur.lesson.code : null;
+  const fixed = new Set(rows.map((r) => r.lesson_code).filter((x) => x && x !== busy));
+  const out = new Map();
+  let i = a.nextIdx;
+  let used = p[i] ? Math.min(taught.filter((r) => r.class_id === c.id && r.lesson_code === p[i].code).length, hours(p[i]) - 1) : 0;
+  for (const r of rows) {
+    if (r.kind !== '수업' || r.lesson_code) continue;
+    while (p[i] && fixed.has(p[i].code)) { i++; used = 0; }
+    if (!p[i]) break;
+    out.set(r.id, p[i].code);
+    if (++used >= hours(p[i])) { i++; used = 0; }
+  }
+  return out;
+}
+
 function dayRowsHTML(rows) {
   const today = kstDay();
+  const plans = new Map(classes.map((c) => [c.id, plannedOf(c)]));
   return rows.map((r) => {
-    const c = classes.find((x) => x.id === r.class_id);
-    const next = c && progressOf(c).next;
+    const next = plans.get(r.class_id)?.get(r.id);
     const planned = !r.lesson_code && r.kind === '수업' && r.day >= today && next;
     return `<tr class="${r.day === today ? 'nd-now' : ''}">
       <td class="n">${r.period}교시</td>
@@ -166,7 +189,6 @@ function nowHTML(a) {
 }
 
 function classesHTML() {
-  const p = plan();
   return `<table class="nd-table"><thead><tr>
       <th>반</th><th>지금 진도</th><th>다음 차시</th><th>남은 차시</th><th>남은 수업</th><th>여유</th><th>메모</th>
     </tr></thead><tbody>${classes.map((c) => {
@@ -175,7 +197,7 @@ function classesHTML() {
       return `<tr>
         <td>${c.id}반</td>
         <td>${nowHTML(g.a)}</td>
-        <td class="clip">${g.a.auto ? (g.next ? esc(lessonName(g.next)) : '진도 끝') : lessonSelect(`data-next="${c.id}"`, c.next_lesson, p.length ? '진도 끝' : '—')}</td>
+        <td class="clip">${g.a.auto ? (g.next ? esc(lessonName(g.next)) : '진도 끝') : lessonSelect(`data-next="${c.id}"`, c.next_lesson, planOf(c).length ? '진도 끝' : '—')}</td>
         <td>${g.need}</td>
         <td>${g.left}</td>
         <td class="nd-${tone}">${g.spare > 0 ? '+' : ''}${g.spare}</td>
@@ -228,12 +250,13 @@ function renderTimetable() {
 
 function renderLessons() {
   $('pg-lessons').innerHTML = lessons.length
-    ? `<table class="nd-table"><thead><tr><th>순서</th><th>차시</th><th>제목</th><th>단원</th><th>차시 수</th><th>쪽 수</th></tr></thead><tbody>${
+    ? `<table class="nd-table"><thead><tr><th>순서</th><th>차시</th><th>제목</th><th>단원</th><th>반</th><th>차시 수</th><th>쪽 수</th></tr></thead><tbody>${
       lessons.map((l) => `<tr>
         <td style="width:90px"><input class="nd-ghost" type="number" min="0" max="999" value="${l.sort}" data-lsort="${esc(l.code)}" aria-label="순서" style="min-width:0;width:70px"></td>
         <td>${esc(l.code)}</td>
         <td>${esc(l.title)}</td>
         <td><input class="nd-ghost" value="${esc(l.unit)}" maxlength="40" placeholder="단원" data-lunit="${esc(l.code)}" aria-label="단원" autocomplete="off"></td>
+        <td style="width:130px"><input class="nd-ghost" value="${esc((l.classes ?? []).join(','))}" placeholder="모든 반" data-lclasses="${esc(l.code)}" aria-label="${esc(l.code)} 하는 반" autocomplete="off" style="min-width:0;width:110px"></td>
         <td style="width:80px"><input class="nd-ghost" type="number" min="1" max="9" value="${l.periods || 1}" data-lperiods="${esc(l.code)}" aria-label="${esc(l.code)} 차시 수" style="min-width:0;width:56px"></td>
         <td class="muted">${l.slide_count ?? '—'}</td>
       </tr>`).join('')}</tbody></table>`
@@ -290,6 +313,11 @@ panel.addEventListener('change', (e) => {
     const v = Math.max(1, Math.min(9, Math.round(Number(el.value) || 1)));
     const l = lessons.find((x) => x.code === d.lperiods);
     if (l) run(() => saveLesson({ code: l.code, periods: v }));
+  } else if (d.lclasses) {
+    // '9' 또는 '7,8,10' (담당 반만), 비우면 모든 반
+    const l = lessons.find((x) => x.code === d.lclasses);
+    const ids = [...new Set((el.value.match(/\d+/g) ?? []).map(Number).filter((n) => CLASSES.includes(n)))].sort((a, b) => a - b);
+    if (l) run(() => saveLesson({ code: l.code, classes: ids.length ? ids : null }));
   } else if (d.lunit) {
     const l = lessons.find((x) => x.code === d.lunit);
     if (l) run(() => saveLesson({ code: l.code, unit: el.value.trim().slice(0, 40) }));

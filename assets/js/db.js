@@ -652,7 +652,7 @@ export async function cleanupPostPhotos() {
 /* ---------- 교사: 차시별 수업자료 (수업 모드) ---------- */
 
 export async function listLessons() {
-  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, unit, slide_count, periods, created_at').order('sort').order('code'));
+  return unwrap(await need().from('lessons').select('code, title, lesson_src, sort, unit, slide_count, periods, classes, created_at').order('sort').order('code'));
 }
 
 export async function getLesson(code) {

@@ -1,0 +1,312 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>온도에 따른 피스톤 속 입자</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+
+html,body{margin:0;height:100%;background:#fff;font-family:'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif}
+#host{box-sizing:border-box;height:100%;padding:10px;display:flex}
+.gs{display:flex;flex-direction:column;gap:10px;width:100%;height:100%;min-height:0}
+.gs-stage{flex:1;min-height:0;display:flex;align-items:center;justify-content:center;border:1px solid #E3E3E8;border-radius:16px;overflow:hidden;background:#FAFAFC}
+.gs-stage canvas{display:block;max-width:100%;max-height:100%;width:auto!important;height:auto;touch-action:none}
+.gs-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
+.gs-btn{font:700 17px "Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:#0066CC;background:#fff;border:1.5px solid #0066CC;border-radius:999px;padding:8px 16px;cursor:pointer;min-height:42px;touch-action:manipulation}
+.gs-btn:active{background:#E8F1FB}
+.gs-seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden;background:#fff}
+.gs-seg .gs-btn{border:0;border-radius:0;color:#515154;padding:8px 14px}
+.gs-seg .gs-btn.on{background:#0066CC;color:#fff}
+.gs-sp{flex:1}
+.gs-lab{font:700 16px "Noto Sans KR","Noto Sans CJK KR",sans-serif;color:#6E6E73;margin-right:2px}
+.gs-step{display:inline-flex;align-items:center;gap:6px;background:#F2F2F7;border-radius:999px;padding:4px 6px 4px 14px}
+.gs-step .gs-btn{width:42px;padding:0;font-size:22px}
+.gs-step-l{font:800 17px "Noto Sans KR","Noto Sans CJK KR",sans-serif;color:#1D1D1F}
+.gs-step-v{font:800 22px "Noto Sans KR","Noto Sans CJK KR",sans-serif;min-width:24px;text-align:center}
+
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script>/* 621 기체의 온도와 부피 관계 — 시뮬레이션 모음 */
+var GAS = (function(){
+'use strict';
+var FONT = "'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+var R = 7, V = 150, DPR = 2, ARROW_LIFE = 0.55;
+var INK='#1D1D1F', MUTED='#6E6E73', LINE='#E3E3E8', BLUE='#0066CC', RED='#FF3B30', OUTBLUE='#0A84FF';
+
+/* ---------- 공통 ---------- */
+function el(tag, cls, html){ var e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
+function setup(host, W, H){
+  var box=el('div','gs'); var cv=el('canvas'); cv.width=W*DPR; cv.height=H*DPR;
+  cv.style.width='100%'; cv.style.height='auto'; cv.style.aspectRatio=W+'/'+H;
+  var stage=el('div','gs-stage'); stage.appendChild(cv); box.appendChild(stage);
+  var ctrl=el('div','gs-ctrl'); box.appendChild(ctrl);
+  host.appendChild(box);
+  var ctx=cv.getContext('2d'); ctx.setTransform(DPR,0,0,DPR,0,0);
+  return {box:box, cv:cv, ctx:ctx, ctrl:ctrl, W:W, H:H};
+}
+function btn(parent, label, fn, cls){ var b=el('button','gs-btn'+(cls?' '+cls:''),label); b.type='button'; b.addEventListener('click',function(e){ e.stopPropagation(); fn(b); b.blur(); }); parent.appendChild(b); return b; }
+function seg(parent, items, cur, fn){
+  var s=el('div','gs-seg'); parent.appendChild(s);
+  var bs=items.map(function(it){ var b=btn(s,it[0],function(){ bs.forEach(function(x){x.classList.toggle('on',x===b);}); fn(it[1]); }); if(it[1]===cur) b.classList.add('on'); return b; });
+  return s;
+}
+function spacer(parent){ parent.appendChild(el('span','gs-sp')); }
+function readout(parent){ var r=el('div','gs-read'); parent.appendChild(r); return r; }
+function speedSeg(parent, sim){ return seg(parent, [['느리게',0.5],['보통',1],['빠르게',1.8]], 0.5, function(v){ sim.speed=v; }); }
+function rr(ctx,x,y,w,h,r){ ctx.beginPath(); ctx.moveTo(x+r,y); ctx.arcTo(x+w,y,x+w,y+h,r); ctx.arcTo(x+w,y+h,x,y+h,r); ctx.arcTo(x,y+h,x,y,r); ctx.arcTo(x,y,x+w,y,r); ctx.closePath(); }
+function arrow(ctx,x,y,dx,dy,len,col,alpha,width){
+  var ex=x+dx*len, ey=y+dy*len, a=Math.atan2(dy,dx), hl=Math.max(8,width*2.6);
+  ctx.save(); ctx.globalAlpha=alpha; ctx.strokeStyle=col; ctx.fillStyle=col; ctx.lineWidth=width; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x,y); ctx.lineTo(ex-dx*hl*0.6,ey-dy*hl*0.6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(ex,ey); ctx.lineTo(ex-hl*Math.cos(a-0.45),ey-hl*Math.sin(a-0.45)); ctx.lineTo(ex-hl*Math.cos(a+0.45),ey-hl*Math.sin(a+0.45)); ctx.closePath(); ctx.fill();
+  ctx.restore();
+}
+function text(ctx,t,x,y,size,weight,col,align){ ctx.save(); ctx.font=(weight||700)+' '+size+'px '+FONT; ctx.fillStyle=col||INK; ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic'; ctx.fillText(t,x,y); ctx.restore(); }
+function bg(ctx,W,H){ ctx.clearRect(0,0,W,H); ctx.fillStyle='#FAFAFC'; ctx.fillRect(0,0,W,H); }
+
+/* ---------- 입자 ---------- */
+function particle(x,y,reg){ var a=Math.random()*Math.PI*2; return {x:x,y:y,vx:Math.cos(a)*V,vy:Math.sin(a)*V,reg:reg||0}; }
+function norm(p){ var s=Math.hypot(p.vx,p.vy)||1; p.vx=p.vx/s*V; p.vy=p.vy/s*V; }
+function move(parts,dt){ parts.forEach(function(p){ if(!p.fly){ p.x+=p.vx*dt; p.y+=p.vy*dt; } }); }
+function pairs(parts){
+  var D=2*R, D2=D*D, n=parts.length;
+  for(var i=0;i<n;i++){ var a=parts[i]; if(a.fly) continue;
+    for(var j=i+1;j<n;j++){ var b=parts[j]; if(b.fly || b.reg!==a.reg) continue;
+      var dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy; if(d2>=D2||d2===0) continue;
+      var d=Math.sqrt(d2), nx=dx/d, ny=dy/d, k=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+      if(k>0){ a.vx-=k*nx; a.vy-=k*ny; b.vx+=k*nx; b.vy+=k*ny; norm(a); norm(b); }
+      var o=(D-d)/2; a.x-=nx*o; a.y-=ny*o; b.x+=nx*o; b.y+=ny*o;
+    } }
+}
+/* 사각형 안에서 튕기기. 벽마다 부딪힌 위치를 onHit(벽, x, y, nx, ny)로 알린다 */
+function boxWalls(p, x0,y0,x1,y1, onHit){
+  if(p.x<x0+R){ p.x=x0+R; if(p.vx<0){ p.vx=-p.vx; onHit&&onHit('L',x0,p.y,-1,0);} }
+  if(p.x>x1-R){ p.x=x1-R; if(p.vx>0){ p.vx=-p.vx; onHit&&onHit('R',x1,p.y,1,0);} }
+  if(p.y<y0+R){ p.y=y0+R; if(p.vy<0){ p.vy=-p.vy; onHit&&onHit('T',p.x,y0,0,-1);} }
+  if(p.y>y1-R){ p.y=y1-R; if(p.vy>0){ p.vy=-p.vy; onHit&&onHit('B',p.x,y1,0,1);} }
+}
+function seedBox(parts,n,x0,y0,x1,y1,reg){
+  var t=0; while(n>0 && t<5000){ t++; var x=x0+R+2+Math.random()*(x1-x0-2*R-4), y=y0+R+2+Math.random()*(y1-y0-2*R-4);
+    var ok=parts.every(function(q){ return Math.hypot(q.x-x,q.y-y)>2*R+2; }); if(!ok && t<4000) continue; parts.push(particle(x,y,reg)); n--; }
+}
+function drawP(ctx,p,col){
+  ctx.fillStyle=col||'#3A3A3C'; ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.fill();
+  if(!col || col==='#3A3A3C'){ var ux=p.vx/V, uy=p.vy/V; arrow(ctx,p.x+ux*(R+1),p.y+uy*(R+1),ux,uy,10,'#3A3A3C',0.85,2); }
+}
+/* 부딪힌 횟수 → 1초당 횟수(시뮬레이션 시간 기준, 최근 구간 평균) */
+function Rate(win){ this.win=win||4; this.t=[]; }
+Rate.prototype.add=function(now){ this.t.push(now); };
+Rate.prototype.get=function(now){ var w=this.win; this.t=this.t.filter(function(x){ return now-x<w; }); return this.t.length/Math.min(w,Math.max(0.5,now)); };
+Rate.prototype.clear=function(){ this.t=[]; };
+function Arrows(){ this.list=[]; }
+Arrows.prototype.add=function(x,y,dx,dy,t,col){ this.list.push({x:x,y:y,dx:dx,dy:dy,t:t,col:col||RED}); };
+Arrows.prototype.draw=function(ctx,now,len){ this.list=this.list.filter(function(a){ return now-a.t<ARROW_LIFE; });
+  this.list.forEach(function(a){ var age=(now-a.t)/ARROW_LIFE; arrow(ctx,a.x,a.y,a.dx,a.dy,len||28,a.col,1-age*age,4); }); };
+function meter(ctx,x,y,w,label,val,max,col,valText){
+  text(ctx,label,x,y+16,17,700,'#515154');
+  var bx=x, by=y+26, bw=w; ctx.fillStyle='#EEEEF2'; rr(ctx,bx,by,bw,20,10); ctx.fill();
+  ctx.fillStyle=col; rr(ctx,bx,by,Math.max(20,Math.min(1,val/max)*bw),20,10); ctx.fill();
+  if(valText) text(ctx,valText,x+w,y+16,17,800,INK,'right');
+}
+
+/* ===== 621 기체의 온도와 부피 관계 ===== */
+/* 입자의 빠르기는 온도가 높을수록 빠르게 그린다(눈에 보이도록 과장한 값). 같은 온도의 입자는 모두 같은 빠르기. */
+function TV(T){ return 80+2.6*T; }
+function setSpd(p,s){ var m=Math.hypot(p.vx,p.vy)||1; p.vx=p.vx/m*s; p.vy=p.vy/m*s; }
+function pairs2(parts,s){
+  var D=2*R, D2=D*D, n=parts.length;
+  for(var i=0;i<n;i++){ var a=parts[i];
+    for(var j=i+1;j<n;j++){ var b=parts[j];
+      var dx=b.x-a.x, dy=b.y-a.y, d2=dx*dx+dy*dy; if(d2>=D2||d2===0) continue;
+      var d=Math.sqrt(d2), nx=dx/d, ny=dy/d, k=(a.vx-b.vx)*nx+(a.vy-b.vy)*ny;
+      if(k>0){ a.vx-=k*nx; a.vy-=k*ny; b.vx+=k*nx; b.vy+=k*ny; setSpd(a,s); setSpd(b,s); }
+      var o=(D-d)/2; a.x-=nx*o; a.y-=ny*o; b.x+=nx*o; b.y+=ny*o;
+    } }
+}
+function drawPS(ctx,p,s){
+  ctx.fillStyle='#3A3A3C'; ctx.beginPath(); ctx.arc(p.x,p.y,R,0,Math.PI*2); ctx.fill();
+  var ux=p.vx/s, uy=p.vy/s; arrow(ctx,p.x+ux*(R+1),p.y+uy*(R+1),ux,uy,6+s*0.06,'#3A3A3C',0.85,2);
+}
+function stepper(parent,label,min,max,step,val,fn,unit){
+  var wrap=el('span','gs-step'); wrap.appendChild(el('span','gs-step-l',label));
+  var cur=val, v=el('span','gs-step-v');
+  function set(x){ cur=Math.max(min,Math.min(max,x)); v.textContent=cur+(unit||''); fn(cur); }
+  btn(wrap,'−',function(){ set(cur-step); }); wrap.appendChild(v); btn(wrap,'+',function(){ set(cur+step); });
+  v.style.minWidth='64px'; parent.appendChild(wrap); set(val); return {set:set,get:function(){ return cur; }};
+}
+
+/* ① 입자 상자: 온도에 따른 입자의 빠르기 */
+function temp(host,opts){
+  var W=1000,H=440, g=setup(host,W,H), ctx=g.ctx;
+  var BX0=360,BY0=40,BX1=960,BY1=400;
+  var sim={T:20,speed:0.5,t:0,parts:[]};
+  seedBox(sim.parts,14,BX0,BY0,BX1,BY1,0);
+  function apply(){ sim.parts.forEach(function(p){ setSpd(p,TV(sim.T)); }); }
+  stepper(g.ctrl,'온도',0,100,10,20,function(v){ sim.T=v; apply(); },' ℃');
+  spacer(g.ctrl); speedSeg(g.ctrl,sim);
+  sim.tick=function(dt){
+    dt*=sim.speed; sim.t+=dt; var s=TV(sim.T);
+    move(sim.parts,dt);
+    sim.parts.forEach(function(p){ boxWalls(p,BX0,BY0,BX1,BY1); });
+    pairs2(sim.parts,s); draw();
+  };
+  function draw(){
+    bg(ctx,W,H);
+    // 온도계
+    var tx=70, top=70, bot=372, f=(sim.T/100);
+    ctx.fillStyle='#fff'; ctx.strokeStyle='#8E9AAB'; ctx.lineWidth=3; rr(ctx,tx-11,top-8,22,bot-top+20,11); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#FF3B30'; ctx.beginPath(); ctx.arc(tx,bot+18,19,0,Math.PI*2); ctx.fill();
+    var fy=bot-(bot-top)*f; ctx.fillRect(tx-5,fy,10,bot-fy);
+    for(var k=0;k<=100;k+=20){ var y=bot-(bot-top)*k/100; ctx.fillStyle=MUTED; ctx.fillRect(tx+14,y-1,10,2); text(ctx,k,tx+30,y+6,15,700,MUTED); }
+    text(ctx,'온도',230,86,20,700,MUTED,'center');
+    text(ctx,sim.T+' ℃',230,150,56,800,RED,'center');
+    meter(ctx,150,210,150,'입자의 빠르기',TV(sim.T)-70,300,BLUE,'');
+    text(ctx,sim.T<=20?'느리다':(sim.T>=70?'빠르다':'보통'),225,290,24,800,INK,'center');
+    // 상자
+    ctx.fillStyle='rgba(0,102,204,0.05)'; rr(ctx,BX0,BY0,BX1-BX0,BY1-BY0,14); ctx.fill();
+    var s=TV(sim.T); sim.parts.forEach(function(p){ drawPS(ctx,p,s); });
+    ctx.strokeStyle='#8E9AAB'; ctx.lineWidth=10; rr(ctx,BX0-5,BY0-5,BX1-BX0+10,BY1-BY0+10,16); ctx.stroke();
+  }
+  apply(); draw();
+  return sim;
+}
+
+/* ② 빨대 속 기체: 글리세롤 방울과 눈금 수 */
+function straw(host,opts){
+  var W=1000,H=440, g=setup(host,W,H), ctx=g.ctx;
+  var SC=8, BASE=420;
+  function L(T){ return 35.5+0.1*(T-25); }
+  function Y(l){ return BASE-SC*l; }
+  var sim={T:50,Tv:50,speed:0.5,marks:[],show:false,t:0};
+  stepper(g.ctrl,'물의 온도',25,60,5,50,function(v){ sim.T=v; },' ℃');
+  btn(g.ctrl,'표시하기',function(){ var l=L(sim.Tv); sim.marks=sim.marks.filter(function(m){ return Math.abs(m.T-Math.round(sim.Tv))>0.1; }); sim.marks.push({T:Math.round(sim.Tv),l:l}); });
+  btn(g.ctrl,'표시 지우기',function(){ sim.marks=[]; });
+  var vb=btn(g.ctrl,'눈금 수 보이기',function(){ sim.show=!sim.show; vb.textContent=sim.show?'눈금 수 숨기기':'눈금 수 보이기'; });
+  spacer(g.ctrl); speedSeg(g.ctrl,sim);
+  sim.tick=function(dt){ var k=[0,0.5,1,1.8]; var sp=sim.speed<=0.5?1.2:(sim.speed<=1?3:7); sim.Tv+=(sim.T-sim.Tv)*Math.min(1,dt*sp); if(Math.abs(sim.T-sim.Tv)<0.01) sim.Tv=sim.T; draw(); };
+  function draw(){
+    bg(ctx,W,H);
+    var l=L(sim.Tv), dy=Y(l);
+    // 눈금실린더·물
+    ctx.fillStyle='#E4F0FC'; ctx.fillRect(86,64,128,BASE+8-64); 
+    ctx.strokeStyle='#8E9AAB'; ctx.lineWidth=5; ctx.beginPath(); ctx.moveTo(86,30); ctx.lineTo(86,BASE+10); ctx.lineTo(214,BASE+10); ctx.lineTo(214,30); ctx.stroke();
+    ctx.fillStyle='#8E9AAB'; ctx.fillRect(70,BASE+10,160,10);
+    text(ctx,'눈금실린더',150,18,16,700,MUTED,'center');
+    // 빨대
+    var sx=138,sw=24, top=Y(46);
+    ctx.fillStyle='#FFFFFF'; ctx.strokeStyle='#6E7787'; ctx.lineWidth=2.5;
+    ctx.beginPath(); ctx.moveTo(sx,top); ctx.lineTo(sx,BASE-6); ctx.arcTo(sx,BASE,sx+6,BASE,6); ctx.lineTo(sx+sw-6,BASE); ctx.arcTo(sx+sw,BASE,sx+sw,BASE-6,6); ctx.lineTo(sx+sw,top); ctx.fill(); ctx.stroke();
+    ctx.fillStyle='#CFE6FB'; ctx.fillRect(sx+2,dy,sw-4,BASE-dy-2);
+    ctx.fillStyle='#E0555A'; ctx.fillRect(sx+2,dy-12,sw-4,12);
+    // 눈금(빨대 막힌 끝에서부터)
+    for(var n=0;n<=45;n++){ var y=Y(n); ctx.fillStyle=n%5===0?'#515154':'#B7B7BD'; ctx.fillRect(sx+sw+2,y-0.75,n%5===0?14:8,1.5); if(n%10===0&&n>0) text(ctx,n,sx+sw+20,y+5,13,700,MUTED); }
+    // 길이 표시
+    ctx.strokeStyle=BLUE; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(116,BASE); ctx.lineTo(116,dy); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(110,BASE); ctx.lineTo(122,BASE); ctx.moveTo(110,dy); ctx.lineTo(122,dy); ctx.stroke();
+    // 표시(유성펜)
+    var ms=sim.marks.slice().sort(function(a,b){ return Y(a.l)-Y(b.l); }), lastY=-99;
+    ms.forEach(function(m){ var y=Y(m.l); ctx.strokeStyle='#1D1D1F'; ctx.lineWidth=2.5; ctx.beginPath(); ctx.moveTo(86,y); ctx.lineTo(214,y); ctx.stroke();
+      var ly=Math.max(y,lastY+19); lastY=ly; ctx.strokeStyle='#8E9AAB'; ctx.lineWidth=1.5; ctx.beginPath(); ctx.moveTo(86,y); ctx.lineTo(60,ly); ctx.stroke(); text(ctx,m.T+' ℃',56,ly+5,15,800,INK,'right'); });
+    // 온도계
+    ctx.fillStyle='#233; '; ctx.fillStyle='#2D3A2E'; rr(ctx,250,60,150,66,10); ctx.fill();
+    text(ctx,sim.Tv.toFixed(1),372,106,40,800,'#B6F3C8','right'); text(ctx,'℃',392,106,22,800,'#B6F3C8','right');
+    text(ctx,'디지털 온도계',325,150,16,700,MUTED,'center');
+    // 확대 창
+    var ZX=430,ZY=40,ZW=300,ZH=380, cy=ZY+ZH*0.46, ZS=44;
+    ctx.fillStyle='#fff'; ctx.strokeStyle='#D1D1D6'; ctx.lineWidth=2; rr(ctx,ZX,ZY,ZW,ZH,16); ctx.fill(); ctx.stroke();
+    ctx.save(); rr(ctx,ZX,ZY,ZW,ZH,16); ctx.clip();
+    text(ctx,'확대해서 보기',ZX+ZW/2,ZY+26,17,800,MUTED,'center');
+    var nmin=Math.floor(l-5), nmax=Math.ceil(l+5);
+    // 빨대 확대
+    var zx=ZX+120, zw=100;
+    ctx.fillStyle='#CFE6FB'; ctx.fillRect(zx,cy,zw,ZY+ZH-cy);
+    ctx.fillStyle='#E0555A'; ctx.fillRect(zx,cy-ZS*0.28,zw,ZS*0.28);
+    ctx.fillStyle='#fff'; ctx.fillRect(zx,ZY+40,zw,cy-ZS*0.28-(ZY+40)); ctx.fillStyle='#F4F6FA'; ctx.fillRect(zx,ZY+40,zw,cy-ZS*0.28-(ZY+40));
+    ctx.strokeStyle='#6E7787'; ctx.lineWidth=3; ctx.beginPath(); ctx.moveTo(zx,ZY+40); ctx.lineTo(zx,ZY+ZH); ctx.moveTo(zx+zw,ZY+40); ctx.lineTo(zx+zw,ZY+ZH); ctx.stroke();
+    for(var n2=nmin;n2<=nmax;n2++){ var yy=cy+(l-n2)*ZS; if(yy<ZY+40||yy>ZY+ZH-4) continue; ctx.fillStyle='#515154'; ctx.fillRect(zx+zw+4,yy-1,22,2); text(ctx,n2,zx-10,yy+6,17,700,INK,'right'); }
+    ctx.strokeStyle=BLUE; ctx.lineWidth=2; ctx.setLineDash([6,5]); ctx.beginPath(); ctx.moveTo(ZX+20,cy); ctx.lineTo(ZX+ZW-14,cy); ctx.stroke(); ctx.setLineDash([]);
+    text(ctx,'방울 아래 끝',ZX+ZW-16,cy-8,14,700,BLUE,'right');
+    ctx.restore();
+    text(ctx,'빨대 막힌 끝에서부터 센 눈금 수',ZX+ZW/2,ZY+ZH+18,15,700,MUTED,'center');
+    // 값
+    text(ctx,'빨대 속 기체의 눈금 수',860,120,19,700,MUTED,'center');
+    text(ctx,sim.show?(Math.round(l*10)/10).toString():'?',860,190,64,800,sim.show?BLUE:'#AEAEB2','center');
+    text(ctx,'눈금 1개 = 1 mL',860,236,17,700,MUTED,'center');
+  }
+  draw();
+  return sim;
+}
+
+/* ③ 피스톤 속 입자: 온도에 따른 충돌과 부피 */
+function piston(host,opts){
+  var W=1000,H=440, g=setup(host,W,H), ctx=g.ctx;
+  var X0=210,X1=500,BOT=410,H0=170,PX=3.4;
+  function hOf(T){ return H0*(273+T)/298; }
+  var sim={T:25,speed:0.5,t:0,h:hOf(25),target:hOf(25),parts:[],rate:new Rate(3),arr:new Arrows()};
+  seedBox(sim.parts,14,X0,BOT-sim.h,X1,BOT,0);
+  function apply(){ sim.parts.forEach(function(p){ setSpd(p,TV(sim.T)); }); }
+  var st=stepper(g.ctrl,'기체의 온도',0,100,25,25,function(v){ sim.T=v; sim.target=hOf(v); apply(); },' ℃');
+  btn(g.ctrl,'25 ℃로 되돌리기',function(){ st.set(25); });
+  spacer(g.ctrl); speedSeg(g.ctrl,sim);
+  sim.tick=function(dt){
+    dt*=sim.speed; sim.t+=dt; var s=TV(sim.T);
+    var d=sim.target-sim.h; var mv=Math.max(-70*dt,Math.min(70*dt,d*Math.min(1,dt*2.2))); sim.h+=mv;
+    var yP=BOT-sim.h;
+    move(sim.parts,dt);
+    sim.parts.forEach(function(p){ boxWalls(p,X0,yP,X1,BOT,function(w,x,y,nx,ny){ if(w==='T'){ sim.rate.add(sim.t); sim.arr.add(x,y,0,-1,sim.t); } }); });
+    pairs2(sim.parts,s); draw();
+  };
+  function draw(){
+    bg(ctx,W,H);
+    var yP=BOT-sim.h, s=TV(sim.T);
+    // 눈금(mL)
+    for(var v=0;v<=90;v+=10){ var y=BOT-v*PX; ctx.fillStyle='#8E9AAB'; ctx.fillRect(X0-34,y-1,16,2); text(ctx,v,X0-40,y+5,14,700,MUTED,'right'); }
+    text(ctx,'부피(mL)',X0-48,36,15,700,MUTED,'right');
+    // 기체 영역과 용기
+    ctx.fillStyle='rgba(0,102,204,0.06)'; ctx.fillRect(X0,yP,X1-X0,BOT-yP);
+    sim.parts.forEach(function(p){ drawPS(ctx,p,s); });
+    ctx.strokeStyle='#8E9AAB'; ctx.lineWidth=10; ctx.beginPath(); ctx.moveTo(X0-5,60); ctx.lineTo(X0-5,BOT+5); ctx.lineTo(X1+5,BOT+5); ctx.lineTo(X1+5,60); ctx.stroke();
+    // 피스톤과 추
+    ctx.fillStyle='#3D5A80'; rr(ctx,X0,yP-16,X1-X0,16,4); ctx.fill();
+    ctx.fillStyle='#5C7BA3'; rr(ctx,X0+70,yP-52,X1-X0-140,36,6); ctx.fill(); text(ctx,'추',(X0+X1)/2,yP-26,18,800,'#fff','center');
+    sim.arr.draw(ctx,sim.t,30);
+    // 바깥 공기가 누르는 힘(일정)
+    for(var i=0;i<4;i++){ var ax=X0+40+i*70; arrow(ctx,ax,yP-100,0,1,30,OUTBLUE,0.9,4); }
+    text(ctx,'바깥에서 누르는 힘(일정)',(X0+X1)/2,yP-112,16,800,OUTBLUE,'center');
+    // 값 읽기
+    var Vml=Math.round(50*sim.h/H0);
+    text(ctx,'온도',640,70,18,700,MUTED,'left'); text(ctx,sim.T+' ℃',640,112,40,800,RED,'left');
+    text(ctx,'부피',820,70,18,700,MUTED,'left'); text(ctx,Vml+' mL',820,112,40,800,INK,'left');
+    var ratio=sim.target/sim.h;
+    meter(ctx,640,150,320,'안쪽에서 미는 힘',ratio,1.8,RED,'');
+    meter(ctx,640,208,320,'바깥에서 누르는 힘',1,1.8,OUTBLUE,'');
+    var cmp=Math.abs(ratio-1)<0.02?'두 힘이 같다':(ratio>1?'안쪽 힘이 더 크다':'바깥 힘이 더 크다');
+    text(ctx,cmp,800,290,26,800,Math.abs(ratio-1)<0.02?INK:BLUE,'center');
+    text(ctx,'피스톤에 부딪힌 횟수(1초당)',640,340,17,700,MUTED,'left');
+    text(ctx,sim.rate.get(sim.t).toFixed(1)+'번',960,342,24,800,RED,'right');
+    text(ctx,Math.abs(ratio-1)<0.02?'피스톤이 멈춘다':(ratio>1?'피스톤이 올라간다':'피스톤이 내려간다'),800,392,20,700,MUTED,'center');
+  }
+  apply(); draw();
+  return sim;
+}
+
+return {temp:temp, straw:straw, piston:piston, FONT:FONT};
+})();
+</script>
+<script>
+(function(){
+var host=document.getElementById('host');
+var sim=GAS.piston(host,{});
+var prev=performance.now(), on=true;
+document.addEventListener('visibilitychange',function(){ on=!document.hidden; prev=performance.now(); });
+function loop(now){ var dt=Math.min(0.05,(now-prev)/1000); prev=now; if(on) sim.tick(dt); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

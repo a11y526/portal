@@ -4,7 +4,7 @@
 // 배포: verify_jwt 끔(캘린더 앱은 로그인 정보를 보낼 수 없음, 토큰으로 확인)
 
 type Day = { id: string; day: string; period: number; class_id: number; kind: string; memo: string; lesson_code: string | null };
-type Lesson = { code: string; title: string; unit: string; sort: number; slide_count: number | null; periods?: number };
+type Lesson = { code: string; title: string; unit: string; sort: number; slide_count: number | null; periods?: number; classes?: number[] | null };
 type Board = { class_id: number; lesson_code: string; slide_max: number | null; status: string };
 type Feed = { ok: boolean; periods: [string, string][]; days: Day[]; lessons: Lesson[]; boards: Board[]; classes: { id: number; next_lesson: string | null }[] };
 
@@ -14,17 +14,17 @@ const KEY = Deno.env.get('SUPABASE_ANON_KEY') ?? Deno.env.get('SUPABASE_PUBLISHA
 const kstToday = () => new Date(Date.now() + 9 * 3600e3).toISOString().slice(0, 10);
 
 // 진도 관리(teacher-progress.js autoOf)와 같은 규칙: 다음에 할 차시의 진도 계획 안 순서
-function nextIdx(classId: number, plan: Lesson[], boards: Board[], manual: string | null): number {
+function nextIdx(classId: number, plan: Lesson[], boards: Board[], manual: string | null): { i: number; busy: string | null } {
   let cur: { i: number; done: boolean } | null = null;
   for (const [i, l] of plan.entries()) {
     const bs = boards.filter((b) => b.class_id === classId && b.lesson_code === l.code);
     const slide = Math.max(0, ...bs.map((b) => b.slide_max ?? 0));
     if (slide > 0 || bs.some((b) => b.status === 'revealed')) cur = { i, done: !!l.slide_count && slide >= l.slide_count };
   }
-  if (cur) return cur.done ? cur.i + 1 : cur.i;
-  if (manual == null) return plan.length;
+  if (cur) return cur.done ? { i: cur.i + 1, busy: null } : { i: cur.i, busy: plan[cur.i].code };
+  if (manual == null) return { i: plan.length, busy: null };
   const i = plan.findIndex((x) => x.code === manual);
-  return i < 0 ? 0 : i;
+  return { i: i < 0 ? 0 : i, busy: null };
 }
 
 const esc = (s: string) => s.replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\r?\n/g, '\\n');
@@ -48,15 +48,20 @@ function fold(line: string): string {
 const stamp = (day: string, hm: string) => `${day.replace(/-/g, '')}T${hm.replace(':', '')}00`;
 
 function ics(feed: Feed): string {
-  const plan = feed.lessons.filter((l) => l.unit)
+  const all = feed.lessons.filter((l) => l.unit)
     .sort((a, b) => (a.sort ?? 0) - (b.sort ?? 0) || a.code.localeCompare(b.code));
   const title = (code: string) => { const l = feed.lessons.find((x) => x.code === code); return l?.title ? `${code} ${l.title}` : code; };
   const today = kstToday();
-  // 반마다 앞으로의 수업에 예정 차시를 차례로. 덜 끝낸 지금 차시는 이미 한 시간만큼 빼고 남은 시간부터
+  // 반마다 앞으로의 수업에 예정 차시를 차례로. 덜 끝낸 지금 차시는 이미 한 시간만큼 빼고 남은 시간부터.
+  // 반의 진도 계획은 그 반이 하는 차시만, 앞으로의 줄에 이미 적어 둔 차시는 건너뜀(진도 관리 plannedOf와 같음)
   const hours = (l: Lesson) => l.periods || 1;
   const planned = new Map<string, string>();
   for (const c of feed.classes) {
-    let i = nextIdx(c.id, plan, feed.boards, c.next_lesson);
+    const plan = all.filter((l) => !l.classes?.length || l.classes.includes(c.id));
+    const start = nextIdx(c.id, plan, feed.boards, c.next_lesson);
+    const busy = start.busy;
+    let i = start.i;
+    const fixed = new Set(feed.days.filter((d) => d.class_id === c.id && d.day >= today && d.lesson_code && d.lesson_code !== busy).map((d) => d.lesson_code));
     let used = 0;
     if (plan[i]) {
       const did = feed.days.filter((d) => d.class_id === c.id && d.lesson_code === plan[i].code).length;
@@ -64,6 +69,7 @@ function ics(feed: Feed): string {
     }
     for (const d of feed.days) {
       if (d.class_id !== c.id || d.kind !== '수업' || d.day < today || d.lesson_code) continue;
+      while (plan[i] && fixed.has(plan[i].code)) { i++; used = 0; }
       if (i >= plan.length) break;
       planned.set(d.id, plan[i].code);
       if (++used >= hours(plan[i])) { i++; used = 0; }

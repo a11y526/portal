@@ -44,7 +44,7 @@
     </div>
   </section>
 
-  <!-- 덮개: G키로 열고 닫는다 -->
+  <!-- 덮개: G키로 열고 닫는다. 탭 [모둠] [게시판] [순위 발표] [퀴즈 쇼] -->
   <section class="cover" id="cover" tabindex="-1" aria-hidden="true" aria-labelledby="cover-title">
     <header class="cover-top">
       <h1 class="cover-title" id="cover-title"></h1>
@@ -76,12 +76,16 @@
         <div class="cover-embed" id="reveal-embed"></div>
         <div class="cover-msg hidden" id="reveal-msg"></div>
       </div>
+      <div class="cover-pane hidden" data-pane="quizshow">
+        <div class="cover-embed" id="quizshow-embed"></div>
+      </div>
     </div>
 
     <nav class="cover-tabs glass-strong" aria-label="모둠활동">
       <button type="button" class="cover-tab press" data-tab="groups"><span>모둠</span><kbd>1</kbd></button>
       <button type="button" class="cover-tab press" data-tab="board"><span>게시판</span><kbd>2</kbd></button>
       <button type="button" class="cover-tab press" data-tab="reveal"><span>순위 발표</span><kbd>3</kbd></button>
+      <button type="button" class="cover-tab press" data-tab="quizshow"><span>퀴즈 쇼</span><kbd>4</kbd></button>
       <button type="button" class="cover-tab cover-close press" id="cover-close"><span>수업자료로</span><kbd>G</kbd></button>
     </nav>
   </section>

@@ -179,6 +179,37 @@ export async function qbAnswer(token, gameId, q, answer) {
   return unwrap(await need().rpc('qb_answer', { p_token: token, p_game_id: gameId, p_q: q, p_answer: answer }));
 }
 
+/* ---------- 퀴즈 쇼 (반 전체, 선생님이 프로젝터에서 진행) ---------- */
+// 결과: { ok: true, game: { id, status, phase, q, total, question, key, mine, me, top, teams, gain, left_ms, start_ms, ... } | null }
+// 또는 error = 'NO_SESSION'. qs_join은 error = 'NO_GAME'(열린 판 없음)도
+export async function qsState(token) {
+  return unwrap(await need().rpc('qs_state', { p_token: token }));
+}
+
+export async function qsJoin(token) {
+  return unwrap(await need().rpc('qs_join', { p_token: token }));
+}
+
+// answer: quiz·tf [보기 번호…] · type '글' · slider 숫자 · puzzle [원래 순서 번호…] · pin { x, y }(그림 안 %)
+// error = 'STALE'(그 문제가 아님·마감) | 'ALREADY' | 'EMPTY' | 'NOT_PLAYER'
+export async function qsAnswer(token, gameId, q, answer) {
+  return unwrap(await need().rpc('qs_answer', { p_token: token, p_game_id: gameId, p_q: q, p_answer: answer }));
+}
+
+// 반 채널 'quizshow' 신호: 선생님이 다음으로 넘길 때. 받은 학생 기기는 흩지 않고 바로 다시 읽는다
+export function onQuizShow(classId, fn) {
+  const ch = classChannel(classId);
+  ch.on('broadcast', { event: 'quizshow' }, () => fn());
+  if (ch.state === 'closed') ch.subscribe();
+}
+
+export function sendQuizShow(classId) {
+  if (!sb) return Promise.resolve();
+  const ch = classChannel(classId);
+  if (ch.state === 'closed') ch.subscribe();
+  return ch.send({ type: 'broadcast', event: 'quizshow', payload: {} }).catch(() => {});
+}
+
 export async function getMonthTop20() {
   return unwrap(await need().rpc('get_month_top20'));
 }
@@ -508,7 +539,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -525,7 +556,7 @@ async function readAll(build) {
 
 export async function exportPointEvents() {
   return readAll(() => need().from('point_events')
-    .select('id, xp, coins, reason, board_id, worksheet_board_id, ws_first_id, qb_game_id, created_at, student:students(class_id, number, nickname)')
+    .select('id, xp, coins, reason, board_id, worksheet_board_id, ws_first_id, qb_game_id, qs_game_id, created_at, student:students(class_id, number, nickname)')
     .order('created_at').order('id'));
 }
 
@@ -675,6 +706,12 @@ export async function listWorksheets() {
   return unwrap(await need().from('worksheets').select('lesson_code, title, page_count, field_count, updated_at'));
 }
 
+// 학습지 본문과 정답(퀴즈 쇼 가져오기용)
+export async function getWorksheetFull(code) {
+  const rows = unwrap(await need().from('worksheets').select('lesson_code, title, pages, key').eq('lesson_code', code));
+  return rows[0] ?? null;
+}
+
 // 올리기(같은 차시면 바꾸기). row: { lesson_code, title, pages, key, page_count, field_count }
 export async function saveWorksheet(row) {
   unwrap(await need().from('worksheets').upsert({ ...row, updated_at: new Date().toISOString() }, { onConflict: 'lesson_code' }));
@@ -814,6 +851,87 @@ export async function saveRummikubRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'rummikub', value }, { onConflict: 'key' }));
 }
 
+
+/* ---------- 교사: 퀴즈 쇼 ---------- */
+export const QS_BUCKET = 'quizshow';
+export const qsImageUrl = (path) => (path ? `${SUPABASE_URL}/storage/v1/object/public/${QS_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}` : '');
+
+// [{ id, title, description, questions, updated_at }] (최근 고친 순)
+export async function listQsSets() {
+  return unwrap(await need().from('qs_sets').select('id, title, description, questions, updated_at').order('updated_at', { ascending: false }));
+}
+
+export async function getQsSet(id) {
+  const rows = unwrap(await need().from('qs_sets').select('id, title, description, questions, updated_at').eq('id', id));
+  return rows[0] ?? null;
+}
+
+// id가 없으면 새로 만들고 id를 돌려준다
+export async function saveQsSet(id, fields) {
+  const row = { ...fields, updated_at: new Date().toISOString() };
+  if (id) {
+    unwrap(await need().from('qs_sets').update(row).eq('id', id));
+    return id;
+  }
+  return unwrap(await need().from('qs_sets').insert(row).select('id').single()).id;
+}
+
+// 세트를 지우면 그 세트의 그림도 지운다(다른 세트가 같이 쓰는 그림은 남긴다)
+export async function deleteQsSet(set, keep = []) {
+  unwrap(await need().from('qs_sets').delete().eq('id', set.id));
+  const files = qsImages(set.questions).filter((p) => !keep.includes(p));
+  if (files.length) await need().storage.from(QS_BUCKET).remove(files).catch(() => {});
+}
+
+export const qsImages = (questions) => [...new Set((questions ?? []).flatMap((q) => [q.image, ...(q.options ?? []).map((o) => o?.image)]).filter(Boolean))];
+
+// 그림 올리기: 무작위 경로 jpg. 결과: 경로
+export async function uploadQsImage(blob) {
+  const path = `${crypto.randomUUID()}.jpg`;
+  const { error } = await need().storage.from(QS_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: false, cacheControl: '604800' });
+  if (error) throw error;
+  return path;
+}
+
+export async function removeQsImages(paths) {
+  const list = paths.filter(Boolean);
+  if (list.length) await need().storage.from(QS_BUCKET).remove(list).catch(() => {});
+}
+
+// 판 만들기: mode 'solo' | 'team'. 결과: { ok, id } 또는 error = 'NO_SET' | 'NO_QUESTIONS' | 'NO_GROUPS'
+export async function qsCreate(setId, classId, mode) {
+  return unwrap(await need().rpc('qs_create', { p_set_id: setId, p_class_id: classId, p_mode: mode }));
+}
+
+export async function qsHost(gameId) {
+  return unwrap(await need().rpc('qs_host', { p_game_id: gameId }));
+}
+
+// version을 주면 그 판 버전일 때만 넘긴다(두 번 눌림 막기)
+export async function qsNext(gameId, version = null) {
+  return unwrap(await need().rpc('qs_next', { p_game_id: gameId, p_version: version }));
+}
+
+export async function qsCancel(gameId) {
+  return unwrap(await need().rpc('qs_cancel', { p_game_id: gameId }));
+}
+
+// 이 반의 열린 판(없으면 null)
+export async function currentQsGame(classId) {
+  const rows = unwrap(await need().from('qs_games').select('id, status, title, mode, set_id')
+    .eq('class_id', classId).neq('status', 'done').order('created_at', { ascending: false }).limit(1));
+  return rows[0] ?? null;
+}
+
+// { xp: [1위, 2위, 3위], coins: [...] }
+export async function getQuizShowRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'quiz_show'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveQuizShowRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'quiz_show', value }, { onConflict: 'key' }));
+}
 
 /* ---------- 교사: 반 게시판 ---------- */
 

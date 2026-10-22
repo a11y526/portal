@@ -2,7 +2,7 @@
 // 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
-import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen,
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onQuizShow,
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -849,6 +849,21 @@ function renderQuiz(data) {
   go.classList.toggle('hidden', !!login && data.my_group == null);
 }
 
+// 퀴즈 쇼 카드: 선생님이 이 반에 열었을 때(대기실·진행 중). 로그인해야 들어감
+let qsKey;
+function renderQuizShow(data) {
+  const g = data?.quizshow ?? null;
+  const key = JSON.stringify([g?.id, g?.status, !!login]);
+  if (key === qsKey) return;
+  qsKey = key;
+  $('qs-card').classList.toggle('hidden', !g);
+  if (!g) return;
+  const go = $('qs-go');
+  $('qs-s').textContent = !login ? '로그인하면 할 수 있어요' : g.status === 'lobby' ? '선생님이 곧 시작해요' : '지금 하는 중이에요';
+  go.textContent = login ? '들어가기' : '로그인';
+  go.href = login ? 'quizshow.html' : 'index.html';
+}
+
 function renderLesson(board) {
   const text = board ? [board.lesson_code && `${board.lesson_code}차시`, board.title].filter(Boolean).join(' · ') : '';
   if (text === shown.lesson) return;
@@ -1063,6 +1078,7 @@ async function load() {
     renderMine(data);
     renderGroups(data);
     renderQuiz(data);
+    renderQuizShow(data);
     syncSheet(data);
     updateSide();
     if (!board) showEmpty('오늘 수업이 아직 없어요');
@@ -1098,6 +1114,8 @@ schedule();
 
 // [제출 시작]·잠그기는 먼저 낸 순서를 겨루므로 흩지 않고 바로 읽는다
 if (sb) onWsOpen(classId, () => { if (!document.hidden) load(); });
+// 퀴즈 쇼를 열거나 넘기면 카드가 바로 뜨게(흩어서)
+if (sb) onQuizShow(classId, () => { if (!document.hidden) setTimeout(load, Math.random() * 1500); });
 if (sb) onClassRefresh(classId, () => {
   // 신호는 모든 학생 기기에 한꺼번에 가므로 0~2초 흩어서 읽는다
   if (!document.hidden) setTimeout(load, Math.random() * 2000);

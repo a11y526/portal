@@ -553,6 +553,9 @@ begin
     'quiz',       case when b.id is null then null else jsonb_build_object(
                     'open',  b.quiz_open,
                     'state', (select q.status from public.qb_games q where q.board_id = b.id and q.group_no = v_my)) end,
+    -- 퀴즈 쇼: 이 반에 열린 판(대기실·진행 중)이 있으면 {id, status}
+    'quizshow',   (select jsonb_build_object('id', g.id, 'status', g.status) from public.qs_games g
+                   where g.class_id = p_class_id and g.status <> 'done' order by g.created_at desc limit 1),
     -- 게시판: 보이는 칸(내 모둠, 발표 뒤에는 모두)의 글 수·마지막 고친 시각. 바뀔 때만 get_posts를 부른다
     'posts_v',    case when b.id is null then null else (
                     select count(*)::text || ':' || coalesce(max(p.updated_at)::text, '')
@@ -4817,3 +4820,805 @@ begin
 end $$;
 revoke all on function public.calendar_feed(text) from public;
 grant execute on function public.calendar_feed(text) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 퀴즈 쇼 (2026-10-22, 11단계): 반 전체가 한 문제씩. 진행은 교사(프로젝터)가 [다음]으로, 답 받는 시간만 서버 시각으로.
+-- 상태: lobby(대기실) → ask(q_at 전 3초는 문제만, q_at~q_end 답 받기. 슬라이드는 q_end 없음) → reveal(정답·분포)
+--       → board(중간 순위) → 다음 문제 ask … → done(시상대, 지급)
+-- 접속한 학생(15초 안에 소식)이 모두 냈거나 마감이 지나면 누가 부르든 _qs_tick이 reveal로 넘기고 점수를 확정한다.
+-- 점수: 맞히면 1000 × (1 − 걸린 시간/제한 시간 ÷ 2), 2배 문제는 ×2, 점수 없음 문제는 0.
+--       연속 정답 보너스 100 × (연속 − 1), 500까지. 걸린 시간은 그 학생 기기에 문제가 처음 뜬 시각부터(문제 시작 뒤 2초까지만 늦게 쳐 줌)
+-- 순위·지급에서 0번(선생님)은 빠진다. 학생 쪽에는 마감 전에 정답을 내보내지 않는다
+-- ---------------------------------------------------------
+
+create or replace function public._qs_settings()
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'xp',    case when jsonb_typeof(v -> 'xp') = 'array' then v -> 'xp' else '[10, 6, 3]'::jsonb end,
+    'coins', case when jsonb_typeof(v -> 'coins') = 'array' then v -> 'coins' else '[10, 6, 3]'::jsonb end)
+  from (select (select value from public.settings where key = 'quiz_show') as v) x;
+$$;
+revoke all on function public._qs_settings() from public, anon, authenticated;
+
+-- 세트 문제를 판에 쓸 모양으로: 종류·시간·점수를 정리하고, 정답이 없는 문제는 뺀다. 퍼즐은 섞은 순서(shuffle)를 붙인다
+create or replace function public._qs_snapshot(p_questions jsonb)
+returns jsonb
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_out  jsonb := '[]'::jsonb;
+  q      jsonb;
+  v_type text;
+  v_n    int;
+  v_sh   jsonb;
+  v_try  int;
+begin
+  for q in select e from jsonb_array_elements(coalesce(p_questions, '[]'::jsonb)) e loop
+    v_type := q ->> 'type';
+    continue when v_type not in ('quiz', 'tf', 'type', 'slider', 'puzzle', 'pin', 'slide');
+    q := q || jsonb_build_object(
+      'time',   least(greatest(coalesce((q ->> 'time')::int, 20), 5), 240),
+      'points', case when q ->> 'points' in ('standard', 'double', 'none') then q ->> 'points' else 'standard' end);
+    q := q || jsonb_build_object('text', left(coalesce(q ->> 'text', ''), 200));
+    if v_type = 'tf' then
+      q := q || '{"options": [{"text": "참"}, {"text": "거짓"}]}'::jsonb;
+    end if;
+    -- 빈 보기는 뺀다(퀴즈는 정답 번호도 다시 매김). 보기는 6개까지
+    if v_type in ('quiz', 'puzzle') and jsonb_typeof(q -> 'options') = 'array' then
+      q := q || (
+        select jsonb_build_object(
+          'options', coalesce(jsonb_agg(jsonb_strip_nulls(jsonb_build_object('text', left(coalesce(k.o ->> 'text', ''), 120), 'image', k.o ->> 'image')) order by k.n), '[]'::jsonb),
+          'correct', coalesce(jsonb_agg(k.rn - 1 order by k.n) filter (where q -> 'correct' @> to_jsonb((k.n - 1)::int)), '[]'::jsonb))
+        from (
+          select e.o, e.n, row_number() over (order by e.n) as rn
+          from jsonb_array_elements(q -> 'options') with ordinality as e(o, n)
+          where btrim(coalesce(e.o ->> 'text', '')) <> '' or coalesce(e.o ->> 'image', '') <> ''
+          order by e.n
+          limit 6
+        ) k);
+      if v_type = 'puzzle' then
+        q := q - 'correct';
+      end if;
+      if v_type = 'quiz' and not coalesce((q ->> 'multi')::boolean, false) and jsonb_array_length(q -> 'correct') > 1 then
+        q := q || jsonb_build_object('correct', jsonb_build_array(q -> 'correct' -> 0));
+      end if;
+    end if;
+    -- 정답이 없으면 뺀다(슬라이드는 정답 없음)
+    continue when v_type in ('quiz', 'tf') and coalesce(jsonb_array_length(case when jsonb_typeof(q -> 'correct') = 'array' then q -> 'correct' end), 0) = 0;
+    continue when v_type = 'quiz' and coalesce(jsonb_array_length(case when jsonb_typeof(q -> 'options') = 'array' then q -> 'options' end), 0) < 2;
+    continue when v_type = 'type' and not exists (
+      select 1 from jsonb_array_elements_text(case when jsonb_typeof(q -> 'answers') = 'array' then q -> 'answers' else '[]'::jsonb end) a
+      where public._ws_norm(a) <> '');
+    continue when v_type = 'slider' and (coalesce(jsonb_typeof(q -> 'slider' -> 'answer'), '') <> 'number'
+                                         or coalesce(jsonb_typeof(q -> 'slider' -> 'min'), '') <> 'number'
+                                         or coalesce(jsonb_typeof(q -> 'slider' -> 'max'), '') <> 'number');
+    continue when v_type = 'pin' and (coalesce(q ->> 'image', '') = '' or coalesce(jsonb_typeof(q -> 'pin' -> 'x'), '') <> 'number'
+                                      or coalesce(jsonb_typeof(q -> 'pin' -> 'y'), '') <> 'number');
+    if v_type = 'puzzle' then
+      v_n := coalesce(jsonb_array_length(case when jsonb_typeof(q -> 'options') = 'array' then q -> 'options' end), 0);
+      continue when v_n < 2;
+      v_try := 0;
+      loop
+        select jsonb_agg(i order by random()) into v_sh from generate_series(0, v_n - 1) i;
+        v_try := v_try + 1;
+        exit when v_try > 20 or v_sh <> (select jsonb_agg(i order by i) from generate_series(0, v_n - 1) i);
+      end loop;
+      q := q || jsonb_build_object('shuffle', v_sh);
+    end if;
+    v_out := v_out || jsonb_build_array(q);
+  end loop;
+  return v_out;
+end;
+$$;
+revoke all on function public._qs_snapshot(jsonb) from public, anon, authenticated;
+
+-- 학생에게 보여 줄 문제(정답 뺌). 퍼즐 보기는 섞은 순서로 {i(원래 순서), text}
+create or replace function public._qs_public(q jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = public
+as $$
+  select jsonb_strip_nulls(jsonb_build_object(
+    'type',   q ->> 'type',
+    'text',   q ->> 'text',
+    'body',   q ->> 'body',
+    'image',  q ->> 'image',
+    'ratio',  q -> 'ratio',
+    'time',   q -> 'time',
+    'points', q ->> 'points',
+    'multi',  case when q ->> 'type' = 'quiz' then coalesce((q ->> 'multi')::boolean, false) end,
+    'options', case
+      when q ->> 'type' in ('quiz', 'tf') then (
+        select jsonb_agg(jsonb_strip_nulls(jsonb_build_object('text', o ->> 'text', 'image', o ->> 'image')) order by n)
+        from jsonb_array_elements(q -> 'options') with ordinality as e(o, n))
+      when q ->> 'type' = 'puzzle' then (
+        select jsonb_agg(jsonb_build_object('i', s.i::int, 'text', q -> 'options' -> s.i::int ->> 'text') order by s.n)
+        from jsonb_array_elements_text(q -> 'shuffle') with ordinality as s(i, n))
+    end,
+    'slider', case when q ->> 'type' = 'slider' then jsonb_build_object(
+      'min', q -> 'slider' -> 'min', 'max', q -> 'slider' -> 'max',
+      'step', coalesce(q -> 'slider' -> 'step', '1'::jsonb), 'unit', coalesce(q -> 'slider' ->> 'unit', '')) end
+  ));
+$$;
+revoke all on function public._qs_public(jsonb) from public, anon, authenticated;
+
+-- 공개하는 정답(마감 뒤에만 내보냄)
+create or replace function public._qs_key(q jsonb)
+returns jsonb
+language sql
+immutable
+set search_path = public
+as $$
+  select case q ->> 'type'
+    when 'quiz'   then jsonb_build_object('correct', q -> 'correct')
+    when 'tf'     then jsonb_build_object('correct', q -> 'correct')
+    when 'type'   then jsonb_build_object('answers', q -> 'answers')
+    when 'slider' then jsonb_build_object('answer', q -> 'slider' -> 'answer', 'tol', coalesce(q -> 'slider' -> 'tol', '0'::jsonb))
+    when 'puzzle' then jsonb_build_object('order', (select jsonb_agg(o ->> 'text' order by n) from jsonb_array_elements(q -> 'options') with ordinality as e(o, n)))
+    when 'pin'    then jsonb_build_object('x', q -> 'pin' -> 'x', 'y', q -> 'pin' -> 'y', 'r', coalesce(q -> 'pin' -> 'r', '10'::jsonb))
+  end;
+$$;
+revoke all on function public._qs_key(jsonb) from public, anon, authenticated;
+
+-- 채점. 답 모양: quiz·tf [보기 번호…] · type '글' · slider 숫자 · puzzle [원래 순서 번호…](위에서부터) · pin {x, y}(그림 안 %)
+create or replace function public._qs_ok(q jsonb, a jsonb)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v_t   text := q ->> 'type';
+  v_dx  numeric;
+  v_dy  numeric;
+begin
+  if a is null then
+    return false;
+  end if;
+  if v_t in ('quiz', 'tf') then
+    if jsonb_typeof(a) <> 'array' then return false; end if;
+    return coalesce((select jsonb_agg(distinct x order by x) from jsonb_array_elements(a) x where jsonb_typeof(x) = 'number'), '[]'::jsonb)
+         = coalesce((select jsonb_agg(distinct x order by x) from jsonb_array_elements(q -> 'correct') x), '[]'::jsonb);
+  elsif v_t = 'type' then
+    if jsonb_typeof(a) <> 'string' then return false; end if;
+    return exists (select 1 from jsonb_array_elements_text(q -> 'answers') x
+                   where public._ws_norm(x) <> '' and public._ws_norm(x) = public._ws_norm(a #>> '{}'));
+  elsif v_t = 'slider' then
+    if jsonb_typeof(a) <> 'number' then return false; end if;
+    return abs((a #>> '{}')::numeric - (q -> 'slider' ->> 'answer')::numeric) <= coalesce((q -> 'slider' ->> 'tol')::numeric, 0) + 1e-9;
+  elsif v_t = 'puzzle' then
+    if jsonb_typeof(a) <> 'array' then return false; end if;
+    return a = (select jsonb_agg(i order by i) from generate_series(0, jsonb_array_length(q -> 'options') - 1) i);
+  elsif v_t = 'pin' then
+    if jsonb_typeof(a) <> 'object' or jsonb_typeof(a -> 'x') <> 'number' or jsonb_typeof(a -> 'y') <> 'number' then return false; end if;
+    v_dx := ((a ->> 'x')::numeric - (q -> 'pin' ->> 'x')::numeric) / 100;
+    v_dy := ((a ->> 'y')::numeric - (q -> 'pin' ->> 'y')::numeric) / 100 * coalesce((q ->> 'ratio')::numeric, 1);
+    return sqrt(v_dx * v_dx + v_dy * v_dy) <= coalesce((q -> 'pin' ->> 'r')::numeric, 10) / 100;
+  end if;
+  return false;
+end;
+$$;
+revoke all on function public._qs_ok(jsonb, jsonb) from public, anon, authenticated;
+
+-- 문제 열기: 슬라이드는 바로(마감 없음), 나머지는 3초 문제만 보여 준 뒤 답 받기
+create or replace function public._qs_open(p_game_id uuid, p_q int)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_q jsonb;
+begin
+  select questions -> p_q into v_q from public.qs_games where id = p_game_id;
+  if v_q ->> 'type' = 'slide' then
+    update public.qs_games set status = 'ask', q = p_q, q_at = now(), q_end = null, version = version + 1 where id = p_game_id;
+  else
+    update public.qs_games
+    set status = 'ask', q = p_q, q_at = now() + interval '3 seconds',
+        q_end = now() + interval '3 seconds' + make_interval(secs => (v_q ->> 'time')::int), version = version + 1
+    where id = p_game_id;
+  end if;
+end;
+$$;
+revoke all on function public._qs_open(uuid, int) from public, anon, authenticated;
+
+-- 마감: 답 받기를 끝내고 이번 문제 점수(연속 보너스 포함)를 확정한다. 한 문제에 한 번만(ask일 때만)
+create or replace function public._qs_close(p_game_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.qs_games;
+  v_q    jsonb;
+  v_scored boolean;
+begin
+  select * into g from public.qs_games where id = p_game_id for update;
+  if g.id is null or g.status <> 'ask' then
+    return;
+  end if;
+  v_q := g.questions -> g.q;
+  v_scored := v_q ->> 'type' <> 'slide' and v_q ->> 'points' <> 'none';
+  update public.qs_players set prev_score = score where game_id = g.id;
+  if v_q ->> 'type' <> 'slide' then
+    -- 연속: 점수 있는 문제만 센다. 안 냈거나 틀리면 0부터
+    if v_scored then
+      update public.qs_players p
+      set streak = case when exists (select 1 from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.student_id = p.student_id and a.ok)
+                        then p.streak + 1 else 0 end
+      where p.game_id = g.id;
+      update public.qs_answers a
+      set points = a.points + least(500, 100 * greatest(p.streak - 1, 0))
+      from public.qs_players p
+      where a.game_id = g.id and a.q = g.q and a.ok and p.game_id = g.id and p.student_id = a.student_id;
+    end if;
+    update public.qs_players p
+    set score   = p.score + coalesce((select a.points from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.student_id = p.student_id), 0),
+        correct = p.correct + case when exists (select 1 from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.student_id = p.student_id and a.ok) then 1 else 0 end
+    where p.game_id = g.id;
+  end if;
+  update public.qs_games set status = 'reveal', q_end = least(coalesce(q_end, now()), now()), version = version + 1 where id = g.id;
+end;
+$$;
+revoke all on function public._qs_close(uuid) from public, anon, authenticated;
+
+-- 밀린 마감 처리: 마감이 지났거나 접속한 학생(15초 안)이 모두 냈으면
+create or replace function public._qs_tick(p_game_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g public.qs_games;
+begin
+  select * into g from public.qs_games where id = p_game_id;
+  if g.id is null or g.status <> 'ask' or g.q_end is null then
+    return;
+  end if;
+  if now() >= g.q_end
+     or (now() >= g.q_at
+         and exists (select 1 from public.qs_players p where p.game_id = g.id)
+         and not exists (
+           select 1 from public.qs_players p
+           where p.game_id = g.id and p.seen_at > now() - interval '15 seconds'
+             and not exists (select 1 from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.student_id = p.student_id))) then
+    perform public._qs_close(g.id);
+  end if;
+end;
+$$;
+revoke all on function public._qs_tick(uuid) from public, anon, authenticated;
+
+-- 개인 순위(0번 빼고, 점수 높은 순, 동점 같은 순위) [{sid, nickname, avatar, team, score, prev_score, correct, streak, rank, prev_rank}]
+create or replace function public._qs_ranking(p_game_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'sid', r.student_id, 'nickname', r.nickname, 'avatar', r.avatar, 'team', r.team,
+           'score', r.score, 'prev_score', r.prev_score, 'correct', r.correct, 'streak', r.streak,
+           'rank', r.rk, 'prev_rank', r.prk) order by r.rk, r.number), '[]'::jsonb)
+  from (
+    select p.student_id, s.nickname, s.avatar, s.number, p.team, p.score, p.prev_score, p.correct, p.streak,
+           rank() over (order by p.score desc) as rk,
+           rank() over (order by p.prev_score desc) as prk
+    from public.qs_players p join public.students s on s.id = p.student_id
+    where p.game_id = p_game_id and s.number > 0
+  ) r;
+$$;
+revoke all on function public._qs_ranking(uuid) from public, anon, authenticated;
+
+-- 모둠 순위(모둠 대항): 모둠 점수 = 모둠원(들어온 학생) 평균 [{team, score, prev_score, n, rank, members:[{nickname, avatar}]}]
+create or replace function public._qs_teams(p_game_id uuid)
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'team', t.team, 'score', t.score, 'prev_score', t.prev_score, 'n', t.n, 'rank', t.rk, 'prev_rank', t.prk,
+           'members', t.members) order by t.rk, t.team), '[]'::jsonb)
+  from (
+    select x.*, rank() over (order by x.score desc) as rk, rank() over (order by x.prev_score desc) as prk
+    from (
+      select p.team, round(avg(p.score))::int as score, round(avg(p.prev_score))::int as prev_score, count(*)::int as n,
+             jsonb_agg(jsonb_build_object('nickname', s.nickname, 'avatar', s.avatar) order by s.number) as members
+      from public.qs_players p join public.students s on s.id = p.student_id
+      where p.game_id = p_game_id and p.team is not null and p.team > 0 and s.number > 0
+      group by p.team
+    ) x
+  ) t;
+$$;
+revoke all on function public._qs_teams(uuid) from public, anon, authenticated;
+
+-- 끝내기: 시상대 + 1~3위 지급(한 번). 개인전은 학생 2명 이상·점수 1점 이상, 모둠 대항은 모둠 2개 이상·모둠 점수 1점 이상
+create or replace function public._qs_finish(p_game_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.qs_games;
+  v_set  jsonb := public._qs_settings();
+  v_why  text;
+begin
+  select * into g from public.qs_games where id = p_game_id for update;
+  if g.id is null or g.status = 'done' then
+    return;
+  end if;
+  v_why := left('퀴즈 쇼 ' || coalesce(nullif(g.title, ''), '퀴즈'), 40);
+  if g.mode = 'solo' then
+    if jsonb_array_length(public._qs_ranking(g.id)) >= 2 then
+      insert into public.point_events (student_id, xp, coins, reason, qs_game_id)
+      select (r ->> 'sid')::uuid,
+             coalesce((v_set -> 'xp' ->> ((r ->> 'rank')::int - 1))::int, 0),
+             coalesce((v_set -> 'coins' ->> ((r ->> 'rank')::int - 1))::int, 0),
+             v_why, g.id
+      from jsonb_array_elements(public._qs_ranking(g.id)) r
+      where (r ->> 'rank')::int <= 3 and (r ->> 'score')::int > 0
+        and (coalesce((v_set -> 'xp' ->> ((r ->> 'rank')::int - 1))::int, 0) <> 0 or coalesce((v_set -> 'coins' ->> ((r ->> 'rank')::int - 1))::int, 0) <> 0)
+      on conflict do nothing;
+    end if;
+  else
+    if jsonb_array_length(public._qs_teams(g.id)) >= 2 then
+      insert into public.point_events (student_id, xp, coins, reason, qs_game_id)
+      select p.student_id,
+             coalesce((v_set -> 'xp' ->> ((t ->> 'rank')::int - 1))::int, 0),
+             coalesce((v_set -> 'coins' ->> ((t ->> 'rank')::int - 1))::int, 0),
+             v_why, g.id
+      from jsonb_array_elements(public._qs_teams(g.id)) t
+      join public.qs_players p on p.game_id = g.id and p.team = (t ->> 'team')::int
+      join public.students s on s.id = p.student_id and s.number > 0
+      where (t ->> 'rank')::int <= 3 and (t ->> 'score')::int > 0
+        and (coalesce((v_set -> 'xp' ->> ((t ->> 'rank')::int - 1))::int, 0) <> 0 or coalesce((v_set -> 'coins' ->> ((t ->> 'rank')::int - 1))::int, 0) <> 0)
+      on conflict do nothing;
+    end if;
+  end if;
+  update public.qs_games set status = 'done', paid = true, ended_at = now(), version = version + 1 where id = g.id;
+end;
+$$;
+revoke all on function public._qs_finish(uuid) from public, anon, authenticated;
+
+-- 이 반에서 지금 학생이 볼 판: 열린 판, 없으면 10분 안에 끝난 판(시상대·결과 보기). 그만둔 판은 빼고
+create or replace function public._qs_current(p_class_id int)
+returns uuid
+language sql
+stable
+set search_path = public
+as $$
+  select id from public.qs_games
+  where class_id = p_class_id and not cancelled
+    and (status <> 'done' or ended_at > now() - interval '10 minutes')
+  order by (status <> 'done') desc, created_at desc
+  limit 1;
+$$;
+revoke all on function public._qs_current(int) from public, anon, authenticated;
+
+-- 학생에게 보여 줄 판
+--   phase: lobby | ready(답 받기 전 3초) | ask | reveal | board | done
+--   question: 지금 문제(정답 뺌), key: 정답(reveal·board에서만), mine: 내 답 {answer, ok, points}(ok·points는 reveal부터)
+--   me: {score, rank, correct, streak, team, team_rank}, top: 중간 순위 5명(board·done), podium(done), gain(done, 받은 XP·코인)
+create or replace function public._qs_view(p_game_id uuid, p_sid uuid)
+returns jsonb
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  g       public.qs_games;
+  v_phase text;
+  v_q     jsonb;
+  v_rank  jsonb;
+  v_teams jsonb;
+  v_me    jsonb;
+  v_pl    public.qs_players;
+  v_mine  jsonb;
+  v_shown boolean;
+  v_myteam jsonb;
+begin
+  select * into g from public.qs_games where id = p_game_id;
+  if g.id is null then
+    return null;
+  end if;
+  v_phase := case
+    when g.status = 'ask' and g.q_at > now() then 'ready'
+    else g.status end;
+  v_shown := g.status in ('reveal', 'board', 'done');
+  v_q := g.questions -> g.q;
+  select * into v_pl from public.qs_players where game_id = g.id and student_id = p_sid;
+  v_rank := public._qs_ranking(g.id);
+  if g.mode = 'team' then
+    v_teams := public._qs_teams(g.id);
+    select t into v_myteam from jsonb_array_elements(v_teams) t where (t ->> 'team')::int = v_pl.team;
+  end if;
+  if v_pl.student_id is not null then
+    v_me := jsonb_build_object(
+      'score',   v_pl.score,
+      'correct', v_pl.correct,
+      'streak',  v_pl.streak,
+      'rank',    (select (r ->> 'rank')::int from jsonb_array_elements(v_rank) r where (r ->> 'sid')::uuid = p_sid),
+      'team',    v_pl.team,
+      'team_rank', (v_myteam ->> 'rank')::int,
+      'team_score', (v_myteam ->> 'score')::int);
+    if g.status in ('ask', 'reveal', 'board') then
+      select jsonb_build_object('answer', a.answer,
+                                'ok', case when g.status <> 'ask' then a.ok end,
+                                'points', case when g.status <> 'ask' then a.points end) into v_mine
+      from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.student_id = p_sid;
+    end if;
+  end if;
+  return jsonb_build_object(
+    'id',       g.id,
+    'status',   g.status,
+    'phase',    v_phase,
+    'version',  g.version,
+    'mode',     g.mode,
+    'title',    g.title,
+    'q',        g.q,
+    'total',    jsonb_array_length(g.questions),
+    'joined',   v_pl.student_id is not null,
+    'players',  (select count(*) from public.qs_players p join public.students s on s.id = p.student_id where p.game_id = g.id and s.number > 0),
+    'start_ms', case when v_phase = 'ready' then ceil(extract(epoch from g.q_at - now()) * 1000)::int end,
+    'left_ms',  case when v_phase = 'ask' and g.q_end is not null then greatest(0, ceil(extract(epoch from g.q_end - now()) * 1000))::int end,
+    'question', case when g.status in ('ask', 'reveal', 'board') then public._qs_public(v_q) end,
+    'key',      case when g.status in ('reveal', 'board') then public._qs_key(v_q) end,
+    'mine',     v_mine,
+    'me',       v_me,
+    'top',      case when g.status in ('board', 'done') then (
+                  select coalesce(jsonb_agg(jsonb_build_object('nickname', r -> 'nickname', 'avatar', r -> 'avatar', 'score', r -> 'score', 'rank', r -> 'rank',
+                                                               'me', (r ->> 'sid')::uuid = p_sid) order by n), '[]'::jsonb)
+                  from jsonb_array_elements(v_rank) with ordinality as e(r, n) where n <= 5) end,
+    'teams',    case when g.mode = 'team' and g.status in ('board', 'done') then (
+                  select coalesce(jsonb_agg(t - 'members' order by n), '[]'::jsonb) from jsonb_array_elements(v_teams) with ordinality as e(t, n) where n <= 7) end,
+    'gain',     case when g.status = 'done' then (
+                  select jsonb_build_object('xp', e.xp, 'coins', e.coins) from public.point_events e where e.qs_game_id = g.id and e.student_id = p_sid) end,
+    'shown',    v_shown
+  );
+end;
+$$;
+revoke all on function public._qs_view(uuid, uuid) from public, anon, authenticated;
+
+-- 퀴즈 쇼 상태 (학생). 부를 때마다 '아직 있음', 답 받는 중이면 '문제가 뜬 시각'을 기록하고 밀린 마감을 처리한다.
+-- 결과: {ok, avatar(내 캐릭터), game: _qs_view | null} 또는 {ok: false, error: 'NO_SESSION'}
+create or replace function public.qs_state(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid uuid;
+  v_gid uuid;
+  g     public.qs_games;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  v_gid := public._qs_current((select class_id from public.students where id = v_sid));
+  if v_gid is null then
+    return jsonb_build_object('ok', true, 'avatar', (select avatar from public.students where id = v_sid), 'game', null);
+  end if;
+  update public.qs_players set seen_at = now() where game_id = v_gid and student_id = v_sid;
+  if found then
+    select * into g from public.qs_games where id = v_gid;
+    if g.status = 'ask' then
+      insert into public.qs_seen (game_id, q, student_id) values (g.id, g.q, v_sid) on conflict do nothing;
+    end if;
+  end if;
+  perform public._qs_tick(v_gid);
+  return jsonb_build_object('ok', true, 'avatar', (select avatar from public.students where id = v_sid), 'game', public._qs_view(v_gid, v_sid));
+end;
+$$;
+revoke all on function public.qs_state(text) from public;
+grant execute on function public.qs_state(text) to anon, authenticated;
+
+-- 들어가기 (학생): 열린 판이면 언제든(진행 중에 들어오면 앞 문제는 0점). 모둠 대항이면 그날 모둠으로
+-- 결과: qs_state와 같음 또는 {ok: false, error: 'NO_SESSION' | 'NO_GAME'}
+create or replace function public.qs_join(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid  uuid;
+  g      public.qs_games;
+  v_team smallint;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into g from public.qs_games where id = public._qs_current((select class_id from public.students where id = v_sid));
+  if g.id is null or g.status = 'done' then
+    return jsonb_build_object('ok', false, 'error', 'NO_GAME');
+  end if;
+  if g.mode = 'team' then
+    v_team := nullif(public._group_of(g.board_id, v_sid), 0);
+  end if;
+  insert into public.qs_players (game_id, student_id, team) values (g.id, v_sid, v_team)
+  on conflict (game_id, student_id) do update set seen_at = now();
+  update public.qs_games set version = version + 1 where id = g.id;
+  return public.qs_state(p_token);
+end;
+$$;
+revoke all on function public.qs_join(text) from public;
+grant execute on function public.qs_join(text) to anon, authenticated;
+
+-- 답 내기 (학생): 지금 문제(p_q)에 한 번만, 답 받는 동안만. 맞았는지는 마감 뒤에 보인다
+-- 결과: qs_state와 같음 또는 {ok: false, error: 'NO_SESSION' | 'NOT_PLAYER' | 'STALE' | 'ALREADY' | 'EMPTY'}
+create or replace function public.qs_answer(p_token text, p_game_id uuid, p_q int, p_answer jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid   uuid;
+  g       public.qs_games;
+  v_q     jsonb;
+  v_seen  timestamptz;
+  v_start timestamptz;
+  v_ms    int;
+  v_lim   int;
+  v_ok    boolean;
+  v_pts   int := 0;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  update public.qs_players set seen_at = now() where game_id = p_game_id and student_id = v_sid;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'NOT_PLAYER');
+  end if;
+  perform public._qs_tick(p_game_id);
+  select * into g from public.qs_games where id = p_game_id;
+  v_q := g.questions -> g.q;
+  if g.status <> 'ask' or p_q is distinct from g.q or v_q ->> 'type' = 'slide' or now() < g.q_at or now() >= g.q_end then
+    return jsonb_build_object('ok', false, 'error', 'STALE');
+  end if;
+  if p_answer is null or jsonb_typeof(p_answer) = 'null' or length(p_answer::text) > 500
+     or (jsonb_typeof(p_answer) = 'string' and btrim(p_answer #>> '{}') = '')
+     or (jsonb_typeof(p_answer) = 'array' and jsonb_array_length(p_answer) = 0) then
+    return jsonb_build_object('ok', false, 'error', 'EMPTY');
+  end if;
+  if jsonb_typeof(p_answer) = 'string' then
+    p_answer := to_jsonb(left(btrim(p_answer #>> '{}'), 100));
+  end if;
+  -- 걸린 시간: 그 학생 기기에 문제가 뜬 시각부터. 문제 시작 뒤 2초까지만 늦게 쳐 준다
+  select at into v_seen from public.qs_seen where game_id = g.id and q = g.q and student_id = v_sid;
+  v_start := least(greatest(g.q_at, coalesce(v_seen, g.q_at)), g.q_at + interval '2 seconds');
+  v_lim := (v_q ->> 'time')::int * 1000;
+  v_ms := least(greatest(floor(extract(epoch from now() - v_start) * 1000)::int, 0), v_lim);
+  v_ok := public._qs_ok(v_q, p_answer);
+  if v_ok and v_q ->> 'points' <> 'none' then
+    v_pts := round(1000 * (1 - v_ms::numeric / v_lim / 2))::int * case when v_q ->> 'points' = 'double' then 2 else 1 end;
+  end if;
+  insert into public.qs_answers (game_id, q, student_id, answer, ok, ms, points)
+  values (g.id, g.q, v_sid, p_answer, v_ok, v_ms, v_pts)
+  on conflict do nothing;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'ALREADY');
+  end if;
+  update public.qs_games set version = version + 1 where id = g.id;
+  perform public._qs_tick(g.id);
+  return public.qs_state(p_token);
+end;
+$$;
+revoke all on function public.qs_answer(text, uuid, int, jsonb) from public;
+grant execute on function public.qs_answer(text, uuid, int, jsonb) to anon, authenticated;
+
+-- 판 만들기 (교사): 이 반에 열려 있던 판은 그만둔다(지급 없음). 모둠 대항은 오늘 보드의 그날 모둠을 쓴다
+-- 결과: {ok, id} 또는 {ok: false, error: 'NO_SET' | 'NO_QUESTIONS' | 'NO_GROUPS'}
+create or replace function public.qs_create(p_set_id uuid, p_class_id int, p_mode text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  s     public.qs_sets;
+  v_qs  jsonb;
+  v_bid uuid;
+  v_id  uuid;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into s from public.qs_sets where id = p_set_id;
+  if s.id is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SET');
+  end if;
+  v_qs := public._qs_snapshot(s.questions);
+  if jsonb_array_length(v_qs) = 0 then
+    return jsonb_build_object('ok', false, 'error', 'NO_QUESTIONS');
+  end if;
+  if p_mode = 'team' then
+    select today_board_id into v_bid from public.classes where id = p_class_id;
+    if v_bid is null or not exists (select 1 from public.board_groups where board_id = v_bid) then
+      return jsonb_build_object('ok', false, 'error', 'NO_GROUPS');
+    end if;
+  end if;
+  update public.qs_games set status = 'done', cancelled = true, ended_at = now(), version = version + 1
+  where class_id = p_class_id and status <> 'done';
+  insert into public.qs_games (set_id, class_id, board_id, title, mode, questions)
+  values (s.id, p_class_id, v_bid, s.title, case when p_mode = 'team' then 'team' else 'solo' end, v_qs)
+  returning id into v_id;
+  return jsonb_build_object('ok', true, 'id', v_id);
+end;
+$$;
+revoke all on function public.qs_create(uuid, int, text) from public, anon;
+grant execute on function public.qs_create(uuid, int, text) to authenticated;
+
+-- 다음 (교사): lobby → 첫 문제, ask → 마감(슬라이드는 다음 문제), reveal → 중간 순위, board → 다음 문제 / 마지막이면 끝(지급)
+-- p_version을 주면 그 판 버전일 때만(두 번 눌림 막기). 결과: qs_host와 같음
+create or replace function public.qs_next(p_game_id uuid, p_version int default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  g   public.qs_games;
+  v_n int;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  perform public._qs_tick(p_game_id);
+  select * into g from public.qs_games where id = p_game_id for update;
+  if g.id is null or g.status = 'done' or (p_version is not null and p_version <> g.version) then
+    return public.qs_host(p_game_id);
+  end if;
+  v_n := jsonb_array_length(g.questions);
+  if g.status = 'lobby' then
+    update public.qs_games set started_at = now() where id = g.id;
+    perform public._qs_open(g.id, 0);
+  elsif g.status = 'ask' then
+    if g.questions -> g.q ->> 'type' = 'slide' then
+      if g.q + 1 >= v_n then
+        perform public._qs_finish(g.id);
+      else
+        perform public._qs_open(g.id, g.q + 1);
+      end if;
+    else
+      perform public._qs_close(g.id);
+    end if;
+  elsif g.status = 'reveal' then
+    update public.qs_games set status = 'board', version = version + 1 where id = g.id;
+  elsif g.status = 'board' then
+    if g.q + 1 >= v_n then
+      perform public._qs_finish(g.id);
+    else
+      perform public._qs_open(g.id, g.q + 1);
+    end if;
+  end if;
+  return public.qs_host(p_game_id);
+end;
+$$;
+revoke all on function public.qs_next(uuid, int) from public, anon;
+grant execute on function public.qs_next(uuid, int) to authenticated;
+
+-- 그만두기 (교사): 지급 없이 끝낸다
+create or replace function public.qs_cancel(p_game_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.qs_games set status = 'done', cancelled = true, ended_at = now(), version = version + 1
+  where id = p_game_id and status <> 'done';
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.qs_cancel(uuid) from public, anon;
+grant execute on function public.qs_cancel(uuid) to authenticated;
+
+-- 프로젝터 화면 (교사): 지금 문제(정답 포함), 답 수·분포, 순위, 대기실 학생. 학생 번호는 내보내지 않는다
+--   dist: quiz·tf [보기마다 수] · type [{text, n, ok}] · slider [{value, n, ok}] · puzzle {ok, n} · pin [{x, y, ok}]
+create or replace function public.qs_host(p_game_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  g      public.qs_games;
+  v_q    jsonb;
+  v_dist jsonb;
+  v_phase text;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  perform public._qs_tick(p_game_id);
+  select * into g from public.qs_games where id = p_game_id;
+  if g.id is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_GAME');
+  end if;
+  v_q := g.questions -> g.q;
+  v_phase := case when g.status = 'ask' and g.q_at > now() then 'ready' else g.status end;
+  if g.status in ('reveal', 'board') then
+    v_dist := case v_q ->> 'type'
+      when 'quiz' then (select jsonb_agg((select count(*) from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.answer @> to_jsonb(i - 1)) order by i)
+                        from generate_series(1, jsonb_array_length(v_q -> 'options')) i)
+      when 'tf'   then (select jsonb_agg((select count(*) from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.answer @> to_jsonb(i - 1)) order by i)
+                        from generate_series(1, 2) i)
+      when 'type' then (select coalesce(jsonb_agg(jsonb_build_object('text', x.t, 'n', x.n, 'ok', x.ok) order by x.ok desc, x.n desc), '[]'::jsonb)
+                        from (select min(a.answer #>> '{}') as t, count(*)::int as n, bool_or(a.ok) as ok
+                              from public.qs_answers a where a.game_id = g.id and a.q = g.q
+                              group by public._ws_norm(a.answer #>> '{}') order by count(*) desc limit 12) x)
+      when 'slider' then (select coalesce(jsonb_agg(jsonb_build_object('value', x.v, 'n', x.n, 'ok', x.ok) order by x.v), '[]'::jsonb)
+                          from (select (a.answer #>> '{}')::numeric as v, count(*)::int as n, bool_or(a.ok) as ok
+                                from public.qs_answers a where a.game_id = g.id and a.q = g.q group by 1) x)
+      when 'puzzle' then (select jsonb_build_object('ok', count(*) filter (where a.ok), 'n', count(*)) from public.qs_answers a where a.game_id = g.id and a.q = g.q)
+      when 'pin' then (select coalesce(jsonb_agg(jsonb_build_object('x', a.answer -> 'x', 'y', a.answer -> 'y', 'ok', a.ok)), '[]'::jsonb)
+                       from (select * from public.qs_answers where game_id = g.id and q = g.q limit 300) a)
+    end;
+  end if;
+  return jsonb_build_object(
+    'ok',       true,
+    'id',       g.id,
+    'class_id', g.class_id,
+    'status',   g.status,
+    'phase',    v_phase,
+    'version',  g.version,
+    'mode',     g.mode,
+    'title',    g.title,
+    'cancelled', g.cancelled,
+    'q',        g.q,
+    'total',    jsonb_array_length(g.questions),
+    'question', case when g.status in ('ask', 'reveal', 'board') then public._qs_public(v_q) end,
+    'key',      case when g.status in ('reveal', 'board') then public._qs_key(v_q) end,
+    'start_ms', case when v_phase = 'ready' then ceil(extract(epoch from g.q_at - now()) * 1000)::int end,
+    'left_ms',  case when v_phase = 'ask' and g.q_end is not null then greatest(0, ceil(extract(epoch from g.q_end - now()) * 1000))::int end,
+    'joined',   (select count(*) from public.qs_players p join public.students s on s.id = p.student_id where p.game_id = g.id and s.number > 0),
+    'answered', (select count(*) from public.qs_answers a join public.students s on s.id = a.student_id where a.game_id = g.id and a.q = g.q and s.number > 0),
+    'n_ok',     case when g.status in ('reveal', 'board') then (select count(*) from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.ok) end,
+    'dist',     v_dist,
+    'lobby',    case when g.status = 'lobby' then (
+                  select coalesce(jsonb_agg(jsonb_build_object('nickname', s.nickname, 'avatar', s.avatar, 'team', p.team) order by p.joined_at), '[]'::jsonb)
+                  from public.qs_players p join public.students s on s.id = p.student_id where p.game_id = g.id and s.number > 0) end,
+    'ranking',  case when g.status in ('board', 'done') then (
+                  select coalesce(jsonb_agg(r - 'sid' order by n), '[]'::jsonb) from jsonb_array_elements(public._qs_ranking(g.id)) with ordinality as e(r, n) where n <= 10) end,
+    'teams',    case when g.mode = 'team' and g.status in ('lobby', 'board', 'done') then public._qs_teams(g.id) end
+  );
+end;
+$$;
+revoke all on function public.qs_host(uuid) from public, anon;
+grant execute on function public.qs_host(uuid) to authenticated;
+
+-- 문제 그림 버킷: 교사만 올리고 지운다(읽기는 공개)
+do $$
+begin
+  if to_regclass('storage.objects') is not null then
+    execute 'drop policy if exists quizshow_teacher_all on storage.objects';
+    execute $p$create policy quizshow_teacher_all on storage.objects for all to authenticated
+              using (bucket_id = 'quizshow' and public.is_teacher()) with check (bucket_id = 'quizshow' and public.is_teacher())$p$;
+  end if;
+end $$;

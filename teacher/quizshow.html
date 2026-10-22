@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>퀴즈 쇼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/design.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+</head>
+<body class="qsh-body">
+<div id="app" class="qsh">
+  <header class="qsh-top">
+    <a class="icon-btn glass lift qsh-back" href="quizshow-edit.html" aria-label="퀴즈 쇼 목록으로"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg></a>
+    <span class="qsh-chip num" id="top-class"></span>
+    <b class="qsh-title" id="top-title"></b>
+    <span class="qsh-progress num" id="top-q"></span>
+    <button type="button" class="btn btn-line btn-small hidden" id="cancel">그만두기</button>
+  </header>
+
+  <main class="qsh-stage" id="stage" aria-live="polite"></main>
+
+  <footer class="qsh-foot">
+    <span class="qsh-hint num" id="hint"></span>
+    <button type="button" class="btn btn-primary btn-big press hidden" id="next"><span id="next-t">다음</span><kbd>Space</kbd></button>
+  </footer>
+</div>
+<script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js"></script>
+<script type="module" src="../assets/js/pages/quizshow-host.js"></script>
+</body>
+</html>

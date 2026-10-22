@@ -27,6 +27,16 @@
     </nav>
   </div>
 
+  <!-- 퀴즈 쇼: 선생님이 이 반에 열었을 때만 (탭과 상관없이 맨 위) -->
+  <section class="qb-entry glass-strong pop hidden" id="qs-card" aria-labelledby="qs-h">
+    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="13" rx="2.5"/><path d="M8 21h8M12 17v4M9.5 9.2a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4"/><circle cx="12" cy="14.6" r=".4" fill="currentColor"/></svg>
+    <div class="qb-entry-main">
+      <b id="qs-h">퀴즈 쇼</b>
+      <span class="muted" id="qs-s"></span>
+    </div>
+    <a class="btn btn-primary btn-big press" id="qs-go" href="quizshow.html">들어가기</a>
+  </section>
+
   <!-- [개인 학습지](오늘 차시에 학습지가 있을 때만) [모둠활동] [게시판] -->
   <nav class="class-tabs glass" id="tabs" role="tablist" aria-label="오늘 수업">
     <button type="button" class="class-tab press hidden" role="tab" data-tab="sheet" id="tab-sheet" aria-controls="sheet" aria-selected="false">개인 학습지</button>

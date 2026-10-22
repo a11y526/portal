@@ -1,4 +1,4 @@
-// 수업 모드 (프로젝터): 수업자료 HTML이 화면 가득, G키로 모둠활동 덮개(모둠·게시판·순위 발표)를 열고 닫는다
+// 수업 모드 (프로젝터): 수업자료 HTML이 화면 가득, G키로 모둠활동 덮개(모둠·게시판·순위 발표·퀴즈 쇼)를 열고 닫는다
 // live.html?c=<반>&l=<차시>
 // 수업자료 iframe은 한 번 만들면 없애거나 다시 불러오지 않는다(보던 쪽과 시뮬레이션 상태가 남게)
 import { CLASSES, GRADE } from '../config.js';
@@ -100,7 +100,7 @@ const lessonFrame = {
 
 /* ---------- 키 ----------
    G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기 · Shift+W: 지금 쪽 뒤로 다시 잠그기
-   덮개가 열려 있으면 1·2·3 탭, T 타이머 시작·일시정지
+   덮개가 열려 있으면 1·2·3·4 탭, T 타이머 시작·일시정지
    S: 지금 쪽 학습지 [제출 시작] / 열려 있으면 [잠그기] / 잠갔으면 [다시 열기] · V: [제출한 것 보기]
    첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, Esc 닫기.
    띠의 [n번 인정]으로 인정한 답을 다시 띄우면 Enter·Esc 닫기, [인정 취소]는 눌러서만
@@ -136,6 +136,7 @@ function handleKey(e) {
     case 'Digit1': case 'Numpad1': setTab('groups'); return true;
     case 'Digit2': case 'Numpad2': setTab('board'); return true;
     case 'Digit3': case 'Numpad3': setTab('reveal'); return true;
+    case 'Digit4': case 'Numpad4': setTab('quizshow'); return true;
     case 'KeyT': if (!e.repeat) timer.toggle(); return true;
   }
   return false;
@@ -209,6 +210,7 @@ function setTab(next) {
   if (next === 'groups') fitGroups();
   if (next === 'board') postBoard.show();
   if (next === 'reveal') mountReveal();
+  if (next === 'quizshow') mountQuizShow();
   focusPane();
 }
 document.querySelector('.cover-tabs').addEventListener('click', (e) => {
@@ -577,6 +579,23 @@ function mountReveal() {
   hookEmbed(f);
   f.addEventListener('load', focusPane);
   $('reveal-embed').replaceChildren(f);
+}
+
+/* =========================================================
+   [퀴즈 쇼] 탭: 처음 열 때 만든다(보드와 상관없음). 덮개를 닫아도 iframe은 그대로라 진행이 이어진다.
+   Space·Enter는 퀴즈 쇼 화면이 받는다(다음)
+   ========================================================= */
+let quizShowMounted = false;
+function mountQuizShow() {
+  if (quizShowMounted) return;
+  quizShowMounted = true;
+  const f = document.createElement('iframe');
+  f.className = 'cover-frame';
+  f.title = '퀴즈 쇼';
+  f.src = `quizshow.html?c=${classId}&embed=1`;
+  hookEmbed(f);
+  f.addEventListener('load', focusPane);
+  $('quizshow-embed').replaceChildren(f);
 }
 
 /* =========================================================

@@ -622,3 +622,89 @@ update public.boards set slide_max = ws_upto where slide_max is null and ws_upto
 -- 차시를 하는 반(2026-10-22: 621은 실험 먼저 A(9반)·개념 먼저 B(나머지) 두 갈래). null이면 모든 반.
 -- 반의 진도 계획에는 단원이 있고 그 반이 든 차시만 들어간다
 alter table public.lessons add column if not exists classes smallint[] null;
+
+-- ---------------------------------------------------------
+-- 퀴즈 쇼 (2026-10-22, 11단계): 반 전체가 한 문제씩 함께 푸는 퀴즈. 교사가 관리 '퀴즈 쇼'에서 문제 세트를 만들고,
+-- 프로젝터(수업 모드 덮개 [퀴즈 쇼] 탭 또는 teacher/quizshow.html)에서 한 문제씩 진행한다. 학생은 quizshow.html에서 답한다.
+-- 문제 종류: quiz(2~6지, 하나/여럿) · tf(참/거짓) · type(답 입력) · slider(숫자) · puzzle(순서) · pin(그림 위 위치) · slide(설명 화면)
+-- 점수: 빨리 낼수록 높게(최대 1000, 2배·없음 문제), 연속 정답 보너스. 개인전 또는 모둠 대항(그날 모둠 평균).
+-- 1~3위(모둠 대항이면 1~3위 모둠원 모두)에게 settings.quiz_show의 XP·코인
+-- ---------------------------------------------------------
+create table if not exists public.qs_sets (
+  id          uuid primary key default gen_random_uuid(),
+  title       text not null default '' check (char_length(title) <= 80),
+  description text not null default '' check (char_length(description) <= 500),
+  questions   jsonb not null default '[]'::jsonb,   -- [{type, text, image, ratio, time, points, multi, options, correct, answers, slider, pin, body}]
+  created_at  timestamptz not null default now(),
+  updated_at  timestamptz not null default now()
+);
+
+create table if not exists public.qs_games (
+  id         uuid primary key default gen_random_uuid(),
+  set_id     uuid null references public.qs_sets(id) on delete set null,
+  class_id   smallint not null references public.classes(id) on delete cascade,
+  board_id   uuid null references public.boards(id) on delete set null,   -- 모둠 대항일 때 그날 모둠을 읽은 보드
+  title      text not null default '',
+  mode       text not null default 'solo' check (mode in ('solo', 'team')),
+  questions  jsonb not null default '[]'::jsonb,                            -- 시작할 때 세트를 복사(퍼즐은 섞은 순서 shuffle 포함)
+  status     text not null default 'lobby' check (status in ('lobby', 'ask', 'reveal', 'board', 'done')),
+  q          int not null default 0,
+  q_at       timestamptz null,     -- 답을 받기 시작하는 시각(그 전 3초는 문제만 보여 줌)
+  q_end      timestamptz null,     -- 답을 받는 마감
+  version    int not null default 0,
+  paid       boolean not null default false,
+  cancelled  boolean not null default false,
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null
+);
+create index if not exists qs_games_class_idx on public.qs_games (class_id, created_at desc);
+
+create table if not exists public.qs_players (
+  game_id    uuid not null references public.qs_games(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  team       smallint null,        -- 모둠 대항: 그날 모둠(없으면 null = 모둠 점수에 안 들어감)
+  score      int not null default 0,
+  prev_score int not null default 0,   -- 직전 문제까지 점수(중간 순위 변화용)
+  correct    int not null default 0,
+  streak     int not null default 0,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, student_id)
+);
+
+-- 학생 기기에 그 문제가 처음 뜬 시각(느린 와이파이 보정: 문제 시작 뒤 2초까지만 늦게 쳐 준다)
+create table if not exists public.qs_seen (
+  game_id    uuid not null references public.qs_games(id) on delete cascade,
+  q          int not null,
+  student_id uuid not null references public.students(id) on delete cascade,
+  at         timestamptz not null default now(),
+  primary key (game_id, q, student_id)
+);
+
+create table if not exists public.qs_answers (
+  game_id    uuid not null references public.qs_games(id) on delete cascade,
+  q          int not null,
+  student_id uuid not null references public.students(id) on delete cascade,
+  answer     jsonb not null,
+  ok         boolean not null,
+  ms         int not null,          -- 낸 데 걸린 시간
+  points     int not null default 0, -- 마감 때 확정(연속 보너스 포함)
+  at         timestamptz not null default now(),
+  primary key (game_id, q, student_id)
+);
+
+-- 퀴즈 쇼 지급은 qs_game_id로 묶는다. 한 판에 한 학생 한 번
+alter table public.point_events add column if not exists qs_game_id uuid null references public.qs_games(id) on delete set null;
+create unique index if not exists point_events_qs_once_idx on public.point_events (student_id, qs_game_id) where qs_game_id is not null;
+
+-- 문제 그림 버킷: 공개 읽기, 5MB까지, jpeg·png
+do $$
+begin
+  if to_regclass('storage.buckets') is not null then
+    insert into storage.buckets (id, name, public, file_size_limit, allowed_mime_types)
+    values ('quizshow', 'quizshow', true, 5242880, array['image/jpeg', 'image/png'])
+    on conflict (id) do update
+      set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
+  end if;
+end $$;

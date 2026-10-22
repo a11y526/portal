@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>퀴즈 쇼</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body class="qsp-body">
+<div class="net-badge glass-strong hidden" id="net" role="status">연결 확인 중</div>
+<main class="wrap qsp">
+  <div class="qsp-top">
+    <a href="index.html" class="icon-btn glass lift" id="back" aria-label="반 페이지로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <b class="qsp-title" id="title">퀴즈 쇼</b>
+    <span class="qsp-score num hidden" id="score"></span>
+  </div>
+  <div class="qsp-stage" id="stage" aria-live="polite"></div>
+</main>
+<script defer src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.9.3/dist/confetti.browser.js"></script>
+<script type="module" src="assets/js/pages/quizshow.js"></script>
+</body>
+</html>

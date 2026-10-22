@@ -298,3 +298,40 @@ drop policy if exists class_days_teacher_all on public.class_days;
 create policy class_days_teacher_all on public.class_days
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 퀴즈 쇼 (2026-10-22): 교사만 표를 읽고 쓴다. 학생은 qs_* 함수로만. 버킷 정책은 03 끝
+alter table public.qs_sets enable row level security;
+alter table public.qs_games enable row level security;
+alter table public.qs_players enable row level security;
+alter table public.qs_seen enable row level security;
+alter table public.qs_answers enable row level security;
+revoke all on public.qs_sets from anon;
+revoke all on public.qs_games from anon;
+revoke all on public.qs_players from anon;
+revoke all on public.qs_seen from anon;
+revoke all on public.qs_answers from anon;
+
+drop policy if exists qs_sets_teacher_all on public.qs_sets;
+create policy qs_sets_teacher_all on public.qs_sets
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qs_games_teacher_all on public.qs_games;
+create policy qs_games_teacher_all on public.qs_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qs_players_teacher_all on public.qs_players;
+create policy qs_players_teacher_all on public.qs_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qs_seen_teacher_all on public.qs_seen;
+create policy qs_seen_teacher_all on public.qs_seen
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qs_answers_teacher_all on public.qs_answers;
+create policy qs_answers_teacher_all on public.qs_answers
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

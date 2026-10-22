@@ -171,3 +171,8 @@ on conflict (key) do nothing;
 insert into public.settings (key, value) values
   ('calendar', '{"token": "", "periods": [["09:00","09:45"],["09:55","10:40"],["10:50","11:35"],["11:45","12:30"],["13:30","14:15"],["14:25","15:10"],["15:20","16:05"]]}'::jsonb)
 on conflict (key) do nothing;
+
+-- 퀴즈 쇼: 1~3위가 받는 XP·코인(모둠 대항이면 1~3위 모둠원 모두)
+insert into public.settings (key, value) values
+  ('quiz_show', '{"xp": [10, 6, 3], "coins": [10, 6, 3]}'::jsonb)
+on conflict (key) do nothing;

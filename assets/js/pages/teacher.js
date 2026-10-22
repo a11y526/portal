@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -846,6 +846,8 @@ async function refreshPoints() {
   f.om_coins.value = omokRules.coins ?? 2;
   f.rk_xp.value = rkRules.xp;
   f.rk_coins.value = rkRules.coins;
+  const qs = (await getQuizShowRules()) ?? {};
+  [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
   renderPointsSum();
   const hub = $('hub-points');
   if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
@@ -876,6 +878,7 @@ $('points-form').addEventListener('submit', async (e) => {
     // 오목·루미큐브는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
     await saveOmokRules({ xp: 2, coins: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), coins: q('om_coins') });
     await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: q('rk_xp'), coins: q('rk_coins') });
+    await saveQuizShowRules({ xp: [0, 1, 2].map((i) => q('qs_xp' + i)), coins: [0, 1, 2].map((i) => q('qs_coins' + i)) });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
     await Promise.all([refreshOmokRules(), refreshRkRules()]);
@@ -917,6 +920,7 @@ function eventKind(e) {
   if (e.worksheet_board_id || (e.reason || '').startsWith('학습지 ')) return '학습지';
   if (e.ws_first_id || (e.reason || '').startsWith('첫 답 ')) return '첫 답';
   if (e.qb_game_id || (e.reason || '').startsWith('퀴즈 배틀')) return '퀴즈 배틀';
+  if (e.qs_game_id || (e.reason || '').startsWith('퀴즈 쇼')) return '퀴즈 쇼';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   if (e.reason === '오목 승리') return '오목';
   if (e.reason === '루미큐브 승리') return '루미큐브';

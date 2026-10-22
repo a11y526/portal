@@ -236,7 +236,7 @@ function straw(host,opts){
     // 값
     text(ctx,'빨대 속 기체의 눈금 수',860,120,19,700,MUTED,'center');
     text(ctx,sim.show?(Math.round(l*10)/10).toString():'?',860,190,64,800,sim.show?BLUE:'#AEAEB2','center');
-    text(ctx,'눈금 1개 = 1 mL',860,236,17,700,MUTED,'center');
+    text(ctx,'눈금 한 칸 = 1 mL',860,236,17,700,MUTED,'center');
   }
   draw();
   return sim;

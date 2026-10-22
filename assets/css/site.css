@@ -688,7 +688,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 
 /* 관리 사이드바 (teacher-side.js). 흐림 없이 거의 불투명한 흰색(스크롤 때 다시 그리지 않게) */
 :root { --side-w: 248px; }
-.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: var(--side-w); display: flex; flex-direction: column; gap: 6px;
+aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: var(--side-w); display: flex; flex-direction: column; gap: 6px;
   padding: 18px 12px 16px; background: rgba(255,255,255,.9); border-right: 1px solid rgba(11,18,32,.07);
   overflow-y: auto; overscroll-behavior: contain; transition: transform var(--t-fast) var(--ease); }
 .side-top { display: flex; align-items: center; justify-content: space-between; padding: 0 2px 6px 12px; }
@@ -719,20 +719,20 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
   /* 로그인 뒤(관리 화면이 보일 때)만 사이드바 자리를 비운다 */
   html:not(.side-closed) body:has(#v-admin:not(.hidden)) { padding-left: var(--side-w); }
   html:not(.side-closed) .admin-top .top-out { display: none; }
-  html.side-closed .side { transform: translateX(-100%); visibility: hidden; }
+  html.side-closed aside.side { transform: translateX(-100%); visibility: hidden; }
   html.side-closed .side-open { display: grid; }
 }
 @media (min-width: 961px) and (max-width: 1180px) {
   html:not(.side-closed) .hub-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 }
 @media (max-width: 960px) {
-  .side { width: min(280px, 84vw); background: #F8FAFD; transform: translateX(-100%); visibility: hidden; box-shadow: var(--shadow-strong);
+  aside.side { width: min(280px, 84vw); background: #F8FAFD; transform: translateX(-100%); visibility: hidden; box-shadow: var(--shadow-strong);
     transition: transform var(--t-fast) var(--ease), visibility 0s linear var(--t-fast); }
-  html.side-drawer .side { transform: none; visibility: visible; transition: transform var(--t-fast) var(--ease); }
+  html.side-drawer aside.side { transform: none; visibility: visible; transition: transform var(--t-fast) var(--ease); }
   html.side-drawer .side-scrim { display: block; position: fixed; inset: 0; z-index: 39; background: rgba(11,18,32,.3); }
   .side-open { display: grid; }
 }
-@media (prefers-reduced-motion: reduce) { .side { transition: none; } }
+@media (prefers-reduced-motion: reduce) { aside.side { transition: none; } }
 
 /* 묶음: 수업 · 학생 · 점수와 상점 · 기타. 묶음마다 아이콘 색만 다르다 */
 .hub { display: flex; flex-direction: column; gap: 28px; }

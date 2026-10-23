@@ -708,3 +708,43 @@ begin
       set public = excluded.public, file_size_limit = excluded.file_size_limit, allowed_mime_types = excluded.allowed_mime_types;
   end if;
 end $$;
+
+-- ---------------------------------------------------------
+-- 쿼리도 (2026-10-23 사용자 요청): 2명 판·4명 판 온라인. 6개 반 전체에서 판 크기별로 먼저 온 사람끼리.
+-- 오목 스위치(classes.omok_open)를 같이 쓴다. 도착 줄에 먼저 닿은 사람만 XP·코인(settings.quoridor), 하루 판 수·보상 횟수 제한.
+-- 칸 = 행*9 + 열(0~80). 벽 = 방향*64 + 행*8 + 열(방향 0 가로 · 1 세로, 행·열 0~7). 규칙은 assets/js/quoridor.js와 같다.
+-- 자리 0 아래→위, 1 왼쪽→오른쪽, 2 위→아래, 3 오른쪽→왼쪽. 2명 판은 자리 0·2
+-- ---------------------------------------------------------
+create table if not exists public.qd_games (
+  id         uuid primary key default gen_random_uuid(),
+  status     text not null default 'waiting' check (status in ('waiting', 'playing', 'done')),
+  size       smallint not null check (size in (2, 4)),
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null,
+  walls      int[] not null default '{}',      -- 놓인 벽
+  turn       smallint not null default 0,      -- 지금 차례 자리
+  turn_at    timestamptz null,                 -- 지금 차례가 시작된 시각(제한 시간 기준)
+  version    int not null default 0,           -- 바뀔 때마다 +1
+  moves      smallint not null default 0,
+  last       jsonb null,                       -- 마지막 행동 {seat, kind: move|wall|timeout|leave, from, to, wall}
+  winner     smallint null,
+  end_reason text null check (end_reason in ('goal', 'left')),
+  paid       boolean not null default false
+);
+create index if not exists qd_games_status_idx on public.qd_games (status, size, created_at);
+
+create table if not exists public.qd_players (
+  game_id    uuid not null references public.qd_games(id) on delete cascade,
+  seat       smallint not null check (seat between 0 and 3),
+  student_id uuid not null references public.students(id) on delete cascade,
+  cell       smallint null,                    -- 말 위치(나가면 null = 판에서 빠짐)
+  walls      smallint not null default 0,      -- 남은 벽
+  timeouts   smallint not null default 0,      -- 연속으로 시간을 넘긴 수(2번이면 나간 것으로)
+  left_at    timestamptz null,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, seat),
+  unique (game_id, student_id)
+);
+create index if not exists qd_players_student_idx on public.qd_players (student_id, joined_at);

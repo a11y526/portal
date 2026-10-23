@@ -176,3 +176,8 @@ on conflict (key) do nothing;
 insert into public.settings (key, value) values
   ('quiz_show', '{"xp": [10, 6, 3], "coins": [10, 6, 3]}'::jsonb)
 on conflict (key) do nothing;
+
+-- 쿼리도: 도착한 사람이 받는 XP·코인, 하루 판 수(시작된 판), 보상 받는 승리(하루), 한 수 제한 시간(초)
+insert into public.settings (key, value) values
+  ('quoridor', '{"xp": 5, "coins": 5, "daily": 5, "reward_daily": 1, "turn": 40}'::jsonb)
+on conflict (key) do nothing;

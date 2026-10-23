@@ -2,7 +2,7 @@
 // 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(게시판)만 볼 수도 있다.
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
-import { studentLogin, studentLogout, getMyPage, getOmok, rkState, omState } from '../db.js';
+import { studentLogin, studentLogout, getMyPage, getOmok } from '../db.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
 import { mountAvatar, react, bindReactions } from '../avatar.js';
 
@@ -119,22 +119,9 @@ async function showHome(login) {
     $('go-me-sub').textContent = `레벨 ${me.level.level}`;
     $('go-shop-sub').textContent = `코인 ${me.coins}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
+    // 게임은 오목 스위치 하나로 모두 켜고 끈다(오목·루미큐브·쿼리도)
     getOmok(login.token).then((o) => {
-      if (!o?.ok) return;
-      $('go-omok').hidden = !o.open;
-      $('go-omok-sub').textContent = `오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판`;
-    }).catch(() => {});
-    omState(login.token).then((r) => {
-      if (!r?.ok) return;
-      $('go-omp').hidden = !r.open;
-      $('go-omp-sub').textContent = r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
-        : `오늘 ${Math.min(r.today, r.daily)} / ${r.daily}판`;
-    }).catch(() => {});
-    rkState(login.token).then((r) => {
-      if (!r?.ok) return;
-      $('go-rk').hidden = !r.open;
-      $('go-rk-sub').textContent = r.game?.status === 'playing' ? '하는 중' : r.game?.status === 'waiting' ? '기다리는 중'
-        : `오늘 ${Math.min(r.today, r.daily)} / ${r.daily}판`;
+      if (o?.ok) $('go-games').hidden = !o.open;
     }).catch(() => {});
     try {
       if (me.month_rank) sessionStorage.setItem('me-mark', JSON.stringify({ c: me.class_id, r: me.month_rank, xp: me.month_xp }));

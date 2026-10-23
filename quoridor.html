@@ -1,0 +1,217 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>쿼리도</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap omok-wrap qd-wrap">
+  <div class="page-top">
+    <a href="games.html" class="icon-btn glass lift" aria-label="게임으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <nav class="class-tabs glass omok-modes" aria-label="쿼리도">
+    <button type="button" class="class-tab press on" data-tab="game" aria-current="page">게임</button>
+    <button type="button" class="class-tab press" data-tab="rules">규칙</button>
+  </nav>
+
+  <!-- 로그인 필요 -->
+  <section class="glass-strong me-card omok-msg hidden rise" id="v-login">
+    <h1 class="omok-msg-h">쿼리도</h1>
+    <p class="muted">로그인하면 할 수 있어요</p>
+    <a class="btn btn-primary press" href="index.html">로그인</a>
+  </section>
+
+  <div class="omok-body hidden" id="v-game">
+    <section class="glass-strong omok-hero rise" id="hero">
+      <div class="omok-av" id="av"></div>
+      <div class="omok-hero-main">
+        <div class="me-name-row">
+          <h1 class="me-name">쿼리도</h1>
+          <span class="chip">6개 반 · 한 수 <span class="num" id="turn-sec">40</span>초</span>
+        </div>
+        <p class="omok-reward">이기면 <b class="num" id="rw-xp">5</b> XP · <b class="num" id="rw-co">5</b>코인 · 오늘 보상 <b class="num" id="rw-today">0 / 1</b></p>
+        <div class="omok-today">
+          <span>오늘 한 판</span>
+          <span class="omok-dots" id="dots" aria-hidden="true"></span>
+          <b class="num" id="today"></b>
+        </div>
+      </div>
+    </section>
+
+    <!-- 판 찾기·기다리기 -->
+    <section class="glass-strong rk-lobby rise" style="--d:.06s" id="lobby">
+      <div class="rk-seats" id="seats"></div>
+      <b class="rk-lobby-h" id="lobby-h">몇 명이서 할까요?</b>
+      <div class="qd-sizes" id="sizes">
+        <button type="button" class="qd-size glass press" data-size="2">
+          <b>2명</b><span class="muted">벽 10개씩</span><span class="qd-q num" id="q2"></span>
+        </button>
+        <button type="button" class="qd-size glass press" data-size="4">
+          <b>4명</b><span class="muted">벽 5개씩</span><span class="qd-q num" id="q4"></span>
+        </button>
+      </div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-line press hidden" id="cancel">취소</button>
+      </div>
+
+      <div class="omok-cover hidden" id="closed">
+        <div class="omok-cover-card glass-strong pop">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+          <b>지금은 게임을 할 수 없어요</b>
+          <span class="muted">선생님이 열면 할 수 있어요</span>
+        </div>
+      </div>
+
+      <div class="omok-cover hidden" id="limit">
+        <div class="omok-cover-card glass-strong pop">
+          <b>오늘 판을 다 했어요</b>
+          <span class="muted">내일 다시 할 수 있어요</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 대국 -->
+    <section class="omok-play qd-play hidden" id="table">
+      <div class="omok-board-box glass-strong qd-board-box">
+        <svg class="qd-board" id="board" viewBox="-4 -4 114 114" role="group" aria-label="쿼리도 판 9×9"></svg>
+
+        <div class="omok-cover hidden" id="result">
+          <div class="omok-cover-card glass-strong pop" id="result-card">
+            <b class="omok-result-h" id="result-h"></b>
+            <span class="omok-result-s" id="result-s"></span>
+            <div class="row-actions">
+              <button type="button" class="btn btn-line press" id="view">판 보기</button>
+              <button type="button" class="btn btn-primary press" id="again">한 판 더</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="omok-side om-side">
+        <div class="glass me-card omok-state">
+          <span class="omok-turn" id="turn"></span>
+          <span class="rk-clock num" id="clock" aria-live="off"></span>
+          <span class="muted qd-last" id="last"></span>
+        </div>
+        <div class="qd-modes" role="group" aria-label="할 일">
+          <button type="button" class="btn btn-line press on" id="m-move" aria-pressed="true">말 움직이기</button>
+          <button type="button" class="btn btn-line press" id="m-wall" aria-pressed="false">벽 놓기 <span class="num" id="m-wall-n"></span></button>
+        </div>
+        <span class="muted qd-hint" id="hint"></span>
+        <div class="om-players" id="players"></div>
+        <div class="omok-btns">
+          <button type="button" class="btn btn-line press" id="resign">기권</button>
+          <button type="button" class="btn btn-primary press hidden" id="again2">한 판 더</button>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+
+  <!-- 규칙 탭 -->
+  <section class="glass-strong qd-rules hidden rise" id="v-rules" aria-labelledby="rules-h">
+    <h1 class="qd-rules-h" id="rules-h">쿼리도 규칙</h1>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="goal"></div>
+      <div>
+        <h3>목표</h3>
+        <p>내 말을 <b>맞은편 끝 줄</b>(판 가장자리의 내 색 띠)에 먼저 보내면 이겨요. 판은 9×9, 2명이면 벽 10개씩, 4명이면 5개씩 가지고 시작해요.</p>
+        <p class="muted">내 말은 늘 판 아래쪽에 보여요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="move"></div>
+      <div>
+        <h3>내 차례: 말 움직이기 또는 벽 놓기</h3>
+        <p>둘 중 하나만 해요. 말은 <b>앞·뒤·옆으로 한 칸</b>(대각선은 안 돼요). 벽은 넘을 수 없어요.</p>
+        <p class="muted">점이 찍힌 칸이 갈 수 있는 칸이에요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="jump"></div>
+      <div>
+        <h3>뛰어넘기</h3>
+        <p>바로 앞에 다른 말이 있으면 <b>그 말을 뛰어넘어</b> 뒤 칸으로 갈 수 있어요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="side"></div>
+      <div>
+        <h3>옆으로 비켜 가기</h3>
+        <p>뛰어넘을 칸이 벽이나 판 끝, 다른 말로 막혀 있으면 <b>그 말의 왼쪽이나 오른쪽</b> 칸으로 가요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="wall"></div>
+      <div>
+        <h3>벽 놓기</h3>
+        <p>칸 사이 홈에 <b>두 칸 길이</b> 벽을 하나 놓아요. 다른 벽과 <b>겹치거나 가로지를 수 없어요</b>(빨강).</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="block"></div>
+      <div>
+        <h3>길을 완전히 막으면 안 돼요</h3>
+        <p>누구든 도착 줄까지 가는 길이 <b>하나는 남아 있어야</b> 해요. 빨간 벽을 놓으면 주황 말이 아래 줄로 갈 길이 없어져서 놓을 수 없어요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule qd-rule-text">
+      <div>
+        <h3>시간과 보상</h3>
+        <ul>
+          <li>한 수 <b class="num" id="help-turn">40</b>초. 시간이 지나면 차례가 넘어가고, 2번 연속이면 나간 것으로 해요(말이 판에서 빠짐)</li>
+          <li>도착하면 <b class="num" id="help-reward">5 XP · 5코인</b>(하루 <b class="num" id="help-rdaily">1</b>번까지). 다른 사람이 모두 나가서 혼자 남은 판은 보상이 없어요</li>
+          <li>하루 <b class="num" id="help-daily">5</b>판까지 할 수 있어요. 시작된 판은 중간에 나가도 한 판으로 세요</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="qd-rule qd-rule-text">
+      <div>
+        <h3>조작</h3>
+        <ul>
+          <li>[말 움직이기]: 점이 찍힌 칸을 누르면 움직여요</li>
+          <li>[벽 놓기]: 마우스는 홈 위에 올리면 미리 보이고 누르면 놓여요. 터치는 한 번 눌러 미리 보고 같은 곳을 한 번 더 누르면 놓여요</li>
+          <li>미리 보기가 초록이면 놓을 수 있고, 빨강이면 놓을 수 없어요</li>
+        </ul>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary press qd-rules-go" data-tab="game">게임으로</button>
+  </section>
+
+  <div class="lvup hidden" id="lvup" role="dialog" aria-modal="true" aria-labelledby="lvup-h">
+    <div class="lvup-box">
+      <div class="lvup-rays" aria-hidden="true"><svg class="rays" viewBox="0 0 200 200">
+        <g fill="#FFC48A"><path d="M100 100 L96 0 L104 0 Z"/><path d="M100 100 L196 96 L196 104 Z"/><path d="M100 100 L104 200 L96 200 Z"/><path d="M100 100 L4 104 L4 96 Z"/><path d="M100 100 L168 26 L174 32 Z"/><path d="M100 100 L174 168 L168 174 Z"/><path d="M100 100 L32 174 L26 168 Z"/><path d="M100 100 L26 32 L32 26 Z"/></g>
+      </svg></div>
+      <div class="lvup-card glass-strong">
+        <div class="lvup-av" id="lvup-av"></div>
+        <span class="lvup-h" id="lvup-h">레벨 업!</span>
+        <span class="lvup-n num" id="lvup-n"></span>
+        <span class="lvup-s" id="lvup-s"></span>
+        <button type="button" class="btn btn-primary btn-big press" id="lvup-ok">확인</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/quoridor.js"></script>
+</body>
+</html>

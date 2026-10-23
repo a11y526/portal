@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -28,6 +28,7 @@ let classes = [];
 let omokRules = null;   // settings.omok
 let rkRules = null;     // settings.rummikub
 let ompRules = null;    // settings.omok_pvp
+let qdRules = null;     // settings.quoridor
 let boards = [];
 let lessonMeta = [];   // 보드 화면 진도(쪽 수)·차시 제목
 let students = [];
@@ -906,6 +907,7 @@ async function refreshPoints() {
   quizRules = (await getQuizRules()) ?? {};
   omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
+  qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -924,6 +926,8 @@ async function refreshPoints() {
   f.om_coins.value = omokRules.coins ?? 2;
   f.rk_xp.value = rkRules.xp;
   f.rk_coins.value = rkRules.coins;
+  f.qd_xp.value = qdRules.xp;
+  f.qd_coins.value = qdRules.coins;
   const qs = (await getQuizShowRules()) ?? {};
   [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
   renderPointsSum();
@@ -953,13 +957,14 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveWorksheetRules({ xp: q('ws_xp'), coins: q('ws_coins') });
     await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins') });
     await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
-    // 오목·루미큐브는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
+    // 오목·루미큐브·쿼리도는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
     await saveOmokRules({ xp: 2, coins: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), coins: q('om_coins') });
     await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: q('rk_xp'), coins: q('rk_coins') });
+    await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), xp: q('qd_xp'), coins: q('qd_coins') });
     await saveQuizShowRules({ xp: [0, 1, 2].map((i) => q('qs_xp' + i)), coins: [0, 1, 2].map((i) => q('qs_coins' + i)) });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
-    await Promise.all([refreshOmokRules(), refreshRkRules()]);
+    await Promise.all([refreshOmokRules(), refreshRkRules(), refreshQdRules()]);
     toast('저장했어요', 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -1002,6 +1007,7 @@ function eventKind(e) {
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   if (e.reason === '오목 승리') return '오목';
   if (e.reason === '루미큐브 승리') return '루미큐브';
+  if (e.reason === '쿼리도 승리') return '쿼리도';
   return '직접 줌';
 }
 
@@ -1464,6 +1470,42 @@ $('omp-form').addEventListener('submit', async (e) => {
   }
 });
 
+// 쿼리도 하루 판 수·보상 받는 승리: settings.quoridor.daily·reward_daily (xp·coins는 '포인트 규칙'에서, turn은 그대로)
+const QD_DEFAULT = { xp: 5, coins: 5, daily: 5, reward_daily: 1, turn: 40 };
+async function refreshQdRules() {
+  qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
+  $('qd-daily').value = qdRules.daily;
+  $('qd-turn').textContent = qdRules.turn;
+  $('qd-reward').textContent = `${qdRules.xp} XP · ${qdRules.coins}코인`;
+  $('qd-rdaily').value = qdRules.reward_daily;
+  updateHub();
+}
+
+$('qd-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const daily = Math.round(Number($('qd-daily').value));
+  const rewardDaily = Math.round(Number($('qd-rdaily').value));
+  if (!(daily >= 1 && daily <= 100)) {
+    toast('1~100판으로 정해 주세요', 'error');
+    return;
+  }
+  if (!(rewardDaily >= 0 && rewardDaily <= 100)) {
+    toast('보상 받는 승리는 0~100번으로 정해 주세요', 'error');
+    return;
+  }
+  const btn = e.currentTarget.querySelector('[type="submit"]');
+  btn.disabled = true;
+  try {
+    await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), daily, reward_daily: rewardDaily });
+    await refreshQdRules();
+    toast(`쿼리도 하루 ${daily}판, 보상 ${rewardDaily}번으로 바꿨어요`, 'ok');
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  } finally {
+    btn.disabled = false;
+  }
+});
+
 // 루미큐브 하루 판 수·보상 받는 1등: settings.rummikub.daily·reward_daily (xp·coins는 '포인트 규칙'에서, turn은 그대로)
 const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, reward_daily: 1, turn: 60 };
 async function refreshRkRules() {
@@ -1530,7 +1572,7 @@ function renderOmok() {
     <div class="lock-row${c.omok_open ? ' is-open' : ''}">
       <b>${c.id}반</b>
       <span class="tag ${c.omok_open ? 'tag-done' : 'tag-off'}">${c.omok_open ? '켜짐' : '꺼짐'}</span>
-      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${c.id}반 오목·루미큐브"><span></span></button>
+      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${c.id}반 게임"><span></span></button>
     </div>`).join('');
   updateHub();
 }
@@ -1551,7 +1593,7 @@ $('omok-list').addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     await setOmok([c], !c.omok_open);
-    toast(c.omok_open ? `${c.id}반 오목·루미큐브를 켰어요` : `${c.id}반 오목·루미큐브를 껐어요`, 'ok');
+    toast(c.omok_open ? `${c.id}반 게임을 켰어요` : `${c.id}반 게임을 껐어요`, 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
     btn.disabled = false;
@@ -1565,7 +1607,7 @@ $('omok-all').addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     await setOmok(classes.filter((c) => !!c.omok_open !== open), open);
-    toast(open ? '모든 반 오목·루미큐브를 켰어요' : '모든 반 오목·루미큐브를 껐어요', 'ok');
+    toast(open ? '모든 반 게임을 켰어요' : '모든 반 게임을 껐어요', 'ok');
   } catch (err) { toast(errMsg(err), 'error'); }
   btn.disabled = false;
 });
@@ -1585,7 +1627,7 @@ function updateHub() {
   const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
   const omok = classes.filter((c) => c.omok_open).map((c) => `${c.id}반`);
-  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : ''));
+  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : '') + (qdRules ? ` · 쿼리도 ${qdRules.daily}판` : ''));
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -1619,7 +1661,7 @@ function loadPanel(key) {
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
   if (key === 'points') refreshPoints().catch(() => {});
-  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshOmpRules().catch(() => {}); refreshRkRules().catch(() => {}); }
+  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshOmpRules().catch(() => {}); refreshRkRules().catch(() => {}); refreshQdRules().catch(() => {}); }
   if (key === 'data') refreshArchive().catch(() => {});
   if (key === 'mats') refreshMats().catch(() => {});
   if (key === 'progress') refreshProgress().catch(() => {});
@@ -1644,6 +1686,6 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules(), refreshOmpRules(), refreshRkRules()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules(), refreshOmpRules(), refreshRkRules(), refreshQdRules()]).catch((err) => toast(errMsg(err), 'error'));
   loadPanel(location.hash.slice(1));
 });

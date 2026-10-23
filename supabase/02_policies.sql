@@ -335,3 +335,19 @@ drop policy if exists qs_answers_teacher_all on public.qs_answers;
 create policy qs_answers_teacher_all on public.qs_answers
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 쿼리도 (2026-10-23): 학생은 qd_* 함수로만
+alter table public.qd_games enable row level security;
+alter table public.qd_players enable row level security;
+revoke all on public.qd_games from anon;
+revoke all on public.qd_players from anon;
+
+drop policy if exists qd_games_teacher_all on public.qd_games;
+create policy qd_games_teacher_all on public.qd_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists qd_players_teacher_all on public.qd_players;
+create policy qd_players_teacher_all on public.qd_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

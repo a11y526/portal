@@ -2028,3 +2028,77 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
 .embed.qsp-body, .embed .qsp-body { background: transparent; }
 .embed .bg { display: none; }
 .qsh-set-go { margin-top: auto; align-self: flex-end; background: var(--accent); color: #fff; font-weight: 900; font-size: 14px; border-radius: 999px; padding: 6px 14px; }
+
+/* ---------- 쿼리도 (quoridor.html) ---------- */
+.qd-board-box { padding: 2.5%; }
+.qd-board { display: block; width: 100%; aspect-ratio: 1; touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+.qd-cell { fill: rgba(78,88,104,.12); }
+.qd-cell.can { fill: rgba(36,87,230,.14); cursor: pointer; }
+.qd-cell.from { fill: rgba(78,88,104,.22); }
+.qd-dot { pointer-events: none; }
+.qd-wall { fill: #3A2F28; }
+.qd-wall.recent { fill: #6B4A2E; animation: pop .35s var(--ease-back) both; transform-box: fill-box; transform-origin: center; }
+.qd-ghost { fill: rgba(34,197,130,.7); pointer-events: none; }
+.qd-ghost.bad { fill: rgba(255,122,69,.75); }
+.qd-board.wall-mode { cursor: crosshair; }
+.qd-board.wall-mode .qd-cell { cursor: crosshair; }
+.qd-pawn { pointer-events: none; transition: transform .28s ease-out; }
+.qd-pawn-c { stroke: #fff; stroke-width: .9; }
+.qd-ring { fill: none; stroke: transparent; stroke-width: .9; }
+.qd-pawn.me .qd-ring { stroke: var(--ink); }
+.qd-pawn.turn .qd-ring { stroke: var(--pending-dot); }
+.qd-pawn.win .qd-pawn-c { stroke: var(--gold); stroke-width: 1.4; }
+/* 자리 색: 0 파랑 · 1 초록 · 2 주황 · 3 보라 */
+.qd-pawn.s0 .qd-pawn-c, .qd-goal.s0, .qd-dot.s0 { fill: #2457E6; }
+.qd-pawn.s1 .qd-pawn-c, .qd-goal.s1, .qd-dot.s1 { fill: #16A36A; }
+.qd-pawn.s2 .qd-pawn-c, .qd-goal.s2, .qd-dot.s2 { fill: #E58A00; }
+.qd-pawn.s3 .qd-pawn-c, .qd-goal.s3, .qd-dot.s3 { fill: #8B6CF0; }
+.qd-chip { width: 18px; height: 18px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.8); }
+.qd-chip.s0 { background: #2457E6; }
+.qd-chip.s1 { background: #16A36A; }
+.qd-chip.s2 { background: #E58A00; }
+.qd-chip.s3 { background: #8B6CF0; }
+.qd-last { font-size: 14px; min-height: 1.4em; }
+.qd-modes { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.qd-modes .btn { padding-left: 10px; padding-right: 10px; }
+.qd-modes .btn.on { background: var(--ink); color: #fff; border-color: var(--ink); }
+.qd-hint { font-size: 14px; min-height: 1.4em; padding-left: 6px; }
+.qd-sizes { display: grid; grid-template-columns: repeat(2, minmax(0, 180px)); gap: 14px; justify-content: center; }
+.qd-size { display: flex; flex-direction: column; align-items: center; gap: 4px; padding: 18px 16px; min-height: 44px; border-radius: var(--r-md);
+  border: 0; font: inherit; color: inherit; cursor: pointer; }
+.qd-size b { font-size: 24px; font-weight: 900; }
+.qd-size .muted { font-size: 14px; }
+.qd-q { font-size: 13px; font-weight: 700; color: var(--accent); min-height: 1.3em; }
+.qd-size:disabled { opacity: .5; cursor: default; }
+@media (max-width: 820px) {
+  .qd-play .om-side { flex-direction: column; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .qd-pawn { transition: none; }
+}
+
+/* ---------- 게임 모음 (games.html) ---------- */
+.games-h { margin: 0 0 4px 8px; font-size: 32px; font-weight: 900; letter-spacing: -0.03em; }
+.games-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
+.games-menu.hidden { display: none; }
+#v-closed { gap: 8px; }
+@media (max-width: 640px) { .games-menu { grid-template-columns: 1fr; } }
+
+/* 쿼리도 규칙 탭 */
+.qd-rules { border-radius: var(--r-xl); padding: 26px 28px; display: flex; flex-direction: column; gap: 18px; font-size: 16px; line-height: 1.6; }
+.qd-rules-h { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.03em; }
+.qd-rule { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; padding-top: 16px; border-top: 1px solid rgba(78,88,104,.14); }
+.qd-rule-text { grid-template-columns: minmax(0, 1fr); }
+.qd-rule h3 { margin: 0 0 4px; font-size: 18px; font-weight: 900; color: var(--accent); }
+.qd-rule p, .qd-rule ul { margin: 0; }
+.qd-rule p + p { margin-top: 4px; }
+.qd-rule ul { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }
+.qd-rule .muted { font-size: 14px; }
+.qd-mini { width: 150px; padding: 8px; border-radius: var(--r-md); background: rgba(255,255,255,.6); }
+.qd-mini .qd-pawn { transition: none; }
+.qd-rules-go { align-self: center; }
+@media (max-width: 520px) {
+  .qd-rules { padding: 20px 18px; }
+  .qd-rule { grid-template-columns: 1fr; gap: 10px; }
+  .qd-mini { width: 150px; justify-self: center; }
+}

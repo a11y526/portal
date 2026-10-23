@@ -263,7 +263,29 @@ export async function omPlay(token, gameId, cell) {
   return unwrap(await need().rpc('om_play', { p_token: token, p_game_id: gameId, p_cell: cell }));
 }
 
-/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>) ---------- */
+// 쿼리도 (2명·4명 온라인). 결과: { ok: true, open, today, daily, xp, coins, reward_daily, rewarded, turn(초), avatar, queue: { 2, 4 }(기다리는 사람),
+//   game: null | { id, status(waiting|playing|done), size, version, me(내 자리 0~3), turn, turn_sec, left_ms, walls(벽 번호), moves, last,
+//                  winner, end_reason(goal|left), reward, players: [{ seat, me, class_id, nickname, avatar, cell, walls, left }] } }
+export async function qdState(token, gameId = null) {
+  return unwrap(await need().rpc('qd_state', { p_token: token, p_game_id: gameId }));
+}
+
+// 판 찾기(size 2 | 4): qdState와 같은 결과 또는 error = 'CLOSED' | 'LIMIT' | 'BAD_SIZE'
+export async function qdJoin(token, size) {
+  return unwrap(await need().rpc('qd_join', { p_token: token, p_size: size }));
+}
+
+// 나가기(대기 중이면 취소, 하는 중이면 기권)
+export async function qdLeave(token, gameId) {
+  return unwrap(await need().rpc('qd_leave', { p_token: token, p_game_id: gameId }));
+}
+
+// 한 수: kind 'move'(칸) | 'wall'(벽 번호). 실패하면 { ok: false, error: 'OVER' | 'NOT_TURN' | 'BAD_MOVE' | 'NO_WALLS' | 'BAD_WALL' | 'BLOCK' | 'BAD_GAME', state }
+export async function qdPlay(token, gameId, kind, value) {
+  return unwrap(await need().rpc('qd_play', { p_token: token, p_game_id: gameId, p_kind: kind, p_value: value }));
+}
+
+/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>) ---------- */
 let gameChannel = null;
 let gameChannelId = null;
 
@@ -552,7 +574,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -867,6 +889,16 @@ export async function getRummikubRules() {
 
 export async function saveRummikubRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'rummikub', value }, { onConflict: 'key' }));
+}
+
+// 쿼리도 { xp, coins, daily(하루 판 수), reward_daily(보상 받는 승리), turn(한 수 초) }
+export async function getQuoridorRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'quoridor'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveQuoridorRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'quoridor', value }, { onConflict: 'key' }));
 }
 
 

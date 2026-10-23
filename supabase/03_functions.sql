@@ -5710,3 +5710,634 @@ begin
               using (bucket_id = 'quizshow' and public.is_teacher()) with check (bucket_id = 'quizshow' and public.is_teacher())$p$;
   end if;
 end $$;
+
+-- ---------------------------------------------------------
+-- 쿼리도 (2026-10-23 사용자 요청): 2명 판·4명 판. 판 크기별로 6개 반 전체에서 먼저 온 사람끼리(advisory lock).
+-- 오목 스위치(omok_open)가 켜진 반만. 하루 판 수는 settings.quoridor.daily(시작된 판), 한 수 turn초.
+-- 시간을 넘기면 그 차례는 넘어가고, 2번 연속이면 나간 것으로(말이 판에서 빠짐). 남은 사람이 1명이면 그 사람이 이김(보상 없음).
+-- 도착 줄에 닿으면 이김 → XP·코인(반이 켜져 있을 때, 오늘 reward_daily번까지). 규칙은 assets/js/quoridor.js와 같다
+-- ---------------------------------------------------------
+create or replace function public._qd_settings()
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'xp',    coalesce((v ->> 'xp')::int, 5),
+    'coins', coalesce((v ->> 'coins')::int, 5),
+    'daily', greatest(coalesce((v ->> 'daily')::int, 5), 1),
+    'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
+    'turn',  greatest(coalesce((v ->> 'turn')::int, 40), 15))
+  from (select (select value from public.settings where key = 'quoridor') as v) x;
+$$;
+revoke all on function public._qd_settings() from public, anon, authenticated;
+
+-- 오늘(KST) 시작된 판 중 내가 들어간 판 수
+create or replace function public._qd_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int
+  from public.qd_players p
+  join public.qd_games g on g.id = p.game_id
+  where p.student_id = p_student_id
+    and g.started_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._qd_today(uuid) from public, anon, authenticated;
+
+-- 오늘(KST) 보상을 받은 쿼리도 승리 수
+create or replace function public._qd_paid_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int from public.point_events
+  where student_id = p_student_id and reason = '쿼리도 승리'
+    and created_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._qd_paid_today(uuid) from public, anon, authenticated;
+
+-- 칸 p_cell에서 p_dir(0 위 · 1 오른쪽 · 2 아래 · 3 왼쪽)으로 못 가는지(판 끝이나 벽)
+create or replace function public._qd_blocked(p_walls int[], p_cell int, p_dir int)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  r int := p_cell / 9;
+  c int := p_cell % 9;
+begin
+  if p_dir = 0 then
+    return r = 0 or (r - 1 between 0 and 7 and ((c <= 7 and (r - 1) * 8 + c = any(p_walls)) or (c >= 1 and (r - 1) * 8 + c - 1 = any(p_walls))));
+  elsif p_dir = 2 then
+    return r = 8 or ((c <= 7 and r * 8 + c = any(p_walls)) or (c >= 1 and r * 8 + c - 1 = any(p_walls)));
+  elsif p_dir = 1 then
+    return c = 8 or ((r <= 7 and 64 + r * 8 + c = any(p_walls)) or (r >= 1 and 64 + (r - 1) * 8 + c = any(p_walls)));
+  else
+    return c = 0 or ((r <= 7 and 64 + r * 8 + c - 1 = any(p_walls)) or (r >= 1 and 64 + (r - 1) * 8 + c - 1 = any(p_walls)));
+  end if;
+end;
+$$;
+revoke all on function public._qd_blocked(int[], int, int) from public, anon, authenticated;
+
+create or replace function public._qd_step(p_cell int, p_dir int)
+returns int
+language sql
+immutable
+as $$
+  select p_cell + (array[-9, 1, 9, -1])[p_dir + 1];
+$$;
+revoke all on function public._qd_step(int, int) from public, anon, authenticated;
+
+-- 벽 자리가 비었는지(같은 자리·이어진 같은 방향 벽·가운데 교차)
+create or replace function public._qd_wall_fits(p_walls int[], p_code int)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  o int;
+  r int;
+  c int;
+begin
+  if p_code is null or p_code < 0 or p_code > 127 or p_code = any(p_walls) then
+    return false;
+  end if;
+  o := p_code / 64;
+  r := (p_code / 8) % 8;
+  c := p_code % 8;
+  if o = 0 then
+    return not ((c >= 1 and r * 8 + c - 1 = any(p_walls)) or (c <= 6 and r * 8 + c + 1 = any(p_walls)) or 64 + r * 8 + c = any(p_walls));
+  end if;
+  return not ((r >= 1 and 64 + (r - 1) * 8 + c = any(p_walls)) or (r <= 6 and 64 + (r + 1) * 8 + c = any(p_walls)) or r * 8 + c = any(p_walls));
+end;
+$$;
+revoke all on function public._qd_wall_fits(int[], int) from public, anon, authenticated;
+
+-- 갈 수 있는 칸. p_occ = 다른 말이 있는 칸. 앞에 말이 있으면 뛰어넘고, 그 뒤가 벽·판 끝·말이면 옆으로
+create or replace function public._qd_moves(p_walls int[], p_occ int[], p_cell int)
+returns int[]
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v_out int[] := '{}';
+  n int;
+  j int;
+  s int;
+begin
+  for d in 0 .. 3 loop
+    continue when public._qd_blocked(p_walls, p_cell, d);
+    n := public._qd_step(p_cell, d);
+    if not n = any(p_occ) then
+      v_out := v_out || n;
+      continue;
+    end if;
+    j := public._qd_step(n, d);
+    if not public._qd_blocked(p_walls, n, d) and not j = any(p_occ) then
+      v_out := v_out || j;
+      continue;
+    end if;
+    foreach s in array array[(d + 1) % 4, (d + 3) % 4] loop
+      if not public._qd_blocked(p_walls, n, s) and not public._qd_step(n, s) = any(p_occ) then
+        v_out := v_out || public._qd_step(n, s);
+      end if;
+    end loop;
+  end loop;
+  return array(select distinct x from unnest(v_out) x order by x);
+end;
+$$;
+revoke all on function public._qd_moves(int[], int[], int) from public, anon, authenticated;
+
+create or replace function public._qd_goal(p_seat int, p_cell int)
+returns boolean
+language sql
+immutable
+as $$
+  select case p_seat when 0 then p_cell / 9 = 0 when 1 then p_cell % 9 = 8 when 2 then p_cell / 9 = 8 else p_cell % 9 = 0 end;
+$$;
+revoke all on function public._qd_goal(int, int) from public, anon, authenticated;
+
+-- 말을 빼고 벽만 보고 도착 줄까지 길이 있는지(너비 우선 탐색)
+create or replace function public._qd_path(p_walls int[], p_cell int, p_seat int)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v_seen boolean[] := array_fill(false, array[81]);
+  v_q    int[] := array[p_cell];
+  v_i    int := 1;
+  x      int;
+  n      int;
+begin
+  v_seen[p_cell + 1] := true;
+  while v_i <= coalesce(array_length(v_q, 1), 0) loop
+    x := v_q[v_i];
+    v_i := v_i + 1;
+    if public._qd_goal(p_seat, x) then
+      return true;
+    end if;
+    for d in 0 .. 3 loop
+      if not public._qd_blocked(p_walls, x, d) then
+        n := public._qd_step(x, d);
+        if not v_seen[n + 1] then
+          v_seen[n + 1] := true;
+          v_q := v_q || n;
+        end if;
+      end if;
+    end loop;
+  end loop;
+  return false;
+end;
+$$;
+revoke all on function public._qd_path(int[], int, int) from public, anon, authenticated;
+
+-- 판 끝내기. 도착(goal)이면 이긴 사람에게 보상(반이 켜져 있을 때, 오늘 reward_daily번까지). 나머지가 모두 나가서 끝나면(left) 보상 없음
+create or replace function public._qd_end(p_game_id uuid, p_winner int, p_reason text)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_sid uuid;
+  v_set jsonb := public._qd_settings();
+  v_pay boolean := false;
+begin
+  select student_id into v_sid from public.qd_players where game_id = p_game_id and seat = p_winner;
+  if p_reason = 'goal' and v_sid is not null
+     and coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false)
+     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'coins')::int <> 0)
+     and public._qd_paid_today(v_sid) < (v_set ->> 'reward_daily')::int then
+    insert into public.point_events (student_id, xp, coins, reason)
+    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'coins')::int, '쿼리도 승리');
+    v_pay := true;
+  end if;
+  update public.qd_games
+  set status = 'done', ended_at = now(), winner = p_winner, end_reason = p_reason, paid = v_pay, version = version + 1
+  where id = p_game_id and status = 'playing';
+end;
+$$;
+revoke all on function public._qd_end(uuid, int, text) from public, anon, authenticated;
+
+-- 다음 차례로(자리 순서 0 → 1 → 2 → 3). 남은 사람이 1명이면 그 사람이 이김(보상 없음)
+create or replace function public._qd_next(p_game_id uuid, p_at timestamptz)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.qd_games;
+  v_left int;
+  v_seat int;
+begin
+  select * into g from public.qd_games where id = p_game_id;
+  select count(*) into v_left from public.qd_players where game_id = p_game_id and left_at is null;
+  if v_left <= 1 then
+    select seat into v_seat from public.qd_players where game_id = p_game_id and left_at is null;
+    perform public._qd_end(p_game_id, coalesce(v_seat, g.turn), 'left');
+    return;
+  end if;
+  select seat into v_seat from public.qd_players
+  where game_id = p_game_id and left_at is null
+  order by (seat - g.turn + 3) % 4
+  limit 1;
+  update public.qd_games set turn = v_seat, turn_at = p_at, version = version + 1 where id = p_game_id;
+end;
+$$;
+revoke all on function public._qd_next(uuid, timestamptz) from public, anon, authenticated;
+
+-- 제한 시간이 지난 차례 처리(부르는 쪽이 판 줄을 잠근 뒤, 2초 여유). 넘긴 차례는 지나가고 2번 연속이면 나간 것으로.
+-- 아무도 안 부른 동안 밀린 차례도 한 번에(최대 12번)
+create or replace function public._qd_tick(p_game_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g      public.qd_games;
+  v_turn interval := make_interval(secs => (public._qd_settings() ->> 'turn')::int);
+  v_to   int;
+begin
+  for i in 1 .. 12 loop
+    select * into g from public.qd_games where id = p_game_id;
+    exit when g.status <> 'playing' or now() < g.turn_at + v_turn + interval '2 seconds';
+    update public.qd_players set timeouts = timeouts + 1
+    where game_id = p_game_id and seat = g.turn
+    returning timeouts into v_to;
+    if v_to >= 2 then
+      update public.qd_players set left_at = now(), cell = null where game_id = p_game_id and seat = g.turn;
+      update public.qd_games set last = jsonb_build_object('seat', g.turn, 'kind', 'leave') where id = p_game_id;
+    else
+      update public.qd_games set last = jsonb_build_object('seat', g.turn, 'kind', 'timeout') where id = p_game_id;
+    end if;
+    perform public._qd_next(p_game_id, g.turn_at + v_turn);
+  end loop;
+end;
+$$;
+revoke all on function public._qd_tick(uuid) from public, anon, authenticated;
+
+-- 학생에게 보낼 판. 끝난 판이면 보상도
+create or replace function public._qd_view(p_game_id uuid, p_sid uuid)
+returns jsonb
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  g     public.qd_games;
+  me    public.qd_players;
+  v_set jsonb := public._qd_settings();
+  v_tot int;
+  v_rw  jsonb;
+begin
+  select * into g from public.qd_games where id = p_game_id;
+  select * into me from public.qd_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null then
+    return null;
+  end if;
+  if g.status = 'done' and g.paid and g.winner = me.seat then
+    select coalesce(sum(xp), 0)::int into v_tot from public.point_events where student_id = p_sid;
+    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'coins', (v_set ->> 'coins')::int, 'total_xp', v_tot,
+      'level_before', (public._level_info(v_tot - (v_set ->> 'xp')::int) ->> 'level')::int,
+      'level_after',  (public._level_info(v_tot) ->> 'level')::int);
+  end if;
+  return jsonb_build_object(
+    'id',       g.id,
+    'status',   g.status,
+    'size',     g.size,
+    'version',  g.version,
+    'me',       me.seat,
+    'turn',     g.turn,
+    'turn_sec', (v_set ->> 'turn')::int,
+    'left_ms',  case when g.status = 'playing'
+                  then greatest(0, floor(extract(epoch from (g.turn_at + make_interval(secs => (v_set ->> 'turn')::int) - now())) * 1000))::bigint
+                end,
+    'walls',    to_jsonb(g.walls),
+    'moves',    g.moves,
+    'last',     g.last,
+    'winner',   g.winner,
+    'end_reason', g.end_reason,
+    'reward',   v_rw,
+    'players', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'seat',     p.seat,
+        'me',       p.student_id = p_sid,
+        'class_id', s.class_id,
+        'nickname', s.nickname,
+        'avatar',   s.avatar,
+        'cell',     p.cell,
+        'walls',    p.walls,
+        'left',     p.left_at is not null
+      ) order by p.seat), '[]'::jsonb)
+      from public.qd_players p join public.students s on s.id = p.student_id
+      where p.game_id = g.id)
+  );
+end;
+$$;
+revoke all on function public._qd_view(uuid, uuid) from public, anon, authenticated;
+
+-- 판에서 나가기(내부). 대기 중이면 자리를 비우고, 하는 중이면 기권(말이 판에서 빠지고 남은 사람끼리 계속)
+create or replace function public._qd_leave(p_game_id uuid, p_sid uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g  public.qd_games;
+  me public.qd_players;
+begin
+  select * into g from public.qd_games where id = p_game_id for update;
+  select * into me from public.qd_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null or me.left_at is not null then
+    return;
+  end if;
+  if g.status = 'waiting' then
+    delete from public.qd_players where game_id = p_game_id and student_id = p_sid;
+    if not exists (select 1 from public.qd_players where game_id = p_game_id) then
+      delete from public.qd_games where id = p_game_id;
+    else
+      update public.qd_games set version = version + 1 where id = p_game_id;
+    end if;
+  elsif g.status = 'playing' then
+    update public.qd_players set left_at = now(), cell = null where game_id = p_game_id and student_id = p_sid;
+    update public.qd_games set last = jsonb_build_object('seat', me.seat, 'kind', 'leave'), version = version + 1
+    where id = p_game_id;
+    if g.turn = me.seat or (select count(*) from public.qd_players where game_id = p_game_id and left_at is null) <= 1 then
+      perform public._qd_next(p_game_id, now());
+    end if;
+  end if;
+end;
+$$;
+revoke all on function public._qd_leave(uuid, uuid) from public, anon, authenticated;
+
+-- 쿼리도 화면 (학생). p_game_id를 주면 그 판(끝난 판 포함), 없으면 지금 하는 판(없으면 game: null).
+-- 부를 때마다 '아직 있음'을 기록하고 밀린 시간 초과를 처리한다. 반이 꺼져 있으면 하던 판에서 나간다.
+-- 결과: {ok: true, open, today, daily, xp, coins, reward_daily, rewarded, turn, avatar, queue: {"2": n, "4": n}, game} 또는 {ok: false, error: 'NO_SESSION'}
+create or replace function public.qd_state(p_token text, p_game_id uuid default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid;
+  s      public.students;
+  v_open boolean;
+  v_gid  uuid := p_game_id;
+  v_set  jsonb := public._qd_settings();
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid;
+  v_open := coalesce((select omok_open from public.classes where id = s.class_id), false);
+
+  if v_gid is null or not exists (select 1 from public.qd_players where game_id = v_gid and student_id = v_sid) then
+    select p.game_id into v_gid
+    from public.qd_players p join public.qd_games g on g.id = p.game_id
+    where p.student_id = v_sid and p.left_at is null and g.status in ('waiting', 'playing')
+    order by p.joined_at desc
+    limit 1;
+  end if;
+
+  if v_gid is not null then
+    if not v_open then
+      perform public._qd_leave(v_gid, v_sid);
+    else
+      perform 1 from public.qd_games where id = v_gid for update;
+      update public.qd_players set seen_at = now() where game_id = v_gid and student_id = v_sid;
+      perform public._qd_tick(v_gid);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'ok',     true,
+    'open',   v_open,
+    'today',  public._qd_today(v_sid),
+    'daily',  (v_set ->> 'daily')::int,
+    'xp',     (v_set ->> 'xp')::int,
+    'coins',  (v_set ->> 'coins')::int,
+    'reward_daily', (v_set ->> 'reward_daily')::int,
+    'rewarded', public._qd_paid_today(v_sid),
+    'turn',   (v_set ->> 'turn')::int,
+    'avatar', s.avatar,
+    'queue',  (select jsonb_build_object(
+                 '2', count(*) filter (where g.size = 2),
+                 '4', count(*) filter (where g.size = 4))
+               from public.qd_players p join public.qd_games g on g.id = p.game_id
+               where g.status = 'waiting' and p.seen_at >= now() - interval '15 seconds'),
+    'game',   case when v_gid is null then null else public._qd_view(v_gid, v_sid) end
+  );
+end;
+$$;
+revoke all on function public.qd_state(text, uuid) from public;
+grant execute on function public.qd_state(text, uuid) to anon, authenticated;
+
+-- 판 찾기 (학생): p_size(2 | 4)명 판. 6개 반 전체에서 먼저 온 사람끼리, 이미 하는 판이 있으면 그 판.
+-- 15초 넘게 소식이 없는 대기자는 빼고 채운다. 자리는 빈자리 중 무작위, 다 차면 첫 차례 무작위로 시작(3초 준비)
+-- 결과: qd_state와 같음 또는 error = 'NO_SESSION' | 'CLOSED' | 'LIMIT' | 'BAD_SIZE'
+create or replace function public.qd_join(p_token text, p_size int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  s       public.students;
+  v_set   jsonb := public._qd_settings();
+  v_today int;
+  v_gid   uuid;
+  v_seat  int;
+  v_n     int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  if p_size is null or p_size not in (2, 4) then
+    return jsonb_build_object('ok', false, 'error', 'BAD_SIZE');
+  end if;
+  select * into s from public.students where id = v_sid;
+  if not coalesce((select omok_open from public.classes where id = s.class_id), false) then
+    return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+
+  -- 짝 맞추기는 한 번에 한 명씩
+  perform pg_advisory_xact_lock(hashtext('qd_match'));
+
+  if exists (select 1 from public.qd_players p join public.qd_games g on g.id = p.game_id
+             where p.student_id = v_sid and p.left_at is null and g.status in ('waiting', 'playing')) then
+    return public.qd_state(p_token, null);
+  end if;
+
+  v_today := public._qd_today(v_sid);
+  if v_today >= (v_set ->> 'daily')::int then
+    return jsonb_build_object('ok', false, 'error', 'LIMIT', 'today', v_today, 'daily', (v_set ->> 'daily')::int);
+  end if;
+
+  delete from public.qd_players p using public.qd_games g
+  where p.game_id = g.id and g.status = 'waiting' and p.seen_at < now() - interval '15 seconds';
+  delete from public.qd_games g
+  where g.status = 'waiting' and not exists (select 1 from public.qd_players p where p.game_id = g.id);
+
+  select g.id into v_gid from public.qd_games g
+  where g.status = 'waiting' and g.size = p_size
+    and (select count(*) from public.qd_players p where p.game_id = g.id) < p_size
+  order by g.created_at
+  limit 1
+  for update;
+  if v_gid is null then
+    insert into public.qd_games (size) values (p_size) returning id into v_gid;
+  end if;
+
+  select x into v_seat
+  from unnest(case when p_size = 2 then array[0, 2] else array[0, 1, 2, 3] end) x
+  where not exists (select 1 from public.qd_players p where p.game_id = v_gid and p.seat = x)
+  order by random()
+  limit 1;
+  insert into public.qd_players (game_id, seat, student_id) values (v_gid, v_seat, v_sid);
+  update public.qd_games set version = version + 1 where id = v_gid;
+
+  select count(*) into v_n from public.qd_players where game_id = v_gid;
+  if v_n = p_size then
+    update public.qd_players
+    set cell = (array[76, 36, 4, 44])[seat + 1], walls = case when p_size = 2 then 10 else 5 end, seen_at = now()
+    where game_id = v_gid;
+    update public.qd_games
+    set status = 'playing', started_at = now(), walls = '{}',
+        turn = (select seat from public.qd_players where game_id = v_gid order by random() limit 1),
+        turn_at = now() + interval '3 seconds', version = version + 1
+    where id = v_gid;
+  end if;
+
+  return public.qd_state(p_token, v_gid);
+end;
+$$;
+revoke all on function public.qd_join(text, int) from public;
+grant execute on function public.qd_join(text, int) to anon, authenticated;
+
+-- 나가기 (학생): 대기 중이면 취소, 하는 중이면 기권
+create or replace function public.qd_leave(p_token text, p_game_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid uuid;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  perform pg_advisory_xact_lock(hashtext('qd_match'));
+  perform public._qd_leave(p_game_id, v_sid);
+  return public.qd_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.qd_leave(text, uuid) from public;
+grant execute on function public.qd_leave(text, uuid) to anon, authenticated;
+
+-- 한 수 (학생, 내 차례): p_kind 'move'(p_value = 칸 0~80) 또는 'wall'(p_value = 벽 0~127)
+-- 결과: qd_state와 같음(ok: true) 또는 {ok: false, error: 'NO_SESSION' | 'BAD_GAME' | 'OVER' | 'NOT_TURN' | 'BAD_MOVE' | 'NO_WALLS' | 'BAD_WALL' | 'BLOCK', state}
+create or replace function public.qd_play(p_token text, p_game_id uuid, p_kind text, p_value int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  g       public.qd_games;
+  me      public.qd_players;
+  v_err   text;
+  v_occ   int[];
+  v_walls int[];
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into g from public.qd_games where id = p_game_id for update;
+  select * into me from public.qd_players where game_id = p_game_id and student_id = v_sid;
+  if g.id is null or me.game_id is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_GAME');
+  end if;
+  update public.qd_players set seen_at = now() where game_id = p_game_id and student_id = v_sid;
+  perform public._qd_tick(p_game_id);
+  select * into g from public.qd_games where id = p_game_id;
+  select * into me from public.qd_players where game_id = p_game_id and student_id = v_sid;
+
+  if g.status <> 'playing' or me.left_at is not null then
+    v_err := 'OVER';
+  elsif not coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false) then
+    v_err := 'OVER';
+  elsif g.turn <> me.seat then
+    v_err := 'NOT_TURN';
+  elsif p_kind = 'move' then
+    select coalesce(array_agg(cell), '{}') into v_occ from public.qd_players
+    where game_id = p_game_id and left_at is null and seat <> me.seat;
+    if p_value is null or not p_value = any(public._qd_moves(g.walls, v_occ, me.cell)) then
+      v_err := 'BAD_MOVE';
+    end if;
+  elsif p_kind = 'wall' then
+    if me.walls <= 0 then
+      v_err := 'NO_WALLS';
+    elsif not public._qd_wall_fits(g.walls, p_value) then
+      v_err := 'BAD_WALL';
+    else
+      v_walls := g.walls || p_value;
+      if exists (select 1 from public.qd_players
+                 where game_id = p_game_id and left_at is null and not public._qd_path(v_walls, cell, seat)) then
+        v_err := 'BLOCK';
+      end if;
+    end if;
+  else
+    v_err := 'BAD_MOVE';
+  end if;
+  if v_err is not null then
+    return jsonb_build_object('ok', false, 'error', v_err, 'state', public.qd_state(p_token, p_game_id));
+  end if;
+
+  update public.qd_players set timeouts = 0 where game_id = p_game_id and seat = me.seat;
+  if p_kind = 'move' then
+    update public.qd_players set cell = p_value where game_id = p_game_id and seat = me.seat;
+    update public.qd_games
+    set moves = moves + 1, last = jsonb_build_object('seat', me.seat, 'kind', 'move', 'from', me.cell, 'to', p_value), version = version + 1
+    where id = p_game_id;
+    if public._qd_goal(me.seat, p_value) then
+      perform public._qd_end(p_game_id, me.seat, 'goal');
+      return public.qd_state(p_token, p_game_id);
+    end if;
+  else
+    update public.qd_players set walls = walls - 1 where game_id = p_game_id and seat = me.seat;
+    update public.qd_games
+    set walls = v_walls, moves = moves + 1, last = jsonb_build_object('seat', me.seat, 'kind', 'wall', 'wall', p_value), version = version + 1
+    where id = p_game_id;
+  end if;
+  perform public._qd_next(p_game_id, now());
+
+  return public.qd_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.qd_play(text, uuid, text, int) from public;
+grant execute on function public.qd_play(text, uuid, text, int) to anon, authenticated;

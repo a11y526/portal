@@ -30,6 +30,8 @@ update public.lessons set slide_count = 18 where code = '612' and slide_count is
 -- 2026-10-20 사용자: 613은 안 나감(단원을 비워 진도에서 뺌. 623은 노션 차시에 없음), 621은 2시간
 update public.lessons set unit = '' where code = '613';
 update public.lessons set periods = 2 where code = '621';
+-- 2026-10-23 사용자: 622(생활 속 샤를 법칙)와 725(천체 망원경)도 진도에서 뺌
+update public.lessons set unit = '' where code in ('622', '725');
 
 -- 기본 주간 시간표 (요일, 교시, 반)
 delete from public.timetable;

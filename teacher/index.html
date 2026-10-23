@@ -93,6 +93,10 @@
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.5 5.2 5.5.8-4 3.9 1 5.6-5-2.7-5 2.7 1-5.6-4-3.9 5.5-.8z"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>점수 주기</b><span>XP · 코인 직접 주기</span>
           </a>
+          <a class="hub-item glass glass-live lift rise" style="--d:0.24s" href="#coins">
+            <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.2a3 3 0 0 0-2.8-1.7c-1.6 0-2.8.9-2.8 2.2 0 3 5.8 1.6 5.8 4.6 0 1.3-1.2 2.2-3 2.2a3.2 3.2 0 0 1-3-1.8M12 6v1.5M12 16.5V18"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
+            <b>코인 현황</b><span>학생별 코인 잔액</span>
+          </a>
           <a class="hub-item glass glass-live lift rise" style="--d:0.25s" href="#points">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 12h14M5 18h14"/><circle cx="9" cy="6" r="1.8" fill="currentColor"/><circle cx="15" cy="12" r="1.8" fill="currentColor"/><circle cx="8" cy="18" r="1.8" fill="currentColor"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>포인트 규칙</b><span id="hub-points">통과 · 순위 보너스</span>
@@ -287,6 +291,26 @@
         <div class="nick-list" id="grant-log"></div>
       </section>
     </div>
+
+    <section class="card glass rise panel hidden" data-panel="coins" data-title="코인 현황" aria-labelledby="h-coins">
+      <div class="card-head">
+        <h2 id="h-coins">코인 현황 <span class="muted num" id="coins-count"></span></h2>
+        <label class="class-pick glass">
+          <select id="coins-class" aria-label="반"></select>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </label>
+      </div>
+      <div class="row-actions">
+        <div class="cls-tabs" id="coins-sort" role="tablist" aria-label="정렬">
+          <button type="button" role="tab" class="cls-tab press on" aria-selected="true" data-sort="number">번호순</button>
+          <button type="button" role="tab" class="cls-tab press" aria-selected="false" data-sort="coins">코인 많은 순</button>
+        </div>
+        <button type="button" class="btn btn-line btn-small" id="coins-refresh">새로 고침</button>
+      </div>
+      <p class="muted num coins-sum" id="coins-sum"></p>
+      <div class="coins-scroll"><table class="coins-table" id="coins-table"></table></div>
+      <p class="muted" style="margin:0">잔액 = 받은 코인 − 꾸미기·뺀 코인 − 보상 신청(대기·승인). 거절된 신청은 빠져요.</p>
+    </section>
 
     <form class="card glass rise panel hidden" data-panel="points" data-title="포인트 규칙" id="points-form" aria-labelledby="h-points">
       <h2 id="h-points">포인트 규칙</h2>

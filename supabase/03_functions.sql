@@ -6341,3 +6341,47 @@ end;
 $$;
 revoke all on function public.qd_play(text, uuid, text, int) from public;
 grant execute on function public.qd_play(text, uuid, text, int) to anon, authenticated;
+
+-- =========================================================
+-- 학생별 코인 현황 (교사, 관리 '코인 현황'). p_class_id가 null이면 6개 반 모두. 0번·명단에서 뺀 학생 제외
+-- coins = 잔액(_coin_balance와 같은 공식), earned = 받은 코인(+ 기록 합), spent = 꾸미기·빼기(− 기록 합, 양수로),
+-- rewards = 보상 신청(대기·승인) 코인, pending = 그중 대기 중
+-- =========================================================
+create or replace function public.get_coin_status(p_class_id smallint default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'id', s.id, 'class_id', s.class_id, 'number', s.number, 'nickname', s.nickname,
+             'coins', coalesce(p.earned, 0) - coalesce(p.spent, 0) - coalesce(b.rewards, 0),
+             'earned', coalesce(p.earned, 0), 'spent', coalesce(p.spent, 0),
+             'rewards', coalesce(b.rewards, 0), 'pending', coalesce(b.pending, 0),
+             'total_xp', coalesce(p.xp, 0),
+             'level', (public._level_info(coalesce(p.xp, 0)) ->> 'level')::int
+           ) order by s.class_id, s.number)
+    from public.students s
+    left join lateral (
+      select sum(e.coins) filter (where e.coins > 0)::int as earned,
+             (-sum(e.coins) filter (where e.coins < 0))::int as spent,
+             sum(e.xp)::int as xp
+      from public.point_events e where e.student_id = s.id
+    ) p on true
+    left join lateral (
+      select sum(u.cost)::int as rewards,
+             (sum(u.cost) filter (where u.status = 'requested'))::int as pending
+      from public.purchases u where u.student_id = s.id and u.status in ('requested', 'approved')
+    ) b on true
+    where s.active and s.number > 0 and (p_class_id is null or s.class_id = p_class_id)
+  ), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.get_coin_status(smallint) from public, anon;
+grant execute on function public.get_coin_status(smallint) to authenticated;

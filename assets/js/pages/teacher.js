@@ -1,4 +1,4 @@
-// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #roster #nick #buys #shopset #grant #points #data #lock #omok #presets)
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #roster #nick #buys #shopset #grant #coins #points #data #lock #omok #presets)
 // 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 반 게시판(반마다 섹션·자료), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인·반별 닉네임 고치기, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
@@ -8,7 +8,7 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants, getCoinStatus,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
@@ -850,6 +850,75 @@ async function refreshGrants() {
     </div>`).join('') : '<p class="muted" style="margin:0">아직 직접 준 점수가 없어요</p>';
 }
 
+/* ---------- 코인 현황: 학생별 잔액·받은·쓴·보상 신청 (0이면 모든 반) ---------- */
+let coinClass = CLASSES[0];
+try { const v = localStorage.getItem('coinClass'); if (v !== null) coinClass = Number(v); } catch {}
+if (coinClass !== 0 && !CLASSES.includes(coinClass)) coinClass = CLASSES[0];
+let coinSort = 'number';
+let coinRows = [];
+
+$('coins-class').innerHTML = '<option value="0">모든 반</option>' + CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+$('coins-class').value = String(coinClass);
+$('coins-class').addEventListener('change', () => {
+  coinClass = Number($('coins-class').value);
+  try { localStorage.setItem('coinClass', String(coinClass)); } catch {}
+  coinRows = [];
+  renderCoins();
+  refreshCoins().catch((err) => toast(errMsg(err), 'error'));
+});
+$('coins-sort').addEventListener('click', (e) => {
+  const b = e.target.closest('[data-sort]');
+  if (!b) return;
+  coinSort = b.dataset.sort;
+  for (const t of $('coins-sort').children) {
+    t.classList.toggle('on', t === b);
+    t.setAttribute('aria-selected', String(t === b));
+  }
+  renderCoins();
+});
+$('coins-refresh').addEventListener('click', () => refreshCoins().catch((err) => toast(errMsg(err), 'error')));
+
+function renderCoins() {
+  const all = coinClass === 0;
+  const rows = [...coinRows];
+  if (coinSort === 'coins') rows.sort((a, b) => b.coins - a.coins || a.class_id - b.class_id || a.number - b.number);
+  const sum = (k) => rows.reduce((t, r) => t + (r[k] || 0), 0);
+  const pending = sum('pending');
+  $('coins-count').textContent = rows.length ? `${rows.length}명` : '';
+  $('coins-sum').textContent = rows.length
+    ? `잔액 합 ${sum('coins')}코인 · 평균 ${Math.round(sum('coins') / rows.length)}코인${pending ? ` · 승인 기다리는 보상 ${pending}코인` : ''}`
+    : '';
+  if (!rows.length) {
+    $('coins-table').innerHTML = '<tbody><tr><td class="l muted">명단이 없어요</td></tr></tbody>';
+    return;
+  }
+  $('coins-table').innerHTML = `
+    <thead><tr>
+      ${all ? '<th class="l">반</th>' : ''}<th class="l">번호</th><th class="l">닉네임</th>
+      <th>잔액</th><th>받은 코인</th><th>꾸미기·뺀 코인</th><th>보상 신청</th><th>레벨</th>
+    </tr></thead>
+    <tbody>${rows.map((r) => `<tr>
+      ${all ? `<td class="l">${r.class_id}반</td>` : ''}<td class="l">${r.number}번</td>
+      <td class="l">${r.nickname ? esc(r.nickname) : '<span class="muted">닉네임 미정</span>'}</td>
+      <td class="bal${r.coins < 0 ? ' minus' : ''}">${r.coins}</td>
+      <td>${r.earned}</td><td>${r.spent}</td>
+      <td>${r.rewards}${r.pending ? `<span class="wait">대기 ${r.pending}</span>` : ''}</td>
+      <td>Lv.${r.level}</td>
+    </tr>`).join('')}</tbody>
+    <tfoot><tr>
+      <td class="l" colspan="${all ? 3 : 2}">합계</td>
+      <td class="bal">${sum('coins')}</td><td>${sum('earned')}</td><td>${sum('spent')}</td><td>${sum('rewards')}</td><td></td>
+    </tr></tfoot>`;
+}
+
+async function refreshCoins() {
+  const cls = coinClass;
+  const rows = await getCoinStatus(cls || null);
+  if (cls !== coinClass) return;
+  coinRows = rows ?? [];
+  renderCoins();
+}
+
 /* ---------- 포인트 규칙: 통과 기본·순위 보너스 (XP와 코인 따로) ---------- */
 let pointRules = null;
 
@@ -1660,6 +1729,7 @@ function loadPanel(key) {
   if (key === 'buys') refreshBuys(true).catch(() => {});
   if (key === 'shopset') refreshShopSet().catch(() => {});
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
+  if (key === 'coins') refreshCoins().catch(() => {});
   if (key === 'points') refreshPoints().catch(() => {});
   if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshOmpRules().catch(() => {}); refreshRkRules().catch(() => {}); refreshQdRules().catch(() => {}); }
   if (key === 'data') refreshArchive().catch(() => {});

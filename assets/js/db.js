@@ -578,6 +578,11 @@ export async function listGrants(limit = 40) {
     .order('created_at', { ascending: false }).limit(limit));
 }
 
+// 학생별 코인 현황(classId 없으면 모든 반): [{ id, class_id, number, nickname, coins, earned, spent, rewards, pending, total_xp, level }]
+export async function getCoinStatus(classId = null) {
+  return unwrap(await need().rpc('get_coin_status', { p_class_id: classId }));
+}
+
 /* ---------- 교사: CSV 내보내기용 전체 기록 (1000줄씩 나눠 읽음) ---------- */
 
 async function readAll(build) {

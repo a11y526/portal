@@ -623,6 +623,12 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .nick-row .new { font-size: 17px; font-weight: 900; }
 .nick-row .old { font-size: 13px; color: var(--ink-2); }
 .nick-row .roster-btns { margin-left: auto; }
+.nick-rule { margin: 0 0 10px; font-size: 13px; }
+.nick-edit { padding-top: 6px; padding-bottom: 6px; }
+.nick-edit > b { width: 48px; }
+.nick-edit .input { width: 150px; height: 40px; font-weight: 700; }
+.nick-edit .req { font-size: 13px; color: var(--ink-2); }
+.nick-edit .btn { margin-left: auto; }
 .card-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
 
 /* ---------- 입구: 로그인 (index.html) ---------- */

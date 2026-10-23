@@ -74,7 +74,7 @@
           </a>
           <a class="hub-item glass glass-live lift rise" style="--d:0.17s" href="#nick">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h4L19 9a2.8 2.8 0 0 0-4-4L4 16z"/><path d="M13.5 6.5l4 4"/></svg></i><em class="hub-badge hidden" id="hub-nick-badge"></em><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
-            <b>닉네임 승인</b><span id="hub-nick"></span>
+            <b>닉네임</b><span id="hub-nick"></span>
           </a>
           <a class="hub-item glass glass-live lift rise" style="--d:0.19s" href="#lock">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
@@ -217,13 +217,26 @@
       <div class="nd-scroll hidden" id="today-list"></div>
     </div>
 
-    <section class="card glass rise panel hidden" data-panel="nick" data-title="닉네임 승인" aria-labelledby="h-nick">
-      <div class="card-head">
-        <h2 id="h-nick">닉네임 승인 <span class="muted num" id="nick-count"></span></h2>
-        <button type="button" class="btn btn-line btn-small" id="nick-refresh">새로 고침</button>
-      </div>
-      <div class="nick-list" id="nick-list"></div>
-    </section>
+    <div class="panel hidden" data-panel="nick" data-title="닉네임">
+      <section class="card glass rise" aria-labelledby="h-nick">
+        <div class="card-head">
+          <h2 id="h-nick">닉네임 승인 <span class="muted num" id="nick-count"></span></h2>
+          <button type="button" class="btn btn-line btn-small" id="nick-refresh">새로 고침</button>
+        </div>
+        <div class="nick-list" id="nick-list"></div>
+      </section>
+      <section class="card glass rise" style="--d:.06s" aria-labelledby="h-nick-all">
+        <div class="card-head">
+          <h2 id="h-nick-all">반별 닉네임 <span class="muted num" id="nick-all-count"></span></h2>
+          <label class="class-pick glass">
+            <select id="nick-class" aria-label="반"></select>
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+          </label>
+        </div>
+        <p class="muted nick-rule">2~8자, 한글·영문·숫자. 비우고 저장하면 '닉네임 미정'</p>
+        <div class="nick-list" id="nick-all"></div>
+      </section>
+    </div>
 
     <div class="panel hidden" data-panel="buys" data-title="구매 승인">
       <section class="card glass rise" aria-labelledby="h-buys">

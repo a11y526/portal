@@ -1,12 +1,12 @@
 // 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #roster #nick #buys #shopset #grant #points #data #lock #omok #presets)
-// 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 반 게시판(반마다 섹션·자료), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인, 구매 승인, 상점 설정,
+// 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 반 게시판(반마다 섹션·자료), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인·반별 닉네임 고치기, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, cleanupPostPhotos,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
-  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, setClassLock, setOmokOpen,
+  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
   getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getRummikubRules, saveRummikubRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
@@ -547,9 +547,87 @@ $('nick-list').addEventListener('click', async (e) => {
     await decideNickname(row.dataset.nid, btn.hasAttribute('data-approve'));
     nickReqs = nickReqs.filter((s) => s.id !== row.dataset.nid);
     renderNicks();
+    refreshNickAll().catch(() => {});
   } catch (err) {
     toast(errMsg(err), 'error');
     await refreshNicks().catch(() => {});
+  }
+});
+
+/* ---------- 반별 닉네임: 번호마다 닉네임을 보고 바로 고침 ---------- */
+let nickClass = CLASSES[0];
+try { nickClass = Number(localStorage.getItem('nickClass')) || nickClass; } catch {}
+if (!CLASSES.includes(nickClass)) nickClass = CLASSES[0];
+let nickAll = [];
+
+$('nick-class').innerHTML = CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+$('nick-class').value = String(nickClass);
+$('nick-class').addEventListener('change', () => {
+  nickClass = Number($('nick-class').value);
+  try { localStorage.setItem('nickClass', String(nickClass)); } catch {}
+  refreshNickAll().catch((err) => toast(errMsg(err), 'error'));
+});
+
+function renderNickAll() {
+  const named = nickAll.filter((s) => s.nickname).length;
+  $('nick-all-count').textContent = nickAll.length ? `${named} / ${nickAll.length}` : '';
+  $('nick-all').innerHTML = nickAll.length ? nickAll.map((s) => `
+    <form class="nick-row nick-edit" data-sid="${s.id}">
+      <b class="num">${s.number}번</b>
+      <input class="input" name="nick" maxlength="8" value="${esc(s.nickname ?? '')}" placeholder="닉네임 미정" aria-label="${s.number}번 닉네임" autocomplete="off">
+      ${s.nickname_status === 'pending' && s.nickname_request ? `<span class="req">신청 중: ${esc(s.nickname_request)}</span>` : ''}
+      <button type="submit" class="btn btn-primary btn-small" disabled>저장</button>
+    </form>`).join('') : '<p class="muted" style="margin:0">명단이 없어요</p>';
+}
+
+async function refreshNickAll() {
+  const cls = nickClass;
+  const rows = await listNicknames(cls);
+  if (cls !== nickClass) return;
+  nickAll = rows;
+  renderNickAll();
+}
+
+$('nick-all').addEventListener('input', (e) => {
+  const form = e.target.closest('form');
+  const s = nickAll.find((x) => x.id === form?.dataset.sid);
+  if (s) form.querySelector('button').disabled = e.target.value.trim() === (s.nickname ?? '');
+});
+
+$('nick-all').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const form = e.target;
+  const s = nickAll.find((x) => x.id === form.dataset.sid);
+  const input = form.querySelector('input');
+  const btn = form.querySelector('button');
+  const nick = input.value.trim();
+  if (!s || btn.disabled) return;
+  if (nick && (nick.length < 2 || nick.length > 8 || !/^[가-힣A-Za-z0-9]+$/.test(nick))) {
+    toast('2~8자, 한글·영문·숫자만 돼요', 'error');
+    return;
+  }
+  btn.disabled = input.disabled = true;
+  try {
+    const r = await setNickname(s.id, nick);
+    if (!r?.ok) {
+      toast(r?.error === 'TAKEN' ? '다른 학생이 쓰거나 신청 중인 닉네임이에요' : '2~8자, 한글·영문·숫자만 돼요', 'error');
+      btn.disabled = false;
+      return;
+    }
+    s.nickname = r.nickname;
+    if (s.nickname_status === 'pending') {
+      nickReqs = nickReqs.filter((x) => x.id !== s.id);
+      renderNicks();
+    }
+    s.nickname_status = r.nickname ? 'approved' : 'none';
+    s.nickname_request = null;
+    toast(`${s.number}번 ${r.nickname ? `'${r.nickname}'` : '닉네임 지움'}`, 'ok');
+    renderNickAll();
+  } catch (err) {
+    toast(errMsg(err), 'error');
+    btn.disabled = false;
+  } finally {
+    input.disabled = false;
   }
 });
 
@@ -1530,7 +1608,7 @@ function route() {
   document.body.classList.toggle('doc', key === 'progress' || key === 'boards');
   markSide(open ? key : '');
   scrollTo(0, 0);
-  if (key === 'nick') refreshNicks().catch(() => {});
+  if (key === 'nick') { refreshNicks().catch(() => {}); refreshNickAll().catch(() => {}); }
   loadPanel(key);
 }
 

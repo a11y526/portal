@@ -6,7 +6,7 @@ import { toast, esc } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
-  getWsFirst, acceptWsFirst, skipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
+  getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
@@ -102,7 +102,8 @@ const lessonFrame = {
    G: 덮개 열기/닫기 · F: live.html 전체를 전체 화면 · W: 학습지 남은 쪽 전부 열기 · Shift+W: 지금 쪽 뒤로 다시 잠그기
    덮개가 열려 있으면 1·2·3·4 탭, T 타이머 시작·일시정지
    S: 지금 쪽 학습지 [제출 시작] / 열려 있으면 [잠그기] / 잠갔으면 [다시 열기] · V: [제출한 것 보기]
-   첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, Esc 닫기.
+   첫 답 창이 떠 있으면 Enter 인정(지급한 쪽이면 다음), N 넘기기, B 이전(방금 넘긴 답 되돌리기), Esc 닫기.
+   창이 닫혀 있어도 B는 그 쪽에서 마지막으로 넘긴 답을 되돌려 창을 띄운다.
    띠의 [n번 인정]으로 인정한 답을 다시 띄우면 Enter·Esc 닫기, [인정 취소]는 눌러서만
    한글 자판에서도 먹게 e.code로 본다 */
 const isEditable = (t) => !!t?.closest?.('input, textarea, select, [contenteditable=""], [contenteditable="true"]');
@@ -121,6 +122,7 @@ function handleKey(e) {
         if (!e.repeat) { if (wsFirst.review) wsFirst.close(); else wsFirst.decide(!wsFirst.item.paid); }
         return true;
       case 'KeyN': if (!e.repeat && !wsFirst.review) wsFirst.decide(false); return true;
+      case 'KeyB': if (!e.repeat && !wsFirst.review) wsFirst.back(); return true;
       case 'Escape': wsFirst.close(); return true;
     }
     return false;
@@ -129,6 +131,7 @@ function handleKey(e) {
     switch (e.code) {
       case 'KeyS': if (!e.repeat) sheetBand.togglePage(); return true;
       case 'KeyV': if (!e.repeat) wsFirst.view(); return true;
+      case 'KeyB': if (!e.repeat) wsFirst.back(); return true;
     }
     return false;
   }
@@ -729,10 +732,14 @@ const sheetBand = {
     const waiting = st.waiting?.[this.slide] ?? 0;
     const view = waiting > 0
       ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${waiting}</b><kbd>V</kbd></button>` : '';
-    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}${undo}`;
+    // 다 넘겨서 창이 닫힌 뒤에도 실수로 넘긴 답을 되돌릴 수 있게
+    const skipped = st.skipped?.[this.slide] ?? 0;
+    const back = !waiting && acc == null && skipped > 0
+      ? `<button type="button" class="btn btn-line btn-small press" data-act="back">넘긴 답 되돌리기 <b class="num">${skipped}</b><kbd>B</kbd></button>` : '';
+    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}${back}${undo}`;
     if (html !== this.html) band.innerHTML = this.html = html;
     band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
-    band.classList.toggle('has-act', !!(start || view || undo));
+    band.classList.toggle('has-act', !!(start || view || back || undo));
   },
 
   setSlide(slide) {
@@ -811,13 +818,14 @@ $('ws-band').addEventListener('click', (e) => {
   if (b?.dataset.act === 'undo') sheetBand.undoAccept();
   if (b?.dataset.act === 'review') wsFirst.view(true);
   if (b?.dataset.act === 'view') wsFirst.view();
+  if (b?.dataset.act === 'back') wsFirst.back();
   lessonFrame.focus();
 });
 
 /* =========================================================
    쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로 한 명씩 띄운다.
    [제출한 것 보기](V)를 눌러야 뜨고, 지금 보이는 수업자료 쪽의 줄만 보여 준다.
-   [인정] 1 XP·1코인 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람.
+   [인정] 1 XP·1코인 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람 · [이전] 방금 넘긴 사람 다시.
    다 넘기면 창이 닫힌다. Esc로 닫으면 남은 것은 그 쪽에서 V로 다시 보기
    덮개가 열려 있는 동안은 숨겨 두었다가 닫으면 다시 보인다
    ========================================================= */
@@ -851,6 +859,30 @@ const wsFirst = {
     this.review = false;
     this.item = null;
     this.paint();
+  },
+
+  // [이전](B): 그 쪽에서 마지막으로 넘긴 답을 다시 대기로 돌려 창에 띄운다(먼저 낸 답이라 맨 앞에 옴)
+  async back() {
+    const slide = this.viewing ? this.slide : lessonFrame.currentSlide();
+    if (!board || this.busy || this.review || !slide) return;
+    this.busy = true;
+    let ok = false;
+    try {
+      const r = await unskipWsFirst(board.id, slide);
+      if (r?.ok) ok = true;
+      else toast(r?.error === 'TAKEN' ? '이 쪽은 이미 인정했어요. 인정 취소 먼저' : '넘긴 답이 없어요');
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.busy = false;
+    }
+    if (ok) {
+      this.slide = slide;
+      this.viewing = true;
+      await this.refresh();
+    }
+    sheetBand.refresh();
   },
 
   async refresh() {
@@ -894,6 +926,7 @@ const wsFirst = {
   renderFoot(it) {
     const ok = $('wsf-ok');
     const skip = $('wsf-skip');
+    $('wsf-back').classList.toggle('hidden', this.review || !it.skipped);
     if (this.review) {
       $('wsf-badge').textContent = '인정함';
       $('wsf-badge').classList.add('is-paid');
@@ -941,7 +974,7 @@ const wsFirst = {
       return;
     }
     this.busy = true;
-    $('wsf-ok').disabled = $('wsf-skip').disabled = true;
+    $('wsf-ok').disabled = $('wsf-skip').disabled = $('wsf-back').disabled = true;
     let done = false; // 인정하면 창을 닫는다
     try {
       if (accept) {
@@ -962,7 +995,7 @@ const wsFirst = {
       toast(errMsg(err), 'error');
     } finally {
       this.busy = false;
-      $('wsf-ok').disabled = $('wsf-skip').disabled = false;
+      $('wsf-ok').disabled = $('wsf-skip').disabled = $('wsf-back').disabled = false;
     }
     if (done) this.close();
     else if (!this.item) this.refresh();
@@ -980,6 +1013,7 @@ const wsFirst = {
 };
 $('wsf-ok').addEventListener('click', () => wsFirst.decide(true));
 $('wsf-skip').addEventListener('click', () => wsFirst.decide(false));
+$('wsf-back').addEventListener('click', () => wsFirst.back());
 
 /* =========================================================
    학습지 진도: 수업자료에서 지금까지 간 가장 뒤 쪽을 서버에 올린다.

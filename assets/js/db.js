@@ -451,6 +451,19 @@ export async function decideNickname(studentId, approve) {
   return unwrap(await need().rpc('decide_nickname', { p_student_id: studentId, p_approve: approve }));
 }
 
+// 반 명단과 닉네임(관리 '닉네임'): [{ id, number, nickname, nickname_request, nickname_status }]
+export async function listNicknames(classId) {
+  return unwrap(await need().from('students')
+    .select('id, number, nickname, nickname_request, nickname_status')
+    .eq('class_id', classId).eq('active', true).gt('number', 0)
+    .order('number'));
+}
+
+// 닉네임 직접 고치기(빈 글자면 지움): { ok, nickname } · { ok: false, error: 'BAD_NICK' | 'TAKEN' }
+export async function setNickname(studentId, nickname) {
+  return unwrap(await need().rpc('set_nickname', { p_student_id: studentId, p_nickname: nickname }));
+}
+
 export async function updateStudent(id, patch) {
   unwrap(await need().from('students').update(patch).eq('id', id));
 }
@@ -771,6 +784,11 @@ export async function unacceptWsFirst(boardId, slide) {
 // [넘기기]
 export async function skipWsFirst(id) {
   return unwrap(await need().rpc('skip_ws_first', { p_id: id }));
+}
+
+// [이전]: 수업자료 그 쪽에서 가장 최근에 넘긴 답을 다시 대기로. { ok, id } · { ok: false, error: 'NONE' | 'TAKEN' }
+export async function unskipWsFirst(boardId, slide) {
+  return unwrap(await need().rpc('unskip_ws_first', { p_board_id: boardId, p_slide: slide }));
 }
 
 // ws_firsts 표가 바뀌면 fn(payload)

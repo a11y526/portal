@@ -1335,6 +1335,48 @@ $$;
 revoke all on function public.decide_nickname(uuid, boolean) from public, anon;
 grant execute on function public.decide_nickname(uuid, boolean) to authenticated;
 
+-- 닉네임 직접 고치기 (교사). 빈 글자면 닉네임을 지워 '닉네임 미정'으로. 신청 중이던 것은 없앰
+-- 규칙은 학생 신청과 같음(2~8자, 한글·영문·숫자). 오류: BAD_NICK, TAKEN(다른 학생이 쓰거나 신청 중)
+create or replace function public.set_nickname(p_student_id uuid, p_nickname text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  s      public.students;
+  v_nick text := btrim(coalesce(p_nickname, ''));
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into s from public.students where id = p_student_id for update;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  if v_nick = '' then
+    update public.students set nickname = null, nickname_request = null, nickname_status = 'none' where id = s.id;
+    return jsonb_build_object('ok', true, 'nickname', null, 'class_id', s.class_id);
+  end if;
+  if char_length(v_nick) not between 2 and 8 or v_nick !~ '^[가-힣A-Za-z0-9]+$' then
+    return jsonb_build_object('ok', false, 'error', 'BAD_NICK');
+  end if;
+  if exists (
+    select 1 from public.students x
+    where x.id <> s.id and x.active
+      and (lower(x.nickname) = lower(v_nick)
+           or (x.nickname_status = 'pending' and lower(x.nickname_request) = lower(v_nick)))
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'TAKEN');
+  end if;
+  update public.students set nickname = v_nick, nickname_request = null, nickname_status = 'approved' where id = s.id;
+  return jsonb_build_object('ok', true, 'nickname', v_nick, 'class_id', s.class_id);
+end;
+$$;
+revoke all on function public.set_nickname(uuid, text) from public, anon;
+grant execute on function public.set_nickname(uuid, text) to authenticated;
+
 -- =========================================================
 -- 4단계: 포인트 상점
 -- 코인 잔액 = point_events.coins 합 − purchases.cost 합('requested', 'approved')
@@ -2067,7 +2109,7 @@ revoke all on function public._ws_first_enter(uuid, int, int, uuid, jsonb) from 
 
 -- 수업 모드: 지금 띄울 첫 답 하나 (교사). p_slide를 주면 그 수업자료 쪽의 것만, 먼저 낸 것부터.
 -- p_accepted면 대기 대신 그 쪽에서 인정한 답(다시 보기·인정 취소용)
--- 결과: {item: null} 또는 {item: {id, page, slide, pos(그 쪽 몇 번째), count(그 쪽 줄 수), wait(전체 남은 수), paid(그 쪽은 이미 지급),
+-- 결과: {item: null, skipped} 또는 {item: {id, page, slide, pos(그 쪽 몇 번째), count(그 쪽 줄 수), wait(전체 남은 수), skipped(넘긴 수), paid(그 쪽은 이미 지급),
 --        number, nickname, avatar, answers, sheet_page(학습지 그 쪽 본문, 정답 없음)}}
 drop function if exists public.get_ws_first(uuid);
 drop function if exists public.get_ws_first(uuid, int);
@@ -2083,17 +2125,21 @@ declare
   s      public.students;
   v_page jsonb;
   v_wait int;
+  v_skip int;
 begin
   if not public.is_teacher() then
     raise exception 'NOT_TEACHER';
   end if;
+  -- 그 쪽에서 넘긴 답 수([이전]으로 되돌릴 수 있는 것)
+  select count(*)::int into v_skip from public.ws_firsts x
+  where x.board_id = p_board_id and x.status = 'skipped' and (p_slide is null or x.slide = p_slide);
   select x.* into f from public.ws_firsts x
   where x.board_id = p_board_id and (p_slide is null or x.slide = p_slide)
     and x.status = case when p_accepted then 'accepted' else 'wait' end
   order by x.created_at, x.id
   limit 1;
   if not found then
-    return jsonb_build_object('item', null);
+    return jsonb_build_object('item', null, 'skipped', v_skip);
   end if;
   select count(*)::int into v_wait from public.ws_firsts x
   where x.board_id = p_board_id and x.status = 'wait' and (p_slide is null or x.slide = p_slide);
@@ -2110,6 +2156,7 @@ begin
                      and (z.created_at, z.id) <= (f.created_at, f.id)),
     'count',      (select count(*)::int from public.ws_firsts z where z.board_id = f.board_id and z.page = f.page),
     'wait',       v_wait,
+    'skipped',    v_skip,
     'paid',       exists (select 1 from public.ws_firsts z
                           where z.board_id = f.board_id and z.page = f.page and z.status = 'accepted'),
     'class_id',   s.class_id,
@@ -2209,6 +2256,39 @@ end;
 $$;
 revoke all on function public.skip_ws_first(uuid) from public, anon;
 grant execute on function public.skip_ws_first(uuid) to authenticated;
+
+-- [이전] (교사): 수업자료 그 쪽에서 가장 최근에 넘긴 답을 다시 대기로(실수로 넘긴 것 되돌리기).
+-- 그 학습지 쪽을 이미 인정했으면 TAKEN(인정 취소 먼저). 결과: {ok, id} · {ok: false, error: 'NONE' | 'TAKEN'}
+create or replace function public.unskip_ws_first(p_board_id uuid, p_slide int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  f public.ws_firsts;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into f from public.ws_firsts
+  where board_id = p_board_id and slide = p_slide and status = 'skipped'
+  order by decided_at desc nulls last, created_at desc limit 1;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'NONE');
+  end if;
+  perform pg_advisory_xact_lock(hashtext('ws_first|' || f.board_id::text || '|' || f.page::text));
+  if exists (select 1 from public.ws_firsts
+             where board_id = f.board_id and page = f.page and status = 'accepted') then
+    return jsonb_build_object('ok', false, 'error', 'TAKEN');
+  end if;
+  update public.ws_firsts set status = 'wait', decided_at = null where id = f.id and status = 'skipped';
+  return jsonb_build_object('ok', true, 'id', f.id);
+end;
+$$;
+revoke all on function public.unskip_ws_first(uuid, int) from public, anon;
+grant execute on function public.unskip_ws_first(uuid, int) to authenticated;
 
 -- [제출 시작] (교사, 수업 모드): 수업자료 그 쪽(slide)에 해당하는 학습지 쪽(칸이 있는 것)의 쓰기·제출을 연다(잠갔던 쪽은 다시 열기)
 -- 결과: 그 쪽에 해당해 열린 학습지 쪽 번호(pages 순서) 목록. 해당하는 쪽이 없으면 []
@@ -2401,7 +2481,11 @@ begin
                   where f.board_id = b.id and f.status = 'accepted' and f.slide is not null),
     'waiting',   (select coalesce(jsonb_object_agg(z.slide::text, z.n), '{}'::jsonb)
                   from (select f.slide, count(*)::int as n from public.ws_firsts f
-                        where f.board_id = b.id and f.status = 'wait' and f.slide is not null group by f.slide) z)
+                        where f.board_id = b.id and f.status = 'wait' and f.slide is not null group by f.slide) z),
+    -- 수업자료 쪽별 넘긴 첫 답 수 {"18": 2} ([이전]으로 되돌리기)
+    'skipped',   (select coalesce(jsonb_object_agg(z.slide::text, z.n), '{}'::jsonb)
+                  from (select f.slide, count(*)::int as n from public.ws_firsts f
+                        where f.board_id = b.id and f.status = 'skipped' and f.slide is not null group by f.slide) z)
   );
 end;
 $$;

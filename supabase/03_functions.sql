@@ -5071,7 +5071,8 @@ end;
 $$;
 revoke all on function public._qs_close(uuid) from public, anon, authenticated;
 
--- 밀린 마감 처리: 마감이 지났거나 접속한 학생(15초 안)이 모두 냈으면
+-- 밀린 마감 처리: 마감이 지났거나 접속한 학생(15초 안)이 모두 냈으면.
+-- 마감은 한 요청만 한다(다른 요청이 마감 중이면 기다리지 않고 넘어감). 부르는 쪽은 그 전에 qs_players 줄을 고치지 않는다(교착 막기)
 create or replace function public._qs_tick(p_game_id uuid)
 returns void
 language plpgsql
@@ -5092,7 +5093,9 @@ begin
            select 1 from public.qs_players p
            where p.game_id = g.id and p.seen_at > now() - interval '15 seconds'
              and not exists (select 1 from public.qs_answers a where a.game_id = g.id and a.q = g.q and a.student_id = p.student_id))) then
-    perform public._qs_close(g.id);
+    if pg_try_advisory_xact_lock(hashtext('qs_close|' || g.id::text)) then
+      perform public._qs_close(g.id);
+    end if;
   end if;
 end;
 $$;
@@ -5312,14 +5315,16 @@ begin
   if v_gid is null then
     return jsonb_build_object('ok', true, 'avatar', (select avatar from public.students where id = v_sid), 'game', null);
   end if;
-  update public.qs_players set seen_at = now() where game_id = v_gid and student_id = v_sid;
-  if found then
+  -- 마감 먼저, 내 줄 고치기는 맨 뒤(교착 막기). '아직 있음'은 4초에 한 번만 쓴다(_qs_tick은 15초 안을 봄)
+  perform public._qs_tick(v_gid);
+  if exists (select 1 from public.qs_players where game_id = v_gid and student_id = v_sid) then
     select * into g from public.qs_games where id = v_gid;
     if g.status = 'ask' then
       insert into public.qs_seen (game_id, q, student_id) values (g.id, g.q, v_sid) on conflict do nothing;
     end if;
+    update public.qs_players set seen_at = now()
+    where game_id = v_gid and student_id = v_sid and seen_at < now() - interval '4 seconds';
   end if;
-  perform public._qs_tick(v_gid);
   return jsonb_build_object('ok', true, 'avatar', (select avatar from public.students where id = v_sid), 'game', public._qs_view(v_gid, v_sid));
 end;
 $$;
@@ -5351,9 +5356,9 @@ begin
   if g.mode = 'team' then
     v_team := nullif(public._group_of(g.board_id, v_sid), 0);
   end if;
+  -- 판 버전은 올리지 않는다(학생마다 같은 줄을 고치면 줄을 섬). 프로젝터는 1초마다 다시 셈
   insert into public.qs_players (game_id, student_id, team) values (g.id, v_sid, v_team)
-  on conflict (game_id, student_id) do update set seen_at = now();
-  update public.qs_games set version = version + 1 where id = g.id;
+  on conflict (game_id, student_id) do nothing;
   return public.qs_state(p_token);
 end;
 $$;
@@ -5384,8 +5389,8 @@ begin
   if v_sid is null then
     return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
-  update public.qs_players set seen_at = now() where game_id = p_game_id and student_id = v_sid;
-  if not found then
+  -- 내 줄은 여기서 고치지 않는다('아직 있음'은 끝의 qs_state가 씀, 교착 막기)
+  if not exists (select 1 from public.qs_players where game_id = p_game_id and student_id = v_sid) then
     return jsonb_build_object('ok', false, 'error', 'NOT_PLAYER');
   end if;
   perform public._qs_tick(p_game_id);
@@ -5417,8 +5422,7 @@ begin
   if not found then
     return jsonb_build_object('ok', false, 'error', 'ALREADY');
   end if;
-  update public.qs_games set version = version + 1 where id = g.id;
-  perform public._qs_tick(g.id);
+  -- 판 버전은 올리지 않는다(답마다 같은 줄을 고치면 30명이 줄을 섬). 답 수는 프로젝터가 따로 셈
   return public.qs_state(p_token);
 end;
 $$;

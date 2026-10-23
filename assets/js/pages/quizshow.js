@@ -1,5 +1,5 @@
 // 퀴즈 쇼 (학생): 선생님이 프로젝터에서 진행하는 반 전체 퀴즈. 들어오면 바로 참가, 문제마다 한 번 답한다.
-// 진행은 서버 시각(qs_state의 남은 ms)으로. 반 채널 'quizshow' 신호 + 문제 중 1.2초·그 밖 3초마다 qs_state. 신호 내용은 믿지 않는다
+// 진행은 서버 시각(qs_state의 남은 ms)으로. 반 채널 'quizshow' 신호 + 문제 중 2.5초·그 밖 4초마다(+무작위 0~0.6초) qs_state, 읽는 중에는 겹쳐 보내지 않음. 신호 내용은 믿지 않는다
 import { initUI, toast, esc, countUp } from '../ui.js';
 import { qsState, qsJoin, qsAnswer, onQuizShow } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -13,8 +13,9 @@ initUI();
 bindReactions();
 
 const $ = (id) => document.getElementById(id);
-const FAST_MS = 1200;
-const SLOW_MS = 3000;
+const FAST_MS = 2500;
+const SLOW_MS = 4000;
+const JITTER_MS = 600;  // 30명이 같은 순간에 묻지 않게
 const WAIT_MS = 10000;
 
 let login = readLogin();
@@ -27,7 +28,9 @@ let busy = false;
 let joining = false;
 let netDown = false;
 let pollTimer = null;
-let draft = null;       // 지금 문제에 고르는 중인 답 { q, value }
+let loading = false;    // 읽는 중이면 새로 보내지 않고 끝난 뒤 한 번 더
+let again = false;
+let draft = null;      // 지금 문제에 고르는 중인 답 { q, value }
 let celebrated = null;
 
 if (login) $('back').href = `class.html?c=${login.class_id}`;
@@ -42,6 +45,8 @@ const withTimeout = (p, ms) => {
 function take(r) {
   const ng = r.game;
   if (g && ng && ng.id === g.id && ng.version < g.version) return false;
+  // 답을 내도 판 버전은 그대로라, 답 내기 전에 보낸 다시 읽기가 늦게 와도 낸 답은 남긴다
+  if (g?.mine && ng && !ng.mine && ng.id === g.id && ng.q === g.q && ng.status === g.status) ng.mine = g.mine;
   st = r;
   g = ng;
   return true;
@@ -54,9 +59,17 @@ function setNet(on) {
 }
 
 /* ---------- 읽기 ---------- */
+// 신호·준비 끝에 다시 읽기: 모두 같은 순간에 보내지 않게 조금씩 흩는다
+function soon() {
+  clearTimeout(pollTimer);
+  pollTimer = setTimeout(load, Math.random() * 400);
+}
+
 async function load() {
   clearTimeout(pollTimer);
   if (!login) { render(); return; }
+  if (loading) { again = true; return; }
+  loading = true;
   try {
     const r = await withTimeout(qsState(login.token), WAIT_MS);
     setNet(false);
@@ -82,8 +95,16 @@ async function load() {
     console.warn(err);
     setNet(true);
   } finally {
-    const fast = g && (g.phase === 'ready' || g.phase === 'ask');
-    pollTimer = setTimeout(load, document.hidden ? SLOW_MS * 2 : netDown ? SLOW_MS : fast ? FAST_MS : SLOW_MS);
+    loading = false;
+    clearTimeout(pollTimer);
+    if (again) {
+      again = false;
+      soon();
+    } else {
+      const fast = g && (g.phase === 'ready' || g.phase === 'ask');
+      const ms = document.hidden ? SLOW_MS * 2 : netDown ? SLOW_MS : fast ? FAST_MS : SLOW_MS;
+      pollTimer = setTimeout(load, ms + Math.random() * JITTER_MS);
+    }
   }
 }
 
@@ -362,7 +383,7 @@ function tick() {
   if (el) el.textContent = String(Math.ceil(left / 1000));
   if (bar) bar.style.transform = `scaleX(${Math.min(1, left / span)})`;
   // 준비 시간이 끝나면 바로 다시 읽어 문제를 연다
-  if (g?.phase === 'ready' && left <= 0 && !tick.kicked) { tick.kicked = true; setTimeout(() => { tick.kicked = false; load(); }, 120); }
+  if (g?.phase === 'ready' && left <= 0 && !tick.kicked) { tick.kicked = true; setTimeout(() => { tick.kicked = false; load(); }, 120 + Math.random() * 400); }
 }
 setInterval(tick, 100);
 
@@ -451,7 +472,7 @@ async function send() {
 
 /* ---------- 시작 ---------- */
 if (login) {
-  onQuizShow(login.class_id, () => load());
+  onQuizShow(login.class_id, () => soon());
   document.addEventListener('visibilitychange', () => { if (!document.hidden) load(); });
   addEventListener('online', () => load());
 }

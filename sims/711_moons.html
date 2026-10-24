@@ -1,0 +1,732 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>위성 — 목성과 위성</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+html,body{margin:0;height:100%;background:#fff}
+#host{box-sizing:border-box;height:100%;padding:10px;display:flex}
+.sl{display:flex;flex-direction:column;gap:10px;width:100%;height:100%;min-height:0;font-family:'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#1D1D1F;word-break:keep-all}
+.sl-stage{flex:1;min-height:0;border:1px solid #E3E3E8;border-radius:16px;overflow:hidden;background:#FAFAFC}
+.sl-dark{background:#0B1A33;border-color:#0B1A33}
+.sl-ctrl{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
+.sl-btn{font:700 17px 'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif;color:#0066CC;background:#fff;border:1.5px solid #0066CC;border-radius:999px;padding:8px 16px;cursor:pointer;min-height:44px;touch-action:manipulation;transition:background .15s,color .15s,border-color .15s,opacity .15s}
+.sl-btn:active{background:#E8F1FB}
+.sl-btn.on{background:#0066CC;color:#fff}
+.sl-btn:disabled{opacity:.35;cursor:default}
+.sl-seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden;background:#fff}
+.sl-seg .sl-btn{border:0;border-radius:0;color:#515154;padding:8px 14px}
+.sl-seg .sl-btn.on{background:#0066CC;color:#fff}
+.sl-sp{flex:1}
+
+/* 태양계 둘러보기 */
+.sl-tour{flex-direction:row;gap:14px;align-items:stretch}
+.tour-pic{position:relative;flex:1;min-width:0;align-self:center;aspect-ratio:1600/1042;max-height:100%;border-radius:16px;overflow:hidden;background:#0B1A33}
+.tour-pic img{display:block;width:100%;height:100%;object-fit:cover;user-select:none;-webkit-user-select:none}
+.tour-note{position:absolute;left:12px;bottom:8px;font-size:13px;font-weight:700;color:rgba(255,255,255,.75)}
+.tour-hot{position:absolute;transform:translate(-50%,-50%);aspect-ratio:1/1;min-width:28px;border-radius:50%;border:2.5px solid rgba(255,255,255,.9);background:rgba(255,255,255,.08);cursor:pointer;padding:0;touch-action:manipulation;animation:hotp 1.8s ease-in-out infinite}
+.tour-hot.seen{border-color:rgba(120,200,255,.85);animation:none}
+.tour-hot.cur{border-color:#FFD60A;box-shadow:0 0 0 4px rgba(255,214,10,.35);animation:none}
+@keyframes hotp{0%,100%{box-shadow:0 0 0 0 rgba(255,255,255,.55)}50%{box-shadow:0 0 0 8px rgba(255,255,255,0)}}
+.tour-side{flex:none;width:300px;display:flex;flex-direction:column;gap:10px}
+.tour-card{flex:1;min-height:0;background:#F7F8FA;border:1px solid #E3E3E8;border-radius:16px;padding:18px 20px;overflow:auto}
+.tour-card .tc-n{font-size:30px;font-weight:800;letter-spacing:-.01em}
+.tour-card .tc-t{display:inline-block;margin-top:6px;font-size:16px;font-weight:800;color:#fff;background:#0066CC;border-radius:999px;padding:3px 12px}
+.tour-card ul{margin:14px 0 0;padding:0;list-style:none;display:flex;flex-direction:column;gap:10px}
+.tour-card li{font-size:18px;font-weight:700;line-height:1.5;padding-left:16px;position:relative}
+.tour-card li::before{content:'';position:absolute;left:0;top:.62em;width:7px;height:7px;border-radius:50%;background:#0066CC}
+.tour-card .tc-empty{font-size:18px;font-weight:700;color:#6E6E73;line-height:1.7}
+.tour-cnt{flex:none;font-size:16px;font-weight:700;color:#6E6E73;text-align:center}
+.tour-cnt b{color:#0066CC;font-size:20px}
+
+/* 천체 분류하기 */
+.cls-head{display:flex;align-items:center;gap:12px;flex:none;flex-wrap:wrap}
+.cls-dots{display:flex;gap:8px}
+.cls-dot{width:44px;height:44px;border-radius:50%;border:2px solid #D1D1D6;background:#fff;font:800 17px 'Noto Sans KR','Noto Sans CJK KR',sans-serif;color:#6E6E73;cursor:pointer;touch-action:manipulation}
+.cls-dot.cur{border-color:#0066CC;color:#0066CC}
+.cls-dot.ok{background:#0066CC;border-color:#0066CC;color:#fff}
+.cls-nav{display:flex;gap:8px}
+.cls-body{flex:1;min-height:0;display:grid;grid-template-columns:minmax(0,.8fr) minmax(0,1.5fr);gap:18px}
+.cls-left{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:6px;min-height:0;background:#0B0B0F;border-radius:16px;padding:14px}
+.cls-photo{flex:1;min-height:0;width:100%;display:flex;align-items:center;justify-content:center}
+.cls-photo img{max-width:100%;max-height:100%;display:block;border-radius:8px}
+.cls-name{font-size:24px;font-weight:800;color:#fff;text-align:center}
+.cls-cr{font-size:13px;font-weight:600;color:#9AA0AA;text-align:center}
+.cls-right{display:flex;flex-direction:column;gap:10px;min-height:0;overflow:auto}
+.cls-clues{display:flex;flex-direction:column;gap:6px;flex:none}
+.cls-clue{display:flex;gap:12px;align-items:baseline;background:#F7F8FA;border:1.5px solid #E3E3E8;border-radius:12px;padding:8px 14px;font-size:18px;font-weight:700;line-height:1.45;transition:border-color .2s,background .2s}
+.cls-clue b{flex:none;font-size:15px;font-weight:800;color:#0066CC;min-width:58px}
+.cls-clue.look{border-color:#FF9F0A;background:#FFF6E5}
+.cls-qa{display:flex;flex-direction:column;gap:8px}
+.cls-step{display:flex;flex-wrap:wrap;align-items:center;gap:8px 12px;padding:4px 0}
+.cls-q{font-size:19px;font-weight:800;display:flex;align-items:center;gap:8px}
+.cls-q i{font-style:normal;width:28px;height:28px;border-radius:50%;background:#0066CC;color:#fff;display:grid;place-items:center;font-size:15px}
+.cls-ops{display:flex;gap:8px;flex-wrap:wrap}
+.cls-ops .sl-btn{min-width:96px}
+.cls-ops .sl-btn.right{background:#0066CC;color:#fff}
+.cls-ops .sl-btn.dim{opacity:.35}
+.cls-ops .sl-btn.wrong{border-color:#FF3B30;color:#FF3B30;animation:shk .4s}
+@keyframes shk{0%,100%{transform:none}25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.cls-msg{width:100%;font-size:15px;font-weight:700;color:#C93400;min-height:0}
+.cls-msg:empty{display:none}
+.cls-res{background:#E8F1FB;border-radius:14px;padding:12px 16px;animation:pop .35s ease-out}
+.cls-res .r1{font-size:22px;font-weight:800}
+.cls-res .r1 b{color:#0066CC}
+.cls-res .r2{font-size:16px;font-weight:600;line-height:1.55;color:#0B4A8B;margin-top:4px}
+@keyframes pop{0%{transform:scale(.96);opacity:0}100%{transform:none;opacity:1}}
+/* 둘러보기 확대 */
+.tour-zoom{position:absolute;inset:0;transform-origin:0 0;transition:transform .7s cubic-bezier(.4,0,.2,1)}
+.tour-zoom .tour-hot{border-width:calc(2.5px / var(--z,1))}
+/* 유성과 운석 */
+.met-cap{flex:none;font-size:18px;font-weight:700;line-height:1.5;background:#F7F8FA;border:1px solid #E3E3E8;border-radius:12px;padding:8px 14px;min-height:2.6em}
+.met-cap b{display:inline-block;font-size:14px;font-weight:800;color:#fff;background:#0066CC;border-radius:999px;padding:1px 10px;margin-right:8px;vertical-align:2px}
+.met-dots{display:flex;gap:6px}
+.met-dots i{width:12px;height:12px;border-radius:50%;background:#D1D1D6}
+.met-dots i.on{background:#0066CC}
+@media (max-width:760px){
+  .sl-tour{flex-direction:column}
+  .tour-side{width:auto}
+  .cls-body{grid-template-columns:1fr}
+  .cls-left{min-height:240px}
+}
+
+</style>
+</head>
+<body>
+<div id="host"></div>
+<script>window.SOL_ASSETS={};</script>
+<script>/* 711 태양계를 구성하는 천체 — 시뮬레이션 모음 (수업자료와 학생용 파일이 같은 코드를 쓴다) */
+var SOL = (function(){
+'use strict';
+var FONT = "'Noto Sans KR','Noto Sans CJK KR','Apple SD Gothic Neo','Malgun Gothic',sans-serif";
+var NS = 'http://www.w3.org/2000/svg';
+
+function el(tag, cls, html){ var e=document.createElement(tag); if(cls) e.className=cls; if(html!=null) e.innerHTML=html; return e; }
+function sv(tag, attrs, parent){ var e=document.createElementNS(NS,tag); for(var k in attrs) e.setAttribute(k,attrs[k]); if(parent) parent.appendChild(e); return e; }
+function btn(parent, label, fn, cls){ var b=el('button','sl-btn'+(cls?' '+cls:''),label); b.type='button'; b.addEventListener('click',function(){ fn(b); b.blur(); }); parent.appendChild(b); return b; }
+function seg(parent, items, init, fn){
+  var w=el('div','sl-seg'); var bs=[];
+  items.forEach(function(it){ var b=btn(w,it[0],function(){ bs.forEach(function(x){x.classList.remove('on');}); b.classList.add('on'); fn(it[1]); }); if(it[1]===init) b.classList.add('on'); bs.push(b); });
+  parent.appendChild(w); return w;
+}
+function josa(w,a,b){ var c=w.charCodeAt(w.length-1); return w+(((c-0xAC00)%28)>0?a:b); }
+function asset(k){ return (window.SOL_ASSETS||{})[k]||''; }
+
+/* ---------------- 공통: 캔버스 무대 (논리 크기 W×H, 비율 유지) ---------------- */
+function stageCanvas(stage, W, H, bg){
+  var cv=el('canvas'); cv.style.width='100%'; cv.style.height='100%'; cv.style.display='block'; stage.appendChild(cv);
+  var ctx=cv.getContext('2d'), lw=0, lh=0, k=1, ox=0, oy=0;
+  return {ctx:ctx, begin:function(){
+    var r=cv.getBoundingClientRect(), d=window.devicePixelRatio||1;
+    var w=Math.max(1,Math.round(r.width*d)), h=Math.max(1,Math.round(r.height*d));
+    if(w!==lw||h!==lh){ cv.width=lw=w; cv.height=lh=h; }
+    ctx.setTransform(1,0,0,1,0,0); ctx.fillStyle=bg; ctx.fillRect(0,0,w,h);
+    k=Math.min(w/W,h/H); ox=(w-W*k)/2; oy=(h-H*k)/2;
+    ctx.setTransform(k,0,0,k,ox,oy);
+    return ctx;
+  }};
+}
+function stars(ctx,W,H,n,sd){
+  var seed=sd||11; function r(){ seed=(seed*16807)%2147483647; return seed/2147483647; }
+  ctx.fillStyle='#fff';
+  for(var i=0;i<n;i++){ var x=r()*W,y=r()*H,s=r()*1.3+0.3; ctx.globalAlpha=0.2+r()*0.55; ctx.beginPath(); ctx.arc(x,y,s,0,7); ctx.fill(); }
+  ctx.globalAlpha=1;
+}
+function txt(ctx,s,x,y,size,color,align,weight){
+  ctx.font=(weight||800)+' '+size+'px '+FONT; ctx.fillStyle=color; ctx.textAlign=align||'left'; ctx.textBaseline='alphabetic'; ctx.fillText(s,x,y);
+}
+function arrow(ctx,x1,y1,x2,y2,color,w){
+  var a=Math.atan2(y2-y1,x2-x1), h=w*3.2;
+  ctx.strokeStyle=color; ctx.fillStyle=color; ctx.lineWidth=w; ctx.lineCap='round';
+  ctx.beginPath(); ctx.moveTo(x1,y1); ctx.lineTo(x2-Math.cos(a)*h*.6,y2-Math.sin(a)*h*.6); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x2,y2); ctx.lineTo(x2-h*Math.cos(a-0.45),y2-h*Math.sin(a-0.45)); ctx.lineTo(x2-h*Math.cos(a+0.45),y2-h*Math.sin(a+0.45)); ctx.closePath(); ctx.fill();
+}
+function ease(x){ x=Math.max(0,Math.min(1,x)); return x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2; }
+var NOTE='※ 크기와 거리는 실제 비율과 다르다.';
+
+/* ---------------- ④ 스스로 빛을 내는 천체: 태양 빛이 달에 반사되어 눈에 들어온다 ---------------- */
+function light(host){
+  host.innerHTML='';
+  var wrap=el('div','sl'); host.appendChild(wrap);
+  var stage=el('div','sl-stage sl-dark'); wrap.appendChild(stage);
+  var ctrl=el('div','sl-ctrl'); wrap.appendChild(ctrl);
+  var W=560,H=380, C=stageCanvas(stage,W,H,'#0B1A33');
+  var sim={on:true,run:true,t:0,lit:1,sunB:1,ph:[],hit:0};
+  var sb=btn(ctrl,'태양 끄기',function(b){ sim.on=!sim.on; b.textContent=sim.on?'태양 끄기':'태양 켜기'; b.classList.toggle('on',!sim.on); });
+  btn(ctrl,'멈추기',function(b){ sim.run=!sim.run; b.textContent=sim.run?'멈추기':'다시 움직이기'; });
+  var SUN={x:95,y:150}, MOON={x:420,y:125}, EYE={x:280,y:322};
+  var acc=0;
+  function emit(s0){
+    // 태양에서 달 쪽으로 나가는 빛 알갱이 (조금씩 퍼지게)
+    var off=(Math.random()-.5)*60;
+    sim.ph.push({x:SUN.x+60,y:SUN.y+off*.4,tx:MOON.x-38,ty:MOON.y+off*.55,s:s0||0,k:0});
+  }
+  for(var i=0;i<14;i++) emit(i/14);
+  sim.tick=function(dt){
+    if(sim.run){
+      sim.t+=dt;
+      sim.sunB+=((sim.on?1:0)-sim.sunB)*Math.min(1,dt*6);
+      if(sim.on){ acc+=dt; while(acc>0.09){ acc-=0.09; emit(); } }
+      var arrived=false;
+      sim.ph.forEach(function(p){
+        p.s+=dt*(p.k===0?0.75:0.9);
+        if(p.k===0&&p.s>=1){ p.k=1; p.s=0; p.x=p.tx; p.y=p.ty; p.tx=EYE.x+(Math.random()-.5)*14; p.ty=EYE.y-10; arrived=true; }
+      });
+      sim.ph=sim.ph.filter(function(p){ return !(p.k===1&&p.s>=1); });
+      if(arrived) sim.hit=sim.t;
+      var hitting=sim.t-sim.hit<0.3;
+      sim.lit+=((hitting?1:0)-sim.lit)*Math.min(1,dt*(hitting?8:3));
+    }
+    draw();
+  };
+  function draw(){
+    var x=C.begin(); stars(x,W,H,50,5);
+    var b=sim.sunB;
+    // 태양
+    var g=x.createRadialGradient(SUN.x,SUN.y,0,SUN.x,SUN.y,120); g.addColorStop(0,'rgba(255,210,74,'+(.5*b)+')'); g.addColorStop(1,'rgba(255,210,74,0)');
+    x.fillStyle=g; x.beginPath(); x.arc(SUN.x,SUN.y,120,0,7); x.fill();
+    var g2=x.createRadialGradient(SUN.x,SUN.y,0,SUN.x,SUN.y,62);
+    g2.addColorStop(0,b>.5?'#FFF6C8':'#4A4A52'); g2.addColorStop(.6,b>.5?'#FFC93C':'#3A3A42'); g2.addColorStop(1,b>.5?'#FF8A00':'#2A2A30');
+    x.globalAlpha=1; x.fillStyle=g2; x.beginPath(); x.arc(SUN.x,SUN.y,62,0,7); x.fill();
+    txt(x,'태양',SUN.x,SUN.y+8,24,b>.5?'#7A3B00':'#8E8E93','center');
+    // 빛 알갱이
+    sim.ph.forEach(function(p){
+      var px=p.x+(p.tx-p.x)*p.s, py=p.y+(p.ty-p.y)*p.s;
+      x.fillStyle=p.k===0?'#FFD24A':'#9FC7FF';
+      x.beginPath(); x.arc(px,py,p.k===0?4.5:4,0,7); x.fill();
+    });
+    // 달: 태양 쪽 반이 밝다
+    x.fillStyle='#3A3F4B'; x.beginPath(); x.arc(MOON.x,MOON.y,40,0,7); x.fill();
+    x.globalAlpha=sim.lit; x.fillStyle='#E5E5EA'; x.beginPath(); x.arc(MOON.x,MOON.y,40,Math.PI/2,Math.PI*1.5); x.closePath(); x.fill(); x.globalAlpha=1;
+    txt(x,'달',MOON.x,MOON.y+72,22,'#fff','center');
+    // 사람
+    x.fillStyle='#fff'; x.beginPath(); x.arc(EYE.x-5,EYE.y+8,16,0,7); x.fill();
+    x.beginPath(); x.roundRect?x.roundRect(EYE.x-18,EYE.y+25,26,30,8):x.rect(EYE.x-18,EYE.y+25,26,30); x.fill();
+    txt(x,'지구에서 보는 사람',EYE.x-40,EYE.y+24,18,'#C9D6EA','right',700);
+    txt(x,'태양 빛',250,90,19,b>.5?'#FFD24A':'#6E6E73','center');
+    txt(x,'반사된 빛',378,262,19,'#9FC7FF','left');
+    if(!sim.on&&sim.lit<.2) txt(x,'태양이 꺼지면 달도 보이지 않는다',W/2,40,20,'#FFD24A','center');
+  }
+  draw();
+  return sim;
+}
+
+/* ---------------- ⑤ 둥근 천체와 둥글지 않은 천체: 크기에 따라 모양이 달라진다 ---------------- */
+var ROUND={
+  s:{n:'작은 천체',N:60,R:66,A:0.32,g:1,res:'울퉁불퉁한 모양 그대로 남는다'},
+  m:{n:'중간 천체',N:140,R:112,A:0.12,g:2,res:'조금 둥글어진다'},
+  l:{n:'큰 천체',N:240,R:145,A:0.0,g:3,res:'둥글게 뭉친다'}
+};
+function round(host){
+  host.innerHTML='';
+  var wrap=el('div','sl'); host.appendChild(wrap);
+  var stage=el('div','sl-stage sl-dark'); wrap.appendChild(stage);
+  var ctrl=el('div','sl-ctrl'); wrap.appendChild(ctrl);
+  var W=1000,H=460, C=stageCanvas(stage,W,H,'#0B1A33');
+  var CX=330,CY=235;
+  var sim={size:'s',t:-1,run:false,P:[]};
+  seg(ctrl,[['작은 천체','s'],['중간 천체','m'],['큰 천체','l']],'s',function(v){ sim.size=v; reset(); });
+  var go=btn(ctrl,'모으기',function(){ if(sim.t<0||sim.t>=5.2){ sim.t=0; } sim.run=true; });
+  ctrl.appendChild(el('span','sl-sp'));
+  btn(ctrl,'처음으로',function(){ reset(); });
+  function shape(th,A){ return 1+A*(0.55*Math.sin(2*th+0.3)+0.3*Math.sin(3*th+1.1)+0.18*Math.sin(5*th+2.0)); }
+  function reset(){
+    var S=ROUND[sim.size], seed=3; function r(){ seed=(seed*16807)%2147483647; return seed/2147483647; }
+    sim.P=[]; sim.t=-1; sim.run=false;
+    for(var i=0;i<S.N;i++){
+      var u=Math.sqrt((i+.5)/S.N), th=i*2.39996;
+      sim.P.push({u:u,th:th,sx:20+r()*600,sy:20+r()*420,c:['#8F8579','#A39787','#7A7065','#B3A796'][i%4]});
+    }
+    sim.pr=S.R*0.93/Math.sqrt(S.N)*1.12;
+  }
+  reset();
+  sim.tick=function(dt){
+    if(sim.run){ sim.t+=dt; if(sim.t>=5.2){ sim.t=5.2; sim.run=false; } }
+    go.disabled=sim.run;
+    draw();
+  };
+  function draw(){
+    var x=C.begin(); stars(x,W,H,70,7);
+    var S=ROUND[sim.size], t=sim.t;
+    var gather=t<0?0:ease(t/2.4);             // 0~2.4초: 알갱이가 모인다
+    var squeeze=t<2.6?0:ease((t-2.6)/2.4);     // 2.6~5초: 끌어당기는 힘으로 다져진다
+    var A=0.32+(S.A-0.32)*squeeze;
+    // 끌어당기는 힘 화살표
+    if(t>=2.4){
+      var al=Math.min(1,(t-2.4)/0.5);
+      x.globalAlpha=al*0.9;
+      for(var i=0;i<8;i++){
+        var a=i*Math.PI/4+0.2, R1=S.R*shape(a,A)+20+S.g*14, R2=S.R*shape(a,A)+8;
+        arrow(x,CX+R1*Math.cos(a),CY+R1*Math.sin(a),CX+R2*Math.cos(a),CY+R2*Math.sin(a),'#FFD24A',1.5+S.g*1.3);
+      }
+      x.globalAlpha=1;
+    }
+    sim.P.forEach(function(p){
+      var rr=S.R*shape(p.th,A)*p.u;
+      var tx=CX+rr*Math.cos(p.th), ty=CY+rr*Math.sin(p.th);
+      var px=p.sx+(tx-p.sx)*gather, py=p.sy+(ty-p.sy)*gather;
+      x.fillStyle=p.c; x.beginPath(); x.arc(px,py,sim.pr,0,7); x.fill();
+    });
+    // 오른쪽 설명
+    x.fillStyle='rgba(255,255,255,0.08)'; x.strokeStyle='rgba(255,255,255,0.18)'; x.lineWidth=1;
+    x.beginPath(); x.roundRect?x.roundRect(640,70,330,300,18):x.rect(640,70,330,300); x.fill(); x.stroke();
+    txt(x,S.n,665,112,26,'#fff');
+    txt(x,'스스로 끌어당기는 힘(중력)',665,158,18,'#C9D6EA',null,700);
+    for(var k=0;k<3;k++){ x.fillStyle=k<S.g?'#FFD24A':'rgba(255,255,255,0.15)'; x.fillRect(665+k*58,172,50,16); }
+    txt(x,S.g===1?'작다':S.g===2?'중간':'크다',845,187,18,'#FFD24A',null,800);
+    var st=t<0?'알갱이가 흩어져 있다':t<2.4?'서로 끌어당겨 모인다':t<5.2?'끌어당기는 힘으로 다져진다':S.res;
+    txt(x,'모양',665,240,18,'#C9D6EA',null,700);
+    var words=st.length>12?[st.slice(0,st.lastIndexOf(' ',12)),st.slice(st.lastIndexOf(' ',12)+1)]:[st];
+    words.forEach(function(w,i){ txt(x,w,665,276+i*32,23,t>=5.2?'#FFD24A':'#fff'); });
+    txt(x,NOTE,20,H-16,14,'rgba(255,255,255,0.7)',null,700);
+  }
+  draw();
+  return sim;
+}
+
+/* ---------------- ⑥ 소행성과 혜성: 혜성의 꼬리, 소행성대 ---------------- */
+function comet(host){
+  host.innerHTML='';
+  var wrap=el('div','sl'); host.appendChild(wrap);
+  var stage=el('div','sl-stage sl-dark'); wrap.appendChild(stage);
+  var ctrl=el('div','sl-ctrl'); wrap.appendChild(ctrl);
+  var W=780,H=440, C=stageCanvas(stage,W,H,'#0B1A33');
+  var SX=170,SY=220, Q=40, AP=545, a=(Q+AP)/2, e=(AP-Q)/(AP+Q), b=Math.sqrt(Q*AP), T=22;
+  var sim={speed:1,t:T*0.78,run:true,dir:false};
+  seg(ctrl,[['느리게',0.5],['보통',1],['빠르게',2]],1,function(v){ sim.speed=v; });
+  btn(ctrl,'멈추기',function(bb){ sim.run=!sim.run; bb.textContent=sim.run?'멈추기':'다시 움직이기'; });
+  btn(ctrl,'방향 보기',function(bb){ sim.dir=!sim.dir; bb.classList.toggle('on',sim.dir); });
+  var seed=19; function r(){ seed=(seed*16807)%2147483647; return seed/2147483647; }
+  var belt=[]; for(var i=0;i<240;i++){ belt.push({r:94+r()*30,a:r()*6.283,s:r()*1.2+0.6}); }
+  var PL=[{n:'지구',r:50,c:'#4DA3FF',s:5,p:4},{n:'화성',r:74,c:'#E8613C',s:4.5,p:7.5},{n:'목성',r:150,c:'#E0B07A',s:9,p:47}];
+  function cpos(t){
+    var M=2*Math.PI*t/T, E=M; for(var k=0;k<8;k++) E=E-(E-e*Math.sin(E)-M)/(1-e*Math.cos(E));
+    return {x:SX-a*(Math.cos(E)-e), y:SY+b*Math.sin(E)};
+  }
+  sim.tick=function(dt){ if(sim.run) sim.t+=dt*sim.speed; draw(); };
+  function draw(){
+    var x=C.begin(), t=sim.t; stars(x,W,H,90,23);
+    // 혜성 궤도
+    x.setLineDash([6,8]); x.strokeStyle='rgba(255,255,255,0.28)'; x.lineWidth=1.5;
+    x.beginPath(); x.ellipse(SX+a*e,SY,a,b,0,0,7); x.stroke();
+    PL.forEach(function(p){ x.strokeStyle='rgba(127,168,224,0.5)'; x.beginPath(); x.arc(SX,SY,p.r,0,7); x.stroke(); });
+    x.setLineDash([]);
+    // 소행성대
+    x.fillStyle='#A39787';
+    belt.forEach(function(o){ var w=o.a+t*1.6*Math.pow(94/o.r,1.5)/6; x.globalAlpha=.8; x.beginPath(); x.arc(SX+o.r*Math.cos(w),SY+o.r*Math.sin(w),o.s,0,7); x.fill(); });
+    x.globalAlpha=1;
+    // 태양
+    var g=x.createRadialGradient(SX,SY,0,SX,SY,46); g.addColorStop(0,'#FFF6C8'); g.addColorStop(.5,'#FFC93C'); g.addColorStop(1,'rgba(255,138,0,0)');
+    x.fillStyle=g; x.beginPath(); x.arc(SX,SY,46,0,7); x.fill();
+    x.fillStyle='#FFC93C'; x.beginPath(); x.arc(SX,SY,20,0,7); x.fill();
+    // 행성
+    PL.forEach(function(p){ var w=-Math.PI/2+t*2*Math.PI/p.p/2.2; var px=SX+p.r*Math.cos(w),py=SY+p.r*Math.sin(w); x.fillStyle=p.c; x.beginPath(); x.arc(px,py,p.s,0,7); x.fill(); if(p.n==='목성') txt(x,p.n,px,py-14,16,'#E0B07A','center'); });
+    txt(x,'소행성대',SX,SY-130,16,'#C9B9A3','center');
+    txt(x,'(화성과 목성 사이)',SX,SY-112,13,'#9AA0AA','center',700);
+    // 혜성
+    var c=cpos(t), dx=c.x-SX, dy=c.y-SY, d=Math.sqrt(dx*dx+dy*dy), ux=dx/d, uy=dy/d;
+    var L=Math.max(0,190*Math.pow(Q/d,1.5)-9);
+    if(L>0){
+      var px=-uy, py=ux, wd=Math.min(26,6+L*0.12);
+      var tg=x.createLinearGradient(c.x,c.y,c.x+ux*L,c.y+uy*L); tg.addColorStop(0,'rgba(190,225,255,0.85)'); tg.addColorStop(1,'rgba(190,225,255,0)');
+      x.fillStyle=tg; x.beginPath(); x.moveTo(c.x+px*4,c.y+py*4); x.lineTo(c.x+ux*L+px*wd,c.y+uy*L+py*wd); x.lineTo(c.x+ux*L-px*wd,c.y+uy*L-py*wd); x.lineTo(c.x-px*4,c.y-py*4); x.closePath(); x.fill();
+    }
+    var cg=x.createRadialGradient(c.x,c.y,0,c.x,c.y,6+L*0.08); cg.addColorStop(0,'#fff'); cg.addColorStop(1,'rgba(190,225,255,0)');
+    x.fillStyle=cg; x.beginPath(); x.arc(c.x,c.y,6+L*0.08,0,7); x.fill();
+    x.fillStyle='#E8F4FF'; x.beginPath(); x.arc(c.x,c.y,4,0,7); x.fill();
+    txt(x,'혜성',c.x+(ux>0?-12:12),c.y-14,18,'#fff',ux>0?'right':'left');
+    if(sim.dir){
+      var n=cpos(t+0.05), vx=n.x-c.x, vy=n.y-c.y, vl=Math.sqrt(vx*vx+vy*vy)||1;
+      arrow(x,c.x,c.y,c.x+vx/vl*60,c.y+vy/vl*60,'#7CFC9A',3);
+      txt(x,'움직이는 방향',c.x+vx/vl*66,c.y+vy/vl*66+(vy>0?18:-6),15,'#7CFC9A','center');
+      x.setLineDash([4,6]); x.strokeStyle='rgba(255,210,74,0.6)'; x.lineWidth=1.5; x.beginPath(); x.moveTo(SX,SY); x.lineTo(c.x,c.y); x.stroke(); x.setLineDash([]);
+      if(L>20) txt(x,'꼬리: 태양 반대쪽',c.x+ux*(L+14),c.y+uy*(L+14)+6,15,'#BEE1FF',ux>=0?'left':'right');
+    }
+    // 오른쪽 위 설명
+    txt(x,'태양과의 거리',W-28,40,16,'#C9D6EA','right',700);
+    txt(x,d<110?'가깝다 → 꼬리가 길다':d<230?'멀어진다 → 꼬리가 짧다':'멀다 → 꼬리가 없다',W-28,68,20,'#fff','right');
+    txt(x,NOTE,20,H-16,14,'rgba(255,255,255,0.7)',null,700);
+  }
+  draw();
+  return sim;
+}
+
+/* ---------------- ⑦ 위성: 목성 주위를 도는 갈릴레이 위성 ---------------- */
+function moons(host){
+  host.innerHTML='';
+  var wrap=el('div','sl'); host.appendChild(wrap);
+  var stage=el('div','sl-stage sl-dark'); wrap.appendChild(stage);
+  var ctrl=el('div','sl-ctrl'); wrap.appendChild(ctrl);
+  var W=520,H=460, C=stageCanvas(stage,W,H,'#0B1A33');
+  var CX=260,CY=235;
+  // 공전 주기 비율(이오 1.8일, 유로파 3.6일, 가니메데 7.2일, 칼리스토 16.7일)은 실제와 같게, 거리와 크기는 보기 쉽게 정했다
+  var M=[{n:'이오',r:72,p:1.77,c:'#E8C65A',s:6},{n:'유로파',r:104,p:3.55,c:'#D9CFC0',s:5.5},{n:'가니메데',r:146,p:7.15,c:'#A8998A',s:8},{n:'칼리스토',r:200,p:16.69,c:'#7D7368',s:7.5}];
+  var sim={speed:1,t:0,run:true,orbits:true};
+  seg(ctrl,[['느리게',0.5],['보통',1],['빠르게',2]],1,function(v){ sim.speed=v; });
+  btn(ctrl,'멈추기',function(b){ sim.run=!sim.run; b.textContent=sim.run?'멈추기':'다시 움직이기'; });
+  btn(ctrl,'궤도 보기',function(b){ sim.orbits=!sim.orbits; b.classList.toggle('on',sim.orbits); },'on');
+  sim.tick=function(dt){ if(sim.run) sim.t+=dt*sim.speed; draw(); };
+  function draw(){
+    var x=C.begin(); stars(x,W,H,50,31);
+    if(sim.orbits){ x.setLineDash([4,7]); x.strokeStyle='rgba(200,200,208,0.5)'; x.lineWidth=1.4; M.forEach(function(m){ x.beginPath(); x.arc(CX,CY,m.r,0,7); x.stroke(); }); x.setLineDash([]); }
+    var g=x.createLinearGradient(CX,CY-40,CX,CY+40);
+    ['#E9D7BC','#C79A6B','#EEDFC8','#B98757','#E7D3B5','#C99C6E','#E9D7BC'].forEach(function(c,i,a){ g.addColorStop(i/(a.length-1),c); });
+    x.fillStyle=g; x.beginPath(); x.arc(CX,CY,40,0,7); x.fill();
+    txt(x,'목성',CX,CY+7,18,'#5A3A1A','center');
+    M.forEach(function(m,i){
+      var w=-Math.PI/2+i*1.3+sim.t*2*Math.PI/(m.p*1.6);
+      var px=CX+m.r*Math.cos(w), py=CY+m.r*Math.sin(w);
+      x.fillStyle=m.c; x.beginPath(); x.arc(px,py,m.s,0,7); x.fill();
+      txt(x,m.n,px,py-m.s-6,15,'#E5E5EA','center');
+    });
+    txt(x,'목성과 위성 4개',16,30,18,'#fff');
+    txt(x,'위성이 행성 주위를 공전한다',16,54,15,'#C9D6EA',null,700);
+    txt(x,NOTE,12,H-12,13,'rgba(255,255,255,0.7)',null,700);
+  }
+  draw();
+  return sim;
+}
+
+/* ---------------- ⑧ 유성과 운석: 대기로 들어오는 작은 천체 ---------------- */
+var MET_STEPS=[
+  {t:2.6,s:'혜성이나 소행성에서 떨어져 나온 작은 천체가 지구로 다가온다.'},
+  {t:3.9,s:'대기에 들어오면 공기와 부딪혀 뜨거워지고 빛을 내며 탄다. → 유성'},
+  {t:5.5,s:'대부분은 다 타서 사라진다.'},
+  {t:7.6,s:'다 타지 못한 것은 땅에 떨어진다. → 운석'}
+];
+function meteor(host){
+  host.innerHTML='';
+  var wrap=el('div','sl'); host.appendChild(wrap);
+  var stage=el('div','sl-stage sl-dark'); wrap.appendChild(stage);
+  var cap=el('div','met-cap'); wrap.appendChild(cap);
+  var ctrl=el('div','sl-ctrl'); wrap.appendChild(ctrl);
+  var W=560,H=380, C=stageCanvas(stage,W,H,'#0B1A33');
+  var TOP=150, GND=330, VX=34, VY=46;
+  var R=[{x:40,y:30,r:11,b:1.0},{x:150,y:44,r:5,b:2.4},{x:250,y:20,r:4,b:2.0},{x:330,y:52,r:6,b:2.6},{x:95,y:62,r:3.5,b:2.2},{x:200,y:70,r:4.5,b:2.8}];
+  var sim={t:0,step:-1,run:false};
+  var bP=btn(ctrl,'← 이전 단계',function(){ if(sim.step>0){ sim.step--; sim.t=MET_STEPS[sim.step].t; } else { sim.step=-1; sim.t=0; } sim.run=false; ui(); });
+  var bN=btn(ctrl,'다음 단계 →',function(){ if(sim.step<MET_STEPS.length-1){ sim.step++; sim.run=true; ui(); } });
+  var dots=el('div','met-dots'); ctrl.appendChild(dots);
+  ctrl.appendChild(el('span','sl-sp'));
+  btn(ctrl,'처음으로',function(){ sim.step=-1; sim.t=0; sim.run=false; ui(); });
+  function ui(){
+    bP.disabled=sim.step<0; bN.disabled=sim.step>=MET_STEPS.length-1||sim.run;
+    dots.innerHTML=MET_STEPS.map(function(_,i){ return '<i class="'+(i<=sim.step?'on':'')+'"></i>'; }).join('');
+    cap.innerHTML=sim.step<0?'<b>준비</b>작은 천체가 지구 대기로 들어오는 과정':'<b>'+(sim.step+1)+'단계</b>'+MET_STEPS[sim.step].s;
+  }
+  ui();
+  function state(o,t){
+    var y=o.y+VY*t, x0=o.x+VX*t, tin=(TOP-o.y)/VY;
+    var r=o.r, burn=0;
+    if(t>tin){ r=o.r-o.b*(t-tin); burn=Math.min(1,(t-tin)/0.4); }
+    var tg=(GND-o.y)/VY;
+    if(t>=tg&&r>0) return {x:o.x+VX*tg,y:GND,r:r,landed:true};
+    return {x:x0,y:y,r:r,burn:burn,gone:r<=0};
+  }
+  sim.tick=function(dt){
+    if(sim.run){ sim.t+=dt; var end=MET_STEPS[sim.step].t; if(sim.t>=end){ sim.t=end; sim.run=false; ui(); } }
+    draw();
+  };
+  function draw(){
+    var x=C.begin(); stars(x,W,TOP,40,41);
+    var g=x.createLinearGradient(0,TOP-20,0,GND); g.addColorStop(0,'rgba(60,110,190,0)'); g.addColorStop(.25,'rgba(60,110,190,0.35)'); g.addColorStop(1,'rgba(90,150,220,0.55)');
+    x.fillStyle=g; x.fillRect(-2000,TOP-20,W+4000,GND-TOP+20);
+    x.setLineDash([8,7]); x.strokeStyle='#9FC7FF'; x.lineWidth=2; x.beginPath(); x.moveTo(-2000,TOP); x.lineTo(W+2000,TOP); x.stroke(); x.setLineDash([]);
+    txt(x,'우주',W-14,TOP-14,16,'#C9D6EA','right');
+    txt(x,'대기',W-14,TOP+24,16,'#9FC7FF','right');
+    x.fillStyle='#3D3226'; x.fillRect(-2000,GND,W+4000,2000);
+    txt(x,'땅',W-14,H-14,16,'#C9B9A3','right');
+    var t=sim.t, label=null, rock=null;
+    R.forEach(function(o,i){
+      var s=state(o,t);
+      if(s.landed){ rock=s; return; }
+      if(s.gone||s.y<-20) return;
+      if(s.burn>0){
+        var L=26+s.burn*40, ux=VX/Math.hypot(VX,VY), uy=VY/Math.hypot(VX,VY);
+        var tg=x.createLinearGradient(s.x,s.y,s.x-ux*L,s.y-uy*L); tg.addColorStop(0,'rgba(255,243,196,0.95)'); tg.addColorStop(1,'rgba(255,180,60,0)');
+        x.strokeStyle=tg; x.lineWidth=Math.max(2,s.r*1.4); x.lineCap='round'; x.beginPath(); x.moveTo(s.x,s.y); x.lineTo(s.x-ux*L,s.y-uy*L); x.stroke();
+        var hg=x.createRadialGradient(s.x,s.y,0,s.x,s.y,s.r*2.6+4); hg.addColorStop(0,'#FFF6C8'); hg.addColorStop(1,'rgba(255,200,80,0)');
+        x.fillStyle=hg; x.beginPath(); x.arc(s.x,s.y,s.r*2.6+4,0,7); x.fill();
+        if(i===3) label=s;
+      } else {
+        x.fillStyle='#9A8F84'; x.beginPath(); x.arc(s.x,s.y,Math.max(1.5,s.r),0,7); x.fill();
+      }
+    });
+    if(sim.step<=0) txt(x,'작은 천체',62,26,15,'#C9D6EA',null,700);
+    if(label&&sim.step>=1&&sim.step<=2) txt(x,'유성',label.x+16,label.y-10,18,'#FFD24A');
+    if(rock){
+      x.fillStyle='#5B4C3E'; x.strokeStyle='#2A2118'; x.lineWidth=2;
+      x.beginPath(); x.moveTo(rock.x-16,GND+3); x.lineTo(rock.x-10,GND-14); x.lineTo(rock.x+8,GND-17); x.lineTo(rock.x+18,GND-3); x.lineTo(rock.x+11,GND+9); x.lineTo(rock.x-10,GND+9); x.closePath(); x.fill(); x.stroke();
+      txt(x,'운석',rock.x,GND-28,20,'#fff','center');
+    }
+  }
+  draw();
+  return sim;
+}
+
+/* ---------------- ① 공전: 태양 주위를 도는 지구, 지구 주위를 도는 달 ---------------- */
+function orbit(host){
+  host.innerHTML='';
+  var wrap=el('div','sl'); host.appendChild(wrap);
+  var stage=el('div','sl-stage sl-dark'); wrap.appendChild(stage);
+  var ctrl=el('div','sl-ctrl'); wrap.appendChild(ctrl);
+  var W=1000,H=460;
+  var svg=sv('svg',{viewBox:'0 0 '+W+' '+H,preserveAspectRatio:'xMidYMid meet'},stage);
+  svg.style.width='100%'; svg.style.height='100%'; svg.style.display='block';
+  // 별
+  var seed=7; function rnd(){ seed=(seed*16807)%2147483647; return seed/2147483647; }
+  for(var i=0;i<90;i++) sv('circle',{cx:rnd()*W,cy:rnd()*H,r:rnd()*1.4+0.3,fill:'#fff',opacity:(0.25+rnd()*0.6).toFixed(2)},svg);
+  var SX=330, SY=230, ER=175, MR=48;
+  var defs=sv('defs',{},svg);
+  var g1=sv('radialGradient',{id:'sunG'},defs);
+  sv('stop',{offset:'0%','stop-color':'#FFF6C8'},g1); sv('stop',{offset:'55%','stop-color':'#FFC93C'},g1); sv('stop',{offset:'100%','stop-color':'#FF8A00'},g1);
+  var g2=sv('radialGradient',{id:'glowG'},defs);
+  sv('stop',{offset:'0%','stop-color':'#FFD24A','stop-opacity':'0.55'},g2); sv('stop',{offset:'100%','stop-color':'#FFD24A','stop-opacity':'0'},g2);
+  var g3=sv('radialGradient',{id:'earthG',cx:'35%',cy:'35%'},defs);
+  sv('stop',{offset:'0%','stop-color':'#7FC3FF'},g3); sv('stop',{offset:'100%','stop-color':'#1E5FB8'},g3);
+  var eOrbit=sv('ellipse',{cx:SX,cy:SY,rx:ER,ry:ER,fill:'none',stroke:'#7FA8E0','stroke-width':2,'stroke-dasharray':'6 8',opacity:.8},svg);
+  // 비스듬히 볼 때 앞뒤가 맞게 그리려고 태양과 지구·달을 따로 묶는다
+  var sunG=sv('g',{},svg), pG=sv('g',{},svg);
+  var eTrail=sv('path',{d:'',fill:'none',stroke:'#4DA3FF','stroke-width':5,'stroke-linecap':'round',opacity:.85},pG);
+  sv('circle',{cx:SX,cy:SY,r:95,fill:'url(#glowG)'},sunG);
+  sv('circle',{cx:SX,cy:SY,r:48,fill:'url(#sunG)'},sunG);
+  var sunT=sv('text',{x:SX,y:SY+6,'text-anchor':'middle','font-size':20,'font-weight':800,fill:'#7A3B00','font-family':FONT},sunG); sunT.textContent='태양';
+  var mOrbit=sv('ellipse',{cx:0,cy:0,rx:MR,ry:MR,fill:'none',stroke:'#C8C8D0','stroke-width':1.6,'stroke-dasharray':'4 6',opacity:.8},pG);
+  var mTrail=sv('path',{d:'',fill:'none',stroke:'#D9D9E0','stroke-width':3.5,'stroke-linecap':'round',opacity:.8},pG);
+  var earth=sv('circle',{r:19,fill:'url(#earthG)'},pG);
+  var moon=sv('circle',{r:8,fill:'#D6D6DC'},pG);
+  var eT=sv('text',{'text-anchor':'middle','font-size':19,'font-weight':800,fill:'#fff','font-family':FONT},pG); eT.textContent='지구';
+  var mT=sv('text',{'text-anchor':'middle','font-size':16,'font-weight':800,fill:'#E5E5EA','font-family':FONT},pG); mT.textContent='달';
+  var nt=sv('text',{x:16,y:H-14,'font-size':14,'font-weight':700,fill:'rgba(255,255,255,0.7)','font-family':FONT},svg); nt.textContent=NOTE;
+  // 오른쪽 설명
+  var bx=sv('g',{},svg);
+  function info(y,color,title,body){
+    sv('rect',{x:640,y:y,width:330,height:120,rx:18,fill:'rgba(255,255,255,0.08)',stroke:'rgba(255,255,255,0.18)'},bx);
+    sv('circle',{cx:672,cy:y+34,r:11,fill:color},bx);
+    var t=sv('text',{x:692,y:y+41,'font-size':22,'font-weight':800,fill:'#fff','font-family':FONT},bx); t.textContent=title;
+    var b=sv('text',{x:662,y:y+86,'font-size':20,'font-weight':700,fill:'#C9D6EA','font-family':FONT},bx); b.textContent=body;
+  }
+  info(90,'#4DA3FF','지구','태양 주위를 돈다');
+  info(250,'#D6D6DC','달','지구 주위를 돈다');
+
+  var sim={speed:0.5,t:0,run:true,orbits:true,trail:true,eh:[],mh:[],k:1};
+  seg(ctrl,[['느리게',0.5],['보통',1],['빠르게',2]],0.5,function(v){ sim.speed=v; });
+  var pb=btn(ctrl,'멈추기',function(b){ sim.run=!sim.run; b.textContent=sim.run?'멈추기':'다시 움직이기'; });
+  btn(ctrl,'궤도 보기',function(b){ sim.orbits=!sim.orbits; b.classList.toggle('on',sim.orbits); },'on');
+  seg(ctrl,[['위에서',1],['비스듬히',0.4]],1,function(v){ sim.k=v; eOrbit.setAttribute('ry',ER*v); mOrbit.setAttribute('ry',MR*v); sim.eh=[]; sim.mh=[]; draw(); });
+  ctrl.appendChild(el('span','sl-sp'));
+  btn(ctrl,'처음으로',function(){ sim.t=0; sim.eh=[]; sim.mh=[]; draw(); });
+
+  var EP=16, MP=4; // 화면에서 보기 쉽게 정한 주기(초). 실제 달의 공전 주기는 지구의 약 1/13이다.
+  function pos(){
+    var a=-Math.PI/2 + sim.t/EP*2*Math.PI;
+    var ex=SX+ER*Math.cos(a), ey=SY+ER*Math.sin(a)*sim.k;
+    var b=-Math.PI/2 + sim.t/MP*2*Math.PI;
+    var mx=ex+MR*Math.cos(b), my=ey+MR*Math.sin(b)*sim.k;
+    return {ex:ex,ey:ey,mx:mx,my:my,mrx:MR*Math.cos(b),mry:MR*Math.sin(b)*sim.k,sa:Math.sin(a),sb:Math.sin(b)};
+  }
+  function path(pts){ if(pts.length<2) return ''; var d='M'+pts[0][0].toFixed(1)+','+pts[0][1].toFixed(1); for(var i=1;i<pts.length;i++) d+='L'+pts[i][0].toFixed(1)+','+pts[i][1].toFixed(1); return d; }
+  function draw(){
+    var p=pos();
+    earth.setAttribute('cx',p.ex); earth.setAttribute('cy',p.ey);
+    moon.setAttribute('cx',p.mx); moon.setAttribute('cy',p.my);
+    mOrbit.setAttribute('cx',p.ex); mOrbit.setAttribute('cy',p.ey);
+    eT.setAttribute('x',p.ex); eT.setAttribute('y',p.mry>0?p.ey-28:p.ey+42);
+    mT.setAttribute('x',p.mx+(p.mrx>=0?20:-20)); mT.setAttribute('y',p.my+6); mT.setAttribute('text-anchor',p.mrx>=0?'start':'end');
+    eOrbit.style.display=mOrbit.style.display=sim.orbits?'':'none';
+    var back=sim.k<1;
+    svg.insertBefore(pG, back&&p.sa<0 ? sunG : sunG.nextSibling);
+    pG.insertBefore(moon, back&&p.sb<0 ? earth : earth.nextSibling);
+    sim.eh.push([p.ex,p.ey]); if(sim.eh.length>70) sim.eh.shift();
+    sim.mh.push([p.mrx,p.mry]); if(sim.mh.length>26) sim.mh.shift();
+    eTrail.setAttribute('d',path(sim.eh));
+    mTrail.setAttribute('d',path(sim.mh.map(function(q){return [p.ex+q[0],p.ey+q[1]];})));
+  }
+  sim.tick=function(dt){ if(!sim.run) return; sim.t+=dt*sim.speed; draw(); };
+  draw();
+  return sim;
+}
+
+/* ---------------- ② 태양계 둘러보기: 그림 속 천체를 눌러 특징 보기 ---------------- */
+var TOUR=[
+  {k:'sun',n:'태양',t:'태양',x:11.5,y:39.6,r:5.4,f:['태양계에서 유일하게 스스로 빛을 낸다.']},
+  {k:'mer',n:'수성',t:'행성',x:17.4,y:44.2,r:1.6,f:['태양계 행성 중에서 가장 작다.','대기가 거의 없어 낮과 밤의 온도 차가 매우 크다.']},
+  {k:'ven',n:'금성',t:'행성',x:19.8,y:45.7,r:1.8,f:['두꺼운 대기층으로 덮여 있어서 표면 온도가 높다.']},
+  {k:'moo',n:'달',t:'위성',x:22.0,y:50.8,r:1.4,f:['지구 주위를 공전한다.','지구의 위성이다.']},
+  {k:'ear',n:'지구',t:'행성',x:24.6,y:48.8,r:2.0,f:['바다와 대기가 있고 생명체가 존재한다.']},
+  {k:'mar',n:'화성',t:'행성',x:28.6,y:51.4,r:1.9,f:['대기가 있으나 매우 희박하다.','표면에 물이 흘렀던 흔적이 남아 있다.']},
+  {k:'com',n:'혜성',t:'혜성',x:24.4,y:34.0,r:2.2,f:['얼음과 먼지로 이루어져 있다.','태양과 가까워질 때 꼬리가 나타난다.']},
+  {k:'ast',n:'소행성',t:'소행성',x:56.5,y:36.5,r:3.2,f:['크기가 작고 모양이 둥글지 않다.','화성과 목성 사이에 많이 분포하며 백만 개가 넘는다.']},
+  {k:'jup',n:'목성',t:'행성',x:41.6,y:57.4,r:6.6,f:['태양계 행성 중에서 가장 크다.','주로 수소와 헬륨으로 이루어져 있다.','표면에 나란한 줄무늬와 대적점이 있다.','희미한 고리가 있다.']},
+  {k:'sat',n:'토성',t:'행성',x:59.0,y:68.6,r:5.6,f:['주로 수소와 헬륨으로 이루어져 있다.','표면에 줄무늬가 있다.','넓고 얇은 고리가 있다.']},
+  {k:'ura',n:'천왕성',t:'행성',x:74.2,y:78.5,r:3.3,f:['크기가 지구의 4배 정도이다.','청록색으로 보인다.','희미한 고리가 있다.']},
+  {k:'nep',n:'해왕성',t:'행성',x:83.0,y:83.6,r:2.6,f:['크기가 천왕성과 비슷하다.','청록색으로 보인다.','희미한 고리가 있다.']},
+  {k:'dwa',n:'왜소 행성',t:'왜소 행성',x:92.8,y:82.2,r:1.8,f:['태양 주위를 공전하며 모양이 둥글지만 행성보다 작다.','명왕성이 여기에 포함된다.']}
+];
+function tour(host){
+  host.innerHTML='';
+  var wrap=el('div','sl sl-tour'); host.appendChild(wrap);
+  var pic=el('div','tour-pic'); wrap.appendChild(pic);
+  var zl=el('div','tour-zoom'); pic.appendChild(zl);
+  var img=el('img'); img.src=asset('solar'); img.alt='태양계 천체 그림'; img.draggable=false; zl.appendChild(img);
+  pic.appendChild(el('div','tour-note','※ 그림에서 천체의 크기와 거리는 실제 비율과 다르다.'));
+  var side=el('div','tour-side'); wrap.appendChild(side);
+  var card=el('div','tour-card'); side.appendChild(card);
+  var all=btn(side,'전체 보기',function(){ zoom(null); }); all.disabled=true;
+  var cnt=el('div','tour-cnt'); side.appendChild(cnt);
+  function zoom(o){ // 누른 천체 쪽으로 확대해서 다가간다
+    var Z=o?2.2:1, w=pic.clientWidth, h=pic.clientHeight;
+    var tx=o?Math.min(0,Math.max(w-Z*w,w/2-Z*o.x/100*w)):0, ty=o?Math.min(0,Math.max(h-Z*h,h/2-Z*o.y/100*h)):0;
+    zl.style.transform='translate('+tx+'px,'+ty+'px) scale('+Z+')'; zl.style.setProperty('--z',Z);
+    all.disabled=!o;
+  }
+  var seen={}, cur=null, hots={};
+  function count(){
+    var n=TOUR.filter(function(o){return seen[o.k];}).length;
+    cnt.innerHTML='<b>'+n+'</b> / '+TOUR.length+'개 확인';
+  }
+  function show(o){
+    cur=o.k; seen[o.k]=1;
+    Object.keys(hots).forEach(function(k){ hots[k].classList.toggle('cur',k===cur); hots[k].classList.toggle('seen',!!seen[k]); });
+    zoom(o);
+    card.innerHTML='<div class="tc-n">'+o.n+'</div><div class="tc-t">'+o.t+'</div><ul>'+o.f.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ul>';
+    count();
+  }
+  TOUR.forEach(function(o){
+    var h=el('button','tour-hot'); h.type='button'; h.setAttribute('aria-label',o.n);
+    var size=Math.max(o.r*2,4.2);
+    h.style.left=o.x+'%'; h.style.top=o.y+'%'; h.style.width=size+'%';
+    h.addEventListener('click',function(){ show(o); h.blur(); });
+    zl.appendChild(h); hots[o.k]=h;
+  });
+  card.innerHTML='<div class="tc-empty">그림 속 천체를 눌러 보자.<br>깜빡이는 동그라미가 천체이다.</div>';
+  count();
+  return {tick:function(){}};
+}
+
+/* ---------------- ③ 천체 분류하기: 질문을 하나씩 따라가며 천체의 종류 정하기 ---------------- */
+var CARDS=[
+  {k:'pluto',n:'명왕성',orb:'sun',shape:'round',size:'small',ans:'왜소 행성',
+   clues:[['공전','태양 주위를 공전한다.'],['모양','둥글다.'],['크기','행성보다 훨씬 작다. 지구의 위성인 달보다도 작다.']],
+   fact:'명왕성은 아홉 번째 행성이었으나 2006년 국제천문연맹에서 왜소 행성으로 새롭게 분류했다.',cr:'탐사선 뉴호라이즌스가 2015년에 찍은 사진'},
+  {k:'gaspra',n:'가스프라',orb:'sun',shape:'not',ice:false,ans:'소행성',
+   clues:[['공전','태양 주위를 공전한다.'],['모양','길쭉하고 표면이 울퉁불퉁하다.'],['특징','화성과 목성 사이에 있다. 암석으로 이루어져 있고 꼬리가 생기지 않는다.']],
+   fact:'소행성은 화성과 목성 사이에 많이 분포하며 백만 개가 넘는다.',cr:'탐사선 갈릴레오가 1991년에 가까이 지나가며 찍은 사진'},
+  {k:'titan',n:'타이탄',orb:'planet',orbName:'토성',shape:'round',ans:'위성',
+   clues:[['공전','토성 주위를 공전한다.'],['모양','둥글다.'],['크기','행성인 수성보다 크다.']],
+   fact:'타이탄은 수성보다 크지만 토성 주위를 공전하므로 위성이다. 토성의 위성 중에서 가장 크다.',cr:'탐사선 카시니가 찍은 사진'},
+  {k:'chury',n:'추류모프-게라시멘코',orb:'sun',shape:'not',ice:true,ans:'혜성',
+   clues:[['공전','태양 주위를 공전한다.'],['모양','땅콩처럼 생겼고 표면이 울퉁불퉁하다.'],['특징','얼음과 먼지로 이루어져 있고, 기체와 먼지를 뿜어낸다.']],
+   fact:'탐사선 로제타의 착륙선 필레는 처음으로 혜성에 착륙했다.',cr:'탐사선 로제타가 2014년에 다가가 찍은 사진'},
+  {k:'ceres',n:'세레스',orb:'sun',shape:'round',size:'small',ans:'왜소 행성',
+   clues:[['공전','태양 주위를 공전한다.'],['모양','둥글다.'],['크기·위치','행성보다 훨씬 작다. 소행성이 많은 화성과 목성 사이에 있다.']],
+   fact:'세레스는 소행성들 사이에 있지만 모양이 둥글어서 소행성이 아니라 왜소 행성이다.',cr:''},
+  {k:'jupiter',n:'목성',orb:'sun',shape:'round',size:'big',ans:'행성',
+   clues:[['공전','태양 주위를 공전한다.'],['모양','둥글다.'],['크기','지구보다 훨씬 크다.']],
+   fact:'목성은 태양계 행성 중에서 가장 크다. 표면에 줄무늬와 소용돌이(대적점)가 있다.',cr:'탐사선 주노가 찍은 사진'},
+  {k:'europa',n:'유로파',orb:'planet',orbName:'목성',shape:'round',ans:'위성',
+   clues:[['공전','목성 주위를 공전한다.'],['모양','둥글다.'],['특징','두꺼운 얼음으로 덮여 있다.']],
+   fact:'유로파는 얼음으로 덮여 있지만 목성 주위를 공전하므로 위성이다. 얼음 아래에 물이 있다고 추정된다.',cr:''},
+  {k:'bennu',n:'베누',orb:'sun',shape:'not',ice:false,ans:'소행성',
+   clues:[['공전','태양 주위를 공전한다.'],['모양','둥글지 않고 표면이 울퉁불퉁하다.'],['특징','지구 궤도 가까이에 있다. 암석으로 이루어져 있고 꼬리가 생기지 않는다.']],
+   fact:'탐사선 오시리스-렉스가 베누에 내려가 흙을 채집해 지구로 가져왔다.',cr:''}
+];
+function steps(c){
+  var s=[{q:'무엇의 주위를 공전할까?',ops:['태양','행성'],ok:c.orb==='sun'?0:1,ci:0}];
+  if(c.orb==='planet') return s;
+  s.push({q:'모양은 어떨까?',ops:['둥글다','둥글지 않다'],ok:c.shape==='round'?0:1,ci:1});
+  if(c.shape==='round') s.push({q:'크기는 어떨까?',ops:['행성만큼 크다','행성보다 작다'],ok:c.size==='big'?0:1,ci:2});
+  else s.push({q:'얼음과 먼지로 이루어져 꼬리가 생길까?',ops:['그렇다','아니다'],ok:c.ice?0:1,ci:2});
+  return s;
+}
+function classify(host, opts){
+  opts=opts||{};
+  host.innerHTML='';
+  var wrap=el('div','sl sl-cls'); host.appendChild(wrap);
+  var head=el('div','cls-head'); wrap.appendChild(head);
+  var body=el('div','cls-body'); wrap.appendChild(body);
+  var part=opts.part||1, idx=0, done={};
+  var parts=el('div','sl-seg'); var pb=[];
+  if(!opts.fixed){
+    [['① 1~4번',1],['② 5~8번',2]].forEach(function(it){ var b=btn(parts,it[0],function(){ part=it[1]; idx=0; pb.forEach(function(x){x.classList.toggle('on',x===b);}); render(); }); if(it[1]===part) b.classList.add('on'); pb.push(b); });
+    head.appendChild(parts);
+  }
+  var dots=el('div','cls-dots'); head.appendChild(dots);
+  head.appendChild(el('span','sl-sp'));
+  var nav=el('div','cls-nav'); head.appendChild(nav);
+  var bPrev=btn(nav,'← 이전',function(){ if(idx>0){ idx--; render(); } });
+  var bNext=btn(nav,'다음 →',function(){ if(idx<3){ idx++; render(); } });
+
+  function list(){ return CARDS.slice((part-1)*4,(part-1)*4+4); }
+  function render(){
+    var L=list(), c=L[idx];
+    dots.innerHTML='';
+    L.forEach(function(x,i){ var d=el('button','cls-dot'+(i===idx?' cur':'')+(done[x.k]?' ok':''),String((part-1)*4+i+1)); d.type='button'; d.onclick=function(){ idx=i; render(); }; dots.appendChild(d); });
+    bPrev.disabled=idx===0; bNext.disabled=idx===3;
+    body.innerHTML='';
+    var left=el('div','cls-left'); body.appendChild(left);
+    var ph=el('div','cls-photo'); var im=el('img'); im.src=asset(c.k); im.alt=c.n; ph.appendChild(im); left.appendChild(ph);
+    left.appendChild(el('div','cls-name',c.n));
+    if(c.cr) left.appendChild(el('div','cls-cr',c.cr));
+    var right=el('div','cls-right'); body.appendChild(right);
+    var clues=el('div','cls-clues'); right.appendChild(clues);
+    var cl=c.clues.map(function(x){ var r=el('div','cls-clue','<b>'+x[0]+'</b><span>'+x[1]+'</span>'); clues.appendChild(r); return r; });
+    var qa=el('div','cls-qa'); right.appendChild(qa);
+    var S=steps(c), si=0;
+    function result(){
+      var r=el('div','cls-res','<div class="r1">'+josa(c.n,'은','는')+' <b>'+c.ans+'</b>이다.</div><div class="r2">'+c.fact+'</div>');
+      qa.appendChild(r); done[c.k]=1;
+      dots.children[idx].classList.add('ok');
+    }
+    function ask(){
+      if(si>=S.length){ result(); return; }
+      var s=S[si];
+      var row=el('div','cls-step');
+      row.appendChild(el('div','cls-q','<i>'+(si+1)+'</i>'+s.q));
+      var ops=el('div','cls-ops'); row.appendChild(ops);
+      var msg=el('div','cls-msg'); row.appendChild(msg);
+      s.ops.forEach(function(o,oi){
+        var b=btn(ops,o,function(){
+          if(row.classList.contains('locked')) return;
+          cl.forEach(function(x){ x.classList.remove('look'); });
+          if(oi===s.ok){
+            b.classList.add('right'); row.classList.add('locked');
+            [].forEach.call(ops.children,function(x){ if(x!==b) x.classList.add('dim'); });
+            msg.textContent=''; si++; ask();
+          } else {
+            b.classList.add('wrong'); setTimeout(function(){ b.classList.remove('wrong'); },600);
+            cl[s.ci].classList.add('look');
+            msg.textContent='위의 단서 ‘'+c.clues[s.ci][0]+'’을 다시 읽어 보자.';
+          }
+        });
+      });
+      qa.appendChild(row);
+    }
+    if(done[c.k]){ // 이미 푼 천체는 풀이를 모두 보여 준다
+      S.forEach(function(s,i){ var row=el('div','cls-step locked'); row.appendChild(el('div','cls-q','<i>'+(i+1)+'</i>'+s.q)); var ops=el('div','cls-ops'); s.ops.forEach(function(o,oi){ var b=el('span','sl-btn'+(oi===s.ok?' right':' dim'),o); ops.appendChild(b); }); row.appendChild(ops); qa.appendChild(row); });
+      result();
+    } else ask();
+  }
+  render();
+  return {tick:function(){}};
+}
+
+return {orbit:orbit, tour:tour, classify:classify, light:light, round:round, comet:comet, moons:moons, meteor:meteor, FONT:FONT};
+})();
+</script>
+<script>
+(function(){
+var h=document.getElementById('host');
+var sim=SOL.moons(h);
+var prev=performance.now(), on=true;
+document.addEventListener('visibilitychange',function(){ on=!document.hidden; prev=performance.now(); });
+function loop(now){ var dt=Math.min(0.05,(now-prev)/1000); prev=now; if(on) sim.tick(dt); requestAnimationFrame(loop); }
+requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

@@ -748,3 +748,61 @@ create table if not exists public.qd_players (
   unique (game_id, student_id)
 );
 create index if not exists qd_players_student_idx on public.qd_players (student_id, joined_at);
+
+-- ---------------------------------------------------------
+-- 학습지 AI 채점 (2026-10-24 사용자 요청, docs/ai-grading-plan.md)
+-- 등록된 답과 다른 빈칸 답·서술 답을 Gemini에게 묻는다. 학생마다 부르지 않고 'AI 확인 줄'에 모아
+-- pg_cron이 5초마다 Edge Function ws-grade를 한 번 부르고, 그 함수가 묶어서 한 번에 묻는다(무료 등급 1분 15번).
+-- 판정은 '답 기억표'에 남아 같은 답은 다시 묻지 않는다(다른 반 포함). 학생 반·번호는 보내지 않는다
+-- ---------------------------------------------------------
+-- 답 기억표: (차시, 칸, 그 칸 정답 내용의 md5, 정리한 학생 답) → 맞음/틀림
+--   spec_hash가 다르면(학습지를 다시 올려 정답이 바뀜) 새로 묻는다. source 'teacher'는 AI가 바꾸지 않는다
+create table if not exists public.ws_ai_cache (
+  lesson_code text not null,
+  field_key   text not null,
+  spec_hash   text not null,
+  norm        text not null,                 -- _ws_norm(학생 답)
+  answer      text not null,                 -- 처음 들어온 학생 답(보이기용)
+  ok          boolean not null,
+  source      text not null default 'ai' check (source in ('ai', 'teacher')),
+  reason      text null,                     -- AI가 적은 짧은 이유(교사 화면만)
+  created_at  timestamptz not null default now(),
+  decided_at  timestamptz not null default now(),
+  primary key (lesson_code, field_key, spec_hash, norm)
+);
+
+-- AI 확인 줄: 판정을 기다리는 답. status wait(보낼 차례) · sent(Edge Function이 가져감)
+--   class_ids = 이 답을 낸 학생들의 반(판정이 오면 그 반 채널에 'ws-ai' 신호)
+create table if not exists public.ws_ai_queue (
+  lesson_code text not null,
+  field_key   text not null,
+  spec_hash   text not null,
+  norm        text not null,
+  answer      text not null,
+  class_ids   smallint[] not null default '{}',
+  status      text not null default 'wait' check (status in ('wait', 'sent')),
+  tries       smallint not null default 0,
+  created_at  timestamptz not null default now(),
+  sent_at     timestamptz null,
+  primary key (lesson_code, field_key, spec_hash, norm)
+);
+create index if not exists ws_ai_queue_status_idx on public.ws_ai_queue (status, created_at);
+
+-- AI를 끈 칸(예측·가설처럼 정답이 없는 서술 칸). 꺼진 칸은 지금처럼 채점(서술은 채우면 맞음)
+create table if not exists public.ws_ai_off (
+  lesson_code text not null,
+  field_key   text not null,
+  primary key (lesson_code, field_key)
+);
+
+-- 5초마다 부르기(pg_cron)와 Edge Function 부르기(pg_net). 둘이 없는 DB(점검용 PGlite)에서는 건너뛴다
+do $$
+begin
+  if exists (select 1 from pg_available_extensions where name = 'pg_cron') then
+    create extension if not exists pg_cron;
+  end if;
+  if exists (select 1 from pg_available_extensions where name = 'pg_net') then
+    create extension if not exists pg_net;
+  end if;
+end;
+$$;

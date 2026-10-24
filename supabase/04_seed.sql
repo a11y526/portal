@@ -181,3 +181,22 @@ on conflict (key) do nothing;
 insert into public.settings (key, value) values
   ('quoridor', '{"xp": 5, "coins": 5, "daily": 5, "reward_daily": 1, "turn": 40}'::jsonb)
 on conflict (key) do nothing;
+
+-- 학습지 AI 채점 (2026-10-24): 처음 설치할 때만. on은 꺼 둠(관리 'AI 채점'에서 켬)
+--   url = Edge Function ws-grade 주소, secret = cron이 함수에 보내는 비밀 표(48자). 둘 다 학생 쪽으로 나가지 않는다
+--   wait = 이 초가 지나도록 판정이 없으면 지금 방식으로 채점(빈칸은 등록 답, 서술은 채우면 맞음)
+--   예측 칸(621A1·621B1 f12)은 정답이 없어 AI를 끈다(사용자 결정). 관리 화면에서 다시 켤 수 있고, 이 줄은 처음 한 번만 넣는다
+do $$
+begin
+  if not exists (select 1 from public.settings where key = 'ai_grade') then
+    insert into public.settings (key, value) values ('ai_grade', jsonb_build_object(
+      'on', false, 'model', 'gemini-3.5-flash-lite', 'batch', 40, 'wait', 20,
+      'url', 'https://sxejmhkevefwnpwldczt.supabase.co/functions/v1/ws-grade',
+      'secret', encode(extensions.gen_random_bytes(24), 'hex')));
+    insert into public.ws_ai_off (lesson_code, field_key) values ('621A1', 'f12'), ('621B1', 'f12')
+    on conflict do nothing;
+  end if;
+end;
+$$;
+insert into public.settings (key, value) values ('ai_state', '{}'::jsonb)
+on conflict (key) do nothing;

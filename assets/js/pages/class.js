@@ -2,7 +2,7 @@
 // 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
-import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onQuizShow,
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onWsAi, onQuizShow,
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -17,6 +17,7 @@ const REFRESH_MS = 15000;
 const JITTER_MS = 3000;     // 15초 갱신에 더하는 0~3초 무작위 지연 (한 반 30대가 같은 순간에 요청하지 않게)
 const RETRY_MS = 5000;      // 연결이 끊겼을 때는 더 자주 다시 시도
 const SUBMIT_WAIT_MS = 10000;
+const RECHECK_MS = 5000;     // AI 판정을 기다리는 칸이 있으면 이 간격으로 그 쪽을 다시 제출(신호를 놓쳤을 때)
 const classId = Number(new URLSearchParams(location.search).get('c'));
 if (!CLASSES.includes(classId)) location.replace('index.html');
 
@@ -386,13 +387,14 @@ const ws = {
   justPassed: -1,   // 방금 제출한 쪽(제출함 표시를 한 번 튀게)
   firsts: new Set(), // 선생님이 첫 답으로 인정한 쪽(pages 순서)
   opened: new Set(), // 선생님이 [제출 시작]으로 연 쪽(pages 순서). 칸이 있는 쪽은 열려 있을 때만 쓰고 제출(잠그면 다시 빠짐)
-  bad: {},          // { f1: 'wrong' | 'empty' }
+  bad: {},          // { f1: 'wrong' | 'empty' | 'checking'(AI 판정을 기다림) }
   badPts: {},       // 점 찍기 칸의 틀린 점 순서 { f9: [2, 5] } (제출 결과)
   dirty: false,     // 서버에 아직 저장 안 된 답이 있음
   saving: false,
   submitting: false,
   fetching: false,
   saveTimer: null,
+  recheckTimer: null,
   status: '',
 };
 
@@ -537,10 +539,11 @@ function renderDots() {
     const keys = p.fields.map((f) => f.key);
     const done = !!login && hasFields(p) && pageDone(p);
     const full = !done && keys.length > 0 && keys.every((k) => (ws.answers[k] ?? '') !== '');
-    const bad = !done && keys.some((k) => ws.bad[k]);
+    const bad = !done && keys.some((k) => ws.bad[k] && ws.bad[k] !== 'checking');
+    const checking = !done && !bad && keys.some((k) => ws.bad[k] === 'checking');
     const closed = isClosed(p);
-    const st = closed ? ' · 아직 수업 전' : done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : full ? ' · 다 씀, 제출 전' : '';
-    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}"
+    const st = closed ? ' · 아직 수업 전' : done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : checking ? ' · 확인 중' : full ? ' · 다 씀, 제출 전' : '';
+    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}${checking ? ' is-checking' : ''}"
       data-i="${i}" aria-label="${p.slide}쪽${st}" ${i === ws.idx ? 'aria-current="step"' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
   }).join('');
 }
@@ -579,8 +582,10 @@ function renderWsFoot() {
     foot.innerHTML = `${status}${prog}<span class="ws-wait-open">${LOCK_SVG}선생님이 열면 쓸 수 있어요</span>`;
     return;
   }
-  const nBad = page.fields.filter((f) => ws.bad[f.key]).length;
+  const nBad = page.fields.filter((f) => ws.bad[f.key] && ws.bad[f.key] !== 'checking').length;
+  const nChk = page.fields.filter((f) => ws.bad[f.key] === 'checking').length;
   foot.innerHTML = `${status}${prog}
+    ${nChk ? `<span class="ws-chkn" role="status"><i class="ws-chk-sand" aria-hidden="true"></i>확인 중 ${nChk}칸</span>` : ''}
     ${nBad ? `<span class="ws-badn">고칠 칸 ${nBad}개</span>` : ''}
     <button type="button" class="btn btn-primary btn-big press" id="ws-submit">${nBad ? '고쳐서 다시 제출' : '이 쪽 제출'}</button>`;
 }
@@ -614,6 +619,7 @@ function setAnswer(k, v) {
     delete ws.badPts[k];
     markFields($('ws-page'), ws.bad, wsMarks());
     renderWsFoot();
+    syncRecheck();
   }
   ws.dirty = true;
   persist();
@@ -687,15 +693,17 @@ async function saveSheet() {
 
 // 쪽별 제출. 버튼 하나에 요청 하나: 누르면 '채점 중'으로 잠그고, 10초 안에 답이 없거나 실패하면 [다시 제출]
 // 답은 모두 보내 저장하고, 서버는 그 쪽 칸만 채점한다
-async function submitPage(btn) {
+//   auto = AI 판정을 기다리던 쪽을 저절로 다시 제출(버튼 없음, 지금 보는 쪽이 아니어도 됨. 아직 확인 중이면 조용히)
+async function submitPage(btn, idx = ws.idx, auto = false) {
   if (ws.submitting || ws.done || !login || !ws.sheet) return;
-  const idx = ws.idx;
   const pg = pages()[idx];
   if (!hasFields(pg) || pageDone(pg)) return;
   ws.submitting = true;
   clearTimeout(ws.saveTimer);
-  btn.disabled = true;
-  btn.textContent = '채점 중';
+  if (btn) {
+    btn.disabled = true;
+    btn.textContent = '채점 중';
+  }
   const sent = JSON.stringify(ws.answers);
   let res;
   try {
@@ -703,8 +711,9 @@ async function submitPage(btn) {
   } catch (err) {
     console.error(err);
     ws.submitting = false;
+    if (auto) return; // 다음 차례에 다시
     toast(WS_ERR[err.message] || '보내지 못했어요. 다시 제출해 주세요', 'error');
-    if (btn.isConnected) { btn.disabled = false; btn.textContent = '다시 제출'; }
+    if (btn?.isConnected) { btn.disabled = false; btn.textContent = '다시 제출'; }
     return;
   }
   ws.submitting = false;
@@ -728,8 +737,10 @@ async function submitPage(btn) {
     }
     persist();
     ws.justPassed = idx;
+    if (auto && idx !== ws.idx) toast(`${pg.slide}쪽 제출함`, 'ok');
     renderSheet();
     if (ws.dirty) saveSheet();
+    syncRecheck();
     return;
   }
   if (res?.error === 'NOT_YET') {
@@ -738,18 +749,35 @@ async function submitPage(btn) {
     pg.fields.forEach((f) => { delete ws.bad[f.key]; delete ws.badPts[f.key]; });
     (res.empty ?? []).forEach((k) => { ws.bad[k] = 'empty'; });
     (res.wrong ?? []).forEach((k) => { ws.bad[k] = 'wrong'; });
+    (res.checking ?? []).forEach((k) => { ws.bad[k] = 'checking'; });
     Object.entries(res.points ?? {}).forEach(([k, v]) => { if (ws.bad[k] === 'wrong') ws.badPts[k] = v; });
     const empty = (res.empty ?? []).length;
     const n = empty + (res.wrong ?? []).length;
-    toast(empty === n ? `빈 칸이 ${n}개 있어요` : `틀리거나 빈 칸이 ${n}개 있어요`, 'error');
+    const where = auto && idx !== ws.idx ? `${pg.slide}쪽에 ` : '';
+    if (n) toast(empty === n ? `${where}빈 칸이 ${n}개 있어요` : `${where}틀리거나 빈 칸이 ${n}개 있어요`, 'error');
+    else if (!auto) toast('답을 확인하고 있어요. 잠깐만 기다려 주세요');
     ws.status = '';
     renderSheet();
     if (ws.dirty) saveSheet();
+    syncRecheck();
     return;
   }
+  if (auto) return;
   toast(WS_ERR[res?.error] || '제출하지 못했어요', 'error');
   sheetError(res?.error);
-  if (btn.isConnected) { btn.disabled = false; btn.textContent = '이 쪽 제출'; }
+  if (btn?.isConnected) { btn.disabled = false; btn.textContent = '이 쪽 제출'; }
+}
+
+// AI 판정을 기다리는 칸이 있는 쪽: 신호('ws-ai')를 받거나 5초마다 그 쪽을 다시 제출한다(판정은 서버 기억표에 있음)
+const checkingPage = () => pages().findIndex((p) => hasFields(p) && !pageDone(p) && p.fields.some((f) => ws.bad[f.key] === 'checking'));
+function recheck() {
+  const i = checkingPage();
+  if (i >= 0 && !document.hidden) submitPage(null, i, true);
+}
+function syncRecheck() {
+  const on = checkingPage() >= 0;
+  if (on && !ws.recheckTimer) ws.recheckTimer = setInterval(recheck, RECHECK_MS);
+  if (!on && ws.recheckTimer) { clearInterval(ws.recheckTimer); ws.recheckTimer = null; }
 }
 
 /* ---------- 학습지 완료 화면 (마지막 쪽까지 제출했을 때 한 번)
@@ -1121,6 +1149,8 @@ schedule();
 
 // [제출 시작]·잠그기는 먼저 낸 순서를 겨루므로 흩지 않고 바로 읽는다
 if (sb) onWsOpen(classId, () => { if (!document.hidden) load(); });
+// AI 판정이 저장됨: 기다리던 쪽이 있는 기기만 다시 제출(0~1.5초 흩음)
+if (sb) onWsAi(classId, () => { if (checkingPage() >= 0) setTimeout(recheck, Math.random() * 1500); });
 // 퀴즈 쇼를 열거나 넘기면 카드가 바로 뜨게(흩어서)
 if (sb) onQuizShow(classId, () => { if (!document.hidden) setTimeout(load, Math.random() * 1500); });
 if (sb) onClassRefresh(classId, () => {

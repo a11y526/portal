@@ -1071,6 +1071,13 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-foot:empty { display: none; }
 .ws-save { margin-right: auto; font-size: 14px; }
 .ws-badn { font-size: 15px; font-weight: 800; color: var(--returned-fg); }
+.ws-chkn { display: inline-flex; align-items: center; gap: 8px; font-size: 15px; font-weight: 800; color: var(--idle-fg); }
+/* AI 판정을 기다리는 칸: 회색 점선 + 도는 고리 (상태를 글자로도 씀: '확인 중 n칸') */
+.ws-chk-sand { width: 16px; height: 16px; border-radius: 50%; border: 2.5px solid rgba(78,88,104,.25); border-top-color: var(--idle-fg); animation: ws-chk-spin 1s linear infinite; }
+@keyframes ws-chk-spin { to { transform: rotate(360deg); } }
+.lite .ws-chk-sand { animation: none; border-top-color: rgba(78,88,104,.25); border-style: dotted; }
+@media (prefers-reduced-motion: reduce) { .ws-chk-sand { animation: none; } }
+.ws-dot.is-checking { border-style: dashed; border-color: var(--idle-dot); }
 .ws-done { width: 100%; }
 .ws-prog { font-size: 15px; color: var(--ink-2); }
 .ws-prog b { font-weight: 900; color: var(--ink); }
@@ -1174,6 +1181,8 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-in.is-empty { border: 2px dashed var(--pending-dot); background: var(--pending-bg); }
 .ws-ox.is-wrong { box-shadow: 0 0 0 3px var(--returned-solid); background: var(--returned-bg); }
 .ws-ox.is-empty { box-shadow: 0 0 0 3px var(--pending-dot); background: var(--pending-bg); }
+.ws-in.is-checking { border: 2px dashed var(--idle-dot); background: rgba(78,88,104,.06); }
+.ws-ox.is-checking { box-shadow: 0 0 0 3px var(--idle-dot); }
 /* 점 찍기 칸: 점 ● → 채점 뒤 맞은 점 ○, 틀린 점 × (색만으로 구분하지 않게 모양도 다름) */
 .ws-plot { display: block; max-width: 480px; margin: 10px 0; padding: 8px; border: 1.5px solid rgba(78,88,104,.22); border-radius: 16px; background: rgba(255,255,255,.85); }
 .ws-plot-svg { display: block; width: 100%; height: auto; cursor: crosshair; touch-action: manipulation; -webkit-user-select: none; user-select: none; }
@@ -2114,3 +2123,18 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
 .coins-table td.minus { color: #A23B0B; }
 .coins-table .wait { display: block; font-size: 12px; color: #8A5300; }
 .coins-table tfoot td { font-weight: 700; border-bottom: 0; }
+
+/* 관리 'AI 채점' (2026-10-24): 칸마다 정답·AI 켜기, 학생 답별 판정 */
+.ai-fields { display: grid; gap: 12px; }
+.ai-field { padding: 14px 16px; border-radius: 18px; background: rgba(255,255,255,.6); display: grid; gap: 8px; }
+.ai-field.is-off { opacity: .7; }
+.ai-fhead { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.ai-fhead b { font-weight: 900; }
+.ai-key { flex: 1 1 220px; min-width: 0; color: var(--ink-2); font-size: 14px; overflow-wrap: anywhere; }
+.ai-fhead .switch { margin-left: 0; }
+.ai-table td.ans { white-space: normal; overflow-wrap: anywhere; min-width: 120px; }
+.ai-table td.why { white-space: normal; color: var(--ink-2); font-size: 13px; }
+.ai-ok { min-height: 36px; padding: 0 14px; border-radius: var(--r-pill); border: 0; font: inherit; font-weight: 800; cursor: pointer; }
+.ai-ok.yes { background: var(--passed-bg); color: var(--passed-fg); }
+.ai-ok.no { background: var(--returned-bg); color: var(--returned-fg); }
+.ai-del { min-height: 36px; padding: 0 10px; border: 0; background: none; color: var(--ink-2); font: inherit; font-size: 13px; cursor: pointer; text-decoration: underline; }

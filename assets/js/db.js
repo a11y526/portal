@@ -340,6 +340,13 @@ export function onWsOpen(classId, fn) {
   if (ch.state === 'closed') ch.subscribe();
 }
 
+// 학습지 AI 판정이 저장됨(Edge Function ws-grade가 보냄): 확인 중인 쪽이 있는 학생 기기만 다시 제출한다
+export function onWsAi(classId, fn) {
+  const ch = classChannel(classId);
+  ch.on('broadcast', { event: 'ws-ai' }, () => fn());
+  if (ch.state === 'closed') ch.subscribe();
+}
+
 export function sendWsOpen(classId) {
   if (!sb) return Promise.resolve();
   const ch = classChannel(classId);
@@ -581,6 +588,31 @@ export async function listGrants(limit = 40) {
 // 학생별 코인 현황(classId 없으면 모든 반): [{ id, class_id, number, nickname, coins, earned, spent, rewards, pending, total_xp, level }]
 export async function getCoinStatus(classId = null) {
   return unwrap(await need().rpc('get_coin_status', { p_class_id: classId }));
+}
+
+/* ---------- 교사: 학습지 AI 채점 (2026-10-24) ---------- */
+
+// { conf: {on, model, batch, wait, url}, state: {calls, day, cooldown_until, last_error, last_ok_at…}, today, waiting, cron, lessons: [{code, title, fields, cached}] }
+export async function getAiAdmin() {
+  return unwrap(await need().rpc('get_ai_admin'));
+}
+
+// [{ key, slide, type, answers, off, numeric, rows: [{ norm, answer, ok, source, reason, n }] }]
+export async function getAiGrades(lesson) {
+  return unwrap(await need().rpc('get_ai_grades', { p_lesson: lesson }));
+}
+
+export async function setAiOn(on) {
+  return unwrap(await need().rpc('set_ai_on', { p_on: on }));
+}
+
+export async function setAiField(lesson, key, on) {
+  return unwrap(await need().rpc('set_ai_field', { p_lesson: lesson, p_key: key, p_on: on }));
+}
+
+// ok가 null이면 기억표에서 지움(다음에 같은 답이 오면 다시 묻는다)
+export async function setAiGrade(lesson, key, norm, ok) {
+  return unwrap(await need().rpc('set_ai_grade', { p_lesson: lesson, p_key: key, p_norm: norm, p_ok: ok }));
 }
 
 /* ---------- 교사: CSV 내보내기용 전체 기록 (1000줄씩 나눠 읽음) ---------- */

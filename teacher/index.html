@@ -63,6 +63,10 @@
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4M8 14.5l2.2 2.2 4.3-4.3"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>진도 관리</b><span id="hub-progress">오늘 수업 · 반별 진도 · 시간표</span>
           </a>
+          <a class="hub-item glass glass-live lift rise" style="--d:0.145s" href="#ai">
+            <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h5"/><path d="M13.5 17l1.8 1.8 3.2-3.6"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
+            <b>AI 채점</b><span id="hub-ai">학습지 빈칸 · 서술 답</span>
+          </a>
         </div>
       </section>
       <section class="hub-group g-student" aria-label="학생">
@@ -310,6 +314,23 @@
       <p class="muted num coins-sum" id="coins-sum"></p>
       <div class="coins-scroll"><table class="coins-table" id="coins-table"></table></div>
       <p class="muted" style="margin:0">잔액 = 받은 코인 − 꾸미기·뺀 코인 − 보상 신청(대기·승인). 거절된 신청은 빠져요.</p>
+    </section>
+
+    <section class="card glass rise panel hidden" data-panel="ai" data-title="AI 채점" aria-labelledby="h-ai">
+      <div class="lock-row" id="ai-onrow">
+        <h2 id="h-ai" style="margin:0;font-size:20px">AI 채점</h2>
+        <span class="tag tag-off" id="ai-ontag">꺼짐</span>
+        <button type="button" class="switch switch-on" role="switch" aria-checked="false" id="ai-on" aria-label="AI 채점"><span></span></button>
+      </div>
+      <p class="muted num" id="ai-status" style="margin:0" role="status"></p>
+      <div class="card-head">
+        <label class="class-pick glass">
+          <select id="ai-lesson" aria-label="차시"></select>
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
+        </label>
+        <button type="button" class="btn btn-line btn-small" id="ai-refresh">새로 고침</button>
+      </div>
+      <div class="ai-fields" id="ai-fields"></div>
     </section>
 
     <form class="card glass rise panel hidden" data-panel="points" data-title="포인트 규칙" id="points-form" aria-labelledby="h-points">

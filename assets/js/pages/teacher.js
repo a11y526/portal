@@ -1,4 +1,4 @@
-// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #roster #nick #buys #shopset #grant #coins #points #data #lock #omok #presets)
+// 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #ai #roster #nick #buys #shopset #grant #coins #points #data #lock #omok #presets)
 // 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 반 게시판(반마다 섹션·자료), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인·반별 닉네임 고치기, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
@@ -18,6 +18,7 @@ import { teacherGate, errMsg } from '../gate.js';
 import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../worksheet.js';
 import { refreshMats } from './teacher-mats.js';
 import { refreshProgress } from './teacher-progress.js';
+import { refreshAi } from './teacher-ai.js';
 import { initSide, markSide, syncSideBadges } from './teacher-side.js';
 
 initUI();
@@ -1735,6 +1736,7 @@ function loadPanel(key) {
   if (key === 'data') refreshArchive().catch(() => {});
   if (key === 'mats') refreshMats().catch(() => {});
   if (key === 'progress') refreshProgress().catch(() => {});
+  if (key === 'ai') refreshAi().catch(() => {});
 }
 initSide();
 addEventListener('hashchange', route);

@@ -466,6 +466,7 @@ export function markFields(box, bad, { points = {}, passed = null } = {}) {
     const st = bad?.[k];
     el.classList.toggle('is-wrong', st === 'wrong');
     el.classList.toggle('is-empty', st === 'empty');
+    el.classList.toggle('is-checking', st === 'checking');
     if (!el.classList.contains('ws-plot')) return;
     const ok = !!passed?.has?.(k);
     const wrong = st === 'wrong' && Array.isArray(points[k]) ? new Set(points[k].map(Number)) : null;

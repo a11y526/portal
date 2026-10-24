@@ -351,3 +351,26 @@ drop policy if exists qd_players_teacher_all on public.qd_players;
 create policy qd_players_teacher_all on public.qd_players
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 학습지 AI 채점 (2026-10-24): 교사만. 학생은 submit_worksheet_page로만, Edge Function은 비밀 표를 받는 ws_ai_* 함수로만
+alter table public.ws_ai_cache enable row level security;
+alter table public.ws_ai_queue enable row level security;
+alter table public.ws_ai_off enable row level security;
+revoke all on public.ws_ai_cache from anon;
+revoke all on public.ws_ai_queue from anon;
+revoke all on public.ws_ai_off from anon;
+
+drop policy if exists ws_ai_cache_teacher_all on public.ws_ai_cache;
+create policy ws_ai_cache_teacher_all on public.ws_ai_cache
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists ws_ai_queue_teacher_all on public.ws_ai_queue;
+create policy ws_ai_queue_teacher_all on public.ws_ai_queue
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists ws_ai_off_teacher_all on public.ws_ai_off;
+create policy ws_ai_off_teacher_all on public.ws_ai_off
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

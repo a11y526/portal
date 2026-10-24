@@ -306,44 +306,133 @@ begin
 end;
 $$;
 
--- 채점: {empty: [빈 칸], wrong: [틀린 칸]} (칸 이름만. 정답은 돌려주지 않는다)
+-- AI 채점 설정(settings.ai_grade). 없으면 빈 객체
+create or replace function public._ws_ai_conf()
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select coalesce((select value from public.settings where key = 'ai_grade'), '{}'::jsonb);
+$$;
+
+-- 이 칸을 AI로 볼 수 있나: 'blank'(정답 있는 빈칸) · 'text'(예시 답안이 있는 서술) · null(안 봄)
+--   교사가 끈 칸(ws_ai_off), 예시 답안이 숫자뿐인 서술(측정값이라 학생마다 다름)은 안 본다
+create or replace function public._ws_ai_kind(p_lesson text, p_key text, p_spec jsonb)
+returns text
+language sql
+stable
+set search_path = public
+as $$
+  select case
+    when p_lesson is null then null
+    when exists (select 1 from public.ws_ai_off where lesson_code = p_lesson and field_key = p_key) then null
+    when not exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(p_spec -> 'answers') = 'array' then p_spec -> 'answers' else '[]'::jsonb end) as a
+                     where btrim(a) <> '') then null
+    when p_spec ->> 'type' = 'blank' then 'blank'
+    when p_spec ->> 'type' = 'text' and (p_spec -> 'answers' ->> 0) !~ '^[[:space:]0-9.,~+-]+$' then 'text'
+  end;
+$$;
+
+-- 채점: {empty: [빈 칸], wrong: [틀린 칸], checking: [AI 판정을 기다리는 칸]} (칸 이름만. 정답은 돌려주지 않는다)
 --   blank  정답·허용 답 중 하나와 같으면 (띄어쓰기·영문 대소문자 무시). 정답이 비어 있으면 채우기만 하면 됨
 --   choice 정답(ok)을 골라야. 정답이 없는 고르기(예측)는 보기 중 하나를 고르면 됨
 --   sym    맞는 부등호. text(서술)는 채우기만 하면 됨
 --   plot   _ws_plot (정답 점을 모두, 틀린 점 없이)
-create or replace function public._ws_check(p_key jsonb, p_answers jsonb)
+--   p_lesson을 주면 AI 채점(2026-10-24): 등록 답과 다른 빈칸 답·예시와 다른 서술 답은 답 기억표(ws_ai_cache)로.
+--   기억표에 없으면 AI가 켜져 있을 때 checking(부르는 쪽이 _ws_ai_enqueue로 줄에 넣는다).
+--   줄에 들어간 지 settings.ai_grade.wait초가 지나도록 판정이 없으면 지금 방식(빈칸은 틀림, 서술은 맞음)
+drop function if exists public._ws_check(jsonb, jsonb); -- 2026-10-24 차시 인자(p_lesson)가 붙음
+create or replace function public._ws_check(p_key jsonb, p_answers jsonb, p_lesson text default null)
 returns jsonb
-language sql
-immutable
+language plpgsql
+stable
 set search_path = public
 as $$
-  select jsonb_build_object(
-    'empty', coalesce(jsonb_agg(x.k order by x.o) filter (where x.v = ''), '[]'::jsonb),
-    'wrong', coalesce(jsonb_agg(x.k order by x.o) filter (where x.v <> '' and not x.ok), '[]'::jsonb)
-  )
-  from (
-    select y.k, y.o, y.v,
-           case
-             when y.t = 'text' then true
-             when y.t = 'plot' then coalesce((public._ws_plot(y.spec, y.v) ->> 'ok')::boolean, false)
-             when y.t in ('choice', 'sym') and jsonb_array_length(y.ans) = 0 then
-               exists (select 1 from jsonb_array_elements_text(y.opts) as z(t) where z.t = y.v)
-             when y.t in ('choice', 'sym') then
-               exists (select 1 from jsonb_array_elements_text(y.ans) as z(t) where btrim(z.t) = y.v)
-             when jsonb_array_length(y.ans) = 0 then true
-             else exists (select 1 from jsonb_array_elements_text(y.ans) as z(t) where public._ws_norm(z.t) = public._ws_norm(y.v))
-           end as ok
-    from (
-      select e.key as k,
-             coalesce(nullif(regexp_replace(e.key, '\D', '', 'g'), ''), '0')::int as o,
-             e.value ->> 'type' as t,
-             e.value as spec,
-             coalesce(e.value -> 'answers', '[]'::jsonb) as ans,
-             coalesce(e.value -> 'options', '[]'::jsonb) as opts,
-             btrim(coalesce(case when jsonb_typeof(p_answers) = 'object' then p_answers ->> e.key end, '')) as v
-      from jsonb_each(coalesce(p_key, '{}'::jsonb)) as e
-    ) y
-  ) x;
+declare
+  e       record;
+  v       text;
+  ok      boolean;
+  v_kind  text;
+  v_conf  jsonb := case when p_lesson is null then '{}'::jsonb else public._ws_ai_conf() end;
+  v_on    boolean;
+  v_wait  numeric;
+  v_hit   boolean;
+  v_at    timestamptz;
+  v_empty jsonb := '[]'::jsonb;
+  v_wrong jsonb := '[]'::jsonb;
+  v_check jsonb := '[]'::jsonb;
+begin
+  v_on := coalesce((v_conf ->> 'on')::boolean, false);
+  v_wait := coalesce((v_conf ->> 'wait')::numeric, 20);
+  for e in
+    select x.key as k, x.value as spec,
+           x.value ->> 'type' as t,
+           coalesce(x.value -> 'answers', '[]'::jsonb) as ans,
+           coalesce(x.value -> 'options', '[]'::jsonb) as opts
+    from jsonb_each(coalesce(p_key, '{}'::jsonb)) as x
+    order by coalesce(nullif(regexp_replace(x.key, '\D', '', 'g'), ''), '0')::int
+  loop
+    v := btrim(coalesce(case when jsonb_typeof(p_answers) = 'object' then p_answers ->> e.k end, ''));
+    if v = '' then
+      v_empty := v_empty || to_jsonb(e.k);
+      continue;
+    end if;
+    ok := case
+      when e.t = 'text' then true
+      when e.t = 'plot' then coalesce((public._ws_plot(e.spec, v) ->> 'ok')::boolean, false)
+      when e.t in ('choice', 'sym') and jsonb_array_length(e.ans) = 0 then
+        exists (select 1 from jsonb_array_elements_text(e.opts) as z(t) where z.t = v)
+      when e.t in ('choice', 'sym') then
+        exists (select 1 from jsonb_array_elements_text(e.ans) as z(t) where btrim(z.t) = v)
+      when jsonb_array_length(e.ans) = 0 then true
+      else exists (select 1 from jsonb_array_elements_text(e.ans) as z(t) where public._ws_norm(z.t) = public._ws_norm(v))
+    end;
+
+    v_kind := public._ws_ai_kind(p_lesson, e.k, e.spec);
+    if v_kind = 'text' then
+      ok := exists (select 1 from jsonb_array_elements_text(e.ans) as z(t) where public._ws_norm(z.t) = public._ws_norm(v));
+    end if;
+    if v_kind is not null and not ok then
+      select c.ok into v_hit from public.ws_ai_cache c
+      where c.lesson_code = p_lesson and c.field_key = e.k and c.spec_hash = md5(e.spec::text) and c.norm = public._ws_norm(v);
+      if found then
+        ok := v_hit;
+      elsif not v_on then
+        ok := v_kind = 'text';
+      else
+        select q.created_at into v_at from public.ws_ai_queue q
+        where q.lesson_code = p_lesson and q.field_key = e.k and q.spec_hash = md5(e.spec::text) and q.norm = public._ws_norm(v);
+        if v_at is not null and v_at < now() - make_interval(secs => v_wait) then
+          ok := v_kind = 'text'; -- 대신 판정(기억표에는 넣지 않음)
+        else
+          v_check := v_check || to_jsonb(e.k);
+          continue;
+        end if;
+      end if;
+    end if;
+    if not ok then
+      v_wrong := v_wrong || to_jsonb(e.k);
+    end if;
+  end loop;
+  return jsonb_build_object('empty', v_empty, 'wrong', v_wrong, 'checking', v_check);
+end;
+$$;
+
+-- AI 확인 줄에 넣기: p_keys 칸의 학생 답을 (차시, 칸, 정답 md5, 정리한 답)으로. 이미 있으면 반만 더한다
+create or replace function public._ws_ai_enqueue(p_lesson text, p_key jsonb, p_answers jsonb, p_keys jsonb, p_class smallint)
+returns void
+language sql
+volatile
+set search_path = public
+as $$
+  insert into public.ws_ai_queue as q (lesson_code, field_key, spec_hash, norm, answer, class_ids)
+  select p_lesson, k, md5((p_key -> k)::text), public._ws_norm(p_answers ->> k), left(btrim(p_answers ->> k), 300),
+         case when p_class is null then '{}'::smallint[] else array[p_class] end
+  from jsonb_array_elements_text(coalesce(p_keys, '[]'::jsonb)) as k
+  where p_key ? k and public._ws_norm(p_answers ->> k) <> ''
+  on conflict (lesson_code, field_key, spec_hash, norm) do update
+    set class_ids = case when p_class is null or q.class_ids @> array[p_class] then q.class_ids else q.class_ids || p_class end;
 $$;
 -- 저장할 답 합치기: 이미 제출한 칸(passed)은 원래 답 그대로, 나머지는 새 답
 create or replace function public._ws_merge(p_old jsonb, p_passed jsonb, p_new jsonb)
@@ -360,7 +449,10 @@ $$;
 revoke all on function public._ws_merge(jsonb, jsonb, jsonb) from public, anon, authenticated;
 revoke all on function public._ws_norm(text) from public, anon, authenticated;
 revoke all on function public._ws_clean(jsonb, jsonb) from public, anon, authenticated;
-revoke all on function public._ws_check(jsonb, jsonb) from public, anon, authenticated;
+revoke all on function public._ws_check(jsonb, jsonb, text) from public, anon, authenticated;
+revoke all on function public._ws_ai_conf() from public, anon, authenticated;
+revoke all on function public._ws_ai_kind(text, text, jsonb) from public, anon, authenticated;
+revoke all on function public._ws_ai_enqueue(text, jsonb, jsonb, jsonb, smallint) from public, anon, authenticated;
 revoke all on function public._ws_plot(jsonb, text) from public, anon, authenticated;
 
 -- 학생에게 보낼 쪽 목록: 진도(p_upto)보다 뒤 쪽은 본문·칸을 빼고 {slide, locked, has_fields}만. p_upto가 null이면 그대로
@@ -1950,6 +2042,7 @@ grant execute on function public.submit_worksheet(text, uuid, jsonb) to anon, au
 -- 결과: {ok: true, done: false, passed, left(아직 제출 안 한 칸 수)}
 --   · {ok: true, done: true, already, passed, xp, coins, level_before, level_after, total_xp}
 --   · {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸], points: {점 찍기 칸: [틀린 점 순서]}} (그 쪽 칸만. 정답은 주지 않는다)
+--     checking: [AI 판정을 기다리는 칸] (2026-10-24, 판정이 오면 반 채널 'ws-ai' 신호 → 학생 화면이 다시 제출)
 --   · {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'NO_PAGE' | 'LOCKED'(아직 수업에서 안 나간 쪽)}
 create or replace function public.submit_worksheet_page(p_token text, p_board_id uuid, p_page int, p_answers jsonb)
 returns jsonb
@@ -2021,17 +2114,23 @@ begin
       'total_xp',     v_before);
   end if;
 
-  v_chk := public._ws_check(v_pkey, a.answers);
+  v_chk := public._ws_check(v_pkey, a.answers, t ->> 'lesson_code');
+  -- AI 판정을 기다리는 칸은 확인 줄에 (2026-10-24). 학생 화면은 판정이 오면 저절로 다시 제출한다
+  if jsonb_array_length(v_chk -> 'checking') > 0 then
+    perform public._ws_ai_enqueue(t ->> 'lesson_code', v_pkey, a.answers, v_chk -> 'checking',
+      (select class_id from public.students where id = v_sid));
+  end if;
   -- 이 쪽 칸을 모두 채웠으면 맞았는지와 상관없이 첫 답 줄에
   if jsonb_array_length(v_chk -> 'empty') = 0 and array_length(v_keys, 1) > 0 then
     perform public._ws_first_enter(p_board_id, p_page, (v_pages -> p_page ->> 'slide')::int, v_sid,
       (select coalesce(jsonb_object_agg(e.key, e.value), '{}'::jsonb) from jsonb_each(a.answers) as e where e.key = any(v_keys)));
   end if;
-  if jsonb_array_length(v_chk -> 'empty') > 0 or jsonb_array_length(v_chk -> 'wrong') > 0 then
+  if jsonb_array_length(v_chk -> 'empty') > 0 or jsonb_array_length(v_chk -> 'wrong') > 0 or jsonb_array_length(v_chk -> 'checking') > 0 then
     select coalesce(jsonb_object_agg(e.key, public._ws_plot(e.value, a.answers ->> e.key) -> 'bad'), '{}'::jsonb) into v_pts
     from jsonb_each(v_pkey) as e
     where e.value ->> 'type' = 'plot' and (v_chk -> 'wrong') ? e.key;
-    return jsonb_build_object('ok', false, 'error', 'NOT_YET', 'empty', v_chk -> 'empty', 'wrong', v_chk -> 'wrong', 'points', v_pts);
+    return jsonb_build_object('ok', false, 'error', 'NOT_YET', 'empty', v_chk -> 'empty', 'wrong', v_chk -> 'wrong',
+      'checking', v_chk -> 'checking', 'points', v_pts);
   end if;
 
   -- 이 쪽 칸을 passed에 넣는다 (학습지에 지금 있는 칸만, 문서 순서대로)
@@ -3661,20 +3760,26 @@ $$;
 revoke all on function public._qb_dur(jsonb) from public, anon, authenticated;
 
 -- 채점: 빈칸은 공백·대소문자 무시(_ws_norm), 고르기·부등호는 그대로 같아야
-create or replace function public._qb_ok(p_item jsonb, p_answer text)
+--   p_lesson을 주면 빈칸은 학습지 AI 채점의 답 기억표에서 '맞음'인 답도 정답(2026-10-24. 10초 제한이라 AI는 부르지 않음)
+drop function if exists public._qb_ok(jsonb, text);
+create or replace function public._qb_ok(p_item jsonb, p_answer text, p_lesson text default null)
 returns boolean
 language sql
-immutable
+stable
 set search_path = public
 as $$
   select case
     when p_item ->> 'type' = 'blank' then exists (
       select 1 from jsonb_array_elements_text(p_item -> 'answers') a
       where public._ws_norm(a) <> '' and public._ws_norm(a) = public._ws_norm(p_answer))
+      or (p_lesson is not null and public._ws_norm(p_answer) <> '' and exists (
+        select 1 from public.ws_ai_cache c join public.worksheets w on w.lesson_code = c.lesson_code
+        where c.lesson_code = p_lesson and c.field_key = p_item ->> 'key' and c.ok
+          and c.spec_hash = md5((w.key -> (p_item ->> 'key'))::text) and c.norm = public._ws_norm(p_answer)))
     else exists (select 1 from jsonb_array_elements_text(p_item -> 'answers') a where btrim(a) = btrim(coalesce(p_answer, '')))
   end;
 $$;
-revoke all on function public._qb_ok(jsonb, text) from public, anon, authenticated;
+revoke all on function public._qb_ok(jsonb, text, text) from public, anon, authenticated;
 
 -- 판 끝내기: 맞힌 수로 점수를 확정하고 모둠 안 1등에게 한 번 지급
 create or replace function public._qb_end(p_game_id uuid)
@@ -4078,7 +4183,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'EMPTY');
   end if;
   insert into public.qb_answers (game_id, q, student_id, answer, ok)
-  values (g.id, g.q, v_sid, v_ans, public._qb_ok(g.items -> g.q, v_ans))
+  values (g.id, g.q, v_sid, v_ans, public._qb_ok(g.items -> g.q, v_ans, (select lesson_code from public.boards where id = g.board_id)))
   on conflict do nothing;
   if not found then
     return jsonb_build_object('ok', false, 'error', 'ALREADY');
@@ -6385,3 +6490,378 @@ end;
 $$;
 revoke all on function public.get_coin_status(smallint) from public, anon;
 grant execute on function public.get_coin_status(smallint) to authenticated;
+
+-- ---------------------------------------------------------
+-- 학습지 AI 채점 (2026-10-24, docs/ai-grading-plan.md)
+--   학생 제출 → _ws_check가 모르는 답을 checking으로 → submit_worksheet_page가 확인 줄(ws_ai_queue)에.
+--   pg_cron 5초마다 _ws_ai_kick → 줄에 기다리는 답이 있으면 pg_net으로 Edge Function ws-grade를 한 번 부름
+--   → 함수가 ws_ai_take(비밀 표)로 답을 묶어 가져가 Gemini에 한 번 묻고 ws_ai_store / ws_ai_fail로 돌려준다.
+--   함수는 공개 키로 이 세 함수만 부른다(service_role 안 씀). 비밀 표 = settings.ai_grade.secret
+-- ---------------------------------------------------------
+
+-- 실행 상태(settings.ai_state)에 덧붙이기
+create or replace function public._ws_ai_state(p_patch jsonb)
+returns void
+language sql
+volatile
+set search_path = public
+as $$
+  insert into public.settings (key, value) values ('ai_state', p_patch)
+  on conflict (key) do update set value = public.settings.value || excluded.value;
+$$;
+revoke all on function public._ws_ai_state(jsonb) from public, anon, authenticated;
+
+-- Gemini를 부른 횟수(한국 날짜별)
+create or replace function public._ws_ai_count()
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  s     jsonb;
+  v_day text := to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM-DD');
+begin
+  select value into s from public.settings where key = 'ai_state';
+  perform public._ws_ai_state(jsonb_build_object('day', v_day,
+    'calls', case when s ->> 'day' = v_day then coalesce((s ->> 'calls')::int, 0) + 1 else 1 end));
+end;
+$$;
+revoke all on function public._ws_ai_count() from public, anon, authenticated;
+
+create or replace function public._ws_ai_secret_ok(p_secret text)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select length(coalesce(public._ws_ai_conf() ->> 'secret', '')) >= 32 and p_secret = public._ws_ai_conf() ->> 'secret';
+$$;
+revoke all on function public._ws_ai_secret_ok(text) from public, anon, authenticated;
+
+-- cron이 5초마다: 켜져 있고, 쉬는 중이 아니고, 보낸 묶음이 돌아오는 중이 아니고, 기다리는 답이 있으면 함수를 부른다
+create or replace function public._ws_ai_kick()
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  c jsonb := public._ws_ai_conf();
+  s jsonb;
+begin
+  if not coalesce((c ->> 'on')::boolean, false) or coalesce(c ->> 'url', '') = '' or to_regnamespace('net') is null then
+    return;
+  end if;
+  delete from public.ws_ai_queue where created_at < now() - interval '10 minutes'; -- 그동안은 대신 판정
+  update public.ws_ai_queue set status = 'wait' where status = 'sent' and sent_at < now() - interval '40 seconds'; -- 함수가 답을 못 함
+  if exists (select 1 from public.ws_ai_queue where status = 'sent')
+     or not exists (select 1 from public.ws_ai_queue where status = 'wait') then
+    return;
+  end if;
+  select value into s from public.settings where key = 'ai_state';
+  if (s ->> 'cooldown_until')::timestamptz > now() then
+    return;
+  end if;
+  -- 방금 불렀는데 아직 가져가지 않았으면(함수가 뜨는 중) 기다린다
+  if (s ->> 'kicked_at')::timestamptz > now() - interval '10 seconds'
+     and coalesce((s ->> 'taken_at')::timestamptz, '-infinity'::timestamptz) < (s ->> 'kicked_at')::timestamptz then
+    return;
+  end if;
+  perform net.http_post(
+    url := c ->> 'url',
+    body := '{}'::jsonb,
+    headers := jsonb_build_object('Content-Type', 'application/json', 'x-ws-secret', c ->> 'secret'),
+    timeout_milliseconds := 30000);
+  perform public._ws_ai_state(jsonb_build_object('kicked_at', now()));
+end;
+$$;
+revoke all on function public._ws_ai_kick() from public, anon, authenticated;
+
+-- Edge Function: 기다리는 답을 묶어 가져간다(최대 settings.ai_grade.batch개).
+-- 결과 {ok, model, items: [{lesson_code, key, hash, norm, answer, kind, answers, html}]}
+--   html = 그 칸이 있는 쪽의 화면용 html(정답 뺀 것, 그림 뺌). 학습지를 다시 올려 정답이 바뀌었거나 AI를 끈 칸의 답은 버린다
+create or replace function public.ws_ai_take(p_secret text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  c     jsonb := public._ws_ai_conf();
+  v_out jsonb;
+begin
+  if not public._ws_ai_secret_ok(p_secret) then
+    return jsonb_build_object('ok', false, 'error', 'NO_SECRET');
+  end if;
+  delete from public.ws_ai_queue q
+  where q.status = 'wait' and not exists (
+    select 1 from public.worksheets w
+    where w.lesson_code = q.lesson_code and md5((w.key -> q.field_key)::text) = q.spec_hash
+      and public._ws_ai_kind(q.lesson_code, q.field_key, w.key -> q.field_key) is not null);
+
+  with picked as (
+    select lesson_code, field_key, spec_hash, norm from public.ws_ai_queue
+    where status = 'wait' order by created_at
+    limit greatest(1, least(coalesce((c ->> 'batch')::int, 40), 80))
+    for update skip locked
+  ), sent as (
+    update public.ws_ai_queue q set status = 'sent', sent_at = now(), tries = q.tries + 1
+    from picked p
+    where q.lesson_code = p.lesson_code and q.field_key = p.field_key and q.spec_hash = p.spec_hash and q.norm = p.norm
+    returning q.*
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+           'lesson_code', s.lesson_code, 'key', s.field_key, 'hash', s.spec_hash, 'norm', s.norm, 'answer', s.answer,
+           'kind',    public._ws_ai_kind(s.lesson_code, s.field_key, w.key -> s.field_key),
+           'answers', w.key -> s.field_key -> 'answers',
+           'html',    (select regexp_replace(pg ->> 'html', '<img[^>]*>', '', 'gi') from jsonb_array_elements(w.pages) as pg
+                       where exists (select 1 from jsonb_array_elements(coalesce(pg -> 'fields', '[]'::jsonb)) as f where f ->> 'key' = s.field_key)
+                       limit 1)
+         ) order by s.created_at), '[]'::jsonb)
+  into v_out
+  from sent s join public.worksheets w on w.lesson_code = s.lesson_code;
+
+  perform public._ws_ai_state(jsonb_build_object('taken_at', now()));
+  return jsonb_build_object('ok', true, 'model', coalesce(c ->> 'model', 'gemini-3.5-flash-lite'), 'items', v_out);
+end;
+$$;
+revoke all on function public.ws_ai_take(text) from public;
+grant execute on function public.ws_ai_take(text) to anon, authenticated;
+
+-- Edge Function: 판정 저장. p_results = [{lesson_code, key, hash, norm, ok, reason}]
+--   기억표에 넣고(교사가 정한 답은 그대로) 줄에서 지운다. 결과 {ok, classes: [신호 보낼 반]}
+create or replace function public.ws_ai_store(p_secret text, p_results jsonb)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_cls smallint[];
+begin
+  if not public._ws_ai_secret_ok(p_secret) then
+    return jsonb_build_object('ok', false, 'error', 'NO_SECRET');
+  end if;
+  create temporary table if not exists _ws_ai_res (lesson_code text, key text, hash text, norm text, ok boolean, reason text) on commit drop;
+  delete from _ws_ai_res;
+  insert into _ws_ai_res
+  select r.lesson_code, r.key, r.hash, r.norm, r.ok, left(r.reason, 80)
+  from jsonb_to_recordset(case when jsonb_typeof(p_results) = 'array' then p_results else '[]'::jsonb end)
+       as r(lesson_code text, key text, hash text, norm text, ok boolean, reason text)
+  where r.ok is not null;
+
+  insert into public.ws_ai_cache as c (lesson_code, field_key, spec_hash, norm, answer, ok, source, reason)
+  select q.lesson_code, q.field_key, q.spec_hash, q.norm, q.answer, r.ok, 'ai', r.reason
+  from _ws_ai_res r
+  join public.ws_ai_queue q on q.lesson_code = r.lesson_code and q.field_key = r.key and q.spec_hash = r.hash and q.norm = r.norm
+  on conflict (lesson_code, field_key, spec_hash, norm) do update
+    set ok = excluded.ok, reason = excluded.reason, decided_at = now()
+    where c.source <> 'teacher';
+
+  select coalesce(array_agg(distinct x), '{}') into v_cls
+  from public.ws_ai_queue q
+  join _ws_ai_res r on q.lesson_code = r.lesson_code and q.field_key = r.key and q.spec_hash = r.hash and q.norm = r.norm
+  cross join lateral unnest(q.class_ids) as x;
+
+  delete from public.ws_ai_queue q using _ws_ai_res r
+  where q.lesson_code = r.lesson_code and q.field_key = r.key and q.spec_hash = r.hash and q.norm = r.norm;
+  -- 이번 묶음에서 판정이 빠진 답은 다시 기다림으로
+  update public.ws_ai_queue set status = 'wait' where status = 'sent';
+
+  perform public._ws_ai_count();
+  perform public._ws_ai_state(jsonb_build_object('last_ok_at', now(), 'last_error', null));
+  return jsonb_build_object('ok', true, 'classes', to_jsonb(v_cls));
+end;
+$$;
+revoke all on function public.ws_ai_store(text, jsonb) from public;
+grant execute on function public.ws_ai_store(text, jsonb) to anon, authenticated;
+
+-- Edge Function: 실패. 보낸 답은 다시 기다림으로, p_retry초(한도 초과 때 Google이 알려 준 시간) 동안 쉰다
+create or replace function public.ws_ai_fail(p_secret text, p_retry int, p_error text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if not public._ws_ai_secret_ok(p_secret) then
+    return jsonb_build_object('ok', false, 'error', 'NO_SECRET');
+  end if;
+  update public.ws_ai_queue set status = 'wait' where status = 'sent';
+  perform public._ws_ai_count();
+  perform public._ws_ai_state(jsonb_build_object(
+    'last_error', left(coalesce(p_error, ''), 300), 'last_error_at', now(),
+    'cooldown_until', case when coalesce(p_retry, 0) > 0 then to_jsonb(now() + make_interval(secs => least(p_retry, 3600))) else 'null'::jsonb end));
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.ws_ai_fail(text, int, text) from public;
+grant execute on function public.ws_ai_fail(text, int, text) to anon, authenticated;
+
+-- 교사: 'AI 채점' 첫 줄. 설정(비밀 표 빼고), 실행 상태, 기다리는 답 수, 학습지 목록(AI로 볼 수 있는 칸 수)
+create or replace function public.get_ai_admin()
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  s jsonb;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select value into s from public.settings where key = 'ai_state';
+  return jsonb_build_object(
+    'conf',    public._ws_ai_conf() - 'secret',
+    'state',   coalesce(s, '{}'::jsonb),
+    'today',   to_char(now() at time zone 'Asia/Seoul', 'YYYY-MM-DD'),
+    'waiting', (select count(*)::int from public.ws_ai_queue),
+    'cron',    to_regnamespace('cron') is not null and to_regnamespace('net') is not null,
+    'lessons', coalesce((
+      select jsonb_agg(jsonb_build_object('code', w.lesson_code, 'title', w.title,
+               'fields', (select count(*)::int from jsonb_each(w.key) as e
+                          where public._ws_ai_kind(w.lesson_code, e.key, e.value) is not null),
+               'cached', (select count(*)::int from public.ws_ai_cache c where c.lesson_code = w.lesson_code))
+             order by w.lesson_code)
+      from public.worksheets w), '[]'::jsonb));
+end;
+$$;
+revoke all on function public.get_ai_admin() from public;
+grant execute on function public.get_ai_admin() to authenticated;
+
+-- 교사: 한 차시의 칸별 AI 판정. 정답 있는 빈칸·예시 답안 있는 서술 칸만(쪽 순서)
+--   {key, slide, type, answers, off, numeric, rows: [{norm, answer, ok, source, reason, n(지금 그 답을 쓴 학생 수)}]}
+create or replace function public.get_ai_grades(p_lesson text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  return coalesce((
+    select jsonb_agg(jsonb_build_object(
+             'key', f.k, 'slide', f.slide, 'type', f.spec ->> 'type', 'answers', f.spec -> 'answers',
+             'off', exists (select 1 from public.ws_ai_off o where o.lesson_code = p_lesson and o.field_key = f.k),
+             'numeric', f.spec ->> 'type' = 'text' and (f.spec -> 'answers' ->> 0) ~ '^[[:space:]0-9.,~+-]+$',
+             'rows', coalesce((
+               select jsonb_agg(jsonb_build_object('norm', c.norm, 'answer', c.answer, 'ok', c.ok, 'source', c.source,
+                        'reason', c.reason, 'n', coalesce(n.n, 0)) order by c.ok, coalesce(n.n, 0) desc, c.decided_at desc)
+               from public.ws_ai_cache c
+               left join lateral (
+                 select count(*)::int as n from public.worksheet_answers a join public.boards b on b.id = a.board_id
+                 where b.lesson_code = p_lesson and public._ws_norm(a.answers ->> f.k) = c.norm
+               ) n on true
+               where c.lesson_code = p_lesson and c.field_key = f.k and c.spec_hash = md5(f.spec::text)), '[]'::jsonb)
+           ) order by f.pi, f.o)
+    from (
+      select fl ->> 'key' as k, w.key -> (fl ->> 'key') as spec, pg.pi, (pg.pg ->> 'slide')::int as slide,
+             coalesce(nullif(regexp_replace(fl ->> 'key', '\D', '', 'g'), ''), '0')::int as o
+      from public.worksheets w
+      cross join lateral jsonb_array_elements(w.pages) with ordinality as pg(pg, pi)
+      cross join lateral jsonb_array_elements(coalesce(pg.pg -> 'fields', '[]'::jsonb)) as fl
+      where w.lesson_code = p_lesson
+    ) f
+    where f.spec ->> 'type' in ('blank', 'text')
+      and exists (select 1 from jsonb_array_elements_text(case when jsonb_typeof(f.spec -> 'answers') = 'array' then f.spec -> 'answers' else '[]'::jsonb end) as a
+                  where btrim(a) <> '')), '[]'::jsonb);
+end;
+$$;
+revoke all on function public.get_ai_grades(text) from public;
+grant execute on function public.get_ai_grades(text) to authenticated;
+
+-- 교사: AI 켜기/끄기
+create or replace function public.set_ai_on(p_on boolean)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.settings set value = value || jsonb_build_object('on', coalesce(p_on, false)) where key = 'ai_grade';
+  if not p_on then
+    delete from public.ws_ai_queue;
+  end if;
+end;
+$$;
+revoke all on function public.set_ai_on(boolean) from public;
+grant execute on function public.set_ai_on(boolean) to authenticated;
+
+-- 교사: 칸마다 AI 켜기/끄기
+create or replace function public.set_ai_field(p_lesson text, p_key text, p_on boolean)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  if p_on then
+    delete from public.ws_ai_off where lesson_code = p_lesson and field_key = p_key;
+  else
+    insert into public.ws_ai_off (lesson_code, field_key) values (p_lesson, p_key) on conflict do nothing;
+    delete from public.ws_ai_queue where lesson_code = p_lesson and field_key = p_key;
+  end if;
+end;
+$$;
+revoke all on function public.set_ai_field(text, text, boolean) from public;
+grant execute on function public.set_ai_field(text, text, boolean) to authenticated;
+
+-- 교사: 판정 정하기(source 'teacher', AI가 다시 바꾸지 않음). p_ok가 null이면 그 답을 기억표에서 지움(다음에 다시 묻는다)
+create or replace function public.set_ai_grade(p_lesson text, p_key text, p_norm text, p_ok boolean)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_hash text;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select md5((key -> p_key)::text) into v_hash from public.worksheets where lesson_code = p_lesson and key ? p_key;
+  if v_hash is null then
+    raise exception 'NO_FIELD';
+  end if;
+  if p_ok is null then
+    delete from public.ws_ai_cache where lesson_code = p_lesson and field_key = p_key and spec_hash = v_hash and norm = p_norm;
+    return;
+  end if;
+  insert into public.ws_ai_cache as c (lesson_code, field_key, spec_hash, norm, answer, ok, source)
+  values (p_lesson, p_key, v_hash, p_norm, p_norm, p_ok, 'teacher')
+  on conflict (lesson_code, field_key, spec_hash, norm) do update
+    set ok = excluded.ok, source = 'teacher', decided_at = now();
+  delete from public.ws_ai_queue where lesson_code = p_lesson and field_key = p_key and spec_hash = v_hash and norm = p_norm;
+end;
+$$;
+revoke all on function public.set_ai_grade(text, text, text, boolean) from public;
+grant execute on function public.set_ai_grade(text, text, text, boolean) to authenticated;
+
+-- 5초마다 부르기 + cron 기록은 이틀만 남김. pg_cron이 없는 DB(점검용)에서는 건너뛴다
+do $$
+begin
+  if to_regnamespace('cron') is not null then
+    perform cron.schedule('ws-ai-kick', '5 seconds', 'select public._ws_ai_kick()');
+    perform cron.schedule('cron-log-clean', '17 4 * * *', $c$delete from cron.job_run_details where end_time < now() - interval '2 days'$c$);
+  end if;
+end;
+$$;

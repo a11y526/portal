@@ -1049,6 +1049,10 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-slide { font-size: 14px; font-weight: 800; color: var(--accent); }
 .ws-head h2 { margin: 2px 0 0; font-size: 24px; font-weight: 900; letter-spacing: -0.02em; word-break: keep-all; }
 .ws-chip { flex: none; background: var(--passed-bg); color: var(--passed-fg); }
+/* 모둠 학습지: 대표 기기에서 쓰면 모둠원 모두에게 기록 (2026-10-26) */
+.ws-group { margin: 0; align-self: flex-start; display: inline-flex; align-items: center; gap: 8px; padding: 8px 16px; border-radius: var(--r-pill);
+  background: rgba(36,87,230,.1); color: var(--accent); font-size: 15px; font-weight: 800; word-break: keep-all; }
+.ws-group.is-none { background: var(--pending-bg); color: var(--pending-fg); }
 .ws-nav { display: flex; align-items: center; gap: 10px; }
 .ws-nav .icon-btn { border: 0; cursor: pointer; }
 .ws-nav .icon-btn[disabled] { opacity: .35; cursor: default; }

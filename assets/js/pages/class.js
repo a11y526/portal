@@ -372,6 +372,7 @@ const WS_ERR = {
   NO_PAGE: '학습지가 바뀌었어요',
   LOCKED: '아직 수업에서 안 나간 쪽이에요',
   NOT_OPEN: '선생님이 열면 쓸 수 있어요',
+  NO_GROUP: '모둠 편성 뒤에 낼 수 있어요',
 };
 
 const ws = {
@@ -421,6 +422,7 @@ function syncSheet(data) {
   ws.meta = meta;
   noteFirsts(meta, data?.board?.id);
   setOpened(meta?.opened);
+  showGroupSheet(meta?.group);
   if (!meta) {
     ws.ver = null;
     ws.sheet = null;
@@ -433,6 +435,19 @@ function syncSheet(data) {
   if (ws.sheet && login && meta.done && !ws.done) ws.ver = null; // 다른 기기에서 완료함
   applyTab();
   if (ws.sheet && !login && ws.lockedShown === false) { ws.ver = null; ws.answers = {}; ws.bad = {}; ws.badPts = {}; ensureSheet(); } // 로그인이 풀림
+}
+
+// 모둠 학습지(과학실처럼 모둠마다 기기 하나): 여기서 쓰고 낸 것이 그날 모둠원 모두에게 기록된다
+function showGroupSheet(g) {
+  const el = $('ws-group');
+  const none = !!g && login && !(g.no > 0);
+  el.classList.toggle('hidden', !g);
+  el.classList.toggle('is-none', none);
+  if (!g) return;
+  el.textContent = !login ? '모둠 학습지'
+    : g.no === 0 ? '모둠 학습지 · 선생님 혼자 기록'
+    : none ? '모둠 학습지 · 모둠 편성 뒤에 낼 수 있어요'
+    : `모둠 학습지 · ${groupName(g.no)} ${g.members}명 함께 기록`;
 }
 
 // 지금 쪽이 열리거나 잠기면 입력칸까지 다시 그린다(쓰던 답은 ws.answers에 있음)

@@ -2,12 +2,12 @@
 // live.html?c=<반>&l=<차시>
 // 수업자료 iframe은 한 번 만들면 없애거나 다시 불러오지 않는다(보던 쪽과 시뮬레이션 상태가 남게)
 import { CLASSES, GRADE } from '../config.js';
-import { toast, esc } from '../ui.js';
+import { toast, esc, groupName } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
-  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount,
+  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount, updateBoard,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
@@ -736,10 +736,32 @@ const sheetBand = {
     const skipped = st.skipped?.[this.slide] ?? 0;
     const back = !waiting && acc == null && skipped > 0
       ? `<button type="button" class="btn btn-line btn-small press" data-act="back">넘긴 답 되돌리기 <b class="num">${skipped}</b><kbd>B</kbd></button>` : '';
-    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${start}${view}${back}${undo}`;
+    // 모둠 학습지: 켜면 모둠 대표가 쓰고 낸 것이 모둠원 모두에게 기록된다
+    const grp = `<button type="button" class="btn ${st.group ? 'btn-primary' : 'btn-line'} btn-small press" data-act="group" aria-pressed="${!!st.group}"${this.grouping ? ' disabled' : ''}>모둠 학습지 ${st.group ? '켬' : '끔'}</button>`;
+    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${grp}${start}${view}${back}${undo}`;
     if (html !== this.html) band.innerHTML = this.html = html;
     band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
     band.classList.toggle('has-act', !!(start || view || back || undo));
+  },
+
+  // [모둠 학습지 켬/끔]: 과학실처럼 모둠마다 기기 하나로 쓸 때 켠다. 학생 기기는 반 새로고침 신호로 바로 바뀜
+  async toggleGroup() {
+    if (!board || this.grouping || !this.st) return;
+    const on = !this.st.group;
+    if (!on && !confirm('모둠 학습지를 끌까요? 이미 함께 기록된 답은 그대로 두고, 이제부터는 각자 기록해요')) return;
+    this.grouping = true;
+    this.render();
+    try {
+      board = await updateBoard(board.id, { ws_group: on });
+      sendClassRefresh(classId);
+      toast(on ? '모둠 학습지 켬' : '모둠 학습지 끔', 'ok');
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.grouping = false;
+      this.refresh();
+    }
   },
 
   setSlide(slide) {
@@ -815,6 +837,7 @@ const sheetBand = {
 $('ws-band').addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (b?.dataset.act === 'toggle') sheetBand.togglePage();
+  if (b?.dataset.act === 'group') sheetBand.toggleGroup();
   if (b?.dataset.act === 'undo') sheetBand.undoAccept();
   if (b?.dataset.act === 'review') wsFirst.view(true);
   if (b?.dataset.act === 'view') wsFirst.view();
@@ -913,7 +936,7 @@ const wsFirst = {
     // 프로젝터라 번호는 보이지 않게 승인된 닉네임만 (3절 6)
     const name = it.nickname || '닉네임 미정';
     $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${name} 캐릭터` });
-    $('wsf-name').textContent = name;
+    $('wsf-name').textContent = it.group_no ? `${groupName(it.group_no)} · ${name}` : name;
     $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', `${it.pos}번째로 냄`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
     const box = $('wsf-page');
     closeSims(box);
@@ -980,7 +1003,8 @@ const wsFirst = {
       if (accept) {
         const r = await acceptWsFirst(it.id);
         if (r?.ok) {
-          toast(`${it.nickname || '닉네임 미정'} +${r.xp} XP · +${r.coins}코인`, 'ok');
+          const who = it.group_no ? `${groupName(it.group_no)}${r.members > 1 ? ` ${r.members}명` : ''}` : it.nickname || '닉네임 미정';
+          toast(`${who} +${r.xp} XP · +${r.coins}코인`, 'ok');
           sendClassRefresh(classId);
           done = true;
         } else {

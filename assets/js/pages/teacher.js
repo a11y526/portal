@@ -321,6 +321,7 @@ function openEdit(b) {
   $('edit-title').textContent = `${b.class_id}반 보드 수정`;
   editForm.lesson_code.value = b.lesson_code;
   editForm.elements.title.value = b.title;
+  editForm.elements.ws_group.checked = !!b.ws_group;
   const sims = editForm.querySelector('[data-sims]');
   sims.innerHTML = '';
   (b.sim_links?.length ? b.sim_links : [{ name: '', url: '' }]).forEach((s) => addSimRow(sims, s));
@@ -340,6 +341,7 @@ editForm.addEventListener('submit', async (e) => {
       lesson_code,
       title: editForm.elements.title.value.trim(),
       sim_links,
+      ws_group: editForm.elements.ws_group.checked,
     });
     await setLessonSims(lesson_code, sim_links);
     toast(`저장했어요 (시뮬레이션 링크는 ${lesson_code}차시 모든 반에)`, 'ok');

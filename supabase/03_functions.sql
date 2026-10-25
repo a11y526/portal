@@ -605,8 +605,8 @@ begin
       select coalesce(jsonb_agg(jsonb_build_object('id', f.id, 'page', f.page, 'slide', f.slide,
                'xp', coalesce(e.xp, 0), 'coins', coalesce(e.coins, 0)) order by f.decided_at), '[]'::jsonb)
       into v_firsts
-      from public.ws_firsts f left join public.point_events e on e.ws_first_id = f.id
-      where f.board_id = b.id and f.student_id = v_sid and f.status = 'accepted';
+      from public.ws_firsts f left join public.point_events e on e.ws_first_id = f.id and e.student_id = v_sid
+      where f.board_id = b.id and f.status = 'accepted' and (f.student_id = v_sid or e.id is not null);
       if jsonb_array_length(v_firsts) > 0 then
         select coalesce(sum(xp), 0)::int into v_total from public.point_events where student_id = v_sid;
       end if;
@@ -620,6 +620,11 @@ begin
       'upto',        b.ws_upto,
       'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null),
       'firsts',      coalesce(v_firsts, '[]'::jsonb),
+      -- 모둠 학습지(2026-10-26): 켜져 있으면 {no: 그날 내 모둠(없으면 null), members: 함께 기록되는 인원}
+      'group',       case when b.ws_group then jsonb_build_object(
+                       'no',      v_my,
+                       'members', (select count(*)::int from public.board_groups g
+                                   where g.board_id = b.id and g.group_no = v_my and v_my > 0)) end,
       'level',       case when v_total is null then null else jsonb_build_object(
                        'level', (public._level_info(v_total) ->> 'level')::int, 'total_xp', v_total) end
     );
@@ -1851,6 +1856,12 @@ begin
     where s.id = public._session_student(p_token) and s.class_id = p_class_id;
     if v_sid is not null then
       select * into a from public.worksheet_answers where board_id = b.id and student_id = v_sid;
+      -- 모둠 학습지인데 내 줄이 아직 없으면 모둠에서 가장 최근 줄(대표가 바뀌어도 이어 쓰기)
+      if a.board_id is null and b.ws_group then
+        select * into a from public.worksheet_answers
+        where board_id = b.id and student_id = any(public._ws_group_members(b.id, v_sid))
+        order by updated_at desc limit 1;
+      end if;
       if a.done_at is not null then
         select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int into v_xp, v_co
         from public.point_events where student_id = v_sid and worksheet_board_id = b.id;
@@ -1915,6 +1926,114 @@ end;
 $$;
 revoke all on function public._ws_target(text, uuid) from public, anon, authenticated;
 
+-- ---------------------------------------------------------
+-- 모둠 학습지 (2026-10-26). 보드의 ws_group이 켜져 있으면 그날 모둠 대표가 쓰고 낸 학습지를 모둠원 모두에게 똑같이 기록한다.
+-- 그 학생과 같은 모둠의 학생 id(본인 포함). 꺼져 있거나 그날 모둠이 없으면(편성 전·결석·0번) null
+-- ---------------------------------------------------------
+create or replace function public._ws_group_members(p_board_id uuid, p_sid uuid)
+returns uuid[]
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select array_agg(g2.student_id order by g2.student_id)
+  from public.boards b
+  join public.board_groups g on g.board_id = b.id and g.student_id = p_sid
+  join public.board_groups g2 on g2.board_id = b.id and g2.group_no = g.group_no
+  where b.id = p_board_id and b.ws_group;
+$$;
+revoke all on function public._ws_group_members(uuid, uuid) from public, anon, authenticated;
+
+-- 저장·제출 처음에: 모둠을 잠그고(두 기기가 동시에 써도 엇갈리지 않게), 대표 줄이 없으면 모둠에서 가장 최근 줄을 복사해 둔다
+-- (대표가 바뀌어도 이어 쓰기). 결과: 모둠원 id 목록 또는 null
+create or replace function public._ws_group_begin(p_board_id uuid, p_sid uuid)
+returns uuid[]
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_ids uuid[];
+  a     public.worksheet_answers;
+begin
+  v_ids := public._ws_group_members(p_board_id, p_sid);
+  if v_ids is null then
+    return null;
+  end if;
+  perform pg_advisory_xact_lock(hashtext('ws_group|' || p_board_id::text || '|' || v_ids[1]::text));
+  if not exists (select 1 from public.worksheet_answers where board_id = p_board_id and student_id = p_sid) then
+    select * into a from public.worksheet_answers
+    where board_id = p_board_id and student_id = any(v_ids) and student_id <> p_sid
+    order by updated_at desc limit 1;
+    if found then
+      insert into public.worksheet_answers (board_id, student_id, answers, passed)
+      values (p_board_id, p_sid, a.answers, a.passed)
+      on conflict (board_id, student_id) do nothing;
+    end if;
+  end if;
+  return v_ids;
+end;
+$$;
+revoke all on function public._ws_group_begin(uuid, uuid) from public, anon, authenticated;
+
+-- 대표 줄(답·제출한 칸·완료)을 모둠원 줄에 똑같이 넣는다. 모둠원이 따로 제출한 칸은 그 답 그대로(_ws_merge),
+-- 혼자 이미 완료한 줄은 건드리지 않는다. 대표가 완료했으면 모둠원 모두에게 학습지 XP·코인(한 사람 한 번)
+create or replace function public._ws_group_sync(p_board_id uuid, p_sid uuid, p_ids uuid[])
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  a      public.worksheet_answers;
+  v_set  jsonb;
+  v_xp   int;
+  v_co   int;
+  v_code text;
+begin
+  if p_ids is null or cardinality(p_ids) < 2 then
+    return;
+  end if;
+  select * into a from public.worksheet_answers where board_id = p_board_id and student_id = p_sid;
+  if not found then
+    return;
+  end if;
+
+  insert into public.worksheet_answers as x (board_id, student_id, answers, passed, done_at)
+  select p_board_id, m, a.answers, a.passed, a.done_at
+  from unnest(p_ids) as m
+  where m <> p_sid
+  order by m
+  on conflict (board_id, student_id) do update
+    set answers    = public._ws_merge(x.answers, x.passed, excluded.answers),
+        passed     = (select coalesce(jsonb_agg(k order by coalesce(nullif(regexp_replace(k, '\D', '', 'g'), ''), '0')::int), '[]'::jsonb)
+                      from (select distinct jsonb_array_elements_text(coalesce(x.passed, '[]'::jsonb) || coalesce(excluded.passed, '[]'::jsonb)) as k) z),
+        done_at    = excluded.done_at,
+        updated_at = now()
+    where x.done_at is null;
+
+  if a.done_at is null then
+    return;
+  end if;
+  select value into v_set from public.settings where key = 'worksheet';
+  v_xp := coalesce((v_set ->> 'xp')::int, 10);
+  v_co := coalesce((v_set ->> 'coins')::int, 5);
+  select lesson_code into v_code from public.boards where id = p_board_id;
+  if v_xp <> 0 or v_co <> 0 then
+    insert into public.point_events (student_id, xp, coins, reason, worksheet_board_id)
+    select w.student_id, v_xp, v_co, '학습지 ' || v_code, p_board_id
+    from public.worksheet_answers w
+    where w.board_id = p_board_id and w.student_id = any(p_ids) and w.student_id <> p_sid and w.done_at is not null
+    order by w.student_id
+    on conflict (student_id, worksheet_board_id) where worksheet_board_id is not null do nothing;
+  end if;
+end;
+$$;
+revoke all on function public._ws_group_sync(uuid, uuid, uuid[]) from public, anon, authenticated;
+
 -- 쓰는 중인 답 저장 (학생). 완료한 뒤에는 바꾸지 않는다
 -- 결과: {ok: true, done: false, updated_at} · {ok: true, done: true} (이미 완료) · {ok: false, error}
 --   NO_SESSION 로그인 안 됨 · BOARD_CHANGED 오늘 보드가 바뀜 · NO_SHEET 학습지가 없음
@@ -1926,13 +2045,15 @@ security definer
 set search_path = public, extensions
 as $$
 declare
-  t    jsonb;
-  v_at timestamptz;
+  t     jsonb;
+  v_at  timestamptz;
+  v_ids uuid[];
 begin
   t := public._ws_target(p_token, p_board_id);
   if t ? 'error' then
     return jsonb_build_object('ok', false, 'error', t ->> 'error');
   end if;
+  v_ids := public._ws_group_begin(p_board_id, (t ->> 'sid')::uuid); -- 모둠 학습지면 모둠원 목록
 
   insert into public.worksheet_answers as x (board_id, student_id, answers)
   values (p_board_id, (t ->> 'sid')::uuid, public._ws_clean(t -> 'key', p_answers))
@@ -1944,6 +2065,7 @@ begin
   if v_at is null then
     return jsonb_build_object('ok', true, 'done', true);
   end if;
+  perform public._ws_group_sync(p_board_id, (t ->> 'sid')::uuid, v_ids);
   return jsonb_build_object('ok', true, 'done', false, 'updated_at', v_at);
 end;
 $$;
@@ -2043,7 +2165,9 @@ grant execute on function public.submit_worksheet(text, uuid, jsonb) to anon, au
 --   · {ok: true, done: true, already, passed, xp, coins, level_before, level_after, total_xp}
 --   · {ok: false, error: 'NOT_YET', empty: [칸], wrong: [칸], points: {점 찍기 칸: [틀린 점 순서]}} (그 쪽 칸만. 정답은 주지 않는다)
 --     checking: [AI 판정을 기다리는 칸] (2026-10-24, 판정이 오면 반 채널 'ws-ai' 신호 → 학생 화면이 다시 제출)
---   · {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'NO_PAGE' | 'LOCKED'(아직 수업에서 안 나간 쪽)}
+--   · {ok: false, error: 'NO_SESSION' | 'BOARD_CHANGED' | 'NO_SHEET' | 'NO_PAGE' | 'LOCKED'(아직 수업에서 안 나간 쪽)
+--                         | 'NO_GROUP'(모둠 학습지인데 그날 모둠에 없음)}
+-- 모둠 학습지(boards.ws_group)면 저장·채점 결과를 모둠원 모두에게 똑같이 기록한다(_ws_group_sync, 2026-10-26)
 create or replace function public.submit_worksheet_page(p_token text, p_board_id uuid, p_page int, p_answers jsonb)
 returns jsonb
 language plpgsql
@@ -2067,6 +2191,7 @@ declare
   v_co     int;
   v_before int;
   v_paid   int := 0;
+  v_ids    uuid[];
 begin
   t := public._ws_target(p_token, p_board_id);
   if t ? 'error' then
@@ -2093,6 +2218,12 @@ begin
      and not exists (select 1 from public.worksheet_answers where board_id = p_board_id and student_id = v_sid and done_at is not null) then
     return jsonb_build_object('ok', false, 'error', 'NOT_OPEN');
   end if;
+  -- 모둠 학습지: 그날 모둠에 있어야 낼 수 있다(편성 전·결석이면 NO_GROUP, 0번은 혼자 그대로)
+  if exists (select 1 from public.boards where id = p_board_id and ws_group)
+     and public._group_of(p_board_id, v_sid) is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
+  end if;
+  v_ids := public._ws_group_begin(p_board_id, v_sid);
 
   -- 저장하면서 이 학생 줄을 잠근다 (두 번 눌러도 한 번만)
   insert into public.worksheet_answers as x (board_id, student_id, answers)
@@ -2129,6 +2260,7 @@ begin
     select coalesce(jsonb_object_agg(e.key, public._ws_plot(e.value, a.answers ->> e.key) -> 'bad'), '{}'::jsonb) into v_pts
     from jsonb_each(v_pkey) as e
     where e.value ->> 'type' = 'plot' and (v_chk -> 'wrong') ? e.key;
+    perform public._ws_group_sync(p_board_id, v_sid, v_ids);
     return jsonb_build_object('ok', false, 'error', 'NOT_YET', 'empty', v_chk -> 'empty', 'wrong', v_chk -> 'wrong',
       'checking', v_chk -> 'checking', 'points', v_pts);
   end if;
@@ -2147,6 +2279,7 @@ begin
   if v_left > 0 then
     update public.worksheet_answers set passed = v_passed
     where board_id = p_board_id and student_id = v_sid;
+    perform public._ws_group_sync(p_board_id, v_sid, v_ids);
     return jsonb_build_object('ok', true, 'done', false, 'passed', v_passed, 'left', v_left);
   end if;
 
@@ -2166,6 +2299,7 @@ begin
     v_xp := 0;
     v_co := 0;
   end if;
+  perform public._ws_group_sync(p_board_id, v_sid, v_ids);
 
   return jsonb_build_object('ok', true, 'done', true, 'already', false, 'passed', v_passed, 'xp', v_xp, 'coins', v_co,
     'level_before', (public._level_info(v_before) ->> 'level')::int,
@@ -2195,8 +2329,10 @@ begin
   end if;
   -- 같은 쪽에 동시에 들어와도 순서가 섞이지 않게
   perform pg_advisory_xact_lock(hashtext('ws_first|' || p_board_id::text || '|' || p_page::text));
+  -- 모둠 학습지면 모둠에서 한 줄만(먼저 낸 모둠원)
   if exists (select 1 from public.ws_firsts
-             where board_id = p_board_id and page = p_page and (student_id = p_sid or status = 'accepted')) then
+             where board_id = p_board_id and page = p_page
+               and (student_id = any(coalesce(public._ws_group_members(p_board_id, p_sid), array[p_sid])) or status = 'accepted')) then
     return;
   end if;
   insert into public.ws_firsts (board_id, page, slide, student_id, answers)
@@ -2225,6 +2361,7 @@ declare
   v_page jsonb;
   v_wait int;
   v_skip int;
+  v_group smallint;
 begin
   if not public.is_teacher() then
     raise exception 'NOT_TEACHER';
@@ -2243,6 +2380,10 @@ begin
   select count(*)::int into v_wait from public.ws_firsts x
   where x.board_id = p_board_id and x.status = 'wait' and (p_slide is null or x.slide = p_slide);
   select * into s from public.students where id = f.student_id;
+  -- 모둠 학습지면 프로젝터에 'n모둠 · 닉네임'
+  select g.group_no into v_group
+  from public.boards b join public.board_groups g on g.board_id = b.id and g.student_id = f.student_id
+  where b.id = p_board_id and b.ws_group;
   select w.pages -> f.page into v_page
   from public.boards b join public.worksheets w on w.lesson_code = b.lesson_code
   where b.id = p_board_id;
@@ -2262,6 +2403,7 @@ begin
     'number',     s.number,
     'nickname',   s.nickname,
     'avatar',     s.avatar,
+    'group_no',   v_group,
     'answers',    f.answers,
     'sheet_page', v_page
   ));
@@ -2271,7 +2413,8 @@ revoke all on function public.get_ws_first(uuid, int, boolean) from public, anon
 grant execute on function public.get_ws_first(uuid, int, boolean) to authenticated;
 
 -- [인정] (교사): 그 학생에게 settings.ws_first XP·코인, 같은 쪽 남은 대기는 끝(closed). 쪽마다 한 명만, 두 번 눌러도 한 번만
--- 결과: {ok: true, xp, coins, class_id, already} · {ok: false, error: 'TAKEN'(그 쪽은 이미 다른 학생에게 지급) | 'SKIPPED'}
+-- 모둠 학습지(boards.ws_group)면 그날 모둠원 모두에게 (2026-10-26)
+-- 결과: {ok: true, xp, coins, members(받은 사람 수), class_id, already} · {ok: false, error: 'TAKEN'(그 쪽은 이미 다른 학생에게 지급) | 'SKIPPED'}
 create or replace function public.accept_ws_first(p_id uuid)
 returns jsonb
 language plpgsql
@@ -2287,6 +2430,7 @@ declare
   v_code text;
   v_cls  int;
   v_paid int := 0;
+  v_ids  uuid[];
 begin
   if not public.is_teacher() then
     raise exception 'NOT_TEACHER';
@@ -2301,8 +2445,9 @@ begin
 
   if f.status = 'accepted' then
     select coalesce(sum(xp), 0)::int, coalesce(sum(coins), 0)::int into v_xp, v_co
-    from public.point_events where ws_first_id = f.id;
-    return jsonb_build_object('ok', true, 'already', true, 'xp', v_xp, 'coins', v_co, 'class_id', v_cls);
+    from public.point_events where ws_first_id = f.id and student_id = f.student_id;
+    return jsonb_build_object('ok', true, 'already', true, 'xp', v_xp, 'coins', v_co, 'class_id', v_cls,
+      'members', (select count(*)::int from public.point_events where ws_first_id = f.id));
   end if;
   if exists (select 1 from public.ws_firsts
              where board_id = f.board_id and page = f.page and status = 'accepted') then
@@ -2320,18 +2465,21 @@ begin
   v_xp := coalesce((v_set ->> 'xp')::int, 1);
   v_co := coalesce((v_set ->> 'coins')::int, 1);
   select lesson_code into v_code from public.boards where id = f.board_id;
+  v_ids := coalesce(public._ws_group_members(f.board_id, f.student_id), array[f.student_id]);
   if v_xp <> 0 or v_co <> 0 then
     insert into public.point_events (student_id, xp, coins, reason, ws_first_id)
-    values (f.student_id, v_xp, v_co,
-            '첫 답 ' || coalesce(v_code, '') || coalesce('-' || f.slide::text || '쪽', ''), f.id)
-    on conflict (ws_first_id) where ws_first_id is not null do nothing;
+    select m, v_xp, v_co,
+           '첫 답 ' || coalesce(v_code, '') || coalesce('-' || f.slide::text || '쪽', ''), f.id
+    from unnest(v_ids) as m
+    order by m
+    on conflict (student_id, ws_first_id) where ws_first_id is not null do nothing;
     get diagnostics v_paid = row_count;
   end if;
   if v_paid = 0 then
     v_xp := 0;
     v_co := 0;
   end if;
-  return jsonb_build_object('ok', true, 'already', false, 'xp', v_xp, 'coins', v_co, 'class_id', v_cls);
+  return jsonb_build_object('ok', true, 'already', false, 'xp', v_xp, 'coins', v_co, 'members', v_paid, 'class_id', v_cls);
 end;
 $$;
 revoke all on function public.accept_ws_first(uuid) from public, anon;
@@ -2466,7 +2614,9 @@ begin
     return jsonb_build_object('ok', false, 'error', 'NONE');
   end if;
   perform pg_advisory_xact_lock(hashtext('ws_first|' || f.board_id::text || '|' || f.page::text));
-  delete from public.point_events where ws_first_id = f.id returning xp, coins into v_xp, v_co;
+  -- 모둠 학습지면 모둠원 모두의 지급을 지운다. 돌려주는 값은 한 사람 몫
+  with d as (delete from public.point_events where ws_first_id = f.id returning xp, coins)
+  select max(xp), max(coins) into v_xp, v_co from d;
   update public.ws_firsts set status = 'skipped', decided_at = now() where id = f.id;
   update public.ws_firsts set status = 'wait', decided_at = null
   where board_id = f.board_id and page = f.page and status = 'closed';
@@ -2566,6 +2716,7 @@ begin
   end if;
   return jsonb_build_object(
     'has_sheet', exists (select 1 from public.worksheets where lesson_code = b.lesson_code),
+    'group',     b.ws_group, -- 모둠 학습지
     'done',      v_done,
     'total',     v_total,
     -- 쪽별 제출 열기·첫 답: 칸이 있는 쪽의 수업자료 쪽 번호, 연 쪽(pages 순서), 수업자료 쪽별 아직 안 본 첫 답 수 {"18": 3}

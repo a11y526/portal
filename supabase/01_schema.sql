@@ -806,3 +806,14 @@ begin
   end if;
 end;
 $$;
+
+-- ---------------------------------------------------------
+-- 모둠 학습지 (2026-10-26): 과학실처럼 모둠마다 기기 하나로 학습지를 쓸 때.
+-- 보드의 ws_group을 켜면 그날 모둠(board_groups) 대표가 쓰고 낸 학습지가 모둠원 모두에게 똑같이 기록되고,
+-- 완료·쪽별 첫 답 XP·코인도 모둠원 모두가 받는다. 기본은 꺼짐(개인 학습지)
+-- ---------------------------------------------------------
+alter table public.boards add column if not exists ws_group boolean not null default false;
+
+-- 첫 답 지급: 한 줄(ws_firsts)에 학생마다 한 번 (모둠 학습지면 모둠원 모두)
+drop index if exists public.point_events_ws_first_once_idx;
+create unique index if not exists point_events_ws_first_student_idx on public.point_events (student_id, ws_first_id) where ws_first_id is not null;

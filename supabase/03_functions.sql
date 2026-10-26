@@ -6798,7 +6798,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'NO_SECRET');
   end if;
   create temporary table if not exists _ws_ai_res (lesson_code text, key text, hash text, norm text, ok boolean, reason text) on commit drop;
-  delete from _ws_ai_res;
+  delete from _ws_ai_res where true; -- API로 부를 때 Supabase가 WHERE 없는 DELETE를 막는다
   insert into _ws_ai_res
   select r.lesson_code, r.key, r.hash, r.norm, r.ok, left(r.reason, 80)
   from jsonb_to_recordset(case when jsonb_typeof(p_results) = 'array' then p_results else '[]'::jsonb end)
@@ -6945,7 +6945,7 @@ begin
   end if;
   update public.settings set value = value || jsonb_build_object('on', coalesce(p_on, false)) where key = 'ai_grade';
   if not p_on then
-    delete from public.ws_ai_queue;
+    delete from public.ws_ai_queue where true;
   end if;
 end;
 $$;

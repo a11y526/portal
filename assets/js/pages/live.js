@@ -8,6 +8,7 @@ import {
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount, updateBoard,
+  onRemote, sendRemote,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
@@ -76,6 +77,11 @@ const lessonFrame = {
     if (!this.el) return;
     this.el.focus();
     try { this.el.contentWindow.focus(); } catch {}
+  },
+
+  // 휴대폰 리모컨: 수업자료에 키를 누른 것처럼 보낸다(쪽 넘기기)
+  press(key) {
+    pressKey(this.el, { key });
   },
 
   // 지금 보이는 쪽 번호(1부터). 수업자료가 .slide 중 .active 하나를 보여 주는 구조일 때만. 모르면 null
@@ -157,6 +163,14 @@ function onKey(e) {
   if (handleKey(e)) swallow(e);
 }
 addEventListener('keydown', onKey, true);
+
+// 같은 출처 iframe 안 문서에 keydown을 보낸다(휴대폰 리모컨). 막히면 아무것도 안 함
+function pressKey(iframe, init) {
+  try {
+    const win = iframe.contentWindow;
+    win.document.dispatchEvent(new win.KeyboardEvent('keydown', { bubbles: true, cancelable: true, ...init }));
+  } catch {}
+}
 
 function hookEmbed(iframe) {
   iframe.addEventListener('load', () => {
@@ -1142,6 +1156,146 @@ const progressMark = {
 };
 
 /* =========================================================
+   휴대폰 리모컨(teacher/remote.html): 비공개 채널 'remote'(교사만, 02_policies)로 명령을 받고 상태를 보낸다.
+   리모컨은 가장 최근에 연 수업 모드(at가 가장 큰 것) 하나에만 명령을 보낸다(to = lid).
+   명령은 아래 이름만 받고, 키를 누른 것과 같은 조건에서만 동작한다.
+   상태는 리모컨이 15초 안에 hello를 보냈을 때만, 바뀌면 바로·아니면 4초마다
+   ========================================================= */
+const REMOTE_SEEN_MS = 15000;
+const REMOTE_BEAT_MS = 4000;
+const remote = {
+  lid: Math.random().toString(36).slice(2, 10),
+  at: Date.now(),
+  seen: 0,
+  last: '',
+  beat: 0,
+
+  start() {
+    onRemote({
+      hello: () => { this.seen = Date.now(); this.send(true); },
+      cmd: (p) => {
+        if (p.to !== this.lid) return;
+        this.seen = Date.now();
+        this.run(String(p.act ?? ''));
+      },
+    }).catch((err) => console.warn('리모컨', err));
+    setInterval(() => this.send(false), 500);
+  },
+
+  run(act) {
+    const first = wsFirst.isOpen();
+    switch (act) {
+      case 'prev': case 'next':
+        if (!coverOpen && !first) lessonFrame.press(act === 'next' ? 'ArrowRight' : 'ArrowLeft');
+        return;
+      case 'cover': toggleCover(); return;
+      case 'full': toggleFullscreen(); return;
+      case 'groups': case 'board': case 'reveal': case 'quizshow':
+        if (coverOpen) setTab(act);
+        else { tab = act; toggleCover(true); }
+        return;
+      case 'timer': timer.toggle(); return;
+      case 'timer-reset': timer.reset(); return;
+      case 'timer-minus': timer.step(-1); return;
+      case 'timer-plus': timer.step(1); return;
+      case 'sheet': if (!coverOpen && !first) sheetBand.togglePage(); return;
+      case 'view': if (!coverOpen && !first) wsFirst.view(); return;
+      case 'back': if (!coverOpen && !(first && wsFirst.review)) wsFirst.back(); return;
+      case 'open-all': sheetUpto.openAll(); return;
+      case 'rewind': sheetUpto.rewind(); return;
+      case 'wsf-ok': if (first && !wsFirst.review && !wsFirst.item.paid) wsFirst.decide(true); return;
+      case 'wsf-skip': if (first && !wsFirst.review) wsFirst.decide(false); return;
+      case 'wsf-close': if (first) wsFirst.close(); return;
+      case 'embed-next': if (coverOpen) this.embedNext(); return;
+    }
+  },
+
+  // 덮개 [순위 발표]·[퀴즈 쇼] 화면의 '다음'(스페이스와 같음). 발표 준비 화면이면 [순위 발표] 버튼
+  embedNext() {
+    const f = document.querySelector(`[data-pane="${tab}"] .cover-embed iframe`);
+    if (!f) return;
+    if (tab === 'reveal') {
+      const st = this.revealState();
+      if (st === 'ready') { try { f.contentWindow.document.getElementById('start').click(); } catch {} }
+      else if (st === 'stage') pressKey(f, { key: ' ', code: 'Space' });
+    } else if (tab === 'quizshow') {
+      pressKey(f, { key: ' ', code: 'Space' });
+    }
+  },
+
+  // 순위 발표 화면: 'ready'(발표 전 [순위 발표] 버튼) | 'stage'(공개 중) | null
+  revealState() {
+    try {
+      const d = $('reveal-embed').querySelector('iframe')?.contentWindow.document;
+      if (!d) return null;
+      if (!d.getElementById('stage').classList.contains('hidden')) return 'stage';
+      const start = d.getElementById('start');
+      return start && !start.classList.contains('hidden') && !start.disabled ? 'ready' : null;
+    } catch {
+      return null;
+    }
+  },
+
+  state() {
+    const slide = lessonFrame.currentSlide();
+    const st = sheetBand.st;
+    let sheet = null;
+    let drawMs = 0;
+    if (st?.has_sheet) {
+      const here = (st.pages ?? []).filter((p) => p.slide === slide);
+      const opened = new Set(st.opened ?? []);
+      const paused = new Set(st.paused ?? []);
+      drawMs = Math.max(0, (sheetBand.drawEnd[slide] ?? 0) - Date.now());
+      sheet = {
+        done: st.done, total: st.total, upto: sheetUpto.sent, group: !!st.group,
+        here: here.length > 0,
+        open: here.length > 0 && here.every((p) => opened.has(p.page)),
+        was_open: here.some((p) => paused.has(p.page)),
+        busy: !!sheetBand.opening,
+        drawing: drawMs > 0,
+        entered: st.entered?.[slide] ?? 0,
+        waiting: st.waiting?.[slide] ?? 0,
+        skipped: st.skipped?.[slide] ?? 0,
+        accepted: st.accepted?.[slide] != null,
+      };
+    }
+    let first = null;
+    if (wsFirst.isOpen()) {
+      const it = wsFirst.item;
+      const name = it.nickname || '닉네임 미정';
+      first = {
+        name: it.group_no ? `${groupName(it.group_no)} · ${name}` : name,
+        meta: it.late ? `늦게 냄 · ${it.pos}번째` : `추첨 ${it.pos}번째`,
+        paid: !!it.paid, review: wsFirst.review, skipped: !!it.skipped, busy: !!wsFirst.busy,
+      };
+    }
+    return {
+      stable: {
+        cls: classId, code, title: $('cover-title').textContent, board: !!board,
+        slide, slides: lessonFrame.slideCount(), same: lessonFrame.sameOrigin,
+        cover: coverOpen, tab, full: !!document.fullscreenElement,
+        reveal: coverOpen && tab === 'reveal' ? this.revealState() : null,
+        timer: { running: timer.running, end: timer.end, left: timer.left, minutes: timer.minutes },
+        sheet, first,
+      },
+      timerMs: timer.remaining(),
+      drawMs,
+    };
+  },
+
+  send(force) {
+    if (Date.now() - this.seen > REMOTE_SEEN_MS) return;
+    const { stable, timerMs, drawMs } = this.state();
+    const key = JSON.stringify(stable);
+    const now = Date.now();
+    if (!force && key === this.last && now - this.beat < REMOTE_BEAT_MS) return;
+    this.last = key;
+    this.beat = now;
+    sendRemote('state', { ...stable, timer_ms: timerMs, draw_ms: drawMs, lid: this.lid, at: this.at });
+  },
+};
+
+/* =========================================================
    시작
    ========================================================= */
 function fail(message) {
@@ -1176,6 +1330,7 @@ teacherGate($('app'), async () => {
   if (lesson?.lesson_src) lessonFrame.mount(lesson.lesson_src);
   else fail(`${code}차시 수업자료 주소가 없어요`);
   progressMark.start(lesson);
+  remote.start();
 
   timer.init(`timer-${board?.id ?? `c${classId}-${code}`}`);
 

@@ -362,6 +362,25 @@ export function sendClassRefresh(classId) {
   return ch.send({ type: 'broadcast', event: 'refresh', payload: {} }).catch(() => {});
 }
 
+/* ---------- 실시간: 휴대폰 리모컨 (비공개 채널 'remote', 교사만 보내고 받음 — 02_policies) ----------
+   handlers = { 이벤트 이름: (payload) => … }, onStatus(status): 'SUBSCRIBED' | 'CHANNEL_ERROR' | 'TIMED_OUT' | 'CLOSED' */
+let remoteChannel = null;
+
+export async function onRemote(handlers, onStatus = () => {}) {
+  const session = await getSession();
+  if (session) await sb.realtime.setAuth(session.access_token);
+  remoteChannel = need().channel('remote', { config: { private: true } });
+  for (const [event, fn] of Object.entries(handlers)) {
+    remoteChannel.on('broadcast', { event }, ({ payload }) => fn(payload ?? {}));
+  }
+  remoteChannel.subscribe((status) => onStatus(status));
+}
+
+export function sendRemote(event, payload = {}) {
+  if (remoteChannel?.state !== 'joined') return Promise.resolve();
+  return remoteChannel.send({ type: 'broadcast', event, payload }).catch(() => {});
+}
+
 /* ---------- 교사 ---------- */
 
 export async function getSession() {

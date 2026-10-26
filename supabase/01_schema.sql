@@ -619,7 +619,7 @@ do $$ begin
 end $$;
 update public.boards set slide_max = ws_upto where slide_max is null and ws_upto between 1 and 9998;
 
--- 차시를 하는 반(2026-10-22: 621은 실험 먼저 A(9반)·개념 먼저 B(나머지) 두 갈래). null이면 모든 반.
+-- 차시를 하는 반(2026-10-22: 621은 실험 먼저 A(9반)·개념 먼저 B(나머지) 두 갈래, 2026-10-26 9반도 B로 바꾸고 A는 지움). null이면 모든 반.
 -- 반의 진도 계획에는 단원이 있고 그 반이 든 차시만 들어간다
 alter table public.lessons add column if not exists classes smallint[] null;
 

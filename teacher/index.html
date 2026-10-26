@@ -378,6 +378,11 @@
         <input class="input num" type="number" min="0" max="1000" name="qs_xp2" aria-label="퀴즈 쇼 3위 XP" required>
         <input class="input num" type="number" min="0" max="1000" name="qs_coins2" aria-label="퀴즈 쇼 3위 코인" required>
       </div>
+      <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        <span>쪽별 첫 답 추첨</span>
+        <input class="input num" style="width:96px" type="number" min="0" max="600" name="wf_draw" aria-label="쪽별 첫 답 추첨 시간(초)" required>
+        <span class="muted">초 (제출 시작부터)</span>
+      </label>
       <p class="muted num" style="margin:0" id="points-sum"></p>
       <h2 id="h-levels" style="margin-top:8px">레벨 기준</h2>
       <p class="muted" style="margin:0">누적 XP가 이 값 이상이면 그 레벨이에요. 마지막 레벨 다음은 마지막 간격에 10씩 더해 이어져요.</p>

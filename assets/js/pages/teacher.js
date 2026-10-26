@@ -992,6 +992,7 @@ async function refreshPoints() {
   f.ws_coins.value = ws.coins ?? 5;
   f.wf_xp.value = wf.xp ?? 1;
   f.wf_coins.value = wf.coins ?? 1;
+  f.wf_draw.value = wf.draw ?? 50;
   f.qb_xp.value = quizRules.xp ?? 4;
   f.qb_coins.value = quizRules.coins ?? 4;
   f.om_xp.value = omokRules.xp ?? 2;
@@ -1027,7 +1028,7 @@ $('points-form').addEventListener('submit', async (e) => {
     const f = $('points-form').elements;
     const q = (k) => Math.min(1000, Math.max(0, Math.round(Number(f[k].value) || 0)));
     await saveWorksheetRules({ xp: q('ws_xp'), coins: q('ws_coins') });
-    await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins') });
+    await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins'), draw: Math.min(600, q('wf_draw')) });
     await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
     // 오목·루미큐브·쿼리도는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
     await saveOmokRules({ xp: 2, coins: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), coins: q('om_coins') });

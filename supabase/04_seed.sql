@@ -130,10 +130,13 @@ insert into public.settings (key, value) values
   ('rummikub', '{"xp": 5, "coins": 5, "daily": 5, "turn": 60}'::jsonb)
 on conflict (key) do nothing;
 
--- 쪽별 첫 답: 교사가 [인정]하면 받는 XP·코인 (쪽마다 한 명)
+-- 쪽별 첫 답: 교사가 [인정]하면 받는 XP·코인 (쪽마다 한 명), draw = [제출 시작] 뒤 추첨에 드는 초
 insert into public.settings (key, value) values
-  ('ws_first', '{"xp": 1, "coins": 1}'::jsonb)
+  ('ws_first', '{"xp": 1, "coins": 1, "draw": 50}'::jsonb)
 on conflict (key) do nothing;
+-- 이미 있는 DB에 추첨 시간 넣기 (2026-10-26)
+update public.settings set value = value || '{"draw": 50}'::jsonb
+where key = 'ws_first' and not (value ? 'draw');
 
 -- 퀴즈 배틀: 모둠 안 1등이 받는 XP·코인, 한 판 문제 수(무작위), 문제마다 받는 시간(초: 고르기·부등호 / 빈칸), 정답 공개(초)
 insert into public.settings (key, value) values

@@ -698,11 +698,14 @@ const sheetBand = {
   slide: null,   // 지금 보이는 수업자료 쪽 (1초마다 sheetUpto가 알려 줌)
   opening: false,
   html: '',
+  drawEnd: {},   // 추첨 시간이 끝나는 시각(이 기기 시계) {수업자료 쪽: ms}
 
   async refresh() {
     if (!board) return;
     try {
       this.st = await getWorksheetStats(board.id);
+      const now = Date.now();
+      this.drawEnd = Object.fromEntries(Object.entries(this.st?.draw ?? {}).map(([k, ms]) => [k, now + ms]));
       this.render();
     } catch (err) {
       console.error(err);
@@ -730,7 +733,11 @@ const sheetBand = {
     const undo = acc != null
       ? `<button type="button" class="btn btn-line btn-small press" data-act="review">인정한 답 보기</button><button type="button" class="btn btn-line btn-small press" data-act="undo"${this.undoing ? ' disabled' : ''}>인정 취소</button>` : '';
     const waiting = st.waiting?.[this.slide] ?? 0;
-    const view = waiting > 0
+    // 추첨 시간 동안은 남은 시간과 낸 학생 수만 (누가 먼저 냈는지는 보이지 않게)
+    const left = Math.ceil(((this.drawEnd[this.slide] ?? 0) - Date.now()) / 1000);
+    const view = left > 0
+      ? `<span class="ws-band-h num">추첨까지 ${Math.floor(left / 60)}:${String(left % 60).padStart(2, '0')} · 낸 학생 ${st.entered?.[this.slide] ?? 0}</span>`
+      : waiting > 0
       ? `<button type="button" class="btn btn-line btn-small press" data-act="view">제출한 것 보기 <b class="num">${waiting}</b><kbd>V</kbd></button>` : '';
     // 다 넘겨서 창이 닫힌 뒤에도 실수로 넘긴 답을 되돌릴 수 있게
     const skipped = st.skipped?.[this.slide] ?? 0;
@@ -832,6 +839,17 @@ const sheetBand = {
   start() {
     this.refresh();
     setInterval(() => { if (!document.hidden) this.refresh(); }, SHEET_POLL_MS);
+    // 추첨까지 남은 시간: 1초마다 다시 그리고, 끝나면 바로 다시 읽기
+    setInterval(() => {
+      const ends = Object.entries(this.drawEnd);
+      if (!ends.length) return;
+      const now = Date.now();
+      if (ends.some(([, t]) => t <= now)) {
+        this.drawEnd = Object.fromEntries(ends.filter(([, t]) => t > now));
+        this.refresh();
+      }
+      this.render();
+    }, 1000);
   },
 };
 $('ws-band').addEventListener('click', (e) => {
@@ -846,7 +864,9 @@ $('ws-band').addEventListener('click', (e) => {
 });
 
 /* =========================================================
-   쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 먼저 낸 순서로 한 명씩 띄운다.
+   쪽별 첫 답: 학습지 쪽 칸을 모두 채워 낸 학생을 추첨 순서로 한 명씩 띄운다.
+   [제출 시작] 뒤 추첨 시간(settings.ws_first.draw초) 안에 낸 학생은 이번 달 인정 덜 받은 순 → 무작위, 늦게 낸 학생은 뒤에 낸 순서로.
+   추첨 시간이 끝나기 전에는 V를 눌러도 뜨지 않는다(서버도 막음).
    [제출한 것 보기](V)를 눌러야 뜨고, 지금 보이는 수업자료 쪽의 줄만 보여 준다.
    [인정] 1 XP·1코인 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람 · [이전] 방금 넘긴 사람 다시.
    다 넘기면 창이 닫힌다. Esc로 닫으면 남은 것은 그 쪽에서 V로 다시 보기
@@ -869,11 +889,13 @@ const wsFirst = {
     this.slide = slide;
     this.review = review;
     this.viewing = true;
+    this.drawMs = 0;
     await this.refresh();
     if (!this.item) {
       this.viewing = false;
       this.review = false;
-      toast(review ? '이 쪽에 인정한 답이 없어요' : '이 쪽에 낸 학생이 없어요');
+      toast(review ? '이 쪽에 인정한 답이 없어요'
+        : this.drawMs > 0 ? `추첨까지 ${Math.ceil(this.drawMs / 1000)}초 남았어요` : '이 쪽에 낸 학생이 없어요');
     }
   },
 
@@ -884,7 +906,7 @@ const wsFirst = {
     this.paint();
   },
 
-  // [이전](B): 그 쪽에서 마지막으로 넘긴 답을 다시 대기로 돌려 창에 띄운다(먼저 낸 답이라 맨 앞에 옴)
+  // [이전](B): 그 쪽에서 마지막으로 넘긴 답을 다시 대기로 돌려 창에 띄운다(추첨 순서가 앞이라 맨 앞에 옴)
   async back() {
     const slide = this.viewing ? this.slide : lessonFrame.currentSlide();
     if (!board || this.busy || this.review || !slide) return;
@@ -914,6 +936,7 @@ const wsFirst = {
     this.loading = true;
     try {
       const res = await getWsFirst(board.id, this.slide, this.review);
+      this.drawMs = res?.draw_ms ?? 0;
       this.show(res?.item ?? null);
     } catch (err) {
       console.error(err);
@@ -937,7 +960,7 @@ const wsFirst = {
     const name = it.nickname || '닉네임 미정';
     $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${name} 캐릭터` });
     $('wsf-name').textContent = it.group_no ? `${groupName(it.group_no)} · ${name}` : name;
-    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', `${it.pos}번째로 냄`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
+    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', it.late ? `늦게 냄 · ${it.pos}번째` : `추첨 ${it.pos}번째`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
     const box = $('wsf-page');
     closeSims(box);
     if (it.sheet_page) renderPage(box, it.sheet_page, it.answers, { locked: true });

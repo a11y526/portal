@@ -2312,10 +2312,47 @@ grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) t
 
 -- ---------------------------------------------------------
 -- 쪽별 첫 답 (2026-10-16)
--- 학생이 쪽 칸을 모두 채워 제출하면 먼저 낸 순서로 쪽마다 모두 줄에 넣는다(맞았는지는 따지지 않음).
+-- 학생이 쪽 칸을 모두 채워 제출하면 쪽마다 모두 줄에 넣는다(맞았는지는 따지지 않음).
+-- 순서(2026-10-26 추첨): [제출 시작] 뒤 settings.ws_first.draw초 안에 낸 학생은 이번 달 인정 횟수가 적은 순 → 무작위,
+-- 그 뒤에 낸 학생은 낸 순서로 뒤에 붙는다. 추첨 시간이 끝나기 전에는 띄우지 않는다.
 -- 수업 모드가 지금 수업자료 쪽의 줄만 한 명씩 띄우고 교사가 [인정](XP·코인) 또는 [넘기기](다음 사람).
 -- [인정]하면 그 쪽은 끝(남은 대기는 closed, 새로 줄에 들어오지 않음). 0번(체험 계정)은 넣지 않는다
 -- ---------------------------------------------------------
+-- 추첨 시간(초). 0~600
+create or replace function public._ws_first_draw_secs()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select least(600, greatest(0, coalesce((select (value ->> 'draw')::int from public.settings where key = 'ws_first'), 50)));
+$$;
+revoke all on function public._ws_first_draw_secs() from public, anon, authenticated;
+
+-- 그 보드 첫 답 줄의 쪽별 순서(rn, 1부터)와 추첨 시간 뒤에 냈는지(late)
+create or replace function public._ws_first_ranked(p_board_id uuid)
+returns table (id uuid, page int, rn int, late boolean)
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select z.id, z.page,
+         (row_number() over (partition by z.page order by
+            z.late,
+            case when z.late then 0 else z.prior end,
+            case when z.late then extract(epoch from z.created_at)::double precision else z.lot end,
+            z.id))::int,
+         z.late
+  from (select f.id, f.page, f.prior, f.lot, f.created_at,
+               f.created_at > coalesce(o.opened_at + make_interval(secs => public._ws_first_draw_secs()), '-infinity'::timestamptz) as late
+        from public.ws_firsts f
+        left join public.ws_page_open o on o.board_id = f.board_id and o.page = f.page
+        where f.board_id = p_board_id) z;
+$$;
+revoke all on function public._ws_first_ranked(uuid) from public, anon, authenticated;
+
 create or replace function public._ws_first_enter(p_board_id uuid, p_page int, p_slide int, p_sid uuid, p_answers jsonb)
 returns void
 language plpgsql
@@ -2335,14 +2372,16 @@ begin
                and (student_id = any(coalesce(public._ws_group_members(p_board_id, p_sid), array[p_sid])) or status = 'accepted')) then
     return;
   end if;
-  insert into public.ws_firsts (board_id, page, slide, student_id, answers)
-  values (p_board_id, p_page, p_slide, p_sid, coalesce(p_answers, '{}'::jsonb))
+  insert into public.ws_firsts (board_id, page, slide, student_id, answers, prior)
+  values (p_board_id, p_page, p_slide, p_sid, coalesce(p_answers, '{}'::jsonb),
+          (select count(*)::int from public.point_events
+           where student_id = p_sid and ws_first_id is not null and created_at >= public._month_start()))
   on conflict (board_id, page, student_id) do nothing;
 end;
 $$;
 revoke all on function public._ws_first_enter(uuid, int, int, uuid, jsonb) from public, anon, authenticated;
 
--- 수업 모드: 지금 띄울 첫 답 하나 (교사). p_slide를 주면 그 수업자료 쪽의 것만, 먼저 낸 것부터.
+-- 수업 모드: 지금 띄울 첫 답 하나 (교사). p_slide를 주면 그 수업자료 쪽의 것만, 추첨 순서대로(_ws_first_ranked). 추첨 시간 전이면 item 없이 draw_ms.
 -- p_accepted면 대기 대신 그 쪽에서 인정한 답(다시 보기·인정 취소용)
 -- 결과: {item: null, skipped} 또는 {item: {id, page, slide, pos(그 쪽 몇 번째), count(그 쪽 줄 수), wait(전체 남은 수), skipped(넘긴 수), paid(그 쪽은 이미 지급),
 --        number, nickname, avatar, answers, sheet_page(학습지 그 쪽 본문, 정답 없음)}}
@@ -2362,6 +2401,10 @@ declare
   v_wait int;
   v_skip int;
   v_group smallint;
+  v_dl   timestamptz;
+  v_rn   int;
+  v_late boolean;
+  v_id   uuid;
 begin
   if not public.is_teacher() then
     raise exception 'NOT_TEACHER';
@@ -2369,14 +2412,26 @@ begin
   -- 그 쪽에서 넘긴 답 수([이전]으로 되돌릴 수 있는 것)
   select count(*)::int into v_skip from public.ws_firsts x
   where x.board_id = p_board_id and x.status = 'skipped' and (p_slide is null or x.slide = p_slide);
-  select x.* into f from public.ws_firsts x
+  -- 추첨 시간이 끝나기 전에는 띄우지 않는다(남은 ms만)
+  if not p_accepted then
+    select max(o.opened_at + make_interval(secs => public._ws_first_draw_secs())) into v_dl
+    from public.ws_page_open o
+    where o.board_id = p_board_id and (p_slide is null or o.slide = p_slide) and o.closed_at is null;
+    if v_dl > now() then
+      return jsonb_build_object('item', null, 'skipped', v_skip,
+        'draw_ms', ceil(extract(epoch from v_dl - now()) * 1000)::int);
+    end if;
+  end if;
+  select x.id, r.rn, r.late into v_id, v_rn, v_late
+  from public.ws_firsts x join public._ws_first_ranked(p_board_id) r on r.id = x.id
   where x.board_id = p_board_id and (p_slide is null or x.slide = p_slide)
     and x.status = case when p_accepted then 'accepted' else 'wait' end
-  order by x.created_at, x.id
+  order by x.page, r.rn
   limit 1;
-  if not found then
+  if v_id is null then
     return jsonb_build_object('item', null, 'skipped', v_skip);
   end if;
+  select * into f from public.ws_firsts where id = v_id;
   select count(*)::int into v_wait from public.ws_firsts x
   where x.board_id = p_board_id and x.status = 'wait' and (p_slide is null or x.slide = p_slide);
   select * into s from public.students where id = f.student_id;
@@ -2391,9 +2446,8 @@ begin
     'id',         f.id,
     'page',       f.page,
     'slide',      f.slide,
-    'pos',        (select count(*)::int from public.ws_firsts z
-                   where z.board_id = f.board_id and z.page = f.page
-                     and (z.created_at, z.id) <= (f.created_at, f.id)),
+    'pos',        v_rn,    -- 추첨 순서 (추첨 시간 뒤에 낸 학생은 그 뒤 낸 순서)
+    'late',       v_late,  -- 추첨 시간 뒤에 냄
     'count',      (select count(*)::int from public.ws_firsts z where z.board_id = f.board_id and z.page = f.page),
     'wait',       v_wait,
     'skipped',    v_skip,
@@ -2732,6 +2786,17 @@ begin
     'waiting',   (select coalesce(jsonb_object_agg(z.slide::text, z.n), '{}'::jsonb)
                   from (select f.slide, count(*)::int as n from public.ws_firsts f
                         where f.board_id = b.id and f.status = 'wait' and f.slide is not null group by f.slide) z),
+    -- 추첨 시간이 아직 남은 수업자료 쪽 {"18": 남은 ms}
+    'draw',      (select coalesce(jsonb_object_agg(z.slide::text, z.ms), '{}'::jsonb)
+                  from (select o.slide, ceil(extract(epoch from max(o.opened_at + make_interval(secs => public._ws_first_draw_secs())) - now()) * 1000)::int as ms
+                        from public.ws_page_open o
+                        where o.board_id = b.id and o.closed_at is null and o.slide is not null
+                        group by o.slide) z
+                  where z.ms > 0),
+    -- 수업자료 쪽별 낸 학생 수 {"18": 12} (추첨 기다리는 동안 띠에)
+    'entered',   (select coalesce(jsonb_object_agg(z.slide::text, z.n), '{}'::jsonb)
+                  from (select f.slide, count(*)::int as n from public.ws_firsts f
+                        where f.board_id = b.id and f.slide is not null group by f.slide) z),
     -- 수업자료 쪽별 넘긴 첫 답 수 {"18": 2} ([이전]으로 되돌리기)
     'skipped',   (select coalesce(jsonb_object_agg(z.slide::text, z.n), '{}'::jsonb)
                   from (select f.slide, count(*)::int as n from public.ws_firsts f

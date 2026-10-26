@@ -817,3 +817,11 @@ alter table public.boards add column if not exists ws_group boolean not null def
 -- 첫 답 지급: 한 줄(ws_firsts)에 학생마다 한 번 (모둠 학습지면 모둠원 모두)
 drop index if exists public.point_events_ws_first_once_idx;
 create unique index if not exists point_events_ws_first_student_idx on public.point_events (student_id, ws_first_id) where ws_first_id is not null;
+
+-- ---------------------------------------------------------
+-- 첫 답 추첨 (2026-10-26): [제출 시작] 뒤 settings.ws_first.draw초(처음 50) 안에 낸 학생은 무작위 순서로 띄운다.
+-- prior = 줄에 들어올 때 그 학생이 이번 달 첫 답 인정을 받은 횟수(적은 학생 먼저), lot = 같은 횟수끼리 섞는 무작위 값.
+-- 들어올 때 정해 두어 V로 볼 때마다 순서가 바뀌지 않는다
+-- ---------------------------------------------------------
+alter table public.ws_firsts add column if not exists prior int not null default 0;
+alter table public.ws_firsts add column if not exists lot double precision not null default random();

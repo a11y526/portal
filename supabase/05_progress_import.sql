@@ -32,6 +32,9 @@ update public.lessons set unit = '' where code = '613';
 update public.lessons set periods = 2 where code = '621';
 -- 2026-10-23 사용자: 622(생활 속 샤를 법칙)와 725(천체 망원경)도 진도에서 뺌
 update public.lessons set unit = '' where code in ('622', '725');
+-- 2026-10-26 사용자: 713·714를 한 시간(45분)에 나감 → 713 하나로 합치고 714는 진도에서 뺌
+update public.lessons set title = '태양의 표면과 대기 · 태양의 활동', periods = 1 where code = '713';
+update public.lessons set unit = '' where code = '714';
 
 -- 기본 주간 시간표 (요일, 교시, 반)
 delete from public.timetable;

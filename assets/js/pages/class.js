@@ -6,7 +6,7 @@ import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, subm
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
-import { renderPage, markFields, closeSims } from '../worksheet.js';
+import { renderPage, markFields, closeSims, showSide, wakeSims } from '../worksheet.js';
 import { boardHTML, shrinkPhoto } from '../posts.js';
 import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
 
@@ -304,8 +304,9 @@ function applyTab() {
     b.classList.toggle('on', on);
     b.setAttribute('aria-selected', String(on));
   });
-  if (now === 'sheet') ensureSheet();
+  if (now === 'sheet') { ensureSheet(); wakeSims($('sheet')); }
   else closeSims($('sheet'));
+  document.querySelector('.class-wrap').classList.toggle('is-wide', now === 'sheet' && $('sheet').classList.contains('has-side'));
   if (now === 'mats') loadMats();
   else closeVideos($('mats'));
 }
@@ -529,6 +530,9 @@ function renderSheet() {
   renderWsFoot();
 }
 
+const wideSheet = matchMedia('(min-width: 1100px)');
+wideSheet.addEventListener('change', () => { if (ws.sheet) renderWsPage(); });
+
 function renderWsPage() {
   const list = pages();
   const page = list[ws.idx];
@@ -538,8 +542,15 @@ function renderWsPage() {
     .filter(Boolean).join(' · ');
   $('ws-chip').textContent = chip;
   $('ws-chip').classList.toggle('hidden', !chip);
+  // 넓은 화면이면 그 쪽의 시뮬레이션을 오른쪽 칸에 바로 띄운다(좁으면 쪽 안 카드 + [시뮬레이션 열기])
+  const side = wideSheet.matches && !isClosed(page) ? $('ws-side') : null;
   if (isClosed(page)) $('ws-page').innerHTML = `<div class="empty ws-closed">${LOCK_SVG}<strong>아직 수업에서 안 나간 쪽이에요</strong></div>`;
-  else renderPage($('ws-page'), page, ws.answers, { locked: locked() });
+  else renderPage($('ws-page'), page, ws.answers, { locked: locked(), side });
+  if (!side) showSide($('ws-side'), []);
+  const hasSide = !!$('ws-side').dataset.id;
+  $('ws-side').classList.toggle('hidden', !hasSide);
+  $('sheet').classList.toggle('has-side', hasSide);
+  document.querySelector('.class-wrap').classList.toggle('is-wide', hasSide && tab === 'sheet');
   markFields($('ws-page'), ws.bad, wsMarks());
   $('ws-prev').disabled = ws.idx <= 0;
   $('ws-next').disabled = ws.idx >= list.length - 1;
@@ -1174,7 +1185,7 @@ if (sb) onClassRefresh(classId, () => {
 });
 document.addEventListener('visibilitychange', () => {
   if (document.hidden) { closeSims(); closeVideos(); } // 학습지 시뮬레이션·영상은 화면이 숨겨지면 없앤다(학생 기기 부담)
-  else load();
+  else { load(); if (!$('sheet').classList.contains('hidden')) wakeSims($('sheet')); }
 });
 addEventListener('online', () => { load(); saveSheet(); });
 addEventListener('offline', () => setNetDown(true));

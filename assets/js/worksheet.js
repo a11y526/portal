@@ -218,7 +218,7 @@ const plotValue = (pts) => [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]).m
    반 페이지: 한 쪽 그리기
    칸 자리(<span data-ws>)를 입력칸·보기 버튼으로 바꾼다
    ========================================================= */
-export function renderPage(box, page, answers, { locked = false } = {}) {
+export function renderPage(box, page, answers, { locked = false, side = null } = {}) {
   const tpl = document.createElement('template');
   tpl.innerHTML = page?.html || '';
   const frag = tpl.content;
@@ -273,7 +273,12 @@ export function renderPage(box, page, answers, { locked = false } = {}) {
     mark.replaceWith(el);
   });
   // 시뮬레이션 자리: 카드 + [시뮬레이션 열기]. iframe은 누를 때만 만든다
+  // side(넓은 화면 반 페이지)를 주면 카드 대신 오른쪽 칸에 바로 띄운다
   const pg = String(page?.slide ?? '');
+  if (side) {
+    const srcs = [...wrap.querySelectorAll('.w-sim[data-sim]')].map((el) => { el.remove(); return el.dataset.sim; });
+    showSide(side, srcs, pg);
+  }
   wrap.querySelectorAll('.w-sim[data-sim]').forEach((el, i) => {
     const card = document.createElement('div');
     card.className = 'ws-sim';
@@ -431,14 +436,57 @@ const SIM_BAR = `
     <button type="button" class="btn btn-line press ws-sim-btn" data-sim-act="open">시뮬레이션 열기</button>
   </div>`;
 
-// 한 번에 하나만: 다른 데 열린 것은 닫고 연다. allow-same-origin을 주지 않아 포털의 출입증·저장소에 손대지 못한다
-function openSim(card) {
-  closeSims(document);
+/* ---------- 오른쪽 시뮬레이션 칸 (반 페이지, 넓은 화면) ----------
+   쪽을 그릴 때마다 그 쪽의 시뮬레이션을 띄운다. 같은 쪽을 다시 그리면(제출 결과 등) 하던 시뮬레이션을 그대로 둔다.
+   여럿이면 위 번호 버튼으로 바꾼다(한 번에 하나) */
+export function showSide(side, srcs, pg = '') {
+  const id = srcs.length ? `${pg}|${srcs.join(',')}` : '';
+  if (id && side.dataset.id === id && side.querySelector('iframe')) return;
+  side.dataset.id = id;
+  side.dataset.srcs = JSON.stringify(srcs);
+  side.dataset.at = '0';
+  if (!id) { side.replaceChildren(); return; }
+  drawSide(side);
+  if (!side.dataset.simBound) {
+    side.dataset.simBound = '1';
+    side.addEventListener('click', (e) => {
+      const b = e.target.closest('[data-side-at]');
+      if (!b || b.dataset.sideAt === side.dataset.at) return;
+      side.dataset.at = b.dataset.sideAt;
+      drawSide(side);
+    });
+  }
+}
+
+function drawSide(side) {
+  const srcs = JSON.parse(side.dataset.srcs || '[]');
+  const at = Math.min(Number(side.dataset.at) || 0, srcs.length - 1);
+  const nums = srcs.length > 1
+    ? srcs.map((_, i) => `<button type="button" class="btn ${i === at ? 'btn-primary' : 'btn-line'} press ws-sim-btn" data-side-at="${i}" aria-pressed="${i === at}">${i + 1}</button>`).join('')
+    : '';
+  side.innerHTML = `<div class="ws-sim-bar"><span class="ws-sim-t">시뮬레이션</span>${nums ? `<span class="ws-side-nums">${nums}</span>` : ''}</div>`;
+  side.append(simFrame(srcs[at]));
+}
+
+// 숨겨졌다가(closeSims) 다시 보일 때 오른쪽 칸을 다시 띄운다
+export function wakeSims(root = document) {
+  root.querySelectorAll('.ws-side').forEach((side) => { if (side.dataset.id && !side.querySelector('iframe')) drawSide(side); });
+}
+
+// allow-same-origin을 주지 않아 포털의 출입증·저장소에 손대지 못한다
+function simFrame(src) {
   const frame = document.createElement('iframe');
   frame.className = 'ws-sim-frame';
   frame.setAttribute('sandbox', 'allow-scripts');
   frame.setAttribute('title', '시뮬레이션');
-  frame.src = simHref(card.dataset.sim);
+  frame.src = simHref(src);
+  return frame;
+}
+
+// 한 번에 하나만: 다른 데 열린 것은 닫고 연다
+function openSim(card) {
+  closeSims(document);
+  const frame = simFrame(card.dataset.sim);
   card.classList.add('is-open');
   card.innerHTML = `
     <div class="ws-sim-bar">
@@ -448,8 +496,9 @@ function openSim(card) {
   card.append(frame);
 }
 
-// root 안에서 열린 시뮬레이션을 모두 닫는다(iframe을 없애 멈춘다)
+// root 안에서 열린 시뮬레이션을 모두 닫는다(iframe을 없애 멈춘다). 오른쪽 칸은 wakeSims로 다시 띄운다
 export function closeSims(root = document) {
+  root.querySelectorAll('.ws-side iframe').forEach((f) => f.remove());
   root.querySelectorAll('.ws-sim.is-open').forEach((card) => {
     card.classList.remove('is-open');
     card.innerHTML = SIM_BAR;

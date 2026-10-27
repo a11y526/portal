@@ -1167,6 +1167,13 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-sim-btn { min-height: 44px; }
 .ws-sim.is-open { padding-bottom: 14px; }
 .ws-sim-frame { display: block; width: 100%; aspect-ratio: 4 / 3; min-height: 420px; margin-top: 10px; border: 0; border-radius: 12px; background: #fff; }
+/* 넓은 화면: 시뮬레이션이 있는 쪽은 학습지 왼쪽, 시뮬레이션 오른쪽(화면 높이에 맞춰 따라옴) */
+.ws-main { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+.class-wrap.is-wide { max-width: 1680px; }
+.ws-card.has-side { max-width: none; display: grid; grid-template-columns: minmax(440px, 5fr) minmax(0, 6fr); column-gap: 24px; align-items: start; }
+.ws-side { position: sticky; top: 16px; height: calc(100vh - 32px); min-height: 480px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.ws-side .ws-sim-frame { flex: 1; min-height: 0; aspect-ratio: auto; margin-top: 0; border: 1.5px solid rgba(78,88,104,.22); }
+.ws-side-nums { display: flex; gap: 6px; }
 .ws-in { font-weight: 700; }
 .ws-bl { display: inline-block; vertical-align: middle; width: 8em; height: 42px; margin: 2px 4px; padding: 0 8px; text-align: center; border-radius: 12px; font-size: 17px; }
 .ws-bl.ws-s { width: 5em; }

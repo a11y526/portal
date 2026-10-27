@@ -1188,6 +1188,9 @@ const remote = {
       case 'prev': case 'next':
         if (!coverOpen && !first) lessonFrame.press(act === 'next' ? 'ArrowRight' : 'ArrowLeft');
         return;
+      case 'answer': // 수업자료 A키(답 하나씩 보기)
+        if (!coverOpen && !first) lessonFrame.press('a');
+        return;
       case 'cover': toggleCover(); return;
       case 'full': toggleFullscreen(); return;
       case 'groups': case 'board': case 'reveal': case 'quizshow':

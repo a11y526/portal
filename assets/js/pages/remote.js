@@ -39,7 +39,7 @@ function send(act) {
 const hello = () => { if (subscribed) sendRemote('hello'); };
 
 // 켜고 끄는 버튼은 0.6초 안에 다시 눌러도 한 번만 (쪽 넘기기는 빠르게 여러 번 가능)
-const QUICK = new Set(['prev', 'next']);
+const QUICK = new Set(['prev', 'next', 'answer']);
 let lastAct = '';
 let lastAt = 0;
 document.addEventListener('click', (e) => {
@@ -104,6 +104,7 @@ function paint(s) {
   const canPage = !coverOpen && !firstOpen && s.same;
   $('prev').disabled = !canPage;
   $('next').disabled = !canPage;
+  $('answer').disabled = !canPage;
   $('other-origin').classList.toggle('hidden', s.same !== false);
 
   // 학습지

@@ -374,3 +374,15 @@ drop policy if exists ws_ai_off_teacher_all on public.ws_ai_off;
 create policy ws_ai_off_teacher_all on public.ws_ai_off
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 휴대폰 리모컨 (2026-10-27): 비공개 Broadcast 채널 'remote'는 교사만 보내고 받는다.
+-- 공개 채널(class-<반> 등)은 이 정책과 상관없이 그대로
+drop policy if exists remote_teacher_read on realtime.messages;
+create policy remote_teacher_read on realtime.messages
+  for select to authenticated
+  using (realtime.topic() = 'remote' and public.is_teacher());
+
+drop policy if exists remote_teacher_send on realtime.messages;
+create policy remote_teacher_send on realtime.messages
+  for insert to authenticated
+  with check (realtime.topic() = 'remote' and public.is_teacher());

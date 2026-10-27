@@ -420,19 +420,25 @@ end;
 $$;
 
 -- AI 확인 줄에 넣기: p_keys 칸의 학생 답을 (차시, 칸, 정답 md5, 정리한 답)으로. 이미 있으면 반만 더한다
+-- 이미 그 반이 적힌 줄은 건드리지 않는다(같은 답을 낸 학생끼리 줄 잠금을 기다리지 않게, 2026-10-27 렉)
 create or replace function public._ws_ai_enqueue(p_lesson text, p_key jsonb, p_answers jsonb, p_keys jsonb, p_class smallint)
 returns void
 language sql
 volatile
 set search_path = public
 as $$
-  insert into public.ws_ai_queue as q (lesson_code, field_key, spec_hash, norm, answer, class_ids)
+  insert into public.ws_ai_queue (lesson_code, field_key, spec_hash, norm, answer, class_ids)
   select p_lesson, k, md5((p_key -> k)::text), public._ws_norm(p_answers ->> k), left(btrim(p_answers ->> k), 300),
          case when p_class is null then '{}'::smallint[] else array[p_class] end
   from jsonb_array_elements_text(coalesce(p_keys, '[]'::jsonb)) as k
   where p_key ? k and public._ws_norm(p_answers ->> k) <> ''
-  on conflict (lesson_code, field_key, spec_hash, norm) do update
-    set class_ids = case when p_class is null or q.class_ids @> array[p_class] then q.class_ids else q.class_ids || p_class end;
+  on conflict (lesson_code, field_key, spec_hash, norm) do nothing;
+  update public.ws_ai_queue q set class_ids = q.class_ids || p_class
+  from jsonb_array_elements_text(coalesce(p_keys, '[]'::jsonb)) as k
+  where p_class is not null and p_key ? k
+    and q.lesson_code = p_lesson and q.field_key = k and q.spec_hash = md5((p_key -> k)::text)
+    and q.norm = public._ws_norm(p_answers ->> k)
+    and not q.class_ids @> array[p_class];
 $$;
 -- 저장할 답 합치기: 이미 제출한 칸(passed)은 원래 답 그대로, 나머지는 새 답
 create or replace function public._ws_merge(p_old jsonb, p_passed jsonb, p_new jsonb)
@@ -2400,12 +2406,17 @@ begin
   if exists (select 1 from public.students where id = p_sid and number = 0) then
     return;
   end if;
-  -- 같은 쪽에 동시에 들어와도 순서가 섞이지 않게
-  perform pg_advisory_xact_lock(hashtext('ws_first|' || p_board_id::text || '|' || p_page::text));
-  -- 모둠 학습지면 모둠에서 한 줄만(먼저 낸 모둠원)
+  -- 이미 줄에 있으면(다시 제출) 잠금 없이 끝 (2026-10-27 렉: 다시 제출도 잠금 앞에 줄을 섰음)
+  -- 모둠 학습지면 모둠에서 한 줄만(먼저 낸 모둠원). 모둠끼리는 _ws_group_begin의 모둠 잠금으로 이미 차례
   if exists (select 1 from public.ws_firsts
              where board_id = p_board_id and page = p_page
-               and (student_id = any(coalesce(public._ws_group_members(p_board_id, p_sid), array[p_sid])) or status = 'accepted')) then
+               and student_id = any(coalesce(public._ws_group_members(p_board_id, p_sid), array[p_sid]))) then
+    return;
+  end if;
+  -- 학생끼리는 같이 들어오고(공유 잠금, 순서는 추첨·낸 시각), 교사의 인정·넘기기·되돌리기(배타 잠금)와만 차례
+  perform pg_advisory_xact_lock_shared(hashtext('ws_first|' || p_board_id::text || '|' || p_page::text));
+  if exists (select 1 from public.ws_firsts
+             where board_id = p_board_id and page = p_page and status = 'accepted') then
     return;
   end if;
   insert into public.ws_firsts (board_id, page, slide, student_id, answers, prior)

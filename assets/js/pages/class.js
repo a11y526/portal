@@ -17,7 +17,7 @@ const REFRESH_MS = 15000;
 const JITTER_MS = 3000;     // 15초 갱신에 더하는 0~3초 무작위 지연 (한 반 30대가 같은 순간에 요청하지 않게)
 const RETRY_MS = 5000;      // 연결이 끊겼을 때는 더 자주 다시 시도
 const SUBMIT_WAIT_MS = 10000;
-const RECHECK_MS = 5000;     // AI 판정을 기다리는 칸이 있으면 이 간격으로 그 쪽을 다시 제출(신호를 놓쳤을 때)
+const RECHECK_MS = 22000;    // AI 판정을 기다리는 칸이 있으면 신호를 놓쳤을 때만 이만큼(+0~5초) 뒤 그 쪽을 다시 제출. 서버는 20초 뒤 대신 판정
 const classId = Number(new URLSearchParams(location.search).get('c'));
 if (!CLASSES.includes(classId)) location.replace('index.html');
 
@@ -794,7 +794,8 @@ async function submitPage(btn, idx = ws.idx, auto = false) {
   if (btn?.isConnected) { btn.disabled = false; btn.textContent = '이 쪽 제출'; }
 }
 
-// AI 판정을 기다리는 칸이 있는 쪽: 신호('ws-ai')를 받거나 5초마다 그 쪽을 다시 제출한다(판정은 서버 기억표에 있음)
+// AI 판정을 기다리는 칸이 있는 쪽: 신호('ws-ai')를 받으면 그 쪽을 다시 제출한다(판정은 서버 기억표에 있음).
+// 신호를 놓쳤을 때만 22~27초 뒤 한 번 더 (2026-10-27 렉: 5초마다 다시 내던 것이 몰린 제출에 겹침)
 const checkingPage = () => pages().findIndex((p) => hasFields(p) && !pageDone(p) && p.fields.some((f) => ws.bad[f.key] === 'checking'));
 function recheck() {
   const i = checkingPage();
@@ -802,8 +803,10 @@ function recheck() {
 }
 function syncRecheck() {
   const on = checkingPage() >= 0;
-  if (on && !ws.recheckTimer) ws.recheckTimer = setInterval(recheck, RECHECK_MS);
-  if (!on && ws.recheckTimer) { clearInterval(ws.recheckTimer); ws.recheckTimer = null; }
+  if (on && !ws.recheckTimer) {
+    ws.recheckTimer = setTimeout(() => { ws.recheckTimer = null; recheck(); syncRecheck(); }, RECHECK_MS + Math.random() * 5000);
+  }
+  if (!on && ws.recheckTimer) { clearTimeout(ws.recheckTimer); ws.recheckTimer = null; }
 }
 
 /* ---------- 학습지 완료 화면 (마지막 쪽까지 제출했을 때 한 번)
@@ -1176,7 +1179,7 @@ schedule();
 // [제출 시작]·잠그기는 먼저 낸 순서를 겨루므로 흩지 않고 바로 읽는다
 if (sb) onWsOpen(classId, () => { if (!document.hidden) load(); });
 // AI 판정이 저장됨: 기다리던 쪽이 있는 기기만 다시 제출(0~1.5초 흩음)
-if (sb) onWsAi(classId, () => { if (checkingPage() >= 0) setTimeout(recheck, Math.random() * 1500); });
+if (sb) onWsAi(classId, () => { if (checkingPage() >= 0) setTimeout(recheck, Math.random() * 3000); });
 // 퀴즈 쇼를 열거나 넘기면 카드가 바로 뜨게(흩어서)
 if (sb) onQuizShow(classId, () => { if (!document.hidden) setTimeout(load, Math.random() * 1500); });
 if (sb) onClassRefresh(classId, () => {

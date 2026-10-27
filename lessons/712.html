@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>02 행성의 분류</title>
+<style>
+:root{--p:#0066CC;--pd:#2997FF;--ink:#1D1D1F;--mut:#7A7A7A;--line:#E0E0E0;--parch:#F5F5F7;--pearl:#FAFAFC;--dark:#272729;--tint:#E6F0FA;--g:#8E8E93}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#000;overflow:hidden;font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;color:var(--ink);-webkit-tap-highlight-color:transparent}
+#stage{position:absolute;left:0;top:0;width:1280px;height:720px;transform-origin:0 0}
+.slide{position:absolute;inset:0;background:#fff;display:none;overflow:hidden}
+.slide.on{display:block}
+.slide.parch{background:var(--parch)}
+.slide.dark{background:var(--dark);color:#fff}
+.tag{position:absolute;left:58px;top:38px;font-size:16px;font-weight:600;color:var(--p);margin:0}
+.dark .tag{color:var(--pd)}
+.title{position:absolute;left:58px;right:58px;top:62px;margin:0;font-family:"SF Pro Display",-apple-system,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;font-size:35px;font-weight:600;letter-spacing:-.01em;line-height:1.2;white-space:nowrap}
+.sub{position:absolute;left:58px;top:112px;margin:0;font-size:20px;color:var(--mut)}
+.dark .sub{color:#CCCCCC}
+.hr{position:absolute;left:58px;right:58px;top:152px;border-top:1px solid var(--line)}
+.dark .hr,.dark .foot{border-color:#3A3A3C}
+.body{position:absolute;left:58px;right:58px;top:170px;bottom:58px;font-size:27px;line-height:1.4}
+.foot{position:absolute;left:58px;right:58px;bottom:10px;height:38px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;font-size:15px;color:var(--mut)}
+.foot .nav{display:flex;gap:6px;align-items:center}
+.foot button{font:inherit;font-size:15px;border:1px solid var(--line);background:var(--pearl);color:var(--ink);border-radius:999px;min-width:44px;height:30px;cursor:pointer}
+.dark .foot button{background:#2A2A2C;color:#fff;border-color:#3A3A3C}
+p{margin:0}
+.row{display:flex;gap:28px}
+.col{display:flex;flex-direction:column;gap:14px;min-width:0}
+.gap{display:flex;flex-direction:column;gap:14px}
+b,strong{font-weight:600}
+.key{color:var(--p);font-weight:600}
+.dark .key{color:var(--pd)}
+/* 답 칸 */
+.bl{display:inline-block;min-width:2.6em;padding:0 .25em;border-bottom:3px solid var(--ink);text-align:center;color:transparent;line-height:1.15;cursor:pointer;font-weight:600}
+.dark .bl{border-color:#fff}
+.bl.show{color:var(--p)}
+.dark .bl.show{color:var(--pd)}
+.choice{display:inline-flex;gap:8px;vertical-align:middle;cursor:pointer;flex-wrap:wrap}
+.choice span{border:1.5px solid #C7C7CC;border-radius:999px;padding:0 .55em;line-height:1.4;font-size:.92em;white-space:nowrap}
+.choice span.right.show{background:var(--p);border-color:var(--p);color:#fff}
+.dark .choice span{border-color:#636366}
+.dark .choice span.right.show{background:var(--pd);border-color:var(--pd)}
+.ans{border:1.5px dashed #C7C7CC;border-radius:12px;padding:4px 14px;min-height:1.6em;color:transparent;cursor:pointer;font-size:.96em;line-height:1.35}
+.ans.show{color:var(--p);border-color:var(--p)}
+.ineq-row{display:flex;align-items:center;justify-content:center}
+.ineq-row .sym{display:inline-flex;align-items:center;justify-content:center;width:1.6em;height:1.4em;border:2px solid var(--ink);border-radius:8px;color:transparent;font-weight:600;cursor:pointer}
+.ineq-row .sym.show{color:var(--p);border-color:var(--p)}
+.q{display:block}
+.q .n{font-weight:600;color:var(--p);margin-right:10px}
+.q.f{display:flex;gap:10px;align-items:baseline}
+.q.f .n{margin-right:0;flex:none}
+/* 사진 자리 */
+.ph{border:2px dashed #C7C7CC;border-radius:14px;background:var(--pearl);display:flex;align-items:center;justify-content:center;text-align:center;color:var(--mut);font-size:16px;line-height:1.4;padding:12px}
+.dark .ph{background:#2A2A2C;border-color:#48484A;color:#AEAEB2}
+/* 카드 */
+.card{border:1px solid var(--line);border-radius:14px;background:#fff;padding:14px 20px}
+.parch .card{background:#fff}
+.box{background:var(--parch);border-radius:14px;padding:12px 20px}
+.parch .box{background:#fff}
+table{border-collapse:collapse;width:100%}
+th,td{border-bottom:1px solid var(--line);padding:6px 10px;text-align:center;vertical-align:middle}
+th{font-size:18px;font-weight:600;color:var(--mut);background:var(--parch)}
+.parch th{background:#fff}
+td.l{text-align:left}
+.tall td{padding:16px 10px}
+/* 움직임 */
+.motion{display:flex;flex-direction:column;gap:6px;min-width:0}
+.motion svg{display:block;width:100%;height:auto;border-radius:14px}
+.mc{display:flex;gap:10px;align-items:center;flex-wrap:wrap;font-size:15px}
+.mc .sg{display:flex;gap:4px}
+.mc button{font:inherit;font-size:15px;border:1px solid var(--line);background:var(--pearl);color:var(--ink);border-radius:999px;min-height:36px;padding:0 13px;cursor:pointer;white-space:nowrap}
+.mc button.on{background:var(--p);border-color:var(--p);color:#fff}
+.mc .st{color:var(--mut);margin-left:auto}
+.dark .mc button{background:#2A2A2C;color:#fff;border-color:#3A3A3C}
+.dark .mc button.on{background:var(--pd);border-color:var(--pd)}
+svg text{font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+.simwrap{border:1px solid var(--line);border-radius:14px;overflow:hidden;background:#fff}
+.simwrap iframe{border:0;width:100%;height:100%;display:block}
+.chip{display:inline-block;white-space:nowrap;flex:none;background:var(--p);color:#fff;border-radius:999px;padding:2px 14px;font-size:16px;font-weight:600;line-height:1.6}
+.cap{font-size:16px;color:var(--mut)}
+</style>
+</head>
+<body>
+<div id="stage">
+
+<!-- 1 -->
+<section class="slide dark" data-step="생각 열기">
+  <p class="tag">Ⅶ. 태양계 · 1. 태양계의 구성</p>
+  <div class="body" style="top:110px">
+    <div class="row" style="height:100%;gap:40px">
+      <div class="col" style="flex:1;justify-content:center;gap:28px">
+        <div style="font-family:'SF Pro Display',-apple-system,'Apple SD Gothic Neo',sans-serif;font-size:53px;font-weight:600;letter-spacing:-.01em;line-height:1.15">02<br>행성의 분류</div>
+        <div class="gap" style="gap:10px">
+          <span class="chip" style="align-self:flex-start;background:var(--pd)">학습 목표</span>
+          <p>행성을 특징에 따라 분류하고 비교할 수 있다.</p>
+          <p>행성을 목성형 행성과 지구형 행성으로 구분할 수 있다.</p>
+        </div>
+      </div>
+      <div class="ph" style="flex:1">사진 자리<br>태양계 8개 행성이 나란히 떠 있는 배경 그림<br>(교과서 218쪽 상단 분위기)</div>
+    </div>
+  </div>
+</section>
+
+<!-- 2 -->
+<section class="slide" data-step="생각 열기">
+  <p class="tag">생각 열기</p>
+  <h2 class="title">착륙할 땅이 없는 행성은 무엇으로 이루어져 있을까?</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:330px">
+      <div class="col" style="width:520px;flex:none">
+        <div class="ph" style="height:150px;flex:none">사진 자리 · 줄무늬가 있는 거대 행성 앞에서<br>탐사선 조종사가 “착륙할 땅을 못 찾겠어요.”라고 말하는 그림 (교과서 218쪽)</div>
+        <p>탐사선이 어떤 행성에 다가갔더니 “착륙할 땅을 못 찾겠어요.”라고 한다.</p>
+        <p>지구와 달은 단단한 땅이 있어서 탐사선이 착륙할 수 있다.</p>
+      </div>
+      <div class="motion" id="m2" style="flex:1"></div>
+    </div>
+    <div class="gap" style="margin-top:12px;gap:10px">
+      <div class="q"><span class="n">1</span>착륙할 땅이 없는 행성은 주로 무엇으로 이루어져 있을까? <span class="choice"><span class="right">기체</span><span>암석</span></span></div>
+      <div class="q f"><span class="n">2</span><span style="flex:none">그렇게 생각한 까닭은?</span><div class="ans" style="flex:1">단단한 땅(암석 표면)이 없고 기체로 이루어져 있어서 탐사선이 내려앉을 수 없기 때문이다.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 3 -->
+<section class="slide" data-step="개념 정리">
+  <p class="tag">개념 정리</p>
+  <h2 class="title">행성과 위성, 고리, 표면 상태</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="gap" style="gap:16px">
+      <p>태양 주위를 공전하며 모양이 둥근 천체를 <span class="bl">행성</span>이라고 한다. 태양계에는 수성, 금성, 지구, 화성, 목성, 토성, 천왕성, 해왕성 모두 <span class="bl">8</span>개의 행성이 있다.</p>
+      <p>행성 주위를 공전하는 천체를 <span class="bl">위성</span>이라고 한다. 행성 주변을 둥근 띠 모양으로 둘러싼 테를 <span class="bl">고리</span>라고 한다.</p>
+      <p>행성의 표면이 흙이나 암석처럼 단단한지, 기체로 되어 있는지를 <b class="key">표면 상태</b>라고 한다.</p>
+    </div>
+    <div class="row" style="position:absolute;left:0;right:0;bottom:0;height:210px;gap:20px">
+      <div class="ph" style="flex:1">사진 자리<br>암석 표면 (화성 또는 지구)</div>
+      <div class="ph" style="flex:1">사진 자리<br>기체 표면 (목성 줄무늬)</div>
+      <div class="ph" style="flex:1">사진 자리<br>토성의 고리와 위성</div>
+    </div>
+  </div>
+</section>
+
+<!-- 4 -->
+<section class="slide" data-step="개념 정리">
+  <p class="tag">개념 정리</p>
+  <h2 class="title">행성의 반지름과 질량</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:100%;align-items:center">
+      <div class="col" style="flex:1;gap:26px">
+        <div class="card"><p>공처럼 둥근 행성의 중심에서 표면까지의 거리를 <span class="bl">반지름</span>이라고 한다. 반지름이 클수록 행성의 크기가 크다.</p></div>
+        <div class="card"><p>행성을 이루는 물질의 고유한 양을 <span class="bl">질량</span>이라고 한다.</p></div>
+        <div class="q"><span class="n">1</span>행성의 크기를 비교할 때 기준이 되는 값은? <span class="choice"><span class="right">반지름</span><span>위성 수</span></span></div>
+      </div>
+      <svg viewBox="0 0 420 420" style="width:420px;flex:none" aria-label="행성의 반지름">
+        <circle cx="210" cy="210" r="170" fill="#E6F0FA" stroke="#0066CC" stroke-width="3"/>
+        <circle cx="210" cy="210" r="6" fill="#1D1D1F"/>
+        <text x="210" y="244" text-anchor="middle" font-size="22" fill="#1D1D1F">중심</text>
+        <line x1="210" y1="210" x2="370" y2="152" stroke="#0066CC" stroke-width="5"/>
+        <path d="M370,152 l-20,-2 l10,16z" fill="#0066CC" transform="rotate(0)"/>
+        <text x="300" y="166" text-anchor="middle" font-size="26" font-weight="600" fill="#0066CC" transform="rotate(-20 300 166)">반지름</text>
+        <text x="372" y="122" text-anchor="middle" font-size="22" fill="#1D1D1F">표면</text>
+      </svg>
+    </div>
+  </div>
+</section>
+
+<!-- 5 -->
+<section class="slide" data-step="개념 정리">
+  <p class="tag">개념 정리</p>
+  <h2 class="title">지구를 1로 두고 몇 배인지 나타내기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:376px;gap:24px">
+      <div class="col" style="width:540px;flex:none;gap:12px">
+        <p>지구의 반지름은 약 6371 km, 질량은 약 5.97×10<sup>24</sup> kg이다. 실제 값은 숫자가 매우 커서 한눈에 비교하기 어렵다. 그래서 지구의 값을 <span class="bl">1</span>로 두고, 다른 행성이 지구의 몇 배인지 나타내어 비교한다.</p>
+        <div class="box">행성의 반지름(km)<br>÷ 지구의 반지름(6371 km)</div>
+        <p>수성: 2400 km ÷ 6371 km ≈ <span class="bl">0.38</span>배</p>
+      </div>
+      <div class="motion" id="m5" style="flex:1"></div>
+    </div>
+    <div class="gap" style="gap:8px;margin-top:6px">
+      <div class="q"><span class="n">1</span>반지름이 지구의 1배보다 작으면 지구보다 크기가 <span class="choice"><span>크다</span><span class="right">작다</span></span></div>
+      <div class="q"><span class="n">2</span>화성의 반지름은 약 3390 km이다. 지구의 약 몇 배일까? <span class="choice"><span class="right">0.53배</span><span>1.88배</span></span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 6 -->
+<section class="slide" data-step="활동 1">
+  <p class="tag">활동 1</p>
+  <h2 class="title">태양계 행성 자료 조사하기 (1) 수성·금성·지구·화성</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:100%;gap:22px">
+      <div class="simwrap" style="flex:1" data-init='{"tab":1,"planet":"mercury"}'></div>
+      <div class="col" style="width:470px;flex:none;gap:10px">
+        <p style="font-size:24px;line-height:1.35">행성을 눌러 자료를 확인하고 표를 채운다.</p>
+        <table>
+          <tr><th>행성</th><th>반지름<br>(배)</th><th>질량<br>(배)</th><th>고리</th><th>위성<br>(개)</th></tr>
+          <tr><td>수성</td><td><span class="bl">0.38</span></td><td><span class="bl">0.06</span></td><td><span class="bl">없음</span></td><td><span class="bl">0</span></td></tr>
+          <tr><td>금성</td><td><span class="bl">0.95</span></td><td><span class="bl">0.82</span></td><td><span class="bl">없음</span></td><td><span class="bl">0</span></td></tr>
+          <tr><td>지구</td><td><span class="bl">1</span></td><td><span class="bl">1</span></td><td><span class="bl">없음</span></td><td><span class="bl">1</span></td></tr>
+          <tr><td>화성</td><td><span class="bl">0.53</span></td><td><span class="bl">0.11</span></td><td><span class="bl">없음</span></td><td><span class="bl">2</span></td></tr>
+        </table>
+        <p class="cap">반지름·질량: 지구를 1로 했을 때 몇 배인지 · 위성 수: 2023년 기준</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 7 -->
+<section class="slide" data-step="활동 1">
+  <p class="tag">활동 1</p>
+  <h2 class="title">태양계 행성 자료 조사하기 (2) 목성·토성·천왕성·해왕성</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:100%;gap:22px">
+      <div class="simwrap" style="flex:1" data-init='{"tab":1,"planet":"jupiter"}'></div>
+      <div class="col" style="width:470px;flex:none;gap:10px">
+        <p style="font-size:24px;line-height:1.35">행성을 눌러 자료를 확인하고 표를 채운다.</p>
+        <table>
+          <tr><th>행성</th><th>반지름<br>(배)</th><th>질량<br>(배)</th><th>고리</th><th>위성<br>(개)</th></tr>
+          <tr><td>목성</td><td><span class="bl">11.2</span></td><td><span class="bl">318</span></td><td><span class="bl">있음</span></td><td><span class="bl">95</span></td></tr>
+          <tr><td>토성</td><td><span class="bl">9.4</span></td><td><span class="bl">95</span></td><td><span class="bl">있음</span></td><td><span class="bl">146</span></td></tr>
+          <tr><td>천왕성</td><td><span class="bl">4</span></td><td><span class="bl">14.5</span></td><td><span class="bl">있음</span></td><td><span class="bl">27</span></td></tr>
+          <tr><td>해왕성</td><td><span class="bl">3.9</span></td><td><span class="bl">17</span></td><td><span class="bl">있음</span></td><td><span class="bl">14</span></td></tr>
+        </table>
+        <p class="cap">반지름·질량: 지구를 1로 했을 때 몇 배인지 · 위성 수: 2023년 기준</p>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 8 -->
+<section class="slide" data-step="활동 2">
+  <p class="tag">활동 2</p>
+  <h2 class="title">그래프를 그리기 전에: 세로축 한 칸 값 정하기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="motion" id="m8"></div>
+    <p style="margin-top:8px"><b>(가장 큰 값) ÷ (칸 수)</b>를 계산하고, 그보다 크면서 딱 떨어지는 수를 한 칸 값으로 정한다.</p>
+    <div class="row" style="gap:20px;margin-top:8px">
+      <div class="box" style="flex:1">반지름: 가장 큰 값 <span class="bl">11.2</span> ÷ 6칸 ≈ 1.87 → 한 칸 <span class="bl">2</span></div>
+      <div class="box" style="flex:1">질량: 가장 큰 값 <span class="bl">318</span> ÷ 7칸 ≈ 45.4 → 한 칸 <span class="bl">50</span></div>
+    </div>
+  </div>
+</section>
+
+<!-- 9 -->
+<section class="slide" data-step="활동 2">
+  <p class="tag">활동 2</p>
+  <h2 class="title">행성의 반지름 그래프 그리기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:100%;gap:22px">
+      <div class="simwrap" style="flex:1" data-init='{"tab":2,"metric":"radius"}'></div>
+      <div class="col" style="width:420px;flex:none;gap:12px">
+        <p>조사한 반지름 값을 넣어 막대그래프를 그리고, 학습지 그래프에 행성마다 점을 찍는다.</p>
+        <div class="q"><span class="n">1</span>반지름이 지구의 1배 이하인 행성 4개는?</div>
+        <div class="ans">수성, 금성, 지구, 화성</div>
+        <div class="q"><span class="n">2</span>반지름이 지구의 3.9배 이상인 행성 4개는?</div>
+        <div class="ans">목성, 토성, 천왕성, 해왕성</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 10 -->
+<section class="slide" data-step="활동 2">
+  <p class="tag">활동 2</p>
+  <h2 class="title">행성의 질량 그래프 그리기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:100%;gap:22px">
+      <div class="simwrap" style="flex:1" data-init='{"tab":2,"metric":"mass"}'></div>
+      <div class="col" style="width:460px;flex:none;gap:10px">
+        <div class="q"><span class="n">1</span>수성, 금성, 지구, 화성의 막대가 바닥에 붙어 잘 보이지 않는 까닭은?</div>
+        <div class="choice" style="flex-direction:column;align-items:flex-start"><span>질량이 0이어서</span><span class="right">목성의 질량에 비해 수치가 매우 작아서</span></div>
+        <div class="q"><span class="n">2</span>질량이 지구의 1배 이하인 행성 4개는?</div>
+        <div class="ans">수성, 금성, 지구, 화성</div>
+        <div class="q"><span class="n">3</span>질량이 지구의 14.5배 이상인 행성 4개는?</div>
+        <div class="ans">목성, 토성, 천왕성, 해왕성</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 11 -->
+<section class="slide" data-step="활동 2">
+  <p class="tag">활동 2</p>
+  <h2 class="title">반지름과 질량으로 행성을 두 집단으로 나누기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="row" style="height:100%;gap:24px">
+      <div class="motion" id="m11" style="width:520px;flex:none"></div>
+      <div class="col" style="flex:1">
+        <table style="font-size:25px">
+          <tr><th style="width:120px">구분</th><th>(가) 집단</th><th>(나) 집단</th></tr>
+          <tr><td>행성<br>이름</td><td class="l">태양에서 가까운 순서로 <span class="bl">수성</span>, <span class="bl">금성</span>, 지구, <span class="bl">화성</span></td><td class="l"><span class="bl">목성</span>, <span class="bl">토성</span>, <span class="bl">천왕성</span>, <span class="bl">해왕성</span></td></tr>
+          <tr><td>표면<br>상태</td><td class="l">표면 상태는 <span class="bl">암석</span>이다.</td><td class="l">표면 상태는 <span class="bl">기체</span>이다.</td></tr>
+          <tr><td>반지름,<br>질량</td><td class="l">반지름과 질량이 <span class="bl">작다</span>.</td><td class="l">반지름과 질량이 <span class="bl">크다</span>.</td></tr>
+          <tr><td>위성</td><td class="l">위성이 없거나 <span class="bl">적다</span>.</td><td class="l">위성이 <span class="bl">많다</span>.</td></tr>
+          <tr><td>고리</td><td class="l">고리가 <span class="bl">없다</span>.</td><td class="l">고리가 <span class="bl">있다</span>.</td></tr>
+        </table>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- 12 -->
+<section class="slide dark" data-step="개념 정리">
+  <p class="tag">개념 정리</p>
+  <h2 class="title">지구형 행성과 목성형 행성</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <p>태양계 행성들은 특징에 따라 <b class="key">지구형 행성</b>과 <b class="key">목성형 행성</b>으로 나눌 수 있다.</p>
+    <div class="row" style="margin-top:18px;gap:24px">
+      <div style="flex:1;border-radius:14px;background:#0B3D73;padding:16px 22px">
+        <div style="font-size:29px;font-weight:600;margin-bottom:6px">지구형 행성</div>
+        <p style="color:#CCCCCC;margin-bottom:6px">수성, 금성, 지구, 화성</p>
+        <p>크기와 질량이 작고 표면이 단단한 암석으로 이루어져 있다. 위성이 없거나 적고, 고리가 없다.</p><svg viewBox="0 0 500 70" style="width:100%;height:70px;margin-top:10px" aria-hidden="true"><circle cx="40" cy="35" r="9" fill="#A29D97"/><circle cx="100" cy="35" r="13" fill="#DDBF86"/><circle cx="165" cy="35" r="14" fill="#3B78C4"/><circle cx="225" cy="35" r="11" fill="#C4603A"/></svg>
+      </div>
+      <div style="flex:1;border-radius:14px;background:#3A3A3C;padding:16px 22px">
+        <div style="font-size:29px;font-weight:600;margin-bottom:6px">목성형 행성</div>
+        <p style="color:#CCCCCC;margin-bottom:6px">목성, 토성, 천왕성, 해왕성</p>
+        <p>크기와 질량이 크고 기체로 이루어져 있어 단단한 표면이 없다. 위성이 많고, 고리가 있다.</p><svg viewBox="0 0 500 70" style="width:100%;height:70px;margin-top:10px" aria-hidden="true"><circle cx="40" cy="35" r="32" fill="#D6B48E"/><ellipse cx="150" cy="35" rx="58" ry="11" fill="none" stroke="#CDB98A" stroke-width="5"/><circle cx="150" cy="35" r="27" fill="#E1C894"/><circle cx="245" cy="35" r="18" fill="#A6DCE0"/><circle cx="310" cy="35" r="18" fill="#4E7FD0"/></svg>
+      </div>
+    </div>
+    <div class="q" style="margin-top:22px"><span class="n" style="color:var(--pd)">1</span>생각 열기에서 탐사선이 착륙할 땅을 찾지 못한 행성은 단단한 표면이 없는 <span class="choice"><span>지구형 행성</span><span class="right">목성형 행성</span></span>이다.</div>
+  </div>
+</section>
+
+<!-- 13 -->
+<section class="slide" data-step="개념 정리">
+  <p class="tag">개념 정리</p>
+  <h2 class="title">태양계 행성 한눈에 비교하기</h2>
+  <p class="sub">교과서 220쪽 그림 Ⅶ-2 태양계 행성 비교</p>
+  <div class="hr"></div>
+  <div class="body" id="cmp13"></div>
+</section>
+
+<!-- 14 -->
+<section class="slide" data-step="활동 3">
+  <p class="tag">활동 3</p>
+  <h2 class="title">특징을 보고 지구형 행성과 목성형 행성으로 분류하기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="gap" style="gap:28px;padding-top:8px">
+      <div><div class="q"><span class="n">1</span>표면이 단단한 암석으로 이루어져 있고, 위성이 2개이며 고리가 없다.</div>
+        <div class="q" style="margin-left:30px">분류 <span class="choice"><span class="right">지구형 행성</span><span>목성형 행성</span></span> &nbsp; 행성 이름 <span class="bl">화성</span></div></div>
+      <div><div class="q"><span class="n">2</span>반지름이 지구의 약 9.4배, 질량이 약 95배이며 고리와 많은 위성(146개)이 있다.</div>
+        <div class="q" style="margin-left:30px">분류 <span class="choice"><span>지구형 행성</span><span class="right">목성형 행성</span></span> &nbsp; 행성 이름 <span class="bl">토성</span></div></div>
+      <div><div class="q"><span class="n">3</span>반지름이 지구의 약 0.38배로 가장 작고, 고리와 위성이 없으며 표면이 암석이다.</div>
+        <div class="q" style="margin-left:30px">분류 <span class="choice"><span class="right">지구형 행성</span><span>목성형 행성</span></span> &nbsp; 행성 이름 <span class="bl">수성</span></div></div>
+      <div><div class="q"><span class="n">4</span>반지름이 지구의 약 11.2배, 질량이 약 318배로 가장 크고, 기체로 이루어져 있으며 고리가 있다.</div>
+        <div class="q" style="margin-left:30px">분류 <span class="choice"><span>지구형 행성</span><span class="right">목성형 행성</span></span> &nbsp; 행성 이름 <span class="bl">목성</span></div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 15 -->
+<section class="slide parch" data-step="활동 3">
+  <p class="tag">활동 3 · 과학 가치·태도 기르기</p>
+  <h2 class="title">가장 가치가 있다고 생각하는 태양계 천체 고르기</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="card"><span class="key">과학 유용성</span> &nbsp;태양계 천체 중 가장 가치가 있다고 생각하는 천체를 고르고, 그렇게 생각한 까닭을 써 보자.</div>
+    <div class="gap" style="margin-top:18px;gap:10px">
+      <div class="q f"><span class="n">1</span><span style="flex:none">내가 고른 천체</span><div class="ans" style="width:340px">예) 화성</div></div>
+      <div class="q"><span class="n">2</span>그렇게 생각한 까닭</div>
+      <div class="ans">예) 화성 표면에서 사람이 정착하고 살려면 농작물을 키워야 하는데, 토양이 농사를 짓기에 적절한지 알아보고 싶다.</div>
+    </div>
+    <svg viewBox="0 0 1164 90" style="position:absolute;left:0;right:0;bottom:0;width:100%" aria-hidden="true" id="row15"></svg>
+  </div>
+</section>
+
+<!-- 16 -->
+<section class="slide" data-step="활동 3">
+  <p class="tag">활동 3 · 세상과 이어 주는 과학</p>
+  <h2 class="title">달의 자원은 누구의 것일까</h2>
+  <div class="hr"></div>
+  <div class="body" style="line-height:1.35">
+    <div class="row" style="gap:24px">
+      <div class="col" style="flex:1;gap:10px">
+        <p>2022년 8월 대한민국 최초의 달 궤도선 다누리가 발사되었다. 다누리가 촬영한 자료는 달 착륙선을 보낼 장소를 찾고 달 표면의 자원을 탐사하는 데 활용된다.</p>
+        <p>여러 나라에서 달 탐사를 하는 까닭은 과학 연구, 우주 기지 건설 등의 목적도 있지만, 그보다는 백금, 티타늄, 희토류, 헬륨 등의 자원을 이용하기 위한 목적이 더 크다.</p>
+        <p>우주 조약에 따르면 어느 나라나 우주 탐사를 할 수 있지만 영토를 주장할 수는 없다.</p>
+      </div>
+      <div class="ph" style="width:300px;flex:none">사진 자리<br>다누리를 탑재한 발사체 발사 장면, 달 표면 기지 상상도 (교과서 221쪽)</div>
+    </div>
+    <div class="gap" style="margin-top:12px;gap:8px">
+      <div class="q f"><span class="n">1</span><span style="width:430px;flex:none">달 자원의 개발로 생길 수 있는 문제점이나 갈등은?</span><div class="ans" style="flex:1">무분별한 개발로 자원이 고갈되거나 훼손될 수 있고, 이익을 둘러싼 분쟁이 생길 수 있다.</div></div>
+      <div class="q f"><span class="n">2</span><span style="width:430px;flex:none">달 자원의 개발과 이용을 평화적으로 분배하는 방안은?</span><div class="ans" style="flex:1">달 이용에 관한 국제법(협정)과 기구를 만들어 개발 기간과 비용 등을 정해서 관리한다.</div></div>
+    </div>
+  </div>
+</section>
+
+<!-- 17 -->
+<section class="slide" data-step="정리">
+  <p class="tag">정리</p>
+  <h2 class="title">스스로 확인하기와 개념 정리</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <div class="gap" style="gap:14px">
+      <div class="q"><span class="n">1</span>표면이 암석으로 이루어진 행성에는 <span class="bl">수성</span>, <span class="bl">금성</span>, <span class="bl">지구</span>, <span class="bl">화성</span>이/가 있다.</div>
+      <div class="q f"><span class="n">2</span><span style="width:560px;flex:none">목성형 행성이 지구형 행성에 비해 더 큰 값을 가지는 특징을 있는 대로 써 보자.</span><div class="ans" style="flex:1">반지름(크기), 질량, 위성의 개수</div></div>
+    </div>
+    <table style="margin-top:30px" class="tall">
+      <tr><th style="width:190px">개념 정리</th><th></th></tr>
+      <tr><td>행성의 분류</td><td class="l">태양계 행성은 특징에 따라 <span class="bl">지구형</span> 행성과 <span class="bl">목성형</span> 행성으로 나눌 수 있다.</td></tr>
+      <tr><td>지구형 행성</td><td class="l">크기와 질량이 <span class="bl">작고</span> 표면이 단단한 <span class="bl">암석</span>으로 이루어져 있다.</td></tr>
+      <tr><td>목성형 행성</td><td class="l">크기와 질량이 <span class="bl">크고</span> <span class="bl">기체</span>로 이루어져 있어 단단한 표면이 없다.</td></tr>
+    </table>
+  </div>
+</section>
+
+<!-- 18 -->
+<section class="slide parch" data-step="평가 안내 · 차시 예고">
+  <p class="tag">평가 안내 · 차시 예고</p>
+  <h2 class="title">평가 기준과 다음 차시</h2>
+  <div class="hr"></div>
+  <div class="body">
+    <table style="font-size:25px;background:#fff;border-radius:14px">
+      <tr><th style="width:150px">영역</th><th>평가 기준</th></tr>
+      <tr><td rowspan="2">지식·이해</td><td class="l">지구형 행성과 목성형 행성에 해당하는 행성을 열거할 수 있는가?</td></tr>
+      <tr><td class="l">지구형 행성과 목성형 행성의 특징을 비교하여 설명할 수 있는가?</td></tr>
+      <tr><td rowspan="2">과정·기능</td><td class="l">태양계 행성 자료를 수집하고 정리할 수 있는가?</td></tr>
+      <tr><td class="l">자료를 도표화하고, 자료에 근거하여 행성을 분류하였는가?</td></tr>
+      <tr><td rowspan="2">가치·태도</td><td class="l">자신이 가치 있다고 생각하는 행성을 고르고 그 까닭을 발표하였는가?</td></tr>
+      <tr><td class="l">태양계 천체에 흥미와 관심이 더 높아졌는가?</td></tr>
+    </table>
+    <div class="card" style="margin-top:16px;display:flex;gap:18px;align-items:center"><span class="chip">다음 차시</span><p><b>03 태양의 활동</b> — 태양 표면과 대기에서 나타나는 현상과 태양 활동이 지구에 미치는 영향을 알아본다.</p></div>
+  </div>
+</section>
+
+</div>
+
+<script>
+window.SIM_B64="PCFkb2N0eXBlIGh0bWw+CjxodG1sIGxhbmc9ImtvIj4KPGhlYWQ+CjxtZXRhIGNoYXJzZXQ9InV0Zi04Ij4KPG1ldGEgbmFtZT0idmlld3BvcnQiIGNvbnRlbnQ9IndpZHRoPWRldmljZS13aWR0aCxpbml0aWFsLXNjYWxlPTEiPgo8dGl0bGU+NzEyIO2DnOyWkeqzhCDtlonshLEg7J6Q66OMIO2DkOyDieq4sDwvdGl0bGU+CjxzdHlsZT4KOnJvb3R7LS1wOiMwMDY2Q0M7LS1pbms6IzFEMUQxRjstLW11dDojN0E3QTdBOy0tbGluZTojRTBFMEUwOy0tcGFyY2g6I0Y1RjVGNzstLXBlYXJsOiNGQUZBRkM7LS1ncmF5OiNCOEI4QkQ7LS10aW50OiNFNkYwRkF9Cip7Ym94LXNpemluZzpib3JkZXItYm94fQpodG1sLGJvZHl7bWFyZ2luOjA7aGVpZ2h0OjEwMCU7YmFja2dyb3VuZDojZmZmO2NvbG9yOnZhcigtLWluayk7Zm9udC1mYW1pbHk6IlNGIFBybyBUZXh0IiwtYXBwbGUtc3lzdGVtLEJsaW5rTWFjU3lzdGVtRm9udCwiQXBwbGUgU0QgR290aGljIE5lbyIsIk1hbGd1biBHb3RoaWMiLHNhbnMtc2VyaWY7LXdlYmtpdC10YXAtaGlnaGxpZ2h0LWNvbG9yOnRyYW5zcGFyZW50fQpib2R5e2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47b3ZlcmZsb3c6aGlkZGVuO2ZvbnQtc2l6ZToxOHB4fQpidXR0b257Zm9udDppbmhlcml0O2ZvbnQtc2l6ZToxN3B4O2JvcmRlci1yYWRpdXM6OTk5cHg7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtiYWNrZ3JvdW5kOnZhcigtLXBlYXJsKTtjb2xvcjp2YXIoLS1pbmspO3BhZGRpbmc6NnB4IDE2cHg7bWluLWhlaWdodDo0NHB4O2N1cnNvcjpwb2ludGVyO3RvdWNoLWFjdGlvbjptYW5pcHVsYXRpb247d2hpdGUtc3BhY2U6bm93cmFwfQpidXR0b24ub257YmFja2dyb3VuZDp2YXIoLS1wKTtib3JkZXItY29sb3I6dmFyKC0tcCk7Y29sb3I6I2ZmZn0KYnV0dG9uOmZvY3VzLXZpc2libGV7b3V0bGluZToycHggc29saWQgdmFyKC0tcCk7b3V0bGluZS1vZmZzZXQ6MnB4fQouYmFye2Rpc3BsYXk6ZmxleDtnYXA6OHB4O2FsaWduLWl0ZW1zOmNlbnRlcjtwYWRkaW5nOjhweCAxMHB4O2JvcmRlci1ib3R0b206MXB4IHNvbGlkIHZhcigtLWxpbmUpO2ZsZXgtd3JhcDp3cmFwfQouZ3Jvd3tmbGV4OjF9Ci5zZWd7ZGlzcGxheTpmbGV4O2dhcDo0cHg7ZmxleC13cmFwOndyYXB9Ci5sYWJ7Zm9udC1zaXplOjE0cHg7Y29sb3I6dmFyKC0tbXV0KTttYXJnaW4tcmlnaHQ6MnB4fQoudmlld3tmbGV4OjE7bWluLWhlaWdodDowO2Rpc3BsYXk6bm9uZX0KLnZpZXcub257ZGlzcGxheTpmbGV4fQovKiAxLiDtlonshLEg7Lm065OcICovCiN2MXtmbGV4LWRpcmVjdGlvbjpjb2x1bW59CiNwbGlzdHtkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOnJlcGVhdCg4LDFmcik7Z2FwOjZweDtwYWRkaW5nOjhweCAxMHB4fQojcGxpc3QgYnV0dG9ue3BhZGRpbmc6NnB4IDRweH0KLnYxbWFpbntmbGV4OjE7bWluLWhlaWdodDowO2Rpc3BsYXk6ZmxleDtnYXA6MTBweDtwYWRkaW5nOjAgMTBweCAxMHB4fQouc3RhZ2V7ZmxleDoxLjU7bWluLXdpZHRoOjA7ZGlzcGxheTpmbGV4O2ZsZXgtZGlyZWN0aW9uOmNvbHVtbjtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpO2JvcmRlci1yYWRpdXM6MTRweDtiYWNrZ3JvdW5kOiMwRjE0MjA7b3ZlcmZsb3c6aGlkZGVufQouc3RhZ2Ugc3Zne2ZsZXg6MTt3aWR0aDoxMDAlO21pbi1oZWlnaHQ6MH0KLnN0YWdlIC5yb3d7ZGlzcGxheTpmbGV4O2p1c3RpZnktY29udGVudDpmbGV4LWVuZDtwYWRkaW5nOjZweH0KLnN0YWdlIC5yb3cgYnV0dG9ue2JhY2tncm91bmQ6IzJBMkEyQztjb2xvcjojZmZmO2JvcmRlci1jb2xvcjojM0EzQTNDfQouc3RhZ2UgLnJvdyBidXR0b24ub257YmFja2dyb3VuZDp2YXIoLS1wKTtib3JkZXItY29sb3I6dmFyKC0tcCl9Ci5jYXJke2ZsZXg6MTttaW4td2lkdGg6MjEwcHg7Ym9yZGVyOjFweCBzb2xpZCB2YXIoLS1saW5lKTtib3JkZXItcmFkaXVzOjE0cHg7cGFkZGluZzoxMnB4IDE0cHg7ZGlzcGxheTpmbGV4O2ZsZXgtZGlyZWN0aW9uOmNvbHVtbjtnYXA6NnB4O3RyYW5zaXRpb246b3BhY2l0eSAuMjVzfQouY2FyZC5mYWRle29wYWNpdHk6LjE1fQouY2FyZCBoM3ttYXJnaW46MDtmb250LXNpemU6MjZweDtmb250LXdlaWdodDo2MDA7ZGlzcGxheTpmbGV4O2FsaWduLWl0ZW1zOmNlbnRlcjtnYXA6MTBweH0KLmNhcmQgaDMgc3Zne3dpZHRoOjQ4cHg7aGVpZ2h0OjQ4cHg7ZmxleDpub25lfQouY2FyZCBkbHttYXJnaW46MDtkaXNwbGF5OmdyaWQ7Z3JpZC10ZW1wbGF0ZS1jb2x1bW5zOmF1dG8gMWZyO2dhcDo2cHggMTBweDthbGlnbi1pdGVtczpiYXNlbGluZX0KLmNhcmQgZHR7Zm9udC1zaXplOjE1cHg7Y29sb3I6dmFyKC0tbXV0KX0KLmNhcmQgZGR7bWFyZ2luOjA7Zm9udC1zaXplOjIxcHg7Zm9udC13ZWlnaHQ6NjAwfQouY2FyZCBkZCBzbWFsbHtmb250LXNpemU6MTRweDtmb250LXdlaWdodDo0MDA7Y29sb3I6dmFyKC0tbXV0KX0KLyogMi4g66eJ64yA6re4656Y7ZSEICovCiN2MntnYXA6MTBweDtwYWRkaW5nOjEwcHh9Ci50Ymx7d2lkdGg6MTkwcHg7ZmxleDpub25lO2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47Z2FwOjRweDtvdmVyZmxvdzphdXRvfQoudGJsIC5oe2Rpc3BsYXk6ZmxleDtmb250LXNpemU6MTRweDtjb2xvcjp2YXIoLS1tdXQpO3BhZGRpbmc6MCA0cHh9Ci50YmwgLmggc3BhbjpmaXJzdC1jaGlsZHt3aWR0aDo3MnB4fQoudGJsIGxhYmVse2Rpc3BsYXk6ZmxleDthbGlnbi1pdGVtczpjZW50ZXI7Z2FwOjZweDtmb250LXNpemU6MTlweH0KLnRibCBsYWJlbCBie3dpZHRoOjY2cHg7Zm9udC13ZWlnaHQ6NjAwfQoudGJsIGlucHV0e3dpZHRoOjg0cHg7bWluLWhlaWdodDozOHB4O2ZvbnQ6aW5oZXJpdDtmb250LXNpemU6MTlweDtib3JkZXI6MXB4IHNvbGlkIHZhcigtLWxpbmUpO2JvcmRlci1yYWRpdXM6OHB4O3BhZGRpbmc6MnB4IDhweDt0ZXh0LWFsaWduOnJpZ2h0fQoudGJsIGlucHV0OmZvY3Vze291dGxpbmU6MnB4IHNvbGlkIHZhcigtLXApO2JvcmRlci1jb2xvcjp2YXIoLS1wKX0KLnRibCBpe2ZvbnQtc3R5bGU6bm9ybWFsO2NvbG9yOnZhcigtLXApO3dpZHRoOjE2cHg7Zm9udC13ZWlnaHQ6NjAwfQouY2hhcnRib3h7ZmxleDoxO21pbi13aWR0aDowO2Rpc3BsYXk6ZmxleDtmbGV4LWRpcmVjdGlvbjpjb2x1bW47Z2FwOjZweH0KLmNoYXJ0Ym94IHN2Z3tmbGV4OjE7bWluLWhlaWdodDowO3dpZHRoOjEwMCV9Ci5ncm91cHN7ZGlzcGxheTpmbGV4O2dhcDo0cHg7YWxpZ24taXRlbXM6Y2VudGVyO2ZsZXgtd3JhcDp3cmFwfQouZ3JvdXBzIGJ1dHRvbntwYWRkaW5nOjRweCAxMHB4O21pbi1oZWlnaHQ6NDBweDtmb250LXNpemU6MTZweH0KLmdyb3VwcyBidXR0b24uZ2F7YmFja2dyb3VuZDp2YXIoLS10aW50KTtib3JkZXItY29sb3I6dmFyKC0tcCk7Y29sb3I6dmFyKC0tcCl9Ci5ncm91cHMgYnV0dG9uLmdie2JhY2tncm91bmQ6I0VDRUNFRTtib3JkZXItY29sb3I6IzhFOEU5Mztjb2xvcjojM0EzQTNDfQp0ZXh0e2ZvbnQtZmFtaWx5OiJTRiBQcm8gVGV4dCIsLWFwcGxlLXN5c3RlbSxCbGlua01hY1N5c3RlbUZvbnQsIkFwcGxlIFNEIEdvdGhpYyBOZW8iLCJNYWxndW4gR290aGljIixzYW5zLXNlcmlmfQpAbWVkaWEgKG1heC13aWR0aDo2MjBweCl7I3BsaXN0e2dyaWQtdGVtcGxhdGUtY29sdW1uczpyZXBlYXQoNCwxZnIpfS52MW1haW57ZmxleC1kaXJlY3Rpb246Y29sdW1ufS5jYXJke21pbi13aWR0aDowfSN2MntmbGV4LWRpcmVjdGlvbjpjb2x1bW59LnRibHt3aWR0aDphdXRvO2ZsZXgtZGlyZWN0aW9uOnJvdztmbGV4LXdyYXA6d3JhcH19Cjwvc3R5bGU+CjwvaGVhZD4KPGJvZHk+CjxkaXYgY2xhc3M9ImJhciI+CiAgPGRpdiBjbGFzcz0ic2VnIiBpZD0idGFicyI+PGJ1dHRvbiBkYXRhLXRhYj0iMSI+MS4g7ZaJ7ISxIOy5tOuTnCDsobDsgqw8L2J1dHRvbj48YnV0dG9uIGRhdGEtdGFiPSIyIj4yLiDrsJjsp4DrpoTCt+yniOufiSDrp4nrjIDqt7jrnpjtlIQ8L2J1dHRvbj48L2Rpdj4KICA8ZGl2IGNsYXNzPSJncm93Ij48L2Rpdj4KICA8c3BhbiBjbGFzcz0ibGFiIj7sho3rj4Q8L3NwYW4+CiAgPGRpdiBjbGFzcz0ic2VnIiBpZD0ic3BlZWQiPjxidXR0b24gZGF0YS1zPSIwLjUiPuuKkOumrOqyjDwvYnV0dG9uPjxidXR0b24gZGF0YS1zPSIxIj7rs7TthrU8L2J1dHRvbj48YnV0dG9uIGRhdGEtcz0iMiI+67mg66W06rKMPC9idXR0b24+PC9kaXY+CjwvZGl2PgoKPHNlY3Rpb24gY2xhc3M9InZpZXciIGlkPSJ2MSI+CiAgPGRpdiBpZD0icGxpc3QiPjwvZGl2PgogIDxkaXYgY2xhc3M9InYxbWFpbiI+CiAgICA8ZGl2IGNsYXNzPSJzdGFnZSI+CiAgICAgIDxzdmcgaWQ9InMxIiB2aWV3Qm94PSIwIDAgNjQwIDM4MCIgcHJlc2VydmVBc3BlY3RSYXRpbz0ieE1pZFlNaWQgbWVldCIgYXJpYS1sYWJlbD0i7ZaJ7ISx6rO8IOyngOq1rOydmCDtgazquLAg67mE6rWQIj48L3N2Zz4KICAgICAgPGRpdiBjbGFzcz0icm93Ij48YnV0dG9uIGlkPSJjbXAiIGNsYXNzPSJvbiI+7KeA6rWs7JmAIO2BrOq4sCDruYTqtZA8L2J1dHRvbj48L2Rpdj4KICAgIDwvZGl2PgogICAgPGRpdiBjbGFzcz0iY2FyZCIgaWQ9ImNhcmQiPjwvZGl2PgogIDwvZGl2Pgo8L3NlY3Rpb24+Cgo8c2VjdGlvbiBjbGFzcz0idmlldyIgaWQ9InYyIj4KICA8ZGl2IGNsYXNzPSJ0YmwiIGlkPSJ0YmwiPjwvZGl2PgogIDxkaXYgY2xhc3M9ImNoYXJ0Ym94Ij4KICAgIDxkaXYgY2xhc3M9InNlZyI+CiAgICAgIDxidXR0b24gZGF0YS1tPSJyYWRpdXMiPuuwmOyngOumhDwvYnV0dG9uPjxidXR0b24gZGF0YS1tPSJtYXNzIj7sp4jrn4k8L2J1dHRvbj4KICAgICAgPGJ1dHRvbiBpZD0iem9vbSI+MH4xLjIg6rWs6rCEIO2ZleuMgDwvYnV0dG9uPgogICAgICA8ZGl2IGNsYXNzPSJncm93Ij48L2Rpdj4KICAgICAgPGJ1dHRvbiBpZD0icmVwbGF5Ij7ri6Tsi5wg7J6s7IOdPC9idXR0b24+PGJ1dHRvbiBpZD0icGF1c2UiPuydvOyLnOygleyngDwvYnV0dG9uPgogICAgPC9kaXY+CiAgICA8c3ZnIGlkPSJzMiIgdmlld0JveD0iMCAwIDY0MCAzOTAiIHByZXNlcnZlQXNwZWN0UmF0aW89InhNaWRZTWlkIG1lZXQiIGFyaWEtbGFiZWw9Iu2WieyEsSDrp4nrjIDqt7jrnpjtlIQiPjwvc3ZnPgogICAgPGRpdiBjbGFzcz0iZ3JvdXBzIiBpZD0iZ3JvdXBzIj48c3BhbiBjbGFzcz0ibGFiIj7rkZAg7KeR64uo7Jy866GcIOuCmOuIhOq4sDwvc3Bhbj48L2Rpdj4KICA8L2Rpdj4KPC9zZWN0aW9uPgoKPHNjcmlwdD4KKGZ1bmN0aW9uKCl7CmNvbnN0IE5TPSdodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2Zyc7CmNvbnN0IFA9Wwoge2s6J21lcmN1cnknLG46J+yImOyEsScscjowLjM4LG06MC4wNixyaW5nOjAsbW9vbjowLGdhczowLGM6JyNBMjlEOTcnLGQ6JyM3RTc5NzQnfSwKIHtrOid2ZW51cycsbjon6riI7ISxJyxyOjAuOTUsbTowLjgyLHJpbmc6MCxtb29uOjAsZ2FzOjAsYzonI0REQkY4NicsZDonI0JDOUE1RSd9LAoge2s6J2VhcnRoJyxuOifsp4DqtawnLHI6MSxtOjEscmluZzowLG1vb246MSxnYXM6MCxjOicjM0I3OEM0JyxkOicjNUU5QTRDJyxrbTonNjM3MSBrbScsa2c6JzUuOTfDlzEwwrLigbQga2cnfSwKIHtrOidtYXJzJyxuOiftmZTshLEnLHI6MC41MyxtOjAuMTEscmluZzowLG1vb246MixnYXM6MCxjOicjQzQ2MDNBJyxkOicjOEYzRjI0J30sCiB7azonanVwaXRlcicsbjon66qp7ISxJyxyOjExLjIsbTozMTgscmluZzoxLG1vb246OTUsZ2FzOjEsYzonI0Q2QjQ4RScsZDonI0E4NzM0RCd9LAoge2s6J3NhdHVybicsbjon7Yag7ISxJyxyOjkuNCxtOjk1LHJpbmc6MSxtb29uOjE0NixnYXM6MSxjOicjRTFDODk0JyxkOicjQjg5QTYyJ30sCiB7azondXJhbnVzJyxuOifsspzsmZXshLEnLHI6NCxtOjE0LjUscmluZzoxLG1vb246MjcsZ2FzOjEsYzonI0E2RENFMCcsZDonIzg2QzJDOCd9LAoge2s6J25lcHR1bmUnLG46J+2VtOyZleyEsScscjozLjksbToxNyxyaW5nOjEsbW9vbjoxNCxnYXM6MSxjOicjNEU3RkQwJyxkOicjM0E2M0FEJ31dOwpjb25zdCBSRUQ9bWF0Y2hNZWRpYSgnKHByZWZlcnMtcmVkdWNlZC1tb3Rpb246IHJlZHVjZSknKS5tYXRjaGVzOwpjb25zdCBpbml0PU9iamVjdC5hc3NpZ24oe3RhYjoxLG1ldHJpYzoncmFkaXVzJyxwbGFuZXQ6J21lcmN1cnknfSx3aW5kb3cuU0lNX0lOSVR8fHt9KTsKKGxvY2F0aW9uLmhhc2h8fCcnKS5yZXBsYWNlKCcjJywnJykuc3BsaXQoJyYnKS5mb3JFYWNoKHM9Pntjb25zdCBbYSxiXT1zLnNwbGl0KCc9Jyk7aWYoYSYmYilpbml0W2FdPWE9PT0ndGFiJz8rYjpiO30pOwpsZXQgc3BlZWQ9MC41LGFjdGl2ZT10cnVlOwpjb25zdCBLRVk9J3NpbTcxMl92MSc7CmxldCBzdD17cmFkaXVzOnt9LG1hc3M6e30sZ3JvdXBzOnt9fTsKZnVuY3Rpb24gbG9hZCgpe3RyeXtjb25zdCBzPUpTT04ucGFyc2UobG9jYWxTdG9yYWdlLmdldEl0ZW0oS0VZKXx8J251bGwnKTtpZihzKXN0PU9iamVjdC5hc3NpZ24oe3JhZGl1czp7fSxtYXNzOnt9LGdyb3Vwczp7fX0scyk7fWNhdGNoKGUpe319CmZ1bmN0aW9uIHNhdmUoKXt0cnl7bG9jYWxTdG9yYWdlLnNldEl0ZW0oS0VZLEpTT04uc3RyaW5naWZ5KHN0KSk7fWNhdGNoKGUpe319CmxvYWQoKTsKY29uc3QgZWw9KHQsYSxwKT0+e2NvbnN0IGU9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudE5TKE5TLHQpO2Zvcihjb25zdCBrIGluIGEpZS5zZXRBdHRyaWJ1dGUoayxhW2tdKTtpZihwKXAuYXBwZW5kQ2hpbGQoZSk7cmV0dXJuIGU7fTsKY29uc3QgZWFzZT10PT50PC41PzQqdCp0KnQ6MS1NYXRoLnBvdygtMip0KzIsMykvMjsKY29uc3QgZm10PXY9PntpZih2Pj0xMClyZXR1cm4gU3RyaW5nKCt2LnRvRml4ZWQoMSkpO3JldHVybiBTdHJpbmcoK3YudG9GaXhlZCgyKSk7fTsKCi8qIC0tLS0tLS0tLS0g7J6R7J2AIOyVoOuLiOuplOydtOyFmCDsl5Tsp4QgKHJBRiDtlZjrgpgpIC0tLS0tLS0tLS0gKi8KY29uc3QgYW5pbXM9bmV3IFNldCgpO2xldCByYWY9MCxsYXN0PTA7CmZ1bmN0aW9uIHRpY2sobm93KXtjb25zdCBkdD1NYXRoLm1pbig1MCxub3ctKGxhc3R8fG5vdykpO2xhc3Q9bm93OwogIGFuaW1zLmZvckVhY2goYT0+e2lmKGEucGF1c2VkKXJldHVybjthLnQrPWR0KnNwZWVkL2EuZHVyO2lmKGEudD49MSl7YS50PTE7YS5mbigxKTthbmltcy5kZWxldGUoYSk7YS5kb25lJiZhLmRvbmUoKTt9ZWxzZSBhLmZuKGVhc2UoYS50KSk7fSk7CiAgaWYoYW5pbXMuc2l6ZSYmYWN0aXZlJiZbLi4uYW5pbXNdLnNvbWUoYT0+IWEucGF1c2VkKSlyYWY9cmVxdWVzdEFuaW1hdGlvbkZyYW1lKHRpY2spO2Vsc2V7cmFmPTA7bGFzdD0wO319CmZ1bmN0aW9uIHJ1bigpe2lmKCFyYWYmJmFjdGl2ZSl7bGFzdD0wO3JhZj1yZXF1ZXN0QW5pbWF0aW9uRnJhbWUodGljayk7fX0KZnVuY3Rpb24gYW5pbShkdXIsZm4sZG9uZSl7Y29uc3QgYT17dDowLGR1cjpSRUQ/MTpkdXIsZm4sZG9uZSxwYXVzZWQ6ZmFsc2V9O2lmKFJFRCl7Zm4oMSk7ZG9uZSYmZG9uZSgpO3JldHVybiBhO31hbmltcy5hZGQoYSk7cnVuKCk7cmV0dXJuIGE7fQoKLyogLS0tLS0tLS0tLSDtlonshLEg6re466a8ICjri6jsnIQg67CY7KeA66aEIDEwMCkgLS0tLS0tLS0tLSAqLwpmdW5jdGlvbiBkcmF3UGxhbmV0KGcscCx1aWQpewogIGNvbnN0IGNpZD0nYycrdWlkO2NvbnN0IGRlZnM9ZWwoJ2RlZnMnLHt9LGcpO2NvbnN0IGNwPWVsKCdjbGlwUGF0aCcse2lkOmNpZH0sZGVmcyk7ZWwoJ2NpcmNsZScse3I6MTAwfSxjcCk7CiAgaWYocC5yaW5nKXtjb25zdCBiYWNrPXJpbmdQYXRoKHAsdHJ1ZSk7ZWwoJ3BhdGgnLE9iamVjdC5hc3NpZ24oe2Q6YmFjay5kfSxiYWNrLmEpLGcpO30KICBlbCgnY2lyY2xlJyx7cjoxMDAsZmlsbDpwLmN9LGcpOwogIGNvbnN0IHM9ZWwoJ2cnLHsnY2xpcC1wYXRoJzondXJsKCMnK2NpZCsnKSd9LGcpOwogIGlmKHAuZ2FzKXsKICAgIGNvbnN0IGJhbmRzPXAuaz09PSdqdXBpdGVyJz9bWy02MiwxNF0sWy0zMCwxOF0sWzgsMTBdLFszNCwyMF0sWzY2LDEyXV06cC5rPT09J3NhdHVybic/W1stNTAsMTZdLFstMTAsMTBdLFszMCwxOF0sWzYyLDEwXV06W1stNDAsOF0sWzIwLDEwXV07CiAgICBiYW5kcy5mb3JFYWNoKChbeSxoXSxpKT0+ZWwoJ3JlY3QnLHt4Oi0xMTAseTp5LHdpZHRoOjIyMCxoZWlnaHQ6aCxmaWxsOnAuZCxvcGFjaXR5OmklMj8uNDU6Ljd9LHMpKTsKICAgIGlmKHAuaz09PSdqdXBpdGVyJyllbCgnZWxsaXBzZScse2N4OjM4LGN5OjQ2LHJ4OjE4LHJ5OjEwLGZpbGw6JyNCNTUzM0EnLG9wYWNpdHk6Ljh9LHMpOwogIH1lbHNlIGlmKHAuaz09PSdlYXJ0aCcpewogICAgZWwoJ3BhdGgnLHtkOidNLTYwLC01MCBxMzAsLTI1IDU1LDAgdDIwLDQwIHEtMzAsMjAgLTUwLDAgdC0yNSwtNDB6JyxmaWxsOnAuZH0scyk7CiAgICBlbCgncGF0aCcse2Q6J00yMCwyMCBxMzAsLTEwIDQ1LDE1IHQtMTAsNDUgcS0yNSw1IC0zNSwtMjB6JyxmaWxsOnAuZH0scyk7CiAgICBlbCgnZWxsaXBzZScse2N4Oi0yMCxjeTo3MCxyeDo0MCxyeToxMixmaWxsOicjZmZmJyxvcGFjaXR5Oi41fSxzKTsKICB9ZWxzZXsKICAgIFtbLTQwLC0zMCwxOF0sWzMwLC00NSwxMl0sWzQ1LDI1LDIwXSxbLTI1LDQ1LDE0XSxbMCw1LDldXS5mb3JFYWNoKChbeCx5LHJdKT0+ZWwoJ2NpcmNsZScse2N4OngsY3k6eSxyOnIsZmlsbDpwLmQsb3BhY2l0eTouNTV9LHMpKTsKICB9CiAgZWwoJ2NpcmNsZScse3I6MTAwLGZpbGw6J25vbmUnLHN0cm9rZToncmdiYSgwLDAsMCwuMjUpJywnc3Ryb2tlLXdpZHRoJzozfSxnKTsKICBpZihwLnJpbmcpe2NvbnN0IGY9cmluZ1BhdGgocCxmYWxzZSk7ZWwoJ3BhdGgnLE9iamVjdC5hc3NpZ24oe2Q6Zi5kfSxmLmEpLGcpO30KfQpmdW5jdGlvbiByaW5nUGF0aChwLGJhY2spewogIGNvbnN0IHRoaWNrPXAuaz09PSdzYXR1cm4nO2NvbnN0IHJ4PXRoaWNrPzIxNToxNjAscnk9dGhpY2s/NDg6MzY7CiAgY29uc3QgYT17ZmlsbDonbm9uZScsc3Ryb2tlOnRoaWNrPycjQ0RCOThBJzonI0M5QzJCNCcsJ3N0cm9rZS13aWR0aCc6dGhpY2s/MjY6MyxvcGFjaXR5OnRoaWNrPy45Oi41NX07CiAgaWYocC5rPT09J3VyYW51cycpYS50cmFuc2Zvcm09J3JvdGF0ZSgtODIpJzsKICBjb25zdCBkPWJhY2s/YE0key1yeH0sMCBBJHtyeH0sJHtyeX0gMCAwIDEgJHtyeH0sMGA6YE0key1yeH0sMCBBJHtyeH0sJHtyeX0gMCAwIDAgJHtyeH0sMGA7CiAgcmV0dXJuIHtkLGF9Owp9CgovKiAtLS0tLS0tLS0tIDEuIO2WieyEsSDsubTrk5wgLS0tLS0tLS0tLSAqLwpjb25zdCBzMT1kb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnczEnKSxjYXJkPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdjYXJkJykscGxpc3Q9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3BsaXN0Jyk7CmNvbnN0IFU9MTUwLzExLjI7bGV0IGN1clI9aW5pdC5wbGFuZXQ/bnVsbDowLHNlbD1udWxsLHNob3dDbXA9dHJ1ZSx1aWQ9MDsKUC5mb3JFYWNoKHA9Pntjb25zdCBiPWRvY3VtZW50LmNyZWF0ZUVsZW1lbnQoJ2J1dHRvbicpO2IudGV4dENvbnRlbnQ9cC5uO2IuZGF0YXNldC5rPXAuaztiLm9uY2xpY2s9KCk9PnBpY2socC5rKTtwbGlzdC5hcHBlbmRDaGlsZChiKTt9KTsKY29uc3Qgc2t5PWVsKCdnJyx7fSxzMSk7Zm9yKGxldCBpPTA7aTw2MDtpKyspZWwoJ2NpcmNsZScse2N4OihpKjEzNyklNjQwLGN5OihpKjcxKSUzODAscjppJTc/MC44OjEuNCxmaWxsOicjZmZmJyxvcGFjaXR5Oi41fSxza3kpOwpjb25zdCBjbXBHPWVsKCdnJyx7fSxzMSk7CmVsKCdjaXJjbGUnLHtjeDo0MCxjeToxOTAscjpVLGZpbGw6JyMzQjc4QzQnLHN0cm9rZTonI2ZmZicsJ3N0cm9rZS1kYXNoYXJyYXknOiczIDMnLCdzdHJva2Utd2lkdGgnOjEuMn0sY21wRyk7CmVsKCd0ZXh0Jyx7eDo0MCx5OjE5MCtVKzI4LCd0ZXh0LWFuY2hvcic6J21pZGRsZScsZmlsbDonI2ZmZicsJ2ZvbnQtc2l6ZSc6MjF9LGNtcEcpLnRleHRDb250ZW50PSfsp4DqtawnOwplbCgndGV4dCcse3g6NDAseToxOTArVSs1MiwndGV4dC1hbmNob3InOidtaWRkbGUnLGZpbGw6JyNDQ0NDQ0MnLCdmb250LXNpemUnOjE3fSxjbXBHKS50ZXh0Q29udGVudD0n67CY7KeA66aEIDEnOwpjb25zdCBwbEc9ZWwoJ2cnLHt9LHMxKTsKY29uc3QgbGJsTj1lbCgndGV4dCcse3g6MzYwLHk6MzQsJ3RleHQtYW5jaG9yJzonbWlkZGxlJyxmaWxsOicjZmZmJywnZm9udC1zaXplJzoyNywnZm9udC13ZWlnaHQnOjYwMH0sczEpOwpjb25zdCBsYmxSPWVsKCd0ZXh0Jyx7eDozNjAseTozNjYsJ3RleHQtYW5jaG9yJzonbWlkZGxlJyxmaWxsOicjMjk5N0ZGJywnZm9udC1zaXplJzoyNSwnZm9udC13ZWlnaHQnOjYwMH0sczEpOwpkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnY21wJykub25jbGljaz1lPT57c2hvd0NtcD0hc2hvd0NtcDtlLmN1cnJlbnRUYXJnZXQuY2xhc3NMaXN0LnRvZ2dsZSgnb24nLHNob3dDbXApO2NtcEcuc3R5bGUuZGlzcGxheT1zaG93Q21wPycnOidub25lJzt9OwpsZXQgYTE9bnVsbDsKZnVuY3Rpb24gcGljayhrKXsKICBjb25zdCBwPVAuZmluZCh4PT54Lms9PT1rKTtpZighcClyZXR1cm47CiAgcGxpc3QucXVlcnlTZWxlY3RvckFsbCgnYnV0dG9uJykuZm9yRWFjaChiPT5iLmNsYXNzTGlzdC50b2dnbGUoJ29uJyxiLmRhdGFzZXQuaz09PWspKTsKICBjb25zdCBmcm9tPWN1clI9PW51bGw/MDpjdXJSO3NlbD1wOwogIHBsRy5pbm5lckhUTUw9Jyc7Y29uc3QgZz1lbCgnZycse30scGxHKTtkcmF3UGxhbmV0KGcscCwrK3VpZCk7CiAgbGJsTi50ZXh0Q29udGVudD1wLm47bGJsUi50ZXh0Q29udGVudD0nJzsKICBjYXJkLmNsYXNzTGlzdC5hZGQoJ2ZhZGUnKTtmaWxsQ2FyZChwKTsKICBpZihhMSlhbmltcy5kZWxldGUoYTEpOwogIGExPWFuaW0oMTQwMCx0PT57Y3VyUj1mcm9tKyhwLnItZnJvbSkqdDtjb25zdCBSPU1hdGgubWF4KGN1clIqVSwwLjAxKTtnLnNldEF0dHJpYnV0ZSgndHJhbnNmb3JtJyxgdHJhbnNsYXRlKDM2MCwxOTApIHNjYWxlKCR7Ui8xMDB9KWApO30sCiAgICAoKT0+e2xibFIudGV4dENvbnRlbnQ9J+uwmOyngOumhDog7KeA6rWs7J2YIOyVvSAnK2ZtdChwLnIpKyfrsLAnO2NhcmQuY2xhc3NMaXN0LnJlbW92ZSgnZmFkZScpO30pOwp9CmZ1bmN0aW9uIGZpbGxDYXJkKHApewogIGNvbnN0IGljPWA8c3ZnIHZpZXdCb3g9Ii0yMzAgLTExMCA0NjAgMjIwIj48ZyBpZD0iaWMiPjwvZz48L3N2Zz5gOwogIGNhcmQuaW5uZXJIVE1MPWA8aDM+JHtpY308c3Bhbj4ke3Aubn08L3NwYW4+PC9oMz48ZGw+CiAgIDxkdD7rsJjsp4DrpoQ8L2R0PjxkZD4ke3Aua20/cC5rbSsnIDxzbWFsbD4o7KeA6rWsID0gMSk8L3NtYWxsPic6J+yngOq1rOydmCDslb0gJytmbXQocC5yKSsn67CwJ308L2RkPgogICA8ZHQ+7KeI65+JPC9kdD48ZGQ+JHtwLmtnP3Aua2crJyA8c21hbGw+KOyngOq1rCA9IDEpPC9zbWFsbD4nOifsp4DqtazsnZgg7JW9ICcrZm10KHAubSkrJ+uwsCd9PC9kZD4KICAgPGR0PuqzoOumrDwvZHQ+PGRkPiR7cC5yaW5nPyfsnojsnYwnOifsl4bsnYwnfTwvZGQ+CiAgIDxkdD7snITshLE8L2R0PjxkZD4ke3AubW9vbn3qsJwgPHNtYWxsPjIwMjPrhYQg6riw7KSAPC9zbWFsbD48L2RkPgogICA8ZHQ+7ZGc66m0IOyDge2DnDwvZHQ+PGRkPiR7cC5nYXM/J+q4sOyytCc6J+2dmSwg7JWU7ISdJ308L2RkPjwvZGw+YDsKICBkcmF3UGxhbmV0KGNhcmQucXVlcnlTZWxlY3RvcignI2ljJykscCwrK3VpZCk7Cn0KCi8qIC0tLS0tLS0tLS0gMi4g66eJ64yA6re4656Y7ZSEIC0tLS0tLS0tLS0gKi8KY29uc3QgczI9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3MyJyksdGJsPWRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCd0YmwnKSxncnA9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ2dyb3VwcycpOwpsZXQgbWV0cmljPWluaXQubWV0cmljPT09J21hc3MnPydtYXNzJzoncmFkaXVzJyx6b29tPWZhbHNlLHNob3duPXtyYWRpdXM6e30sbWFzczp7fX0seW1heEN1cj0xMixiYXJBbmltPXt9LHBsYXlBbGw9bnVsbDsKY29uc3QgWDA9ODIsWDE9NjMyLFkwPTMxMixZMT0yNixDVz0oWDEtWDApLzgsQlc9MzQ7CmZ1bmN0aW9uIGF4aXMoKXtyZXR1cm4gbWV0cmljPT09J3JhZGl1cyc/e21heDoxMixzdGVwOjIsbmFtZTon67CY7KeA66aEICjsp4DqtawgPSAxKSd9Onpvb20/e21heDoxLjIsc3RlcDowLjIsbmFtZTon7KeI65+JICjsp4DqtawgPSAxKSd9OnttYXg6MzUwLHN0ZXA6NTAsbmFtZTon7KeI65+JICjsp4DqtawgPSAxKSd9O30KZnVuY3Rpb24gdHJ1ZVYocCl7cmV0dXJuIG1ldHJpYz09PSdyYWRpdXMnP3AucjpwLm07fQpmdW5jdGlvbiBvayhwKXtjb25zdCB2PXBhcnNlRmxvYXQoc3RbbWV0cmljXVtwLmtdKTtpZighaXNGaW5pdGUodikpcmV0dXJuIGZhbHNlO2NvbnN0IHQ9dHJ1ZVYocCk7cmV0dXJuIE1hdGguYWJzKHYtdCk8PU1hdGgubWF4KHQqMC4wMywwLjAxMSk7fQpmdW5jdGlvbiBidWlsZFRibCgpewogIHRibC5pbm5lckhUTUw9YDxkaXYgY2xhc3M9ImgiPjxzcGFuPu2WieyEsTwvc3Bhbj48c3Bhbj4ke21ldHJpYz09PSdyYWRpdXMnPyfrsJjsp4DrpoQo67CwKSc6J+yniOufiSjrsLApJ308L3NwYW4+PC9kaXY+YDsKICBQLmZvckVhY2gocD0+e2NvbnN0IGw9ZG9jdW1lbnQuY3JlYXRlRWxlbWVudCgnbGFiZWwnKTtsLmlubmVySFRNTD1gPGI+JHtwLm59PC9iPjxpbnB1dCBpbnB1dG1vZGU9ImRlY2ltYWwiIGF1dG9jb21wbGV0ZT0ib2ZmIiBhcmlhLWxhYmVsPSIke3Aubn0iPjxpPjwvaT5gOwogICAgY29uc3QgaW5wPWwucXVlcnlTZWxlY3RvcignaW5wdXQnKTtpbnAudmFsdWU9c3RbbWV0cmljXVtwLmtdfHwnJztsLnF1ZXJ5U2VsZWN0b3IoJ2knKS50ZXh0Q29udGVudD1vayhwKT8n4pyTJzonJzsKICAgIGlucC5hZGRFdmVudExpc3RlbmVyKCdpbnB1dCcsKCk9PntzdFttZXRyaWNdW3Aua109aW5wLnZhbHVlLnRyaW0oKTtzYXZlKCk7bC5xdWVyeVNlbGVjdG9yKCdpJykudGV4dENvbnRlbnQ9b2socCk/J+Kckyc6Jyc7Z3Jvd0JhcihwKTt9KTsKICAgIHRibC5hcHBlbmRDaGlsZChsKTt9KTsKfQpmdW5jdGlvbiBidWlsZEdyb3VwcygpewogIGdycC5xdWVyeVNlbGVjdG9yQWxsKCdidXR0b24nKS5mb3JFYWNoKGI9PmIucmVtb3ZlKCkpOwogIFAuZm9yRWFjaChwPT57Y29uc3QgYj1kb2N1bWVudC5jcmVhdGVFbGVtZW50KCdidXR0b24nKTtiLmRhdGFzZXQuaz1wLms7Yi5vbmNsaWNrPSgpPT57Y29uc3QgZz1zdC5ncm91cHNbcC5rXTtzdC5ncm91cHNbcC5rXT1nPT09J+qwgCc/J+uCmCc6Zz09PSfrgpgnPycnOifqsIAnO3NhdmUoKTtwYWludEdyb3VwcygpO2RyYXdDaGFydCgpO307Z3JwLmFwcGVuZENoaWxkKGIpO30pOwogIHBhaW50R3JvdXBzKCk7Cn0KZnVuY3Rpb24gcGFpbnRHcm91cHMoKXtncnAucXVlcnlTZWxlY3RvckFsbCgnYnV0dG9uJykuZm9yRWFjaChiPT57Y29uc3QgZz1zdC5ncm91cHNbYi5kYXRhc2V0LmtdfHwnJztjb25zdCBwPVAuZmluZCh4PT54Lms9PT1iLmRhdGFzZXQuayk7Yi50ZXh0Q29udGVudD1wLm4rKGc/JyAoJytnKycpJzonJyk7Yi5jbGFzc05hbWU9Zz09PSfqsIAnPydnYSc6Zz09PSfrgpgnPydnYic6Jyc7fSk7fQpmdW5jdGlvbiB2YWwocCl7Y29uc3Qgdj1wYXJzZUZsb2F0KHN0W21ldHJpY11bcC5rXSk7cmV0dXJuIGlzRmluaXRlKHYpJiZ2Pj0wP3Y6MDt9CmZ1bmN0aW9uIGRyYXdDaGFydCgpewogIGNvbnN0IGF4PWF4aXMoKTtzMi5pbm5lckhUTUw9Jyc7Y29uc3QgeW09eW1heEN1cjtjb25zdCBZPXY9PlkwLShNYXRoLm1pbih2LHltKS95bSkqKFkwLVkxKTsKICBQLmZvckVhY2goKHAsaSk9Pntjb25zdCBnPXN0Lmdyb3Vwc1twLmtdO2lmKCFnKXJldHVybjtlbCgncmVjdCcse3g6WDAraSpDVyszLHk6WTEtNix3aWR0aDpDVy02LGhlaWdodDpZMC1ZMSs1NixyeDo4LGZpbGw6Zz09PSfqsIAnPycjRTZGMEZBJzonI0VDRUNFRScsc3Ryb2tlOmc9PT0n6rCAJz8nIzAwNjZDQyc6JyM4RThFOTMnLCdzdHJva2UtZGFzaGFycmF5JzonNSA0J30sczIpOwogICAgZWwoJ3RleHQnLHt4OlgwK2kqQ1crQ1cvMix5OlkwKzUyLCd0ZXh0LWFuY2hvcic6J21pZGRsZScsJ2ZvbnQtc2l6ZSc6MTgsJ2ZvbnQtd2VpZ2h0Jzo2MDAsZmlsbDpnPT09J+qwgCc/JyMwMDY2Q0MnOicjNjM2MzY2J30sczIpLnRleHRDb250ZW50PScoJytnKycpJzt9KTsKICBjb25zdCBuPU1hdGgucm91bmQoYXgubWF4L2F4LnN0ZXApOwogIGZvcihsZXQgaT0wO2k8PW47aSsrKXtjb25zdCB2PWkqYXguc3RlcCx5PVkodik7aWYoeTxZMS0xKWJyZWFrO2VsKCdsaW5lJyx7eDE6WDAseDI6WDEseTE6eSx5Mjp5LHN0cm9rZTppPycjRTBFMEUwJzonIzFEMUQxRid9LHMyKTsKICAgIGVsKCd0ZXh0Jyx7eDpYMC04LHk6eSs1LCd0ZXh0LWFuY2hvcic6J2VuZCcsJ2ZvbnQtc2l6ZSc6MTksZmlsbDonIzdBN0E3QSd9LHMyKS50ZXh0Q29udGVudD0rdi50b0ZpeGVkKDEpO30KICBlbCgnbGluZScse3gxOlgwLHgyOlgwLHkxOlkxLTQseTI6WTAsc3Ryb2tlOicjMUQxRDFGJ30sczIpOwogIGNvbnN0IHQ9ZWwoJ3RleHQnLHt4OjE4LHk6KFkwK1kxKS8yLCd0ZXh0LWFuY2hvcic6J21pZGRsZScsJ2ZvbnQtc2l6ZSc6MTgsZmlsbDonIzFEMUQxRicsdHJhbnNmb3JtOmByb3RhdGUoLTkwIDE4ICR7KFkwK1kxKS8yfSlgfSxzMik7dC50ZXh0Q29udGVudD1heC5uYW1lOwogIFAuZm9yRWFjaCgocCxpKT0+e2NvbnN0IGN4PVgwK2kqQ1crQ1cvMjtjb25zdCB2PXNob3duW21ldHJpY11bcC5rXXx8MDtjb25zdCB5PVkodik7CiAgICBpZih2PjApZWwoJ3JlY3QnLHt4OmN4LUJXLzIseTp5LHdpZHRoOkJXLGhlaWdodDpZMC15LGZpbGw6b2socCk/JyMwMDY2Q0MnOicjQjhCOEJEJ30sczIpOwogICAgaWYodj55bSl7ZWwoJ3BhdGgnLHtkOmBNJHtjeC1CVy8yLTN9LCR7WTErOH0gbCR7QlcvMysxfSwtNiBsJHtCVy8zKzF9LDYgbCR7QlcvMysxfSwtNmAsZmlsbDonbm9uZScsc3Ryb2tlOicjZmZmJywnc3Ryb2tlLXdpZHRoJzo0fSxzMik7fQogICAgY29uc3Qgc3Y9c3RbbWV0cmljXVtwLmtdO2lmKHY+MCYmc3YmJk1hdGguYWJzKHYtdmFsKHApKTwxZS05KWVsKCd0ZXh0Jyx7eDpjeCx5Ok1hdGgubWF4KHktNixZMSsodj55bT8yNDo0KSksJ3RleHQtYW5jaG9yJzonbWlkZGxlJywnZm9udC1zaXplJzoxOSwnZm9udC13ZWlnaHQnOjYwMCxmaWxsOnY+eW0/JyNmZmYnOicjMUQxRDFGJ30sczIpLnRleHRDb250ZW50PXN2OwogICAgZWwoJ3RleHQnLHt4OmN4LHk6WTArMjYsJ3RleHQtYW5jaG9yJzonbWlkZGxlJywnZm9udC1zaXplJzoxOSxmaWxsOicjMUQxRDFGJ30sczIpLnRleHRDb250ZW50PXAubjt9KTsKfQpmdW5jdGlvbiBncm93QmFyKHApewogIGNvbnN0IHRhcmdldD12YWwocCksZnJvbT1zaG93blttZXRyaWNdW3Aua118fDAsbT1tZXRyaWM7CiAgaWYoYmFyQW5pbVtwLmtdKWFuaW1zLmRlbGV0ZShiYXJBbmltW3Aua10pOwogIGJhckFuaW1bcC5rXT1hbmltKDkwMCx0PT57c2hvd25bbV1bcC5rXT1mcm9tKyh0YXJnZXQtZnJvbSkqdDtpZihtPT09bWV0cmljKWRyYXdDaGFydCgpO30pOwp9CmZ1bmN0aW9uIHNldE1ldHJpYyhtKXttZXRyaWM9bTtkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCdbZGF0YS1tXScpLmZvckVhY2goYj0+Yi5jbGFzc0xpc3QudG9nZ2xlKCdvbicsYi5kYXRhc2V0Lm09PT1tKSk7CiAgZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3pvb20nKS5zdHlsZS5kaXNwbGF5PW09PT0nbWFzcyc/Jyc6J25vbmUnO2lmKG0hPT0nbWFzcycpem9vbT1mYWxzZTtkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgnem9vbScpLmNsYXNzTGlzdC50b2dnbGUoJ29uJyx6b29tKTsKICB5bWF4Q3VyPWF4aXMoKS5tYXg7UC5mb3JFYWNoKHA9PntpZihzaG93blttXVtwLmtdPT1udWxsKXNob3duW21dW3Aua109dmFsKHApO30pO2J1aWxkVGJsKCk7ZHJhd0NoYXJ0KCk7fQpkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCdbZGF0YS1tXScpLmZvckVhY2goYj0+Yi5vbmNsaWNrPSgpPT5zZXRNZXRyaWMoYi5kYXRhc2V0Lm0pKTsKZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3pvb20nKS5vbmNsaWNrPWU9Pnt6b29tPSF6b29tO2UuY3VycmVudFRhcmdldC5jbGFzc0xpc3QudG9nZ2xlKCdvbicsem9vbSk7Y29uc3QgYT15bWF4Q3VyLGI9YXhpcygpLm1heDsKICBhbmltKDEzMDAsdD0+e3ltYXhDdXI9TWF0aC5leHAoTWF0aC5sb2coYSkrKE1hdGgubG9nKGIpLU1hdGgubG9nKGEpKSp0KTtkcmF3Q2hhcnQoKTt9KTt9Owpjb25zdCBwYXVzZUI9ZG9jdW1lbnQuZ2V0RWxlbWVudEJ5SWQoJ3BhdXNlJyk7CmRvY3VtZW50LmdldEVsZW1lbnRCeUlkKCdyZXBsYXknKS5vbmNsaWNrPSgpPT57CiAgaWYocGxheUFsbClwbGF5QWxsLmZvckVhY2goYT0+YW5pbXMuZGVsZXRlKGEpKTtPYmplY3QudmFsdWVzKGJhckFuaW0pLmZvckVhY2goYT0+YW5pbXMuZGVsZXRlKGEpKTsKICBjb25zdCBtPW1ldHJpYztQLmZvckVhY2gocD0+c2hvd25bbV1bcC5rXT0wKTtkcmF3Q2hhcnQoKTtwbGF5QWxsPVtdO3BhdXNlQi50ZXh0Q29udGVudD0n7J287Iuc7KCV7KeAJzsKICBsZXQgaT0wO2NvbnN0IG5leHQ9KCk9PntpZihpPj1QLmxlbmd0aCl7cGxheUFsbD1udWxsO3JldHVybjt9Y29uc3QgcD1QW2krK107Y29uc3QgdHY9dmFsKHApOwogICAgY29uc3QgYT1hbmltKDcwMCx0PT57c2hvd25bbV1bcC5rXT10dip0O2lmKG09PT1tZXRyaWMpZHJhd0NoYXJ0KCk7fSxuZXh0KTtwbGF5QWxsLnB1c2goYSk7fTtuZXh0KCk7fTsKcGF1c2VCLm9uY2xpY2s9KCk9Pntjb25zdCBsaXZlPVsuLi5hbmltc107Y29uc3QgcGF1c2VkPWxpdmUuc29tZShhPT5hLnBhdXNlZCk7CiAgaWYoIWxpdmUubGVuZ3RoKXJldHVybjtsaXZlLmZvckVhY2goYT0+YS5wYXVzZWQ9IXBhdXNlZCk7cGF1c2VCLnRleHRDb250ZW50PXBhdXNlZD8n7J287Iuc7KCV7KeAJzon64uk7IucIOyerOyDnSc7aWYocGF1c2VkKXJ1bigpO307CgovKiAtLS0tLS0tLS0tIOqzte2GtSAtLS0tLS0tLS0tICovCmZ1bmN0aW9uIHNldFRhYihuKXtkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCdbZGF0YS10YWJdJykuZm9yRWFjaChiPT5iLmNsYXNzTGlzdC50b2dnbGUoJ29uJywrYi5kYXRhc2V0LnRhYj09PW4pKTsKICBkb2N1bWVudC5nZXRFbGVtZW50QnlJZCgndjEnKS5jbGFzc0xpc3QudG9nZ2xlKCdvbicsbj09PTEpO2RvY3VtZW50LmdldEVsZW1lbnRCeUlkKCd2MicpLmNsYXNzTGlzdC50b2dnbGUoJ29uJyxuPT09Mik7fQpkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCdbZGF0YS10YWJdJykuZm9yRWFjaChiPT5iLm9uY2xpY2s9KCk9PnNldFRhYigrYi5kYXRhc2V0LnRhYikpOwpkb2N1bWVudC5xdWVyeVNlbGVjdG9yQWxsKCdbZGF0YS1zXScpLmZvckVhY2goYj0+Yi5vbmNsaWNrPSgpPT57c3BlZWQ9K2IuZGF0YXNldC5zO2RvY3VtZW50LnF1ZXJ5U2VsZWN0b3JBbGwoJ1tkYXRhLXNdJykuZm9yRWFjaCh4PT54LmNsYXNzTGlzdC50b2dnbGUoJ29uJyx4PT09YikpO30pOwpkb2N1bWVudC5xdWVyeVNlbGVjdG9yKCdbZGF0YS1zPSIwLjUiXScpLmNsYXNzTGlzdC5hZGQoJ29uJyk7CndpbmRvdy5hZGRFdmVudExpc3RlbmVyKCdzdG9yYWdlJyxlPT57aWYoZS5rZXkhPT1LRVkpcmV0dXJuO2xvYWQoKTtidWlsZFRibCgpO3BhaW50R3JvdXBzKCk7UC5mb3JFYWNoKHA9PntpZihNYXRoLmFicygoc2hvd25bbWV0cmljXVtwLmtdfHwwKS12YWwocCkpPjFlLTkpZ3Jvd0JhcihwKTt9KTtkcmF3Q2hhcnQoKTt9KTsKd2luZG93LmFkZEV2ZW50TGlzdGVuZXIoJ21lc3NhZ2UnLGU9Pntjb25zdCBkPWUuZGF0YXx8e307aWYoZC50eXBlPT09J2FjdGl2ZScpe2FjdGl2ZT0hIWQub247aWYoYWN0aXZlKXJ1bigpO319KTsKaWYod2luZG93LnBhcmVudCE9PXdpbmRvdylkb2N1bWVudC5hZGRFdmVudExpc3RlbmVyKCdrZXlkb3duJyxlPT57aWYoL0lOUFVUfFRFWFRBUkVBLy50ZXN0KGUudGFyZ2V0LnRhZ05hbWUpKXJldHVybjsKICBpZihbJ0Fycm93TGVmdCcsJ0Fycm93UmlnaHQnLCdQYWdlVXAnLCdQYWdlRG93bicsJyAnLCdIb21lJywnRW5kJywnYScsJ0EnLCdnJywnRycsJ2YnLCdGJ10uaW5jbHVkZXMoZS5rZXkpKXtlLnByZXZlbnREZWZhdWx0KCk7d2luZG93LnBhcmVudC5wb3N0TWVzc2FnZSh7dHlwZTonc2lta2V5JyxrZXk6ZS5rZXksc2hpZnQ6ZS5zaGlmdEtleX0sJyonKTt9fSk7CnNldFRhYihpbml0LnRhYj09PTI/MjoxKTtidWlsZEdyb3VwcygpO3NldE1ldHJpYyhtZXRyaWMpOwpjdXJSPTA7cGljayhpbml0LnBsYW5ldHx8J21lcmN1cnknKTsKfSkoKTsKPC9zY3JpcHQ+CjwvYm9keT4KPC9odG1sPgo=";
+(function(){
+const NS='http://www.w3.org/2000/svg';
+const stage=document.getElementById('stage');
+const slides=[...document.querySelectorAll('.slide')];
+const N=slides.length;
+const RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+let cur=0;
+
+/* 쪽 바닥 띠 */
+slides.forEach((s,i)=>{const f=document.createElement('div');f.className='foot';
+  f.innerHTML=`<span>Ⅶ. 태양계 · 1. 태양계의 구성 / 02 행성의 분류</span><span class="nav"><button data-go="-1" aria-label="이전 쪽">◀</button><span>${i+1} / ${N}</span><button data-go="1" aria-label="다음 쪽">▶</button></span><span>${s.dataset.step}</span>`;
+  s.appendChild(f);});
+document.addEventListener('click',e=>{const b=e.target.closest('[data-go]');if(b)step(+b.dataset.go);});
+
+function fit(){const s=Math.min(innerWidth/1280,innerHeight/720);stage.style.transform=`translate(${(innerWidth-1280*s)/2}px,${(innerHeight-720*s)/2}px) scale(${s})`;}
+addEventListener('resize',fit);fit();
+
+/* 답 보기 (A) */
+const ANS='.bl, .choice span.right, .ans, .ineq-row .sym';
+function reveal(){const a=[...slides[cur].querySelectorAll(ANS)].find(x=>!x.classList.contains('show'));if(a)a.classList.add('show');return !!a;}
+function hideAll(){slides[cur].querySelectorAll(ANS).forEach(x=>x.classList.remove('show'));}
+document.addEventListener('click',e=>{const c=e.target.closest('.choice');if(c){const r=c.querySelector('.right');if(r)r.classList.toggle('show');return;}
+  const a=e.target.closest('.bl, .ans, .ineq-row .sym');if(a)a.classList.toggle('show');});
+
+/* 시뮬레이션 (쪽에 들어갈 때 불러옴) */
+let SIM='';
+function simSrc(init){if(!SIM){const bin=atob(window.SIM_B64||'');const u=new Uint8Array(bin.length);for(let i=0;i<bin.length;i++)u[i]=bin.charCodeAt(i);SIM=new TextDecoder().decode(u);}
+  return SIM.replace('<head>','<head><script>window.SIM_INIT='+init+'<\/script>');}
+function sims(on){slides.forEach((s,i)=>s.querySelectorAll('.simwrap').forEach(w=>{
+  if(i===cur&&!w.firstChild){const f=document.createElement('iframe');f.title='태양계 행성 자료 탐색기';f.srcdoc=simSrc(w.dataset.init);w.appendChild(f);}
+  const f=w.querySelector('iframe');if(f&&f.contentWindow)f.contentWindow.postMessage({type:'active',on:i===cur},'*');}));}
+addEventListener('message',e=>{const d=e.data||{};if(d.type==='simkey')key({key:d.key,shiftKey:d.shift,preventDefault(){}});});
+
+/* ---------- 움직임 엔진 ---------- */
+const motions={};let raf=0,last=0;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const cl=t=>t<0?0:t>1?1:t;
+const seg=(t,a,b)=>ease(cl((t-a)/(b-a)));
+const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
+function T(p,x,y,str,a){const e=el('text',Object.assign({x,y,'font-size':18,fill:'#1D1D1F'},a||{}),p);e.textContent=str;return e;}
+function makeMotion(id,vb,steps,build){
+  const box=document.getElementById(id);
+  const svg=el('svg',{viewBox:vb,role:'img'},box);
+  const bar=document.createElement('div');bar.className='mc';
+  bar.innerHTML=`<span class="sg"><button data-s="0.6" class="on">느리게</button><button data-s="1">보통</button><button data-s="1.8">빠르게</button></span>
+   <span class="sg"><button data-a="prev">◀ 이전 단계</button><button data-a="play">재생</button><button data-a="next">다음 단계 ▶</button><button data-a="reset">처음부터</button></span><span class="st"></span>`;
+  box.appendChild(bar);
+  const m={p:0,target:0,playing:false,speed:0.6,steps,svg,bar,N:steps.length};
+  m.render=build(svg);
+  bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;
+    if(b.dataset.s){m.speed=+b.dataset.s;bar.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x===b));return;}
+    ({prev:()=>prev(m),next:()=>next(m),play:()=>toggle(m),reset:()=>{m.playing=false;m.p=m.target=0;draw(m);}})[b.dataset.a]();});
+  motions[id]=m;draw(m);return m;}
+function draw(m){m.render(m.p);m.bar.querySelector('.st').textContent=`${Math.min(m.N,Math.floor(m.p+1e-6))} / ${m.N}단계`;
+  m.bar.querySelector('[data-a="play"]').textContent=m.playing?'일시정지':(m.p>=m.N?'다시 재생':'재생');}
+function play(m){m.playing=true;if(RED){m.p=m.target;m.playing=false;draw(m);return;}if(!raf){last=0;raf=requestAnimationFrame(loop);}draw(m);}
+function next(m){if(m.p<m.target){m.p=m.target;m.playing=false;draw(m);return;}if(m.p<m.N){m.target=Math.floor(m.p+1e-6)+1;play(m);}}
+function prev(m){m.playing=false;m.p=m.target=Math.max(0,Math.ceil(m.p-1e-6)-1);draw(m);}
+function toggle(m){if(m.playing){m.playing=false;draw(m);return;}if(m.p>=m.N){m.p=0;}m.target=m.N;play(m);}
+function curMotion(){const b=slides[cur].querySelector('.motion');return b?motions[b.id]:null;}
+function loop(now){const m=curMotion();if(!m||!m.playing){raf=0;return;}
+  const dt=last?Math.min(50,now-last):16;last=now;
+  const i=Math.min(Math.floor(m.p),m.N-1);m.p+=dt*m.speed/m.steps[i];
+  if(m.p>=m.target){m.p=m.target;m.playing=false;}
+  draw(m);raf=m.playing?requestAnimationFrame(loop):0;}
+
+/* 탐사선 */
+function probe(p){const g=el('g',{},p);
+  el('rect',{x:-26,y:-6,width:12,height:5,fill:'#5B8FD6'},g);el('rect',{x:14,y:-6,width:12,height:5,fill:'#5B8FD6'},g);
+  el('path',{d:'M-14,8 L-22,24 M14,8 L22,24 M-26,24 h8 M18,24 h8',stroke:'#E6E6EA','stroke-width':3,fill:'none'},g);
+  el('rect',{x:-14,y:-12,width:28,height:22,rx:5,fill:'#E6E6EA'},g);el('circle',{cx:0,cy:-1,r:6,fill:'#2997FF'},g);return g;}
+
+/* ---------- 2쪽: 착륙 비교 ---------- */
+makeMotion('m2','0 0 600 300',[1800,2600],svg=>{
+  el('rect',{x:0,y:0,width:292,height:300,rx:14,fill:'#0F1420'},svg);el('rect',{x:308,y:0,width:292,height:300,rx:14,fill:'#0F1420'},svg);
+  for(let i=0;i<40;i++)el('circle',{cx:(i*53)%600,cy:(i*37)%200,r:1,fill:'#fff',opacity:.5},svg);
+  T(svg,16,28,'지구·달',{fill:'#fff','font-size':18,'font-weight':600});T(svg,324,28,'그림 속 행성',{fill:'#fff','font-size':18,'font-weight':600});
+  el('path',{d:'M0,236 l30,-6 l25,4 l30,-8 l40,6 l35,-5 l30,7 l40,-4 l30,5 l32,-3 V300 H0z',fill:'#8B6A4F'},svg);
+  el('path',{d:'M0,262 l60,-4 l50,5 l70,-6 l60,5 l52,-2 V300 H0z',fill:'#6E523C'},svg);
+  [[40,250,8],[150,268,10],[230,252,7]].forEach(([x,y,r])=>el('ellipse',{cx:x,cy:y,rx:r,ry:r*.5,fill:'#5A4231'},svg));
+  el('rect',{x:308,y:205,width:292,height:95,fill:'#C9A27E'},svg);
+  const L=probe(svg),R=probe(svg);
+  const front=el('g',{},svg);
+  el('path',{d:'M308,232 q30,-14 60,0 t60,0 t60,0 t60,0 t52,0 V300 H308z',fill:'#E3C9A5',opacity:.78},front);
+  el('path',{d:'M308,262 q36,-12 72,0 t72,0 t72,0 t76,0 V300 H308z',fill:'#B88D67',opacity:.82},front);
+  const bub=el('g',{},svg);el('rect',{x:360,y:52,width:226,height:40,rx:20,fill:'#fff'},bub);T(bub,473,78,'착륙할 땅을 못 찾겠어요.',{'text-anchor':'middle','font-size':17});
+  const l1=T(svg,146,292,'단단한 땅 있음',{'text-anchor':'middle',fill:'#fff','font-size':19,'font-weight':600});
+  const l2=T(svg,454,292,'단단한 땅 없음 — 기체',{'text-anchor':'middle',fill:'#1D1D1F','font-size':19,'font-weight':600});
+  return p=>{const a=cl(p),b=cl(p-1);
+    const y0=40+150*seg(a,0,1);
+    const yl=y0+(212-190)*seg(b,0,.45);const yr=y0+72*seg(b,0,.8);
+    L.setAttribute('transform',`translate(146,${yl})`);R.setAttribute('transform',`translate(454,${yr})`);
+    R.setAttribute('opacity',1-.4*cl((yr-215)/40));
+    bub.setAttribute('opacity',seg(b,.55,.75));l1.setAttribute('opacity',seg(b,.8,1));l2.setAttribute('opacity',seg(b,.8,1));};
+});
+
+/* ---------- 5쪽: 지구를 1로 두기 ---------- */
+makeMotion('m5','0 0 600 330',[1600,2400,3600],svg=>{
+  const x0=24,U=48,Ye=58,Ym=146,Yj=244,H=24;
+  el('rect',{x:0,y:0,width:600,height:330,rx:14,fill:'#F5F5F7'},svg);
+  T(svg,x0,Ye-10,'지구',{'font-size':18,'font-weight':600});T(svg,x0,Ym-10,'수성',{'font-size':18,'font-weight':600});
+  const jn=T(svg,x0,Yj-10,'목성',{'font-size':18,'font-weight':600});
+  const be=el('rect',{x:x0,y:Ye,height:H,fill:'#0066CC'},svg),bm=el('rect',{x:x0,y:Ym,height:H,fill:'#8E8E93'},svg);
+  const ke=T(svg,x0+U+10,Ye+19,'6371 km',{'font-size':18}),km=T(svg,x0+.38*U+10,Ym+19,'2400 km',{'font-size':18});
+  const one=T(svg,x0+U+10,Ye+19,'= 1 (기준)',{'font-size':19,'font-weight':600,fill:'#0066CC'});
+  const ruler=el('rect',{x:x0,width:U,height:H,fill:'none',stroke:'#0066CC','stroke-width':3,'stroke-dasharray':'5 3'},svg);
+  const rm=T(svg,x0+U+10,Ym+19,'2400 ÷ 6371 ≈ 0.38배',{'font-size':19,'font-weight':600,fill:'#0066CC'});
+  const jo=el('rect',{x:x0,y:Yj,width:11.2*U,height:H,fill:'none',stroke:'#8E8E93','stroke-width':1.5},svg);
+  const units=[];for(let k=0;k<12;k++){const w=k<11?U:.2*U;units.push(el('rect',{x:x0+k*U+1,y:Yj+2,width:w-2,height:H-4,fill:'#0066CC',opacity:0},svg));}
+  const nums=[];for(let k=0;k<11;k++){nums.push(T(svg,x0+k*U+U/2,Yj+H+20,String(k+1),{'text-anchor':'middle','font-size':14,fill:'#7A7A7A',opacity:0}));}
+  const rj=T(svg,x0+11.2*U,Yj+H+46,'지구 반지름 11개와 0.2개 → 지구의 약 11.2배',{'text-anchor':'end','font-size':19,'font-weight':600,fill:'#0066CC'});
+  return p=>{const a=cl(p),b=cl(p-1),c=cl(p-2);
+    be.setAttribute('width',U*seg(a,0,.6));bm.setAttribute('width',.38*U*seg(a,0,.6));
+    ke.setAttribute('opacity',seg(a,.6,1)*(1-seg(b,0,.2)));km.setAttribute('opacity',seg(a,.6,1)*(1-seg(b,.6,.75)));
+    one.setAttribute('opacity',seg(b,0,.25));
+    ruler.setAttribute('opacity',b>0?1:0);ruler.setAttribute('y',Ye+(Ym-Ye)*seg(b,.15,.6));
+    rm.setAttribute('opacity',seg(b,.7,1));
+    jn.setAttribute('opacity',c>0?1:0);jo.setAttribute('opacity',seg(c,0,.08));
+    units.forEach((u,k)=>u.setAttribute('opacity',.85*seg(c,.08+k*.065,.08+k*.065+.05)));
+    nums.forEach((u,k)=>u.setAttribute('opacity',seg(c,.08+k*.065,.08+k*.065+.05)));
+    rj.setAttribute('opacity',seg(c,.9,1));};
+});
+
+/* ---------- 8쪽: 눈금 비교 ---------- */
+makeMotion('m8','0 0 1164 236',[3200,2600,2400],svg=>{
+  const vals=[['수성',.38],['화성',.53],['지구',1],['목성',11.2]];
+  el('rect',{x:0,y:0,width:570,height:236,rx:14,fill:'#F5F5F7'},svg);el('rect',{x:594,y:0,width:570,height:236,rx:14,fill:'#F5F5F7'},svg);
+  T(svg,20,30,'측정값을 눈금에 그대로 적기',{'font-size':20,'font-weight':600});T(svg,614,30,'한 칸 값을 일정하게 정하기',{'font-size':20,'font-weight':600});
+  // 왼쪽
+  const L={x0:90,base:206,step:36};
+  el('line',{x1:L.x0,x2:540,y1:L.base,y2:L.base,stroke:'#1D1D1F'},svg);el('line',{x1:L.x0,x2:L.x0,y1:50,y2:L.base,stroke:'#1D1D1F'},svg);
+  T(svg,L.x0-10,L.base+6,'0',{'text-anchor':'end','font-size':16,fill:'#7A7A7A'});
+  const lt=[],lb=[],ln=[];
+  vals.forEach(([n,v],k)=>{const y=L.base-(k+1)*L.step;lt.push([el('line',{x1:L.x0,x2:540,y1:y,y2:y,stroke:'#D1D1D6'},svg),T(svg,L.x0-10,y+6,String(v),{'text-anchor':'end','font-size':16,fill:'#1D1D1F'})]);
+    const cx=L.x0+60+k*110;lb.push(el('rect',{x:cx-20,width:40,fill:'#8E8E93'},svg));ln.push(T(svg,cx,L.base+22,n,{'text-anchor':'middle','font-size':16}));});
+  const br=el('g',{},svg);
+  el('path',{d:`M${L.x0+60+2*110+30},${L.base-3*L.step} h20 M${L.x0+60+3*110-30},${L.base-4*L.step} h-20`,stroke:'#1D1D1F','stroke-width':2},br);
+  el('line',{x1:L.x0+60+2*110+50,x2:L.x0+60+2*110+50,y1:L.base-3*L.step,y2:L.base-4*L.step,stroke:'#1D1D1F','stroke-width':2},br);
+  T(br,L.x0+60+2*110+18,L.base-3.55*L.step+6,'1 → 11.2도 한 칸',{'font-size':16,'text-anchor':'end'});
+  const xm=T(svg,540,34,'✕',{'text-anchor':'end','font-size':30,'font-weight':600,fill:'#1D1D1F'});
+  // 오른쪽
+  const R={x0:684,base:206,h:150};
+  el('line',{x1:R.x0,x2:1134,y1:R.base,y2:R.base,stroke:'#1D1D1F'},svg);el('line',{x1:R.x0,x2:R.x0,y1:50,y2:R.base,stroke:'#1D1D1F'},svg);
+  const fm=T(svg,1134,30,'11.2 ÷ 6칸 ≈ 1.87 → 한 칸 2',{'text-anchor':'end','font-size':18,'font-weight':600,fill:'#0066CC'});
+  const rt=[];for(let k=0;k<=6;k++){const y=R.base-k*R.h/6;rt.push([k?el('line',{x1:R.x0,x2:1134,y1:y,y2:y,stroke:'#D1D1D6'},svg):null,T(svg,R.x0-10,y+6,String(k*2),{'text-anchor':'end','font-size':16})]);}
+  const rb=[],rv=[];vals.forEach(([n,v],k)=>{const cx=R.x0+60+k*110;rb.push(el('rect',{x:cx-20,width:40,fill:'#0066CC'},svg));rv.push(T(svg,cx,0,String(v),{'text-anchor':'middle','font-size':15,'font-weight':600}));T(svg,cx,R.base+22,n,{'text-anchor':'middle','font-size':16});});
+  const om=T(svg,1134,64,'○',{'text-anchor':'end','font-size':30,'font-weight':600,fill:'#0066CC'});
+  return p=>{const a=cl(p),b=cl(p-1),c=cl(p-2);
+    vals.forEach((_,k)=>{const t=seg(a,k*.18,k*.18+.16);lt[k].forEach(e=>e.setAttribute('opacity',t));const h=(k+1)*L.step*t;lb[k].setAttribute('y',L.base-h);lb[k].setAttribute('height',h);});
+    br.setAttribute('opacity',seg(a,.78,.9));xm.setAttribute('opacity',seg(a,.9,1));
+    fm.setAttribute('opacity',seg(b,0,.3));rt.forEach(([l,t],k)=>{const o=seg(b,.3+k*.1,.38+k*.1);if(l)l.setAttribute('opacity',o);t.setAttribute('opacity',o);});
+    vals.forEach(([n,v],k)=>{const t=seg(c,k*.15,k*.15+.35);const h=v/12*R.h*t;rb[k].setAttribute('y',R.base-h);rb[k].setAttribute('height',h);rv[k].setAttribute('y',R.base-h-6);rv[k].setAttribute('opacity',seg(c,k*.15+.3,k*.15+.4));});
+    om.setAttribute('opacity',seg(c,.85,1));};
+});
+
+/* ---------- 11쪽: 두 집단 ---------- */
+const PL=[['수성',.38,.06,0],['금성',.95,.82,0],['지구',1,1,1],['화성',.53,.11,2],['목성',11.2,318,95],['토성',9.4,95,146],['천왕성',4,14.5,27],['해왕성',3.9,17,14]];
+makeMotion('m11','0 0 520 470',[2400,3600],svg=>{
+  const cx=i=>i<4?96+i*50:316+(i-4)*50;
+  el('rect',{x:0,y:0,width:520,height:470,rx:14,fill:'#F5F5F7'},svg);
+  const ga=el('rect',{x:68,y:30,width:206,height:432,rx:12,fill:'#E6F0FA',stroke:'#0066CC','stroke-width':2,'stroke-dasharray':'7 5'},svg);
+  const gb=el('rect',{x:288,y:30,width:206,height:432,rx:12,fill:'#ECECEE',stroke:'#636366','stroke-width':2,'stroke-dasharray':'7 5'},svg);
+  const la=T(svg,171,22,'(가) 집단',{'text-anchor':'middle','font-size':18,'font-weight':600,fill:'#0066CC'});
+  const lb=T(svg,391,22,'(나) 집단',{'text-anchor':'middle','font-size':18,'font-weight':600,fill:'#636366'});
+  T(svg,8,104,'반지름',{'font-size':16,'font-weight':600});T(svg,8,236,'질량',{'font-size':16,'font-weight':600});
+  const bars=[];
+  [[40,150,12,1],[176,276,350,2]].forEach(([top,base,max,idx])=>{el('line',{x1:68,x2:494,y1:base,y2:base,stroke:'#1D1D1F'},svg);
+    PL.forEach((q,i)=>{const h=Math.max(q[idx]/max*(base-top),1.5);bars.push([el('rect',{x:cx(i)-12,y:base-h,width:24,height:h,fill:'#8E8E93'},svg),i]);});});
+  PL.forEach((q,i)=>T(svg,cx(i),298,q[0],{'text-anchor':'middle','font-size':14}));
+  const rows=[];
+  const r1=el('g',{},svg);T(r1,8,346,'위성 수',{'font-size':16,'font-weight':600});PL.forEach((q,i)=>T(r1,cx(i),346,String(q[3]),{'text-anchor':'middle','font-size':18,'font-weight':600}));rows.push(r1);
+  const r2=el('g',{},svg);T(r2,8,394,'고리',{'font-size':16,'font-weight':600});T(r2,171,394,'없다',{'text-anchor':'middle','font-size':20,'font-weight':600});T(r2,391,394,'있다',{'text-anchor':'middle','font-size':20,'font-weight':600});rows.push(r2);
+  const r3=el('g',{},svg);T(r3,8,442,'표면',{'font-size':16,'font-weight':600});T(r3,171,442,'흙, 암석',{'text-anchor':'middle','font-size':20,'font-weight':600});T(r3,391,442,'기체',{'text-anchor':'middle','font-size':20,'font-weight':600});rows.push(r3);
+  const hl=rows.map((r,k)=>{const h=el('rect',{x:4,y:322+k*48,width:512,height:34,rx:8,fill:'#0066CC',opacity:0},svg);svg.insertBefore(h,r);return h;});
+  return p=>{const a=cl(p),b=cl(p-1);
+    const o1=seg(a,0,.45),o2=seg(a,.45,.9);ga.setAttribute('opacity',o1);la.setAttribute('opacity',o1);gb.setAttribute('opacity',o2);lb.setAttribute('opacity',o2);
+    bars.forEach(([r,i])=>r.setAttribute('fill',i<4?(o1>.5?'#0066CC':'#8E8E93'):(o2>.5?'#3A3A3C':'#8E8E93')));
+    rows.forEach((r,k)=>{const t0=k*.32;r.setAttribute('opacity',seg(b,t0,t0+.14));const f=cl((b-t0)/.3);hl[k].setAttribute('opacity',b>t0?.18*(f<.5?f*2:2-f*2):0);});};
+});
+
+/* ---------- 13쪽: 비교 표 ---------- */
+(function(){const host=document.getElementById('cmp13');
+  const U=3.0;let h='<table style="font-size:25px"><tr><th style="width:150px"></th>';
+  PL.forEach((q,i)=>{if(i===4)h+='<th style="width:70px"></th>';h+=`<th style="background:${i<4?'#E6F0FA':'#ECECEE'};color:${i<4?'#0066CC':'#3A3A3C'};font-size:20px">${q[0]}</th>`;});
+  h+='</tr><tr><td></td>';
+  const col=['#A29D97','#DDBF86','#3B78C4','#C4603A','#D6B48E','#E1C894','#A6DCE0','#4E7FD0'];
+  PL.forEach((q,i)=>{if(i===4)h+='<td></td>';const r=Math.max(q[1]*U,1.6);const ring=i===5?`<ellipse cx="40" cy="40" rx="${r*2}" ry="${r*.45}" fill="none" stroke="#CDB98A" stroke-width="3"/>`:'';h+=`<td style="padding:2px"><svg viewBox="0 0 80 80" width="80" height="80" style="display:block;margin:auto;overflow:visible"><circle cx="40" cy="40" r="${r}" fill="${col[i]}"/>${ring}</svg></td>`;});
+  h+='</tr>';
+  const line=(name,k,sym)=>{let s=`<tr><td><b>${name}</b></td>`;PL.forEach((q,i)=>{if(i===4)s+=`<td><div class="ineq-row"><span class="sym">${sym}</span></div></td>`;s+=`<td>${q[k]}</td>`;});return s+'</tr>';};
+  h+=line('크기',1,'&lt;')+line('질량',2,'&lt;')+line('위성 수<br><span class="cap">2023년 기준</span>',3,'&lt;');
+  h+='<tr><td><b>고리</b></td><td colspan="4">없다.</td><td></td><td colspan="4">있다.</td></tr>';
+  h+='<tr><td><b>표면 상태</b></td><td colspan="4">흙, 암석</td><td></td><td colspan="4">기체</td></tr></table>';
+  h+='<div class="row" style="margin-top:8px;gap:0"><div style="width:150px"></div><div style="flex:1;text-align:center;color:#0066CC;font-weight:600">지구형 행성</div><div style="width:70px"></div><div style="flex:1;text-align:center;color:#3A3A3C;font-weight:600">목성형 행성</div></div>';
+  host.innerHTML=h;})();
+
+/* 15쪽 바닥 행성 줄 */
+(function(){const s=document.getElementById('row15');const col=['#A29D97','#DDBF86','#3B78C4','#C4603A','#D6B48E','#E1C894','#A6DCE0','#4E7FD0'];
+  col.forEach((c,i)=>{const x=110+i*135;el('circle',{cx:x,cy:45,r:i<4?18:30,fill:c,opacity:.9},s);if(i===5)el('ellipse',{cx:x,cy:45,rx:52,ry:10,fill:'none',stroke:'#CDB98A','stroke-width':4},s);});})();
+
+/* ---------- 쪽 넘기기 ---------- */
+function go(i){i=Math.max(0,Math.min(N-1,i));const m0=curMotion();if(m0)m0.playing=false;
+  slides[cur].classList.remove('on');cur=i;slides[cur].classList.add('on');
+  try{history.replaceState(null,'','#'+(cur+1));}catch(e){}
+  sims();}
+function step(d){go(cur+d);}
+function key(e){const k=e.key;const m=curMotion();
+  if(k==='ArrowRight'||k==='PageDown'||k===' '){e.preventDefault();if(m&&(m.p<m.N||m.p<m.target))next(m);else step(1);}
+  else if(k==='ArrowLeft'||k==='PageUp'){e.preventDefault();if(m&&m.p>0)prev(m);else step(-1);}
+  else if(k==='Home')go(0);else if(k==='End')go(N-1);
+  else if(k==='a'||k==='A'){if(e.shiftKey)hideAll();else reveal();}}
+document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;key(e);});
+const h=parseInt((location.hash||'').slice(1));go(isFinite(h)?h-1:0);
+})();
+</script>
+</body>
+</html>

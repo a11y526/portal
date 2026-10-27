@@ -1,0 +1,260 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>712 태양계 행성 자료 탐색기</title>
+<style>
+:root{--p:#0066CC;--ink:#1D1D1F;--mut:#7A7A7A;--line:#E0E0E0;--parch:#F5F5F7;--pearl:#FAFAFC;--gray:#B8B8BD;--tint:#E6F0FA}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;color:var(--ink);font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;overflow:hidden;font-size:18px}
+button{font:inherit;font-size:17px;border-radius:999px;border:1px solid var(--line);background:var(--pearl);color:var(--ink);padding:6px 16px;min-height:44px;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+button.on{background:var(--p);border-color:var(--p);color:#fff}
+button:focus-visible{outline:2px solid var(--p);outline-offset:2px}
+.bar{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
+.grow{flex:1}
+.seg{display:flex;gap:4px;flex-wrap:wrap}
+.lab{font-size:14px;color:var(--mut);margin-right:2px}
+.view{flex:1;min-height:0;display:none}
+.view.on{display:flex}
+/* 1. 행성 카드 */
+#v1{flex-direction:column}
+#plist{display:grid;grid-template-columns:repeat(8,1fr);gap:6px;padding:8px 10px}
+#plist button{padding:6px 4px}
+.v1main{flex:1;min-height:0;display:flex;gap:10px;padding:0 10px 10px}
+.stage{flex:1.5;min-width:0;display:flex;flex-direction:column;border:1px solid var(--line);border-radius:14px;background:#0F1420;overflow:hidden}
+.stage svg{flex:1;width:100%;min-height:0}
+.stage .row{display:flex;justify-content:flex-end;padding:6px}
+.stage .row button{background:#2A2A2C;color:#fff;border-color:#3A3A3C}
+.stage .row button.on{background:var(--p);border-color:var(--p)}
+.card{flex:1;min-width:210px;border:1px solid var(--line);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;transition:opacity .25s}
+.card.fade{opacity:.15}
+.card h3{margin:0;font-size:26px;font-weight:600;display:flex;align-items:center;gap:10px}
+.card h3 svg{width:48px;height:48px;flex:none}
+.card dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:6px 10px;align-items:baseline}
+.card dt{font-size:15px;color:var(--mut)}
+.card dd{margin:0;font-size:21px;font-weight:600}
+.card dd small{font-size:14px;font-weight:400;color:var(--mut)}
+/* 2. 막대그래프 */
+#v2{gap:10px;padding:10px}
+.tbl{width:190px;flex:none;display:flex;flex-direction:column;gap:4px;overflow:auto}
+.tbl .h{display:flex;font-size:14px;color:var(--mut);padding:0 4px}
+.tbl .h span:first-child{width:72px}
+.tbl label{display:flex;align-items:center;gap:6px;font-size:19px}
+.tbl label b{width:66px;font-weight:600}
+.tbl input{width:84px;min-height:38px;font:inherit;font-size:19px;border:1px solid var(--line);border-radius:8px;padding:2px 8px;text-align:right}
+.tbl input:focus{outline:2px solid var(--p);border-color:var(--p)}
+.tbl i{font-style:normal;color:var(--p);width:16px;font-weight:600}
+.chartbox{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
+.chartbox svg{flex:1;min-height:0;width:100%}
+.groups{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+.groups button{padding:4px 10px;min-height:40px;font-size:16px}
+.groups button.ga{background:var(--tint);border-color:var(--p);color:var(--p)}
+.groups button.gb{background:#ECECEE;border-color:#8E8E93;color:#3A3A3C}
+text{font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+@media (max-width:620px){#plist{grid-template-columns:repeat(4,1fr)}.v1main{flex-direction:column}.card{min-width:0}#v2{flex-direction:column}.tbl{width:auto;flex-direction:row;flex-wrap:wrap}}
+</style>
+</head>
+<body>
+<div class="bar">
+  <div class="seg" id="tabs"><button data-tab="1">1. 행성 카드 조사</button><button data-tab="2">2. 반지름·질량 막대그래프</button></div>
+  <div class="grow"></div>
+  <span class="lab">속도</span>
+  <div class="seg" id="speed"><button data-s="0.5">느리게</button><button data-s="1">보통</button><button data-s="2">빠르게</button></div>
+</div>
+
+<section class="view" id="v1">
+  <div id="plist"></div>
+  <div class="v1main">
+    <div class="stage">
+      <svg id="s1" viewBox="0 0 640 380" preserveAspectRatio="xMidYMid meet" aria-label="행성과 지구의 크기 비교"></svg>
+      <div class="row"><button id="cmp" class="on">지구와 크기 비교</button></div>
+    </div>
+    <div class="card" id="card"></div>
+  </div>
+</section>
+
+<section class="view" id="v2">
+  <div class="tbl" id="tbl"></div>
+  <div class="chartbox">
+    <div class="seg">
+      <button data-m="radius">반지름</button><button data-m="mass">질량</button>
+      <button id="zoom">0~1.2 구간 확대</button>
+      <div class="grow"></div>
+      <button id="replay">다시 재생</button><button id="pause">일시정지</button>
+    </div>
+    <svg id="s2" viewBox="0 0 640 390" preserveAspectRatio="xMidYMid meet" aria-label="행성 막대그래프"></svg>
+    <div class="groups" id="groups"><span class="lab">두 집단으로 나누기</span></div>
+  </div>
+</section>
+
+<script>
+(function(){
+const NS='http://www.w3.org/2000/svg';
+const P=[
+ {k:'mercury',n:'수성',r:0.38,m:0.06,ring:0,moon:0,gas:0,c:'#A29D97',d:'#7E7974'},
+ {k:'venus',n:'금성',r:0.95,m:0.82,ring:0,moon:0,gas:0,c:'#DDBF86',d:'#BC9A5E'},
+ {k:'earth',n:'지구',r:1,m:1,ring:0,moon:1,gas:0,c:'#3B78C4',d:'#5E9A4C',km:'6371 km',kg:'5.97×10²⁴ kg'},
+ {k:'mars',n:'화성',r:0.53,m:0.11,ring:0,moon:2,gas:0,c:'#C4603A',d:'#8F3F24'},
+ {k:'jupiter',n:'목성',r:11.2,m:318,ring:1,moon:95,gas:1,c:'#D6B48E',d:'#A8734D'},
+ {k:'saturn',n:'토성',r:9.4,m:95,ring:1,moon:146,gas:1,c:'#E1C894',d:'#B89A62'},
+ {k:'uranus',n:'천왕성',r:4,m:14.5,ring:1,moon:27,gas:1,c:'#A6DCE0',d:'#86C2C8'},
+ {k:'neptune',n:'해왕성',r:3.9,m:17,ring:1,moon:14,gas:1,c:'#4E7FD0',d:'#3A63AD'}];
+const RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const init=Object.assign({tab:1,metric:'radius',planet:'mercury'},window.SIM_INIT||{});
+(location.hash||'').replace('#','').split('&').forEach(s=>{const [a,b]=s.split('=');if(a&&b)init[a]=a==='tab'?+b:b;});
+let speed=0.5,active=true;
+const KEY='sim712_v1';
+let st={radius:{},mass:{},groups:{}};
+function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)st=Object.assign({radius:{},mass:{},groups:{}},s);}catch(e){}}
+function save(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
+load();
+const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const fmt=v=>{if(v>=10)return String(+v.toFixed(1));return String(+v.toFixed(2));};
+
+/* ---------- 작은 애니메이션 엔진 (rAF 하나) ---------- */
+const anims=new Set();let raf=0,last=0;
+function tick(now){const dt=Math.min(50,now-(last||now));last=now;
+  anims.forEach(a=>{if(a.paused)return;a.t+=dt*speed/a.dur;if(a.t>=1){a.t=1;a.fn(1);anims.delete(a);a.done&&a.done();}else a.fn(ease(a.t));});
+  if(anims.size&&active&&[...anims].some(a=>!a.paused))raf=requestAnimationFrame(tick);else{raf=0;last=0;}}
+function run(){if(!raf&&active){last=0;raf=requestAnimationFrame(tick);}}
+function anim(dur,fn,done){const a={t:0,dur:RED?1:dur,fn,done,paused:false};if(RED){fn(1);done&&done();return a;}anims.add(a);run();return a;}
+
+/* ---------- 행성 그림 (단위 반지름 100) ---------- */
+function drawPlanet(g,p,uid){
+  const cid='c'+uid;const defs=el('defs',{},g);const cp=el('clipPath',{id:cid},defs);el('circle',{r:100},cp);
+  if(p.ring){const back=ringPath(p,true);el('path',Object.assign({d:back.d},back.a),g);}
+  el('circle',{r:100,fill:p.c},g);
+  const s=el('g',{'clip-path':'url(#'+cid+')'},g);
+  if(p.gas){
+    const bands=p.k==='jupiter'?[[-62,14],[-30,18],[8,10],[34,20],[66,12]]:p.k==='saturn'?[[-50,16],[-10,10],[30,18],[62,10]]:[[-40,8],[20,10]];
+    bands.forEach(([y,h],i)=>el('rect',{x:-110,y:y,width:220,height:h,fill:p.d,opacity:i%2?.45:.7},s));
+    if(p.k==='jupiter')el('ellipse',{cx:38,cy:46,rx:18,ry:10,fill:'#B5533A',opacity:.8},s);
+  }else if(p.k==='earth'){
+    el('path',{d:'M-60,-50 q30,-25 55,0 t20,40 q-30,20 -50,0 t-25,-40z',fill:p.d},s);
+    el('path',{d:'M20,20 q30,-10 45,15 t-10,45 q-25,5 -35,-20z',fill:p.d},s);
+    el('ellipse',{cx:-20,cy:70,rx:40,ry:12,fill:'#fff',opacity:.5},s);
+  }else{
+    [[-40,-30,18],[30,-45,12],[45,25,20],[-25,45,14],[0,5,9]].forEach(([x,y,r])=>el('circle',{cx:x,cy:y,r:r,fill:p.d,opacity:.55},s));
+  }
+  el('circle',{r:100,fill:'none',stroke:'rgba(0,0,0,.25)','stroke-width':3},g);
+  if(p.ring){const f=ringPath(p,false);el('path',Object.assign({d:f.d},f.a),g);}
+}
+function ringPath(p,back){
+  const thick=p.k==='saturn';const rx=thick?215:160,ry=thick?48:36;
+  const a={fill:'none',stroke:thick?'#CDB98A':'#C9C2B4','stroke-width':thick?26:3,opacity:thick?.9:.55};
+  if(p.k==='uranus')a.transform='rotate(-82)';
+  const d=back?`M${-rx},0 A${rx},${ry} 0 0 1 ${rx},0`:`M${-rx},0 A${rx},${ry} 0 0 0 ${rx},0`;
+  return {d,a};
+}
+
+/* ---------- 1. 행성 카드 ---------- */
+const s1=document.getElementById('s1'),card=document.getElementById('card'),plist=document.getElementById('plist');
+const U=150/11.2;let curR=init.planet?null:0,sel=null,showCmp=true,uid=0;
+P.forEach(p=>{const b=document.createElement('button');b.textContent=p.n;b.dataset.k=p.k;b.onclick=()=>pick(p.k);plist.appendChild(b);});
+const sky=el('g',{},s1);for(let i=0;i<60;i++)el('circle',{cx:(i*137)%640,cy:(i*71)%380,r:i%7?0.8:1.4,fill:'#fff',opacity:.5},sky);
+const cmpG=el('g',{},s1);
+el('circle',{cx:40,cy:190,r:U,fill:'#3B78C4',stroke:'#fff','stroke-dasharray':'3 3','stroke-width':1.2},cmpG);
+el('text',{x:40,y:190+U+28,'text-anchor':'middle',fill:'#fff','font-size':21},cmpG).textContent='지구';
+el('text',{x:40,y:190+U+52,'text-anchor':'middle',fill:'#CCCCCC','font-size':17},cmpG).textContent='반지름 1';
+const plG=el('g',{},s1);
+const lblN=el('text',{x:360,y:34,'text-anchor':'middle',fill:'#fff','font-size':27,'font-weight':600},s1);
+const lblR=el('text',{x:360,y:366,'text-anchor':'middle',fill:'#2997FF','font-size':25,'font-weight':600},s1);
+document.getElementById('cmp').onclick=e=>{showCmp=!showCmp;e.currentTarget.classList.toggle('on',showCmp);cmpG.style.display=showCmp?'':'none';};
+let a1=null;
+function pick(k){
+  const p=P.find(x=>x.k===k);if(!p)return;
+  plist.querySelectorAll('button').forEach(b=>b.classList.toggle('on',b.dataset.k===k));
+  const from=curR==null?0:curR;sel=p;
+  plG.innerHTML='';const g=el('g',{},plG);drawPlanet(g,p,++uid);
+  lblN.textContent=p.n;lblR.textContent='';
+  card.classList.add('fade');fillCard(p);
+  if(a1)anims.delete(a1);
+  a1=anim(1400,t=>{curR=from+(p.r-from)*t;const R=Math.max(curR*U,0.01);g.setAttribute('transform',`translate(360,190) scale(${R/100})`);},
+    ()=>{lblR.textContent='반지름: 지구의 약 '+fmt(p.r)+'배';card.classList.remove('fade');});
+}
+function fillCard(p){
+  const ic=`<svg viewBox="-230 -110 460 220"><g id="ic"></g></svg>`;
+  card.innerHTML=`<h3>${ic}<span>${p.n}</span></h3><dl>
+   <dt>반지름</dt><dd>${p.km?p.km+' <small>(지구 = 1)</small>':'지구의 약 '+fmt(p.r)+'배'}</dd>
+   <dt>질량</dt><dd>${p.kg?p.kg+' <small>(지구 = 1)</small>':'지구의 약 '+fmt(p.m)+'배'}</dd>
+   <dt>고리</dt><dd>${p.ring?'있음':'없음'}</dd>
+   <dt>위성</dt><dd>${p.moon}개 <small>2023년 기준</small></dd>
+   <dt>표면 상태</dt><dd>${p.gas?'기체':'흙, 암석'}</dd></dl>`;
+  drawPlanet(card.querySelector('#ic'),p,++uid);
+}
+
+/* ---------- 2. 막대그래프 ---------- */
+const s2=document.getElementById('s2'),tbl=document.getElementById('tbl'),grp=document.getElementById('groups');
+let metric=init.metric==='mass'?'mass':'radius',zoom=false,shown={radius:{},mass:{}},ymaxCur=12,barAnim={},playAll=null;
+const X0=82,X1=632,Y0=312,Y1=26,CW=(X1-X0)/8,BW=34;
+function axis(){return metric==='radius'?{max:12,step:2,name:'반지름 (지구 = 1)'}:zoom?{max:1.2,step:0.2,name:'질량 (지구 = 1)'}:{max:350,step:50,name:'질량 (지구 = 1)'};}
+function trueV(p){return metric==='radius'?p.r:p.m;}
+function ok(p){const v=parseFloat(st[metric][p.k]);if(!isFinite(v))return false;const t=trueV(p);return Math.abs(v-t)<=Math.max(t*0.03,0.011);}
+function buildTbl(){
+  tbl.innerHTML=`<div class="h"><span>행성</span><span>${metric==='radius'?'반지름(배)':'질량(배)'}</span></div>`;
+  P.forEach(p=>{const l=document.createElement('label');l.innerHTML=`<b>${p.n}</b><input inputmode="decimal" autocomplete="off" aria-label="${p.n}"><i></i>`;
+    const inp=l.querySelector('input');inp.value=st[metric][p.k]||'';l.querySelector('i').textContent=ok(p)?'✓':'';
+    inp.addEventListener('input',()=>{st[metric][p.k]=inp.value.trim();save();l.querySelector('i').textContent=ok(p)?'✓':'';growBar(p);});
+    tbl.appendChild(l);});
+}
+function buildGroups(){
+  grp.querySelectorAll('button').forEach(b=>b.remove());
+  P.forEach(p=>{const b=document.createElement('button');b.dataset.k=p.k;b.onclick=()=>{const g=st.groups[p.k];st.groups[p.k]=g==='가'?'나':g==='나'?'':'가';save();paintGroups();drawChart();};grp.appendChild(b);});
+  paintGroups();
+}
+function paintGroups(){grp.querySelectorAll('button').forEach(b=>{const g=st.groups[b.dataset.k]||'';const p=P.find(x=>x.k===b.dataset.k);b.textContent=p.n+(g?' ('+g+')':'');b.className=g==='가'?'ga':g==='나'?'gb':'';});}
+function val(p){const v=parseFloat(st[metric][p.k]);return isFinite(v)&&v>=0?v:0;}
+function drawChart(){
+  const ax=axis();s2.innerHTML='';const ym=ymaxCur;const Y=v=>Y0-(Math.min(v,ym)/ym)*(Y0-Y1);
+  P.forEach((p,i)=>{const g=st.groups[p.k];if(!g)return;el('rect',{x:X0+i*CW+3,y:Y1-6,width:CW-6,height:Y0-Y1+56,rx:8,fill:g==='가'?'#E6F0FA':'#ECECEE',stroke:g==='가'?'#0066CC':'#8E8E93','stroke-dasharray':'5 4'},s2);
+    el('text',{x:X0+i*CW+CW/2,y:Y0+52,'text-anchor':'middle','font-size':18,'font-weight':600,fill:g==='가'?'#0066CC':'#636366'},s2).textContent='('+g+')';});
+  const n=Math.round(ax.max/ax.step);
+  for(let i=0;i<=n;i++){const v=i*ax.step,y=Y(v);if(y<Y1-1)break;el('line',{x1:X0,x2:X1,y1:y,y2:y,stroke:i?'#E0E0E0':'#1D1D1F'},s2);
+    el('text',{x:X0-8,y:y+5,'text-anchor':'end','font-size':19,fill:'#7A7A7A'},s2).textContent=+v.toFixed(1);}
+  el('line',{x1:X0,x2:X0,y1:Y1-4,y2:Y0,stroke:'#1D1D1F'},s2);
+  const t=el('text',{x:18,y:(Y0+Y1)/2,'text-anchor':'middle','font-size':18,fill:'#1D1D1F',transform:`rotate(-90 18 ${(Y0+Y1)/2})`},s2);t.textContent=ax.name;
+  P.forEach((p,i)=>{const cx=X0+i*CW+CW/2;const v=shown[metric][p.k]||0;const y=Y(v);
+    if(v>0)el('rect',{x:cx-BW/2,y:y,width:BW,height:Y0-y,fill:ok(p)?'#0066CC':'#B8B8BD'},s2);
+    if(v>ym){el('path',{d:`M${cx-BW/2-3},${Y1+8} l${BW/3+1},-6 l${BW/3+1},6 l${BW/3+1},-6`,fill:'none',stroke:'#fff','stroke-width':4},s2);}
+    const sv=st[metric][p.k];if(v>0&&sv&&Math.abs(v-val(p))<1e-9)el('text',{x:cx,y:Math.max(y-6,Y1+(v>ym?24:4)),'text-anchor':'middle','font-size':19,'font-weight':600,fill:v>ym?'#fff':'#1D1D1F'},s2).textContent=sv;
+    el('text',{x:cx,y:Y0+26,'text-anchor':'middle','font-size':19,fill:'#1D1D1F'},s2).textContent=p.n;});
+}
+function growBar(p){
+  const target=val(p),from=shown[metric][p.k]||0,m=metric;
+  if(barAnim[p.k])anims.delete(barAnim[p.k]);
+  barAnim[p.k]=anim(900,t=>{shown[m][p.k]=from+(target-from)*t;if(m===metric)drawChart();});
+}
+function setMetric(m){metric=m;document.querySelectorAll('[data-m]').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
+  document.getElementById('zoom').style.display=m==='mass'?'':'none';if(m!=='mass')zoom=false;document.getElementById('zoom').classList.toggle('on',zoom);
+  ymaxCur=axis().max;P.forEach(p=>{if(shown[m][p.k]==null)shown[m][p.k]=val(p);});buildTbl();drawChart();}
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>setMetric(b.dataset.m));
+document.getElementById('zoom').onclick=e=>{zoom=!zoom;e.currentTarget.classList.toggle('on',zoom);const a=ymaxCur,b=axis().max;
+  anim(1300,t=>{ymaxCur=Math.exp(Math.log(a)+(Math.log(b)-Math.log(a))*t);drawChart();});};
+const pauseB=document.getElementById('pause');
+document.getElementById('replay').onclick=()=>{
+  if(playAll)playAll.forEach(a=>anims.delete(a));Object.values(barAnim).forEach(a=>anims.delete(a));
+  const m=metric;P.forEach(p=>shown[m][p.k]=0);drawChart();playAll=[];pauseB.textContent='일시정지';
+  let i=0;const next=()=>{if(i>=P.length){playAll=null;return;}const p=P[i++];const tv=val(p);
+    const a=anim(700,t=>{shown[m][p.k]=tv*t;if(m===metric)drawChart();},next);playAll.push(a);};next();};
+pauseB.onclick=()=>{const live=[...anims];const paused=live.some(a=>a.paused);
+  if(!live.length)return;live.forEach(a=>a.paused=!paused);pauseB.textContent=paused?'일시정지':'다시 재생';if(paused)run();};
+
+/* ---------- 공통 ---------- */
+function setTab(n){document.querySelectorAll('[data-tab]').forEach(b=>b.classList.toggle('on',+b.dataset.tab===n));
+  document.getElementById('v1').classList.toggle('on',n===1);document.getElementById('v2').classList.toggle('on',n===2);}
+document.querySelectorAll('[data-tab]').forEach(b=>b.onclick=()=>setTab(+b.dataset.tab));
+document.querySelectorAll('[data-s]').forEach(b=>b.onclick=()=>{speed=+b.dataset.s;document.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x===b));});
+document.querySelector('[data-s="0.5"]').classList.add('on');
+window.addEventListener('storage',e=>{if(e.key!==KEY)return;load();buildTbl();paintGroups();P.forEach(p=>{if(Math.abs((shown[metric][p.k]||0)-val(p))>1e-9)growBar(p);});drawChart();});
+window.addEventListener('message',e=>{const d=e.data||{};if(d.type==='active'){active=!!d.on;if(active)run();}});
+if(window.parent!==window)document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(['ArrowLeft','ArrowRight','PageUp','PageDown',' ','Home','End','a','A','g','G','f','F'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
+setTab(init.tab===2?2:1);buildGroups();setMetric(metric);
+curR=0;pick(init.planet||'mercury');
+})();
+</script>
+</body>
+</html>

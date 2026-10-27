@@ -825,3 +825,19 @@ create unique index if not exists point_events_ws_first_student_idx on public.po
 -- ---------------------------------------------------------
 alter table public.ws_firsts add column if not exists prior int not null default 0;
 alter table public.ws_firsts add column if not exists lot double precision not null default random();
+
+-- ---------------------------------------------------------
+-- 딴 화면 기록 (2026-10-27): 수업 모드가 열려 있는 동안 학생 기기가 포털 화면을 벗어난 때(다른 탭·창·앱)를 적는다.
+-- boards.watch_at = 수업 모드가 1분마다 적는 시각(3분 안이면 수업 중). 무엇을 봤는지는 알 수 없고 적지 않는다
+-- ---------------------------------------------------------
+alter table public.boards add column if not exists watch_at timestamptz;
+
+create table if not exists public.away_log (
+  id uuid primary key default gen_random_uuid(),
+  board_id uuid not null references public.boards(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  started_at timestamptz not null default now(),
+  ended_at timestamptz
+);
+create index if not exists away_log_board_idx on public.away_log (board_id, student_id);
+create index if not exists away_log_open_idx on public.away_log (student_id) where ended_at is null;

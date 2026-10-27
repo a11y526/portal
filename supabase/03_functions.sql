@@ -7081,3 +7081,135 @@ begin
   end if;
 end;
 $$;
+
+-- ---------------------------------------------------------
+-- 딴 화면 기록 (2026-10-27)
+-- 학생 기기는 포털 화면을 벗어나면 away_mark(출입증, true), 돌아오면 (출입증, false), 그 밖에 1분마다 false를 보낸다.
+-- 그 반 오늘 보드의 수업 모드가 열려 있을 때(watch_at 3분 안)만 적는다. 0번(선생님)은 적지 않는다.
+-- 2초가 안 되는 것(페이지 이동, 알림창)은 지운다
+-- ---------------------------------------------------------
+create or replace function public._away_watching(p_watch timestamptz)
+returns boolean
+language sql
+stable
+as $$
+  select p_watch is not null and p_watch > now() - interval '3 minutes';
+$$;
+revoke all on function public._away_watching(timestamptz) from public, anon, authenticated;
+
+-- 결과: { ok: true, watching } 또는 { ok: false, error: 'NO_SESSION' }
+create or replace function public.away_mark(p_token text, p_away boolean)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid uuid;
+  v_num int;
+  v_board uuid;
+  v_watch timestamptz;
+  v_on boolean;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select s.number, c.today_board_id, b.watch_at into v_num, v_board, v_watch
+  from public.students s
+  join public.classes c on c.id = s.class_id
+  left join public.boards b on b.id = c.today_board_id
+  where s.id = v_sid;
+  v_on := v_num > 0 and v_board is not null and public._away_watching(v_watch);
+
+  -- 열린 줄 닫기: 돌아왔을 때, 또는 다른 보드에 남은 줄. 수업 모드가 닫힌 뒤까지는 세지 않는다
+  if not coalesce(p_away, false) or exists (select 1 from public.away_log where student_id = v_sid and ended_at is null and board_id is distinct from v_board) then
+    delete from public.away_log
+    where student_id = v_sid and ended_at is null and started_at > now() - interval '2 seconds'
+      and (not coalesce(p_away, false) or board_id is distinct from v_board);
+    update public.away_log a
+    set ended_at = greatest(a.started_at, least(now(), coalesce(b.watch_at, now()) + interval '3 minutes'))
+    from public.boards b
+    where b.id = a.board_id and a.student_id = v_sid and a.ended_at is null
+      and (not coalesce(p_away, false) or a.board_id is distinct from v_board);
+  end if;
+
+  if coalesce(p_away, false) and v_on
+     and not exists (select 1 from public.away_log where student_id = v_sid and ended_at is null) then
+    insert into public.away_log (board_id, student_id) values (v_board, v_sid);
+  end if;
+  return jsonb_build_object('ok', true, 'watching', v_on);
+end;
+$$;
+revoke all on function public.away_mark(text, boolean) from public;
+grant execute on function public.away_mark(text, boolean) to anon, authenticated;
+
+-- 수업 모드: 1분마다 '수업 중' (p_on false면 끝)
+create or replace function public.watch_board(p_board_id uuid, p_on boolean)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.boards set watch_at = case when p_on then now() else null end where id = p_board_id;
+end;
+$$;
+revoke all on function public.watch_board(uuid, boolean) from public;
+grant execute on function public.watch_board(uuid, boolean) to authenticated;
+
+-- 교사: 그 보드의 딴 화면 기록
+-- { watching, now: 지금 벗어난 학생 수, list: [{ number, nickname, times, secs, away_now, since }] }
+-- 지금 벗어난 학생 먼저, 그다음 오래 벗어난 순. 2초 넘게 벗어난 것만 셈
+create or replace function public.get_away_stats(p_board_id uuid)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_watch timestamptz;
+  v_on boolean;
+  v_end timestamptz;
+  v_list jsonb;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select watch_at into v_watch from public.boards where id = p_board_id;
+  v_on := public._away_watching(v_watch);
+  v_end := least(now(), coalesce(v_watch, now()) + interval '3 minutes');
+
+  with t as (
+    select a.student_id,
+      count(*) as times,
+      sum(extract(epoch from (coalesce(a.ended_at, greatest(a.started_at, v_end)) - a.started_at))) as secs,
+      bool_or(a.ended_at is null and v_on) as away_now,
+      max(a.started_at) filter (where a.ended_at is null) as since
+    from public.away_log a
+    where a.board_id = p_board_id
+      and coalesce(a.ended_at, v_end) - a.started_at >= interval '2 seconds'
+    group by a.student_id
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'number', s.number, 'nickname', s.nickname, 'times', t.times, 'secs', round(t.secs)::int,
+      'away_now', coalesce(t.away_now, false), 'since', case when t.away_now then t.since end)
+    order by coalesce(t.away_now, false) desc, t.secs desc, s.number), '[]'::jsonb)
+  into v_list
+  from t join public.students s on s.id = t.student_id
+  where s.number > 0;
+
+  return jsonb_build_object(
+    'watching', v_on,
+    'now', (select count(*) from jsonb_array_elements(v_list) e where (e ->> 'away_now')::boolean),
+    'list', v_list);
+end;
+$$;
+revoke all on function public.get_away_stats(uuid) from public;
+grant execute on function public.get_away_stats(uuid) to authenticated;

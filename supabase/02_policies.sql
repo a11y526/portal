@@ -386,3 +386,12 @@ drop policy if exists remote_teacher_send on realtime.messages;
 create policy remote_teacher_send on realtime.messages
   for insert to authenticated
   with check (realtime.topic() = 'remote' and public.is_teacher());
+
+-- 딴 화면 기록: 교사만 (학생은 away_mark로만 적는다)
+alter table public.away_log enable row level security;
+revoke all on public.away_log from anon;
+
+drop policy if exists away_log_teacher_all on public.away_log;
+create policy away_log_teacher_all on public.away_log
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

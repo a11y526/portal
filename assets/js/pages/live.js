@@ -8,7 +8,7 @@ import {
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount, updateBoard,
-  onRemote, sendRemote,
+  onRemote, sendRemote, watchBoard, getAwayStats,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
@@ -1156,6 +1156,36 @@ const progressMark = {
 };
 
 /* =========================================================
+   딴 화면: 1분마다 '수업 중'(watch_board, 학생 기기는 이때만 적음),
+   5초마다 지금 벗어난 학생 수를 왼쪽 아래에 숫자만. 누가 벗어났는지는 휴대폰 리모컨에서만 보인다
+   ========================================================= */
+const AWAY_WATCH_MS = 60000;
+const AWAY_POLL_MS = 5000;
+const away = {
+  now: 0,
+
+  start() {
+    const watch = () => watchBoard(board.id, true).catch((err) => console.warn('딴 화면', err));
+    watch();
+    setInterval(watch, AWAY_WATCH_MS);
+    setInterval(() => this.refresh(), AWAY_POLL_MS);
+  },
+
+  async refresh() {
+    try {
+      const st = await getAwayStats(board.id);
+      this.now = st?.now ?? 0;
+    } catch (err) {
+      console.warn('딴 화면', err);
+      return;
+    }
+    const chip = $('away-chip');
+    chip.classList.toggle('hidden', !this.now);
+    $('away-n').textContent = this.now;
+  },
+};
+
+/* =========================================================
    휴대폰 리모컨(teacher/remote.html): 비공개 채널 'remote'(교사만, 02_policies)로 명령을 받고 상태를 보낸다.
    리모컨은 가장 최근에 연 수업 모드(at가 가장 큰 것) 하나에만 명령을 보낸다(to = lid).
    명령은 아래 이름만 받고, 키를 누른 것과 같은 조건에서만 동작한다.
@@ -1274,7 +1304,7 @@ const remote = {
     }
     return {
       stable: {
-        cls: classId, code, title: $('cover-title').textContent, board: !!board,
+        cls: classId, code, title: $('cover-title').textContent, board: !!board, board_id: board?.id ?? null, away: away.now,
         slide, slides: lessonFrame.slideCount(), same: lessonFrame.sameOrigin,
         cover: coverOpen, tab, full: !!document.fullscreenElement,
         reveal: coverOpen && tab === 'reveal' ? this.revealState() : null,
@@ -1349,6 +1379,7 @@ teacherGate($('app'), async () => {
     sendClassRefresh(classId);
   }
   sheetUpto.start();
+  away.start();
   await loadGroups();
   sheetBand.start();
   wsFirst.start();

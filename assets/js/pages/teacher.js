@@ -12,6 +12,7 @@ import {
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
+  getAwayStats,
 } from '../db.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -186,6 +187,7 @@ function renderBoards() {
             <td class="muted">${fmtDate(b.created_at)}</td>
             <td><div class="nd-row-acts"><details class="nd-menu"><summary aria-label="${b.class_id}반 보드 메뉴">⋯</summary><div class="nd-menu-list">
               <button type="button" class="nd-btn" data-edit="${b.id}">수정</button>
+              <button type="button" class="nd-btn" data-away="${b.id}">딴 화면 기록</button>
               <button type="button" class="nd-btn danger" data-del="${b.id}">삭제</button>
             </div></details></div></td>
           </tr>`).join('')}`;
@@ -226,6 +228,9 @@ $('board-groups').addEventListener('click', async (e) => {
   }
 
   if (editBtn) openEdit(boards.find((b) => b.id === editBtn.dataset.edit));
+
+  const awayBtn = e.target.closest('[data-away]');
+  if (awayBtn) openAway(boards.find((b) => b.id === awayBtn.dataset.away));
 
   if (delBtn) {
     const b = boards.find((x) => x.id === delBtn.dataset.del);
@@ -509,6 +514,25 @@ function showCodes(list, title) {
 
 $('codes-print').addEventListener('click', () => window.print());
 $('codes-close').addEventListener('click', () => $('codes-dlg').close());
+
+// 보드의 딴 화면 기록 (수업 모드가 열려 있던 동안 포털 화면을 벗어난 학생)
+const awayDur = (sec) => sec >= 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
+async function openAway(b) {
+  if (!b) return;
+  $('away-title').textContent = `${b.class_id}반 ${b.lesson_code}차시 딴 화면 기록`;
+  $('away-sum').textContent = '불러오는 중';
+  $('away-rows').innerHTML = '';
+  $('away-dlg').showModal();
+  try {
+    const st = await getAwayStats(b.id);
+    const list = st?.list ?? [];
+    $('away-sum').textContent = list.length ? `벗어난 학생 ${list.length}명 · 2초 넘게 벗어난 것만` : '기록이 없어요';
+    $('away-rows').innerHTML = list.map((r) => `<li class="${r.away_now ? 'is-now' : ''}"><span class="rm-away-n">${r.number}번 · ${esc(r.nickname || '닉네임 미정')}</span><small class="num">${r.away_now ? '지금 벗어남 · ' : ''}${r.times}번 · ${awayDur(r.secs)}</small></li>`).join('');
+  } catch (err) {
+    $('away-sum').textContent = errMsg(err);
+  }
+}
+$('away-close').addEventListener('click', () => $('away-dlg').close());
 // Esc로 실수로 닫지 않게
 $('codes-dlg').addEventListener('cancel', (e) => e.preventDefault());
 // 닫으면 화면에서 평문 코드를 지운다

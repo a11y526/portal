@@ -2188,3 +2188,22 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
 .rm-round { width: 56px; min-height: 56px; padding: 0; font-size: 26px; }
 #timer.is-done .rm-time { color: var(--accent); }
 .rm-row .btn { white-space: nowrap; }
+
+/* 딴 화면 기록: 학생 화면 왼쪽 아래 작은 표시 (수업 모드가 열려 있을 때만, away.js) */
+.away-note { position: fixed; left: 12px; bottom: max(12px, env(safe-area-inset-bottom)); z-index: 40; display: inline-flex; align-items: center; gap: 6px;
+  padding: 5px 11px; border-radius: var(--r-pill); background: rgba(255,255,255,.92); border: 1px solid rgba(11,18,32,.08);
+  font-size: 12px; font-weight: 700; color: var(--ink-2); pointer-events: none; box-shadow: 0 2px 8px rgba(11,18,32,.06); }
+.away-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--returned-fg); }
+
+/* 수업 모드: 왼쪽 아래 '딴 화면 n명' (숫자만) */
+.away-chip { position: absolute; left: 16px; bottom: 16px; z-index: 6; display: flex; align-items: baseline; gap: 6px;
+  padding: 8px 16px; border-radius: var(--r-pill); background: var(--bg); border: 1px solid rgba(11,18,32,.1); box-shadow: 0 4px 16px rgba(11,18,32,.1); }
+.away-chip span { font-size: 15px; color: var(--ink-2); }
+.away-chip b { font-size: 28px; font-weight: 900; color: var(--returned-fg); }
+
+/* 리모컨: 딴 화면 목록 */
+.rm-away-list { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 6px; }
+.rm-away-list li { display: flex; align-items: center; gap: 8px; padding: 8px 12px; border-radius: 14px; background: rgba(255,255,255,.6); font-size: 15px; }
+.rm-away-list li.is-now { background: var(--returned-bg, rgba(255,122,69,.16)); color: var(--returned-fg); font-weight: 700; }
+.rm-away-list .rm-away-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rm-away-list small { color: var(--ink-2); font-weight: 500; }

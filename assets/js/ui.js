@@ -161,4 +161,6 @@ export function initUI({ orbs, measure = !location.pathname.includes('/teacher/'
   bindPointer();
   prepareDraw();
   if (measure) measureFrames();
+  // 학생 화면: 수업 중 딴 화면 기록
+  if (!location.pathname.includes('/teacher/') && window.top === window) import('./away.js').then((m) => m.startAway());
 }

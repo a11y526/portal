@@ -1,8 +1,8 @@
 // 휴대폰 리모컨: 프로젝터의 수업 모드(live.html)에 명령을 보내고 상태를 받는다.
 // 비공개 채널 'remote'(교사만, 02_policies). 수업 모드가 여러 개면 가장 최근에 연 것 하나에만 보낸다
-import { onRemote, sendRemote } from '../db.js';
+import { onRemote, sendRemote, getAwayStats } from '../db.js';
 import { teacherGate } from '../gate.js';
-import { initUI } from '../ui.js';
+import { initUI, esc } from '../ui.js';
 
 initUI();
 
@@ -175,6 +175,35 @@ function tick() {
   if (draw) draw.textContent = `추첨까지 ${mmss(s.draw_ms - gone)} · 낸 학생 ${s.sheet?.entered ?? 0}`;
 }
 
+/* ---------- 딴 화면 (5초마다, 이 보드 기록 전체) ---------- */
+const AWAY_MS = 5000;
+const dur = (sec) => sec >= 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
+let awayBusy = false;
+async function loadAway() {
+  const id = live?.s.board_id;
+  if (!id || awayBusy) { if (!id) $('away').classList.add('hidden'); return; }
+  awayBusy = true;
+  try {
+    const st = await getAwayStats(id);
+    const list = st?.list ?? [];
+    $('away').classList.remove('hidden');
+    $('away-now').textContent = st.now ? `${st.now}명` : '';
+    $('away-line').textContent = !st.watching ? '수업 모드가 기록하지 않는 중' : list.length ? `오늘 벗어난 학생 ${list.length}명` : '아직 없어요';
+    const now = Date.now();
+    $('away-list').innerHTML = list.map((r) => {
+      const name = `${r.number}번 · ${r.nickname || '닉네임 미정'}`;
+      const meta = r.away_now
+        ? `지금 ${dur(Math.max(0, Math.round((now - Date.parse(r.since)) / 1000)))} · ${r.times}번`
+        : `${r.times}번 · ${dur(r.secs)}`;
+      return `<li class="${r.away_now ? 'is-now' : ''}"><span class="rm-away-n">${esc(name)}</span><small class="num">${esc(meta)}</small></li>`;
+    }).join('');
+  } catch (err) {
+    console.warn('딴 화면', err);
+  } finally {
+    awayBusy = false;
+  }
+}
+
 /* ---------- 시작 ---------- */
 teacherGate($('app'), async () => {
   await onRemote({
@@ -190,6 +219,7 @@ teacherGate($('app'), async () => {
   });
   setInterval(hello, HELLO_MS);
   setInterval(render, 250);
+  setInterval(() => { if (!document.hidden) loadAway(); }, AWAY_MS);
   document.addEventListener('visibilitychange', () => { if (!document.hidden) hello(); });
   render();
 });

@@ -1236,3 +1236,15 @@ export const calendarFeedUrl = (token) => `${SUPABASE_URL}/functions/v1/calendar
 export async function listTaughtRows() {
   return unwrap(await need().from('class_days').select('class_id, lesson_code').not('lesson_code', 'is', null));
 }
+
+/* ---------- 딴 화면 기록 (교사) ---------- */
+
+// 수업 모드: 1분마다 '수업 중' (학생 기기는 이때만 딴 화면을 적는다)
+export async function watchBoard(boardId, on = true) {
+  unwrap(await need().rpc('watch_board', { p_board_id: boardId, p_on: on }));
+}
+
+// { watching, now: 지금 벗어난 학생 수, list: [{ number, nickname, times, secs, away_now, since }] }
+export async function getAwayStats(boardId) {
+  return unwrap(await need().rpc('get_away_stats', { p_board_id: boardId }));
+}

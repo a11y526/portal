@@ -841,3 +841,8 @@ create table if not exists public.away_log (
 );
 create index if not exists away_log_board_idx on public.away_log (board_id, student_id);
 create index if not exists away_log_open_idx on public.away_log (student_id) where ended_at is null;
+
+-- 첫 답 추첨 고침 (2026-10-27): 추첨은 [제출 시작] 뒤 draw초가 지나 교사가 V로 처음 볼 때(drawn_at) 한다.
+-- 그때까지 낸 학생이 모두 추첨에 든다. shown = 그때 같은 보드 다른 쪽에서 이미 창에 뜬 횟수(넘김·인정)
+alter table public.ws_page_open add column if not exists drawn_at timestamptz null;
+alter table public.ws_firsts add column if not exists shown int not null default 0;

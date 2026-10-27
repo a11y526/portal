@@ -2313,7 +2313,8 @@ grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) t
 -- ---------------------------------------------------------
 -- 쪽별 첫 답 (2026-10-16)
 -- 학생이 쪽 칸을 모두 채워 제출하면 쪽마다 모두 줄에 넣는다(맞았는지는 따지지 않음).
--- 순서(2026-10-26 추첨): [제출 시작] 뒤 settings.ws_first.draw초 안에 낸 학생은 이번 달 인정 횟수가 적은 순 → 무작위,
+-- 순서(2026-10-26 추첨, 10-27 고침): [제출 시작] 뒤 settings.ws_first.draw초가 지나 교사가 V로 처음 볼 때 추첨한다(_ws_first_draw).
+-- 그때까지 낸 학생은 이번 달 인정 횟수 → 이 보드 다른 쪽에서 이미 뜬 횟수가 적은 순 → 무작위,
 -- 그 뒤에 낸 학생은 낸 순서로 뒤에 붙는다. 추첨 시간이 끝나기 전에는 띄우지 않는다.
 -- 수업 모드가 지금 수업자료 쪽의 줄만 한 명씩 띄우고 교사가 [인정](XP·코인) 또는 [넘기기](다음 사람).
 -- [인정]하면 그 쪽은 끝(남은 대기는 closed, 새로 줄에 들어오지 않음). 0번(체험 계정)은 넣지 않는다
@@ -2330,7 +2331,7 @@ as $$
 $$;
 revoke all on function public._ws_first_draw_secs() from public, anon, authenticated;
 
--- 그 보드 첫 답 줄의 쪽별 순서(rn, 1부터)와 추첨 시간 뒤에 냈는지(late)
+-- 그 보드 첫 답 줄의 쪽별 순서(rn, 1부터)와 추첨 뒤에 냈는지(late). 추첨 전 쪽은 추첨 시간 끝을 기준으로
 create or replace function public._ws_first_ranked(p_board_id uuid)
 returns table (id uuid, page int, rn int, late boolean)
 language sql
@@ -2342,16 +2343,51 @@ as $$
          (row_number() over (partition by z.page order by
             z.late,
             case when z.late then 0 else z.prior end,
+            case when z.late then 0 else z.shown end,
             case when z.late then extract(epoch from z.created_at)::double precision else z.lot end,
             z.id))::int,
          z.late
-  from (select f.id, f.page, f.prior, f.lot, f.created_at,
-               f.created_at > coalesce(o.opened_at + make_interval(secs => public._ws_first_draw_secs()), '-infinity'::timestamptz) as late
+  from (select f.id, f.page, f.prior, f.shown, f.lot, f.created_at,
+               f.created_at > coalesce(o.drawn_at, o.opened_at + make_interval(secs => public._ws_first_draw_secs()), '-infinity'::timestamptz) as late
         from public.ws_firsts f
         left join public.ws_page_open o on o.board_id = f.board_id and o.page = f.page
         where f.board_id = p_board_id) z;
 $$;
 revoke all on function public._ws_first_ranked(uuid) from public, anon, authenticated;
+
+-- 추첨 (교사가 V로 처음 볼 때, get_ws_first가 부름): 추첨 시간이 끝났고 아직 추첨 안 한 쪽에 drawn_at을 찍고,
+-- 그때까지 낸 줄에 지금의 이번 달 인정 횟수(prior)와 이 보드 다른 쪽에서 창에 뜬 횟수(shown)를 적어 순서를 고정한다
+create or replace function public._ws_first_draw(p_board_id uuid, p_slide int)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_pages int[];
+begin
+  with d as (
+    update public.ws_page_open o set drawn_at = now()
+    where o.board_id = p_board_id and (p_slide is null or o.slide = p_slide)
+      and o.drawn_at is null
+      and o.opened_at + make_interval(secs => public._ws_first_draw_secs()) <= now()
+    returning o.page
+  )
+  select array_agg(page) into v_pages from d;
+  if v_pages is null then
+    return;
+  end if;
+  update public.ws_firsts f set
+    prior = (select count(*)::int from public.point_events e
+             where e.student_id = f.student_id and e.ws_first_id is not null and e.created_at >= public._month_start()),
+    shown = (select count(*)::int from public.ws_firsts z
+             where z.board_id = f.board_id and z.student_id = f.student_id and z.page <> f.page
+               and z.status in ('skipped', 'accepted'))
+  where f.board_id = p_board_id and f.page = any(v_pages) and f.created_at <= now();
+end;
+$$;
+revoke all on function public._ws_first_draw(uuid, int) from public, anon, authenticated;
 
 create or replace function public._ws_first_enter(p_board_id uuid, p_page int, p_slide int, p_sid uuid, p_answers jsonb)
 returns void
@@ -2390,7 +2426,7 @@ drop function if exists public.get_ws_first(uuid, int);
 create or replace function public.get_ws_first(p_board_id uuid, p_slide int default null, p_accepted boolean default false)
 returns jsonb
 language plpgsql
-stable
+volatile
 security definer
 set search_path = public
 as $$
@@ -2421,6 +2457,7 @@ begin
       return jsonb_build_object('item', null, 'skipped', v_skip,
         'draw_ms', ceil(extract(epoch from v_dl - now()) * 1000)::int);
     end if;
+    perform public._ws_first_draw(p_board_id, p_slide);
   end if;
   select x.id, r.rn, r.late into v_id, v_rn, v_late
   from public.ws_firsts x join public._ws_first_ranked(p_board_id) r on r.id = x.id

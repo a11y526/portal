@@ -4,12 +4,23 @@
 -- 순서: 관리 화면에서 새 웹판 711을 먼저 올린 뒤(칸 72개) 이 파일을 SQL Editor에서 한 번 실행
 -- SQL Editor가 문장마다 따로 실행할 수 있어서 전부 do 블록 하나(한 트랜잭션)에 넣는다
 -- 두 번 실행하면 막힌다(settings 'patch_711_nosun')
+--   단, 첫 판(임시 표 오류)이 답은 못 옮기고 표시만 남겼을 수 있어서, 예전 번호 답이 남아 있으면 표시를 무시하고 옮긴다
+--   예전 번호 흔적: f73·f74(새 학습지에는 없는 칸), f24에 '태양'(예전 10쪽 칸의 답, 새 f24는 '위성' 칸)
 do $$
 declare
   m jsonb;
+  old_left int;
 begin
+  select count(*) into old_left
+  from public.worksheet_answers wa join public.boards b on b.id = wa.board_id
+  where b.lesson_code = '711'
+    and (wa.answers ? 'f73' or wa.answers ? 'f74' or wa.passed ? 'f73' or wa.passed ? 'f74'
+         or replace(wa.answers ->> 'f24', ' ', '') = '태양');
   if exists (select 1 from public.settings where key = 'patch_711_nosun') then
-    raise exception '이미 실행했어요';
+    if old_left = 0 then
+      raise exception '이미 옮겨져 있어요. 더 할 일 없음';
+    end if;
+    delete from public.settings where key = 'patch_711_nosun';
   end if;
   if (select field_count from public.worksheets where lesson_code = '711') is distinct from 72 then
     raise exception '새 웹판 711(칸 72개)을 먼저 올려 주세요';

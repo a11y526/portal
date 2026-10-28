@@ -121,6 +121,9 @@ export function parseWorksheet(text) {
         if (el.matches('.bl')) {
           const answers = [squash(el.textContent), ...String(el.dataset.alt || '').split('|').map(squash)].filter(Boolean);
           spec = { type: 'blank', answers: [...new Set(answers)] };
+          // 순서 무관 묶음: 같은 쪽에서 data-any가 같은 빈칸끼리는 서로의 정답도 맞음(화성과 목성 ↔ 목성과 화성)
+          const any = squash(el.dataset.any);
+          if (any) spec.any = `${si}:${any}`;
           if (!spec.answers.length) missing++;
           if (el.classList.contains('s')) mark.setAttribute('class', 's');
           if (el.classList.contains('l')) mark.setAttribute('class', 'l');

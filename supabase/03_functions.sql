@@ -362,6 +362,8 @@ declare
   v_empty jsonb := '[]'::jsonb;
   v_wrong jsonb := '[]'::jsonb;
   v_check jsonb := '[]'::jsonb;
+  v_used  jsonb := '[]'::jsonb;
+  v_mk    text;
 begin
   v_on := coalesce((v_conf ->> 'on')::boolean, false);
   v_wait := coalesce((v_conf ->> 'wait')::numeric, 20);
@@ -386,8 +388,24 @@ begin
       when e.t in ('choice', 'sym') then
         exists (select 1 from jsonb_array_elements_text(e.ans) as z(t) where btrim(z.t) = v)
       when jsonb_array_length(e.ans) = 0 then true
+      when e.t = 'blank' and e.spec ? 'any' then false -- 아래 순서 무관 묶음에서
       else exists (select 1 from jsonb_array_elements_text(e.ans) as z(t) where public._ws_norm(z.t) = public._ws_norm(v))
     end;
+    -- 순서 무관 묶음(any가 같은 빈칸끼리, 2026-10-28): 묶음 안 아직 짝이 없는 칸의 정답과 같으면 맞음(제 칸 먼저).
+    --   '목성'·'화성' → 둘 다 맞음, '화성'·'화성' → 하나만 맞음
+    if e.t = 'blank' and e.spec ? 'any' and jsonb_array_length(e.ans) > 0 then
+      select m.key into v_mk
+      from jsonb_each(p_key) as m
+      where m.value ->> 'any' = e.spec ->> 'any' and not v_used ? m.key
+        and exists (select 1 from jsonb_array_elements_text(coalesce(m.value -> 'answers', '[]'::jsonb)) as z(t)
+                    where public._ws_norm(z.t) = public._ws_norm(v))
+      order by (m.key = e.k) desc, coalesce(nullif(regexp_replace(m.key, '\D', '', 'g'), ''), '0')::int
+      limit 1;
+      ok := found;
+      if ok then
+        v_used := v_used || to_jsonb(v_mk);
+      end if;
+    end if;
 
     v_kind := public._ws_ai_kind(p_lesson, e.k, e.spec);
     if v_kind = 'text' then

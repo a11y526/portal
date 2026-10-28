@@ -91,7 +91,7 @@ function renderDeco() {
   $('slot-tabs').innerHTML = slots.map((s) => `
     <button type="button" role="tab" class="cls-tab press${s === slot ? ' on' : ''}" aria-selected="${s === slot}" data-slot="${s}">${SLOT_NAMES[s]}</button>`).join('');
 
-  const list = all.filter((it) => it.slot === slot);
+  const list = all.filter((it) => it.slot === slot).sort((a, b) => a.price - b.price);
   $('deco-grid').innerHTML = list.length ? list.map((it) => {
     const worn = wearing[it.slot] === it.id;
     const locked = lockedOf(it);

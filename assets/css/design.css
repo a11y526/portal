@@ -15,7 +15,7 @@
 :root {
   --bg: #EDF1F7;
   --ink: #0B1220;
-  --ink-2: #4E5868;
+  --ink-2: #3E4756;
   --accent: #2457E6;
   --accent-hover: #1A43B8;
   --accent-tint: rgba(36,87,230,.10);
@@ -28,7 +28,7 @@
   --pending-fg: #8A5300;  --pending-bg: rgba(255,196,77,.22);  --pending-dot: #D98E04;
   --returned-fg: #A23B0B; --returned-bg: rgba(255,122,69,.16); --returned-solid: #C2410C;
   --passed-fg: #0B6B47;   --passed-bg: rgba(34,197,130,.16);   --passed-solid: #0F8A5F;
-  --idle-fg: #4E5868;     --idle-bg: rgba(255,255,255,.55);    --idle-dot: #9AA3B2;
+  --idle-fg: #3E4756;     --idle-bg: rgba(255,255,255,.55);    --idle-dot: #9AA3B2;
 
   --gold: #D19A00; --silver: #8C97A8; --bronze: #B96B2E;
 
@@ -203,12 +203,12 @@ a:hover { color: var(--accent-hover); }
 /* 캐릭터는 움직이지 않는 그림 (숨쉬기·깜빡임·반응 모션 모두 끔) */
 .lite .av, .lite .av g, .lite .av .av-fx { animation: none !important; }
 .lite .av .av-arm { display: none; }
-.lite .glass, .lite .glass-strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.92); }
+.lite .glass, .lite .glass-strong { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.96); border-color: rgba(15,23,42,.10); }
 .lite .glass-live::after { display: none; }
 .lite .shine::after { display: none; }
 .lite .breathe, .lite .rays { animation: none; }
 @supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
-  .glass, .glass-strong { background: rgba(255,255,255,.92); }
+  .glass, .glass-strong { background: rgba(255,255,255,.96); border-color: rgba(15,23,42,.10); }
 }
 
 /* ---------- 움직임 줄이기 설정 ---------- */

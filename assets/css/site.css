@@ -36,9 +36,12 @@ select.input { padding-right: 8px; }
 /* 토스트 */
 .toasts { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%); z-index: 50;
   display: flex; flex-direction: column; align-items: center; gap: 8px; pointer-events: none; width: max-content; max-width: calc(100vw - 32px); }
-.toast { padding: 12px 20px; border-radius: var(--r-pill); font-weight: 700; font-size: 15px; animation: rise .3s var(--ease) both; }
-.toast-error { color: var(--returned-fg); }
-.toast-ok { color: var(--passed-fg); }
+.toast { display: flex; align-items: center; gap: 10px; padding: 12px 20px 12px 16px; border-radius: var(--r-pill); font-weight: 700; font-size: 15px; animation: rise .3s var(--ease) both; }
+.toast::before { content: ''; flex: none; width: 10px; height: 10px; border-radius: 50%; background: var(--accent); }
+.toast.toast-error { color: var(--returned-fg); background: #FFF3EE; border-color: rgba(194,65,12,.35); }
+.toast-error::before { background: var(--returned-solid); }
+.toast.toast-ok { color: var(--passed-fg); background: #EEFBF5; border-color: rgba(15,138,95,.35); }
+.toast-ok::before { background: var(--passed-solid); }
 .toast-out { animation: toast-out .3s var(--ease) forwards; }
 @keyframes toast-out { to { opacity: 0; transform: translateY(8px); } }
 
@@ -179,6 +182,11 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 }
 .code-input:focus { outline: 3px solid rgba(36,87,230,.35); outline-offset: 1px; }
 .code-input::placeholder { color: rgba(78,88,104,.45); }
+.code-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
+.code-slots i { height: 4px; border-radius: 2px; background: rgba(78,88,104,.18); transition: background-color .15s; }
+.code-slots i.on { background: var(--accent); }
+.code-input.shake { animation: shake .4s var(--ease); border-color: var(--returned-solid); }
+@keyframes shake { 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(2px); } }
 .num-input { letter-spacing: .1em; }
 .form-err { margin: 0; font-size: 14px; font-weight: 700; color: var(--returned-fg); }
 .state-box { display: flex; align-items: center; gap: 16px; padding: 18px; border-radius: var(--r-md); background: var(--s-bg); }
@@ -672,6 +680,16 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .home-txt span { font-size: 15px; color: var(--ink-2); min-height: 1em; }
 .home-go { margin-left: auto; font-size: 34px; font-weight: 500; color: var(--ink-2); line-height: 1; }
 .main-wrap .home-item.lift:hover { transform: translateY(-3px); }
+/* 수업: 로그인 뒤 가장 먼저 누르는 칸이라 크게 */
+#go-class.home-item {
+  flex: 1.6; min-height: 150px; color: #fff; border-color: rgba(255,255,255,.3);
+  background: radial-gradient(120% 90% at 100% 0%, #5B8CFF 0%, transparent 55%), linear-gradient(150deg, #2F66F2 0%, #1C3FB5 100%);
+  box-shadow: 0 16px 36px rgba(36,87,230,.28), inset 0 1px 0 rgba(255,255,255,.35);
+}
+#go-class.home-item:hover { color: #fff; }
+#go-class .home-ic { background: rgba(255,255,255,.2); color: #fff; }
+#go-class .home-txt b { font-size: 32px; }
+#go-class .home-txt span, #go-class .home-go { color: rgba(255,255,255,.88); }
 @media (max-width: 760px) {
   .home { grid-template-columns: 1fr; }
   .home-av { width: 180px; height: 180px; }
@@ -682,6 +700,8 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
   .login-classes { grid-template-columns: repeat(3, minmax(0, 1fr)); }
   .login-row { grid-template-columns: 96px minmax(0, 1fr); }
   .home-txt b { font-size: 22px; }
+  #go-class .home-txt b { font-size: 26px; }
+  #go-class.home-item { min-height: 120px; }
 }
 
 /* ---------- 반 페이지: 로그인 안 했을 때 ---------- */

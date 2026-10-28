@@ -60,8 +60,18 @@ function showLogin() {
   renderClassPick();
   $('num-in').value = pickClass ? (savedNum(pickClass) ?? '') : '';
   $('code-in').value = '';
+  fillSlots();
   prepareDraw($('v-login'));
 }
+
+function fillSlots() {
+  const n = $('code-in').value.replace(/\D/g, '').length;
+  $('code-slots').querySelectorAll('i').forEach((el, i) => el.classList.toggle('on', i < n));
+}
+$('code-in').addEventListener('input', () => {
+  $('code-in').classList.remove('shake');
+  fillSlots();
+});
 
 $('login-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -77,8 +87,13 @@ $('login-form').addEventListener('submit', async (e) => {
     const res = await studentLogin(pickClass, number, code);
     if (!res?.ok) {
       toast(ERR[res?.error] || '로그인하지 못했어요', 'error');
-      $('code-in').value = '';
-      $('code-in').focus();
+      const inp = $('code-in');
+      inp.value = '';
+      fillSlots();
+      inp.classList.remove('shake');
+      void inp.offsetWidth;
+      inp.classList.add('shake');
+      inp.focus();
       return;
     }
     store.set('lastClass', String(pickClass));

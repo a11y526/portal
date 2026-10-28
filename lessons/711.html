@@ -49,6 +49,7 @@ svg .ans.on{visibility:visible;opacity:1}
 .choice{display:inline-flex;flex-wrap:wrap;gap:8px;margin:0 4px;vertical-align:1px;row-gap:6px}
 .choice span{border:2px solid var(--muted-2);border-radius:999px;padding:0 14px;font-size:21px;font-weight:700;color:var(--ink);white-space:nowrap}
 .choice span.right.on{border-color:var(--primary);background:var(--primary);color:#fff}
+.choice:has(.right) span{cursor:pointer}
 
 #cover{justify-content:center;padding:0 96px;background:linear-gradient(180deg,#FFFFFF 0%,#EEF3FA 100%)}
 #cover .unit{font-size:20px;font-weight:700;color:var(--primary);margin-bottom:18px}
@@ -1051,6 +1052,11 @@ return {orbit:orbit, tour:tour, classify:classify, light:light, round:round, com
     s._label=label;
     b.addEventListener('click',function(){ s._next(); b.blur(); });
     items.forEach(function(x){ if(x.matches('.bl')) x.addEventListener('click',function(){ x.classList.toggle('on'); label(); }); });
+    // 고르기: 보기 중 아무거나 눌러도 그 칸의 정답이 나오고, 다시 누르면 숨는다
+    [].forEach.call(s.querySelectorAll('.choice'),function(c){
+      var r=[].slice.call(c.querySelectorAll('span.right')); if(!r.length) return;
+      c.addEventListener('click',function(e){ if(!e.target.closest('.choice > span')) return; var on=!r[0].classList.contains('on'); r.forEach(function(x){ x.classList.toggle('on',on); }); label(); });
+    });
     label();
   });
   // 시뮬레이션: 그 쪽에 처음 왔을 때 만들고, 그 쪽에 있을 때만 돌린다

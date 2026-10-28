@@ -553,7 +553,7 @@ function orbit(host){
 
 /* ---------------- ② 태양계 둘러보기: 그림 속 천체를 눌러 특징 보기 ---------------- */
 var TOUR=[
-  {k:'sun',n:'태양',t:'태양',x:11.5,y:39.6,r:5.4,f:['태양계에서 유일하게 스스로 빛을 낸다.']},
+  {k:'sun',n:'태양',t:'',x:11.5,y:39.6,r:5.4,f:['태양계에서 유일하게 스스로 빛을 낸다.']},
   {k:'mer',n:'수성',t:'행성',x:17.4,y:44.2,r:1.6,f:['태양계 행성 중에서 가장 작다.','대기가 거의 없어 낮과 밤의 온도 차가 매우 크다.']},
   {k:'ven',n:'금성',t:'행성',x:19.8,y:45.7,r:1.8,f:['두꺼운 대기층으로 덮여 있어서 표면 온도가 높다.']},
   {k:'moo',n:'달',t:'위성',x:22.0,y:50.8,r:1.4,f:['지구 주위를 공전한다.','지구의 위성이다.']},
@@ -593,7 +593,7 @@ function tour(host){
     cur=o.k; seen[o.k]=1;
     Object.keys(hots).forEach(function(k){ hots[k].classList.toggle('cur',k===cur); hots[k].classList.toggle('seen',!!seen[k]); });
     zoom(o);
-    card.innerHTML='<div class="tc-n">'+o.n+'</div><div class="tc-t">'+o.t+'</div><ul>'+o.f.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ul>';
+    card.innerHTML='<div class="tc-n">'+o.n+'</div>'+(o.t?'<div class="tc-t">'+o.t+'</div>':'')+'<ul>'+o.f.map(function(s){return '<li>'+s+'</li>';}).join('')+'</ul>';
     count();
   }
   TOUR.forEach(function(o){

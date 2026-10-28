@@ -872,7 +872,8 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .rise { animation-fill-mode: backwards; }
 
 /* ---------- 포인트 상점 (shop.html) ---------- */
-.shop-coins { display: flex; align-items: center; gap: 8px; }
+.shop-coins { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.shop-coins span + svg { margin-left: 14px; }
 .shop-coins b { font-size: 40px; font-weight: 900; letter-spacing: -0.03em; }
 .shop-coins span { font-size: 16px; font-weight: 700; color: var(--ink-2); }
 .try-bar { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; padding: 14px 16px; border-radius: var(--r-md); background: rgba(255,255,255,.7); }

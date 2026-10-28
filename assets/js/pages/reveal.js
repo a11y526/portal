@@ -124,7 +124,7 @@ function buildStage(ranking) {
       <div class="slot" data-rank="${rank}" style="--ring:${RING[rank]}">
         <div class="slot-top">
           ${rank === 1 ? '<div class="rays-bg" aria-hidden="true"><div class="rays-spin rays"></div></div>' : ''}
-          <div class="pts num">+<span data-to="${r.xp}">0</span> XP · +<span data-to="${r.coins}">0</span> 코인</div>
+          <div class="pts num">+<span data-to="${r.xp}">0</span> XP · +<span data-to="${r.coins}">0</span> 금화</div>
           ${rank === 1 ? CROWN : ''}
           <div class="flip">
             <div class="flip-inner">
@@ -149,7 +149,7 @@ function buildStage(ranking) {
       <span class="r num">${r.rank}</span>
       <b>${r.group_no}모둠</b>
       <span class="num muted-d">${r.members}명</span>
-      <span class="p num">+${r.xp} XP · +${r.coins} 코인</span>
+      <span class="p num">+${r.xp} XP · +${r.coins} 금화</span>
     </li>`).join('');
   $('rest').classList.add('hidden');
 

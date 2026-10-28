@@ -134,7 +134,7 @@ async function showHome(login) {
     $('home-nick').classList.toggle('muted', !me.nickname);
     $('home-cls').textContent = `${me.class_id}반 · ${who(me.number)} · Lv.${me.level.level}`;
     $('go-me-sub').textContent = `레벨 ${me.level.level}`;
-    $('go-shop-sub').textContent = `코인 ${me.coins}`;
+    $('go-shop-sub').textContent = `금화 ${me.coins} · 은화 ${me.silver ?? 0}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
     // 게임은 오목 스위치 하나로 모두 켜고 끈다(오목·루미큐브·쿼리도)
     getOmok(login.token).then((o) => {

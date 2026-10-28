@@ -203,3 +203,20 @@ end;
 $$;
 insert into public.settings (key, value) values ('ai_state', '{}'::jsonb)
 on conflict (key) do nothing;
+
+-- 2026-10-28 꾸미기는 은화로 (한 번만: settings.silver_switch가 있으면 건너뜀)
+--   꾸미기 가격을 1.5배로(은화). 예전에 코인으로 산 꾸미기는 아이템은 그대로 두고, 쓴 코인을 금화로 돌려준다(정정 이벤트)
+do $$
+begin
+  if exists (select 1 from public.settings where key = 'silver_switch') then
+    return;
+  end if;
+  update public.avatar_items set price = round(price * 1.5)::int where price > 0;
+  insert into public.point_events (student_id, xp, coins, reason)
+  select student_id, 0, -sum(coins)::int, '꾸미기 금화 돌려줌'
+  from public.point_events
+  where reason like '아이템: %' and coins < 0
+  group by student_id;
+  insert into public.settings (key, value) values ('silver_switch', jsonb_build_object('at', now()));
+end;
+$$;

@@ -846,3 +846,7 @@ create index if not exists away_log_open_idx on public.away_log (student_id) whe
 -- 그때까지 낸 학생이 모두 추첨에 든다. shown = 그때 같은 보드 다른 쪽에서 이미 창에 뜬 횟수(넘김·인정)
 alter table public.ws_page_open add column if not exists drawn_at timestamptz null;
 alter table public.ws_firsts add column if not exists shown int not null default 0;
+
+-- 은화 (2026-10-28): 꾸미기 아이템은 은화로 산다. 은화 잔액 = XP 합 + silver 합(꾸미기를 사면 silver = -가격).
+-- coins는 금화(보상용)
+alter table public.point_events add column if not exists silver int not null default 0;

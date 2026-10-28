@@ -2,6 +2,7 @@
 import { esc } from './ui.js';
 
 const NEWS = [
+  ['2026-10-28 15:45', 'Two currencies in the shop: gold (the old coins) buys rewards, and silver, earned one-for-one with XP, buys avatar items. Coins spent on items before were returned as gold.'],
   ['2026-10-28 14:10', 'Cleaner look on slower computers: sharper card borders, easier-to-read gray text, and a six-box code input on the login screen.'],
   ['2026-10-28 13:55', 'Worksheet blanks can now accept answers in any order, so “Jupiter and Mars” counts the same as “Mars and Jupiter”.'],
   ['2026-10-28 11:18', 'The leaderboard now shows the top 40 across all classes, plus a new “My class top 10” tab.'],

@@ -1,4 +1,4 @@
-// 마이페이지(로그인 필요): 캐릭터, 레벨 고리, XP 바, 이번 달 순위, 코인, 받은 기록, 닉네임 신청, 꾸미기, 레벨업 연출
+// 마이페이지(로그인 필요): 캐릭터, 레벨 고리, XP 바, 이번 달 순위, 금화, 받은 기록, 닉네임 신청, 꾸미기, 레벨업 연출
 import { initUI, toast, esc, countUp, isLite, groupName } from '../ui.js';
 import { getMyPage, requestNickname, saveAvatar } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -155,6 +155,7 @@ function renderStats() {
   countUp($('month-xp'), me.month_xp);
   countUp($('total-xp'), me.total_xp);
   countUp($('coins'), me.coins);
+  countUp($('silver'), me.silver ?? 0);
   $('month-rank').innerHTML = me.month_rank ? `전체 ${me.month_rank}위 ${moveText(me.month_move)}` : '';
 }
 
@@ -171,14 +172,14 @@ function amount(n, unit) {
 function renderHistory() {
   const list = me.history ?? [];
   $('hist').innerHTML = list.length ? list.map((h) => {
-    const plus = h.xp > 0 || (h.xp === 0 && h.coins > 0);
+    const plus = h.xp > 0 || (h.xp === 0 && (h.coins > 0 || (!h.coins && h.silver > 0)));
     return `
       <div class="hist-row">
         <span class="hist-d num">${fmtDay(h.at)}</span>
         <span class="hist-w">${esc(h.reason)}</span>
         <span class="hist-a ${plus ? 'up' : 'down'}">
-          <b class="num">${amount(h.xp, 'XP') || amount(h.coins, '코인')}</b>
-          ${h.xp && h.coins ? `<small class="num">${amount(h.coins, '코인')}</small>` : ''}
+          <b class="num">${amount(h.xp, 'XP') || amount(h.coins, '금화') || amount(h.silver, '은화')}</b>
+          ${h.xp && h.coins ? `<small class="num">${amount(h.coins, '금화')}</small>` : ''}
         </span>
       </div>`;
   }).join('') : '<div class="empty"><strong>아직 받은 기록이 없어요</strong></div>';
@@ -187,7 +188,7 @@ function renderHistory() {
 const BUY_STATUS = {
   requested: ['tag-pending', '승인 대기'],
   approved: ['tag-done', '승인'],
-  rejected: ['tag-warn', '거절 · 코인 돌려받음'],
+  rejected: ['tag-warn', '거절 · 금화 돌려받음'],
 };
 
 function renderPurchases() {

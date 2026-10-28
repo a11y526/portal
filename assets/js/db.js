@@ -82,7 +82,7 @@ export async function getClassMaterials(classId, token, v = null) {
 export const MATERIAL_BUCKET = 'materials';
 export const materialUrl = (path) => `${SUPABASE_URL}/storage/v1/object/public/${MATERIAL_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}`;
 
-// 내 기록: 레벨, XP, 순위, 코인, 받은 기록, 닉네임, 캐릭터, 입을 수 있는 부품
+// 내 기록: 레벨, XP, 순위, 금화, 받은 기록, 닉네임, 캐릭터, 입을 수 있는 부품
 export async function getMyPage(token) {
   return unwrap(await need().rpc('get_my_page', { p_token: token }));
 }
@@ -95,7 +95,7 @@ export async function saveAvatar(token, avatar) {
   return unwrap(await need().rpc('save_avatar', { p_token: token, p_avatar: avatar }));
 }
 
-// 상점: 코인, 레벨, 캐릭터, 꾸미기 아이템(owned/locked), 입을 수 있는 부품, 보상, 신청 내역, 같은 반 번호
+// 상점: 금화, 레벨, 캐릭터, 꾸미기 아이템(owned/locked), 입을 수 있는 부품, 보상, 신청 내역, 같은 반 번호
 export async function getShop(token) {
   return unwrap(await need().rpc('get_shop', { p_token: token }));
 }
@@ -573,7 +573,7 @@ export async function updateShopItem(id, patch) {
 
 /* ---------- 교사: 포인트 규칙, 점수 직접 주기 ---------- */
 
-// { pass_xp, pass_coins, rank_bonus: [1위, 2위, 3위](XP), rank_bonus_coins: [...](코인) }
+// { pass_xp, pass_coins, rank_bonus: [1위, 2위, 3위](XP), rank_bonus_coins: [...](금화) }
 export async function getPointRules() {
   const rows = unwrap(await need().from('settings').select('value').eq('key', 'points'));
   return rows[0]?.value ?? null;
@@ -593,7 +593,7 @@ export async function saveLevelThresholds(value) {
   unwrap(await need().from('settings').upsert({ key: 'level_thresholds', value }, { onConflict: 'key' }));
 }
 
-// 고른 학생들에게 XP·코인 (음수면 빼기). 결과: { ok, count }
+// 고른 학생들에게 XP·금화 (음수면 빼기). 결과: { ok, count }
 export async function grantPoints(studentIds, xp, coins, reason) {
   return unwrap(await need().rpc('grant_points', { p_student_ids: studentIds, p_xp: xp, p_coins: coins, p_reason: reason }));
 }
@@ -606,7 +606,7 @@ export async function listGrants(limit = 40) {
     .order('created_at', { ascending: false }).limit(limit));
 }
 
-// 학생별 코인 현황(classId 없으면 모든 반): [{ id, class_id, number, nickname, coins, earned, spent, rewards, pending, total_xp, level }]
+// 학생별 금화 현황(classId 없으면 모든 반): [{ id, class_id, number, nickname, coins, earned, spent, rewards, pending, total_xp, level }]
 export async function getCoinStatus(classId = null) {
   return unwrap(await need().rpc('get_coin_status', { p_class_id: classId }));
 }
@@ -649,7 +649,7 @@ async function readAll(build) {
 
 export async function exportPointEvents() {
   return readAll(() => need().from('point_events')
-    .select('id, xp, coins, reason, board_id, worksheet_board_id, ws_first_id, qb_game_id, qs_game_id, created_at, student:students(class_id, number, nickname)')
+    .select('id, xp, coins, silver, reason, board_id, worksheet_board_id, ws_first_id, qb_game_id, qs_game_id, created_at, student:students(class_id, number, nickname)')
     .order('created_at').order('id'));
 }
 

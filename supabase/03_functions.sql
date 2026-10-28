@@ -1239,7 +1239,7 @@ begin
   select m.xp, m.rnk into v_month, v_rank from public._month_ranks() m where m.student_id = v_sid;
 
   select coalesce(jsonb_agg(jsonb_build_object(
-           'at', e.created_at, 'reason', e.reason, 'xp', e.xp, 'coins', e.coins
+           'at', e.created_at, 'reason', e.reason, 'xp', e.xp, 'coins', e.coins, 'silver', e.silver
          ) order by e.created_at desc, e.id desc), '[]'::jsonb)
   into v_hist
   from (
@@ -1276,6 +1276,7 @@ begin
     'month_rank',       v_rank,
     'month_move',       public._rank_move(v_sid, v_rank),
     'coins',            v_coins,
+    'silver',           public._silver_balance(v_sid),
     'history',          v_hist,
     'wardrobe',         v_wear,
     'purchases',        v_buys,
@@ -1543,8 +1544,8 @@ grant execute on function public.set_nickname(uuid, text) to authenticated;
 
 -- =========================================================
 -- 4단계: 포인트 상점
--- 코인 잔액 = point_events.coins 합 − purchases.cost 합('requested', 'approved')
--- 꾸미기 아이템은 사는 순간 point_events에 coins = -가격으로 남는다
+-- 코인(금화) 잔액 = point_events.coins 합 − purchases.cost 합('requested', 'approved')
+-- 꾸미기 아이템은 은화로 산다(2026-10-28): 사는 순간 point_events에 silver = -가격. 그 전 구매는 coins = -가격(코인 돌려줌)
 -- =========================================================
 
 -- 코인 잔액 (내부용)
@@ -1561,6 +1562,18 @@ as $$
                 where student_id = p_student_id and status in ('requested', 'approved')), 0)
   )::int;
 $$;
+
+-- 은화 잔액 (내부용, 2026-10-28) = XP 합 + silver 합(꾸미기를 사면 -가격)
+create or replace function public._silver_balance(p_student_id uuid)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select sum(xp + silver) from public.point_events where student_id = p_student_id), 0)::int;
+$$;
+revoke all on function public._silver_balance(uuid) from public, anon, authenticated;
 
 -- 이 부품을 입을 수 있는지: 판매 중인 무료 부품이거나 산 부품 (내부용)
 create or replace function public._can_wear(p_student_id uuid, p_item_id text, p_slot text)
@@ -1700,6 +1713,7 @@ begin
     'avatar',     s.avatar,
     'level',      v_lv,
     'coins',      public._coin_balance(v_sid),
+    'silver',     public._silver_balance(v_sid),
     'items',      v_items,
     'wardrobe',   v_wear,
     'rewards',    v_rew,
@@ -1713,7 +1727,7 @@ grant execute on function public.get_shop(text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 꾸미기 아이템 사기 (학생). 교사 승인 없이 바로 내 것이 된다
--- 오류: NO_SESSION, NOT_FOR_SALE(판매 안 함), OWNED(이미 가짐), LEVEL(레벨 부족), NO_COINS(코인 부족)
+-- 오류: NO_SESSION, NOT_FOR_SALE(판매 안 함), OWNED(이미 가짐), LEVEL(레벨 부족), NO_SILVER(은화 부족)
 -- ---------------------------------------------------------
 drop function if exists public.buy_avatar_item(int, int, text, text);
 create or replace function public.buy_avatar_item(p_token text, p_item_id text)
@@ -1746,15 +1760,15 @@ begin
   if (public._level_info(v_total) ->> 'level')::int < it.min_level then
     return jsonb_build_object('ok', false, 'error', 'LEVEL', 'min_level', it.min_level);
   end if;
-  if public._coin_balance(v_sid) < it.price then
-    return jsonb_build_object('ok', false, 'error', 'NO_COINS');
+  if public._silver_balance(v_sid) < it.price then
+    return jsonb_build_object('ok', false, 'error', 'NO_SILVER');
   end if;
 
   insert into public.student_items (student_id, item_id) values (v_sid, it.id);
-  insert into public.point_events (student_id, xp, coins, reason)
-  values (v_sid, 0, -it.price, '아이템: ' || it.name);
+  insert into public.point_events (student_id, xp, coins, silver, reason)
+  values (v_sid, 0, 0, -it.price, '아이템: ' || it.name);
 
-  return jsonb_build_object('ok', true, 'item_id', it.id, 'coins', public._coin_balance(v_sid));
+  return jsonb_build_object('ok', true, 'item_id', it.id, 'silver', public._silver_balance(v_sid));
 end;
 $$;
 revoke all on function public.buy_avatar_item(text, text) from public;
@@ -6795,13 +6809,15 @@ begin
              'earned', coalesce(p.earned, 0), 'spent', coalesce(p.spent, 0),
              'rewards', coalesce(b.rewards, 0), 'pending', coalesce(b.pending, 0),
              'total_xp', coalesce(p.xp, 0),
+             'silver', coalesce(p.xp, 0) + coalesce(p.silver, 0),
              'level', (public._level_info(coalesce(p.xp, 0)) ->> 'level')::int
            ) order by s.class_id, s.number)
     from public.students s
     left join lateral (
       select sum(e.coins) filter (where e.coins > 0)::int as earned,
              (-sum(e.coins) filter (where e.coins < 0))::int as spent,
-             sum(e.xp)::int as xp
+             sum(e.xp)::int as xp,
+             sum(e.silver)::int as silver
       from public.point_events e where e.student_id = s.id
     ) p on true
     left join lateral (

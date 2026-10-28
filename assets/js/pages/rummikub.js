@@ -232,7 +232,7 @@ function renderResult() {
     $('result-s').textContent = '';
   } else {
     $('result-h').textContent = winMe ? '1등!' : `${w ? nameOf(w) : ''} 1등`;
-    $('result-s').textContent = g.reward ? `+${g.reward.xp} XP · +${g.reward.coins}코인`
+    $('result-s').textContent = g.reward ? `+${g.reward.xp} XP · +${g.reward.coins}금화`
       : winMe && g.end_reason === 'left' ? '모두 나가서 끝난 판은 보상이 없어요'
       : winMe && (info?.rewarded ?? 0) >= (info?.reward_daily ?? 1) ? '오늘 보상은 다 받았어요'
       : g.end_reason === 'pool' ? '타일이 다 떨어져 남은 점수로 정했어요' : '';
@@ -278,7 +278,7 @@ function openHelp() {
   });
   if (info) {
     $('help-turn').textContent = info.turn;
-    $('help-reward').textContent = `${info.xp} XP · ${info.coins}코인`;
+    $('help-reward').textContent = `${info.xp} XP · ${info.coins}금화`;
     $('help-daily').textContent = info.daily;
     $('help-rdaily').textContent = info.reward_daily ?? 1;
   }

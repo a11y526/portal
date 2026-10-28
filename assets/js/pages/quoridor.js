@@ -206,7 +206,7 @@ function resultTitle(g) {
 
 function resultSub(g) {
   const won = g.winner === g.me;
-  if (g.reward) return `+${g.reward.xp} XP · +${g.reward.coins}코인`;
+  if (g.reward) return `+${g.reward.xp} XP · +${g.reward.coins}금화`;
   if (g.end_reason === 'left') return won ? '모두 나가서 끝난 판은 보상이 없어요' : '';
   if (won && (info?.rewarded ?? 0) >= (info?.reward_daily ?? 1)) return '오늘 보상은 다 받았어요';
   return `${g.moves}수`;
@@ -302,7 +302,7 @@ function setTab(t) {
   else $('v-login').classList.toggle('hidden', t !== 'game');
   if (info) {
     $('help-turn').textContent = info.turn;
-    $('help-reward').textContent = `${info.xp} XP · ${info.coins}코인`;
+    $('help-reward').textContent = `${info.xp} XP · ${info.coins}금화`;
     $('help-daily').textContent = info.daily;
     $('help-rdaily').textContent = info.reward_daily ?? 1;
   }

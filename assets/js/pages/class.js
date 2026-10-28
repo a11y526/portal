@@ -362,7 +362,7 @@ function loadMatsLater() { setTimeout(loadMats, 0); }
    쓰는 대로 기기에 임시 저장(ws-<보드>-<번호>, 학생마다 따로)하고 몇 초 뒤 서버에 저장한다. 끊기면 연결되면 다시.
    로그인하지 않았으면 빈 학습지만 보인다(같은 기기를 쓴 다른 학생의 답이 보이지 않게)
    쪽마다 [이 쪽 제출]: 서버가 그 쪽 칸만 채점해 틀리거나 빈 칸의 위치만 돌려준다(정답은 오지 않는다).
-   맞은 쪽은 잠긴다(passed). 칸이 있는 쪽을 모두 제출해야 완료 + XP·코인, 완료 화면(#wsdone) */
+   맞은 쪽은 잠긴다(passed). 칸이 있는 쪽을 모두 제출해야 완료 + XP·금화, 완료 화면(#wsdone) */
 
 const SAVE_DELAY_MS = 2500;
 const WS_ERR = {
@@ -474,7 +474,7 @@ function noteFirsts(meta, boardId) {
   const fresh = list.filter((f) => !seen.has(f.id));
   if (!fresh.length) return;
   store.set(k, list.map((f) => f.id));
-  fresh.forEach((f) => toast(`첫 답 인정!${f.slide ? ` ${f.slide}쪽` : ''}${f.xp || f.coins ? ` +${f.xp} XP · +${f.coins}코인` : ''}`, 'ok'));
+  fresh.forEach((f) => toast(`첫 답 인정!${f.slide ? ` ${f.slide}쪽` : ''}${f.xp || f.coins ? ` +${f.xp} XP · +${f.coins}금화` : ''}`, 'ok'));
   const lv = meta.level;
   let had = 0;
   try { had = Number(localStorage.getItem(`lv-${login.class_id}-${login.number}`)) || 0; } catch {}
@@ -585,7 +585,7 @@ function renderWsFoot() {
       <div class="state-box is-passed passed-box ws-done">
         <span class="pass-check" aria-hidden="true">${CHECK_SVG(38)}</span>
         <span class="pass-title">학습지 완료!</span>
-        ${g.xp || g.coins ? `<span class="pass-sub num">+${g.xp} XP · +${g.coins}코인</span>` : ''}
+        ${g.xp || g.coins ? `<span class="pass-sub num">+${g.xp} XP · +${g.coins}금화</span>` : ''}
       </div>`;
     return;
   }
@@ -810,7 +810,7 @@ function syncRecheck() {
 }
 
 /* ---------- 학습지 완료 화면 (마지막 쪽까지 제출했을 때 한 번)
-   쪽 카드가 차례로 뒤집히며 초록 → '완료' 도장이 찍힘 → XP·코인 숫자가 올라감 → 색종이.
+   쪽 카드가 차례로 뒤집히며 초록 → '완료' 도장이 찍힘 → XP·금화 숫자가 올라감 → 색종이.
    [확인]을 누르면 레벨이 올랐을 때 레벨업 화면으로 이어진다 ---------- */
 const DONE_BITS = ['#2457E6', '#F59E0B', '#22C582', '#B79CFF', '#FF7A45', '#6EA8FF'];
 let doneLevel = null;

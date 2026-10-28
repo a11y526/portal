@@ -1,4 +1,4 @@
-// 오목: AI(백, 보통)와 대전. 나는 흑. 이기면 서버가 기보를 다시 두어 확인한 뒤 XP·코인을 준다.
+// 오목: AI(백, 보통)와 대전. 나는 흑. 이기면 서버가 기보를 다시 두어 확인한 뒤 XP·금화를 준다.
 // 하루 판 수 제한: 첫 돌을 놓을 때 서버에서 판을 받는다(그만두거나 새로고침해도 한 판).
 // 선생님이 켠 반만 할 수 있고, 꺼지면(수업 모드 시작 포함) 판을 막는다. 첫 돌 말고는 대국 중 통신은 하지 않는다.
 import { initUI, toast, countUp } from '../ui.js';
@@ -238,7 +238,7 @@ async function sendWin() {
     }
     info = { ...info, today: res.today, daily: res.daily, rewarded: (info.rewarded ?? 0) + (res.paid ? 1 : 0) };
     renderInfo();
-    const msg = res.paid ? `+${res.xp} XP · +${res.coins}코인` : res.capped ? '오늘 보상은 다 받았어요' : '이미 받은 판이에요';
+    const msg = res.paid ? `+${res.xp} XP · +${res.coins}금화` : res.capped ? '오늘 보상은 다 받았어요' : '이미 받은 판이에요';
     if (onScreen) $('result-s').textContent = msg; else if (res.paid) toast(`지난 승리 보상 ${msg}`, 'ok');
     if (res.paid && res.level_after > res.level_before) showLevelUp(res.level_after, res.total_xp);
   } catch (err) {

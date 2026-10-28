@@ -100,11 +100,11 @@
         <div class="hub-grid">
           <a class="hub-item glass glass-live lift rise" style="--d:0.23s" href="#grant">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5l2.5 5.2 5.5.8-4 3.9 1 5.6-5-2.7-5 2.7 1-5.6-4-3.9 5.5-.8z"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
-            <b>점수 주기</b><span>XP · 코인 직접 주기</span>
+            <b>점수 주기</b><span>XP · 금화 직접 주기</span>
           </a>
           <a class="hub-item glass glass-live lift rise" style="--d:0.24s" href="#coins">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M14.8 9.2a3 3 0 0 0-2.8-1.7c-1.6 0-2.8.9-2.8 2.2 0 3 5.8 1.6 5.8 4.6 0 1.3-1.2 2.2-3 2.2a3.2 3.2 0 0 1-3-1.8M12 6v1.5M12 16.5V18"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
-            <b>코인 현황</b><span>학생별 코인 잔액</span>
+            <b>금화 현황</b><span>학생별 금화 잔액</span>
           </a>
           <a class="hub-item glass glass-live lift rise" style="--d:0.25s" href="#points">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 6h14M5 12h14M5 18h14"/><circle cx="9" cy="6" r="1.8" fill="currentColor"/><circle cx="15" cy="12" r="1.8" fill="currentColor"/><circle cx="8" cy="18" r="1.8" fill="currentColor"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
@@ -290,7 +290,7 @@
         <div class="roll" id="grant-roll"></div>
         <div class="grant-fields">
           <label class="set-num"><span>XP</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-xp" value="0"></label>
-          <label class="set-num"><span>코인</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-coins" value="0"></label>
+          <label class="set-num"><span>금화</span><input class="input num" type="number" min="-1000" max="1000" step="1" id="grant-coins" value="0"></label>
           <label class="field grant-reason"><span>사유</span><input class="input" id="grant-reason" maxlength="40" required></label>
         </div>
         <div><button class="btn btn-primary" type="submit" id="grant-go">주기</button></div>
@@ -301,9 +301,9 @@
       </section>
     </div>
 
-    <section class="card glass rise panel hidden" data-panel="coins" data-title="코인 현황" aria-labelledby="h-coins">
+    <section class="card glass rise panel hidden" data-panel="coins" data-title="금화 현황" aria-labelledby="h-coins">
       <div class="card-head">
-        <h2 id="h-coins">코인 현황 <span class="muted num" id="coins-count"></span></h2>
+        <h2 id="h-coins">금화 현황 <span class="muted num" id="coins-count"></span></h2>
         <label class="class-pick glass">
           <select id="coins-class" aria-label="반"></select>
           <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 9l6 6 6-6"/></svg>
@@ -312,13 +312,13 @@
       <div class="row-actions">
         <div class="cls-tabs" id="coins-sort" role="tablist" aria-label="정렬">
           <button type="button" role="tab" class="cls-tab press on" aria-selected="true" data-sort="number">번호순</button>
-          <button type="button" role="tab" class="cls-tab press" aria-selected="false" data-sort="coins">코인 많은 순</button>
+          <button type="button" role="tab" class="cls-tab press" aria-selected="false" data-sort="coins">금화 많은 순</button>
         </div>
         <button type="button" class="btn btn-line btn-small" id="coins-refresh">새로 고침</button>
       </div>
       <p class="muted num coins-sum" id="coins-sum"></p>
       <div class="coins-scroll"><table class="coins-table" id="coins-table"></table></div>
-      <p class="muted" style="margin:0">잔액 = 받은 코인 − 꾸미기·뺀 코인 − 보상 신청(대기·승인). 거절된 신청은 빠져요.</p>
+      <p class="muted" style="margin:0">잔액 = 받은 금화 − 뺀 금화 − 보상 신청(대기·승인). 거절된 신청은 빠져요. 은화 = 누적 XP − 꾸미기에 쓴 은화.</p>
     </section>
 
     <section class="card glass rise panel hidden" data-panel="ai" data-title="AI 채점" aria-labelledby="h-ai">
@@ -342,46 +342,46 @@
       <h2 id="h-points">포인트 규칙</h2>
       <p class="muted" style="margin:0">모둠활동 통과·순위 보너스는 순위 발표 때 통과한 모둠의 모둠원 모두에게 줘요. 바꾼 값은 앞으로 받는 보상부터 적용돼요.</p>
       <div class="points-grid">
-        <span></span><b>XP</b><b>코인</b>
+        <span></span><b>XP</b><b>금화</b>
         <span>모둠활동 통과</span>
         <input class="input num" type="number" min="0" max="1000" name="pass_xp" aria-label="통과 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="pass_coins" aria-label="통과 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="pass_coins" aria-label="통과 금화" required>
         <span>1위 보너스</span>
         <input class="input num" type="number" min="0" max="1000" name="bx0" aria-label="1위 보너스 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="bc0" aria-label="1위 보너스 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc0" aria-label="1위 보너스 금화" required>
         <span>2위 보너스</span>
         <input class="input num" type="number" min="0" max="1000" name="bx1" aria-label="2위 보너스 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="bc1" aria-label="2위 보너스 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc1" aria-label="2위 보너스 금화" required>
         <span>3위 보너스</span>
         <input class="input num" type="number" min="0" max="1000" name="bx2" aria-label="3위 보너스 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="bc2" aria-label="3위 보너스 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="bc2" aria-label="3위 보너스 금화" required>
         <span>학습지 완료</span>
         <input class="input num" type="number" min="0" max="1000" name="ws_xp" aria-label="학습지 완료 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="ws_coins" aria-label="학습지 완료 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="ws_coins" aria-label="학습지 완료 금화" required>
         <span>쪽별 첫 답</span>
         <input class="input num" type="number" min="0" max="1000" name="wf_xp" aria-label="쪽별 첫 답 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="wf_coins" aria-label="쪽별 첫 답 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="wf_coins" aria-label="쪽별 첫 답 금화" required>
         <span>퀴즈 배틀 모둠 1등</span>
         <input class="input num" type="number" min="0" max="1000" name="qb_xp" aria-label="퀴즈 배틀 1등 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="qb_coins" aria-label="퀴즈 배틀 1등 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="qb_coins" aria-label="퀴즈 배틀 1등 금화" required>
         <span>오목 AI 승리</span>
         <input class="input num" type="number" min="0" max="1000" name="om_xp" aria-label="오목 승리 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="om_coins" aria-label="오목 승리 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="om_coins" aria-label="오목 승리 금화" required>
         <span>루미큐브 1등</span>
         <input class="input num" type="number" min="0" max="1000" name="rk_xp" aria-label="루미큐브 1등 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="rk_coins" aria-label="루미큐브 1등 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="rk_coins" aria-label="루미큐브 1등 금화" required>
         <span>쿼리도 승리</span>
         <input class="input num" type="number" min="0" max="1000" name="qd_xp" aria-label="쿼리도 승리 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="qd_coins" aria-label="쿼리도 승리 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="qd_coins" aria-label="쿼리도 승리 금화" required>
         <span>퀴즈 쇼 1위</span>
         <input class="input num" type="number" min="0" max="1000" name="qs_xp0" aria-label="퀴즈 쇼 1위 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="qs_coins0" aria-label="퀴즈 쇼 1위 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="qs_coins0" aria-label="퀴즈 쇼 1위 금화" required>
         <span>퀴즈 쇼 2위</span>
         <input class="input num" type="number" min="0" max="1000" name="qs_xp1" aria-label="퀴즈 쇼 2위 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="qs_coins1" aria-label="퀴즈 쇼 2위 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="qs_coins1" aria-label="퀴즈 쇼 2위 금화" required>
         <span>퀴즈 쇼 3위</span>
         <input class="input num" type="number" min="0" max="1000" name="qs_xp2" aria-label="퀴즈 쇼 3위 XP" required>
-        <input class="input num" type="number" min="0" max="1000" name="qs_coins2" aria-label="퀴즈 쇼 3위 코인" required>
+        <input class="input num" type="number" min="0" max="1000" name="qs_coins2" aria-label="퀴즈 쇼 3위 금화" required>
       </div>
       <label style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
         <span>쪽별 첫 답 추첨</span>
@@ -425,7 +425,7 @@
     <section class="card glass rise panel hidden" data-panel="omok" data-title="게임" aria-labelledby="h-omok">
       <h2 id="h-omok">게임</h2>
       <p class="muted" style="margin:0">켠 반만 오목·루미큐브·쿼리도를 할 수 있어요(학생 첫 화면의 '게임'). 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 온라인 판에서도 나가요.</p>
-      <p class="muted" style="margin:0">오목: 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2코인</span>(보상은 하루에 정한 횟수까지, 그 뒤 승리는 랭킹에만).</p>
+      <p class="muted" style="margin:0">오목: 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2금화</span>(보상은 하루에 정한 횟수까지, 그 뒤 승리는 랭킹에만).</p>
       <form class="row-actions" id="omok-form">
         <label for="omok-daily">오목 하루 판 수</label>
         <input class="input num" type="number" min="1" max="100" step="1" id="omok-daily" name="daily" required style="width:96px">
@@ -439,7 +439,7 @@
         <input class="input num" type="number" min="1" max="100" step="1" id="omp-daily" name="daily" required style="width:96px">
         <button type="submit" class="btn btn-primary btn-small press">저장</button>
       </form>
-      <p class="muted" style="margin:0">루미큐브: 6개 반 전체에서 먼저 온 3명끼리, 한 턴 <span class="num" id="rk-turn">60</span>초. 시작된 판을 한 판으로 세고, 1등만 <span class="num" id="rk-reward">5 XP · 5코인</span>, 보상은 하루에 정한 횟수까지(다른 사람이 모두 나가서 이긴 판은 없음).</p>
+      <p class="muted" style="margin:0">루미큐브: 6개 반 전체에서 먼저 온 3명끼리, 한 턴 <span class="num" id="rk-turn">60</span>초. 시작된 판을 한 판으로 세고, 1등만 <span class="num" id="rk-reward">5 XP · 5금화</span>, 보상은 하루에 정한 횟수까지(다른 사람이 모두 나가서 이긴 판은 없음).</p>
       <form class="row-actions" id="rk-form">
         <label for="rk-daily">루미큐브 하루 판 수</label>
         <input class="input num" type="number" min="1" max="100" step="1" id="rk-daily" name="daily" required style="width:96px">
@@ -447,7 +447,7 @@
         <input class="input num" type="number" min="0" max="100" step="1" id="rk-rdaily" name="reward_daily" required style="width:96px">
         <button type="submit" class="btn btn-primary btn-small press">저장</button>
       </form>
-      <p class="muted" style="margin:0">쿼리도: 2명 판·4명 판, 6개 반 전체에서 먼저 온 사람끼리, 한 수 <span class="num" id="qd-turn">40</span>초(넘기면 차례가 넘어가고 2번 연속이면 나감). 시작된 판을 한 판으로 세고, 도착한 사람만 <span class="num" id="qd-reward">5 XP · 5코인</span>, 보상은 하루에 정한 횟수까지(다른 사람이 모두 나가서 이긴 판은 없음).</p>
+      <p class="muted" style="margin:0">쿼리도: 2명 판·4명 판, 6개 반 전체에서 먼저 온 사람끼리, 한 수 <span class="num" id="qd-turn">40</span>초(넘기면 차례가 넘어가고 2번 연속이면 나감). 시작된 판을 한 판으로 세고, 도착한 사람만 <span class="num" id="qd-reward">5 XP · 5금화</span>, 보상은 하루에 정한 횟수까지(다른 사람이 모두 나가서 이긴 판은 없음).</p>
       <form class="row-actions" id="qd-form">
         <label for="qd-daily">쿼리도 하루 판 수</label>
         <input class="input num" type="number" min="1" max="100" step="1" id="qd-daily" name="daily" required style="width:96px">

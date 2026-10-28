@@ -349,7 +349,7 @@ function doneHTML() {
       <div class="qsp-me-av" id="me-av"></div>
       <h1>끝!</h1>
       ${rankLine()}
-      ${gain ? `<span class="qsp-reward num">+${gain.xp} XP · +${gain.coins}코인</span>` : ''}
+      ${gain ? `<span class="qsp-reward num">+${gain.xp} XP · +${gain.coins}금화</span>` : ''}
       ${topHTML(g.top)}
       <a class="btn btn-line press" href="class.html?c=${login.class_id}">반 페이지로</a>
     </section>`;

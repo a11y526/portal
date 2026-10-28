@@ -675,7 +675,7 @@ function renderBuys() {
     <div class="nick-row" data-bid="${p.id}">
       <b class="num">${who(p)}</b>
       <span class="new">${buyWhat(p)}</span>
-      <span class="old num">${p.cost}코인 · ${fmtDate(p.requested_at)}</span>
+      <span class="old num">${p.cost}금화 · ${fmtDate(p.requested_at)}</span>
       <span class="roster-btns">
         <button type="button" class="btn btn-pass btn-small" data-approve>승인</button>
         <button type="button" class="btn btn-danger btn-small" data-reject>거절</button>
@@ -688,8 +688,8 @@ function renderBuys() {
     <div class="nick-row">
       <b class="num">${who(p)}</b>
       <span>${buyWhat(p)}</span>
-      <span class="old num">${p.cost}코인 · ${fmtDate(p.decided_at || p.requested_at)}</span>
-      <span class="tag ${ok ? 'tag-done' : 'tag-warn'} buy-tag">${ok ? '승인' : '거절 · 코인 돌려줌'}${used}</span>
+      <span class="old num">${p.cost}금화 · ${fmtDate(p.decided_at || p.requested_at)}</span>
+      <span class="tag ${ok ? 'tag-done' : 'tag-warn'} buy-tag">${ok ? '승인' : '거절 · 금화 돌려줌'}${used}</span>
     </div>`;
   }).join('') : '<p class="muted" style="margin:0">아직 처리한 신청이 없어요</p>';
   updateHub();
@@ -729,7 +729,7 @@ function renderRewardsSet() {
   $('set-rewards').innerHTML = rewards.map((r) => `
     <div class="set-row set-reward" data-rid="${esc(r.id)}">
       <input class="input" data-f="name" value="${esc(r.name)}" maxlength="20" aria-label="보상 이름">
-      <label class="set-num"><input class="input num" type="number" min="0" max="9999" data-f="cost" value="${r.cost}" aria-label="${esc(r.name)} 가격"><span>코인</span></label>
+      <label class="set-num"><input class="input num" type="number" min="0" max="9999" data-f="cost" value="${r.cost}" aria-label="${esc(r.name)} 가격"><span>금화</span></label>
       <label class="check"><input type="checkbox" data-f="active"${r.active ? ' checked' : ''}> 판매</label>
     </div>`).join('') || '<p class="muted" style="margin:0">보상이 없어요</p>';
 }
@@ -742,7 +742,7 @@ function renderItemsSet() {
   $('set-items').innerHTML = avItems.filter((it) => it.slot === setSlot).map((it) => `
     <div class="set-row set-item" data-aid="${esc(it.id)}">
       <b class="set-name">${esc(it.name)}${PARTS[it.slot]?.[it.id] ? '' : ' <span class="tag tag-off">그림 없음</span>'}</b>
-      <label class="set-num"><input class="input num" type="number" min="0" max="9999" data-f="price" value="${it.price}" aria-label="${esc(it.name)} 가격"><span>코인</span></label>
+      <label class="set-num"><input class="input num" type="number" min="0" max="9999" data-f="price" value="${it.price}" aria-label="${esc(it.name)} 가격"><span>은화</span></label>
       <select class="input set-sel" data-f="rarity" aria-label="${esc(it.name)} 등급">
         ${RARITY_OPTS.map(([v, t]) => `<option value="${v}"${it.rarity === v ? ' selected' : ''}>${t}</option>`).join('')}
       </select>
@@ -804,7 +804,7 @@ $('set-items').addEventListener('change', async (e) => {
   if (await saveField(e.target, avItems, 'data-aid', updateAvatarItem) === 'reset') renderItemsSet();
 });
 
-/* ---------- 점수 주기: 고른 학생에게 XP·코인 (음수면 빼기) ---------- */
+/* ---------- 점수 주기: 고른 학생에게 XP·금화 (음수면 빼기) ---------- */
 let grantClass = CLASSES[0];
 let grantPick = new Set(); // 고른 학생 id
 
@@ -846,9 +846,9 @@ $('grant-form').addEventListener('submit', async (e) => {
   const coins = Math.round(Number($('grant-coins').value) || 0);
   const reason = $('grant-reason').value.trim();
   if (!grantPick.size) return toast('학생을 골라 주세요', 'error');
-  if (!xp && !coins) return toast('XP나 코인을 넣어 주세요', 'error');
+  if (!xp && !coins) return toast('XP나 금화를 넣어 주세요', 'error');
   const nums = grantRoster().filter((s) => grantPick.has(s.id)).map((s) => s.number);
-  const what = [signed(xp, 'XP'), signed(coins, '코인')].filter(Boolean).join(', ');
+  const what = [signed(xp, 'XP'), signed(coins, '금화')].filter(Boolean).join(', ');
   if (!confirm(`${grantClass}반 ${nums.length}명(${nums.join(', ')}번)에게 ${what}\n사유: ${reason}`)) return;
   const btn = $('grant-go');
   btn.disabled = true;
@@ -875,11 +875,11 @@ async function refreshGrants() {
       <b class="num">${g.student?.class_id ?? '?'}반 ${g.student?.number ?? '?'}번</b>
       <span>${esc(g.reason)}</span>
       <span class="old num">${fmtDate(g.created_at)}</span>
-      <span class="grant-amt num">${[signed(g.xp, 'XP'), signed(g.coins, '코인')].filter(Boolean).join(' · ')}</span>
+      <span class="grant-amt num">${[signed(g.xp, 'XP'), signed(g.coins, '금화')].filter(Boolean).join(' · ')}</span>
     </div>`).join('') : '<p class="muted" style="margin:0">아직 직접 준 점수가 없어요</p>';
 }
 
-/* ---------- 코인 현황: 학생별 잔액·받은·쓴·보상 신청 (0이면 모든 반) ---------- */
+/* ---------- 금화 현황: 학생별 잔액·받은·쓴·보상 신청 (0이면 모든 반) ---------- */
 let coinClass = CLASSES[0];
 try { const v = localStorage.getItem('coinClass'); if (v !== null) coinClass = Number(v); } catch {}
 if (coinClass !== 0 && !CLASSES.includes(coinClass)) coinClass = CLASSES[0];
@@ -915,7 +915,7 @@ function renderCoins() {
   const pending = sum('pending');
   $('coins-count').textContent = rows.length ? `${rows.length}명` : '';
   $('coins-sum').textContent = rows.length
-    ? `잔액 합 ${sum('coins')}코인 · 평균 ${Math.round(sum('coins') / rows.length)}코인${pending ? ` · 승인 기다리는 보상 ${pending}코인` : ''}`
+    ? `잔액 합 ${sum('coins')}금화 · 평균 ${Math.round(sum('coins') / rows.length)}금화${pending ? ` · 승인 기다리는 보상 ${pending}금화` : ''}`
     : '';
   if (!rows.length) {
     $('coins-table').innerHTML = '<tbody><tr><td class="l muted">명단이 없어요</td></tr></tbody>';
@@ -924,7 +924,7 @@ function renderCoins() {
   $('coins-table').innerHTML = `
     <thead><tr>
       ${all ? '<th class="l">반</th>' : ''}<th class="l">번호</th><th class="l">닉네임</th>
-      <th>잔액</th><th>받은 코인</th><th>꾸미기·뺀 코인</th><th>보상 신청</th><th>레벨</th>
+      <th>잔액</th><th>받은 금화</th><th>뺀 금화</th><th>보상 신청</th><th>은화</th><th>레벨</th>
     </tr></thead>
     <tbody>${rows.map((r) => `<tr>
       ${all ? `<td class="l">${r.class_id}반</td>` : ''}<td class="l">${r.number}번</td>
@@ -932,11 +932,12 @@ function renderCoins() {
       <td class="bal${r.coins < 0 ? ' minus' : ''}">${r.coins}</td>
       <td>${r.earned}</td><td>${r.spent}</td>
       <td>${r.rewards}${r.pending ? `<span class="wait">대기 ${r.pending}</span>` : ''}</td>
+      <td>${r.silver ?? ''}</td>
       <td>Lv.${r.level}</td>
     </tr>`).join('')}</tbody>
     <tfoot><tr>
       <td class="l" colspan="${all ? 3 : 2}">합계</td>
-      <td class="bal">${sum('coins')}</td><td>${sum('earned')}</td><td>${sum('spent')}</td><td>${sum('rewards')}</td><td></td>
+      <td class="bal">${sum('coins')}</td><td>${sum('earned')}</td><td>${sum('spent')}</td><td>${sum('rewards')}</td><td>${sum('silver')}</td><td></td>
     </tr></tfoot>`;
 }
 
@@ -948,7 +949,7 @@ async function refreshCoins() {
   renderCoins();
 }
 
-/* ---------- 포인트 규칙: 통과 기본·순위 보너스 (XP와 코인 따로) ---------- */
+/* ---------- 포인트 규칙: 통과 기본·순위 보너스 (XP와 금화 따로) ---------- */
 let pointRules = null;
 
 function rulesFromForm() {
@@ -966,8 +967,8 @@ function rulesFromForm() {
 function renderPointsSum() {
   const r = rulesFromForm();
   $('points-sum').textContent = [0, 1, 2].map((i) =>
-    `${i + 1}위 ${r.pass_xp + r.rank_bonus[i]} XP · ${r.pass_coins + r.rank_bonus_coins[i]}코인`).join('  /  ') +
-    `  /  그 밖의 통과 ${r.pass_xp} XP · ${r.pass_coins}코인`;
+    `${i + 1}위 ${r.pass_xp + r.rank_bonus[i]} XP · ${r.pass_coins + r.rank_bonus_coins[i]}금화`).join('  /  ') +
+    `  /  그 밖의 통과 ${r.pass_xp} XP · ${r.pass_coins}금화`;
 }
 
 /* 레벨 기준: Lv.1은 0 고정, 다음 레벨은 앞 레벨보다 커야 한다 */
@@ -1031,7 +1032,7 @@ async function refreshPoints() {
   [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
   renderPointsSum();
   const hub = $('hub-points');
-  if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}코인`;
+  if (hub) hub.textContent = `통과 ${f.pass_xp.value} XP · ${f.pass_coins.value}금화`;
 }
 
 $('points-form').addEventListener('input', renderPointsSum);
@@ -1117,15 +1118,15 @@ async function runExport(btn, job) {
 
 $('csv-points').addEventListener('click', (e) => runExport(e.currentTarget, async () => {
   const rows = await exportPointEvents();
-  downloadCSV(`점수원장_${todayKST()}.csv`, ['시각', '반', '번호', '닉네임', 'XP', '코인', '종류', '사유'],
-    rows.map((r) => [kst(r.created_at), ...studentCols(r.student), r.xp, r.coins, eventKind(r), r.reason]));
+  downloadCSV(`점수원장_${todayKST()}.csv`, ['시각', '반', '번호', '닉네임', 'XP', '금화', '은화', '종류', '사유'],
+    rows.map((r) => [kst(r.created_at), ...studentCols(r.student), r.xp, r.coins, r.silver, eventKind(r), r.reason]));
   toast(`${rows.length}줄을 내보냈어요`, 'ok');
 }));
 
 const BUY_STATUS = { requested: '신청', approved: '승인', rejected: '거절' };
 $('csv-buys').addEventListener('click', (e) => runExport(e.currentTarget, async () => {
   const rows = await exportPurchases();
-  downloadCSV(`구매내역_${todayKST()}.csv`, ['신청 시각', '반', '번호', '닉네임', '품목', '코인', '상태', '함께할 친구 번호', '처리 시각'],
+  downloadCSV(`구매내역_${todayKST()}.csv`, ['신청 시각', '반', '번호', '닉네임', '품목', '금화', '상태', '함께할 친구 번호', '처리 시각'],
     rows.map((r) => [kst(r.requested_at), ...studentCols(r.student), r.item?.name ?? '', r.cost, BUY_STATUS[r.status] ?? r.status, r.partner_number ?? '', kst(r.decided_at)]));
   toast(`${rows.length}줄을 내보냈어요`, 'ok');
 }));
@@ -1536,7 +1537,7 @@ async function refreshOmokRules() {
   omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
   $('omok-daily').value = omokRules.daily ?? 7;
   $('omok-rdaily').value = omokRules.reward_daily ?? 2;
-  $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${omokRules.coins ?? 2}코인`;
+  $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${omokRules.coins ?? 2}금화`;
   updateHub();
 }
 
@@ -1575,7 +1576,7 @@ async function refreshQdRules() {
   qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   $('qd-daily').value = qdRules.daily;
   $('qd-turn').textContent = qdRules.turn;
-  $('qd-reward').textContent = `${qdRules.xp} XP · ${qdRules.coins}코인`;
+  $('qd-reward').textContent = `${qdRules.xp} XP · ${qdRules.coins}금화`;
   $('qd-rdaily').value = qdRules.reward_daily;
   updateHub();
 }
@@ -1611,7 +1612,7 @@ async function refreshRkRules() {
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   $('rk-daily').value = rkRules.daily;
   $('rk-turn').textContent = rkRules.turn;
-  $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.coins}코인`;
+  $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.coins}금화`;
   $('rk-rdaily').value = rkRules.reward_daily;
   updateHub();
 }

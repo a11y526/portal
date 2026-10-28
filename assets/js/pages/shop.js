@@ -13,17 +13,19 @@ const $ = (id) => document.getElementById(id);
 const ERR = {
   NOT_FOR_SALE: '지금은 팔지 않아요',
   OWNED: '이미 가지고 있어요',
-  NO_COINS: '코인이 모자라요',
+  NO_COINS: '금화가 모자라요',
+  NO_SILVER: '은화가 모자라요',
   BAD_PARTNER: '친구 번호를 다시 골라 주세요',
 };
 const RARITY = { common: '일반', rare: '희귀', legend: '전설' };
 const STATUS = {
   requested: ['tag-pending', '승인 대기'],
   approved: ['tag-done', '승인'],
-  rejected: ['tag-warn', '거절 · 코인 돌려받음'],
+  rejected: ['tag-warn', '거절 · 금화 돌려받음'],
 };
 
 const COIN = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#F2B705"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#B88600" stroke-width="1.6"/></svg>';
+const SILVER = '<svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#C9D1DC"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7D8796" stroke-width="1.6"/></svg>';
 const LOCK = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="11" width="14" height="10" rx="2"/><path d="M8 11V8a4 4 0 0 1 8 0v3"/></svg>';
 const ICON = {
   pair: '<svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="9" cy="8" r="3.5"/><circle cx="17" cy="9" r="2.5"/><path d="M3 20a6 6 0 0 1 12 0"/><path d="M15 20a4.5 4.5 0 0 1 6-4.2"/></svg>',
@@ -49,7 +51,7 @@ const level = () => shop.level.level;
 const items = () => (shop.items ?? []).filter((it) => PARTS[it.slot]?.[it.id]);
 const lockedOf = (it) => !it.owned && it.min_level > level();
 
-/* ---------- 위쪽: 내 캐릭터 + 코인 + 입어 보기 ---------- */
+/* ---------- 위쪽: 내 캐릭터 + 금화·은화 + 입어 보기 ---------- */
 function renderHero(fresh = null) {
   const look = trying ? { ...wearing, [trying.slot]: trying.id } : wearing;
   heroSvg = mountAvatar($('hero-av'), look, 200, { label: '내 캐릭터', fresh, live: true });
@@ -67,17 +69,17 @@ function renderTryBar() {
     $('try-price').innerHTML = '<span class="tag tag-done">가지고 있음</span>';
     btn.textContent = '입기';
   } else {
-    $('try-price').innerHTML = `${COIN}<b class="num">${it.price}</b>` +
+    $('try-price').innerHTML = `${SILVER}<b class="num">${it.price}</b>` +
       (lockedOf(it) ? ` <span class="tag tag-off">Lv.${it.min_level}부터</span>` : '');
     if (lockedOf(it)) { btn.textContent = `Lv.${it.min_level}부터`; btn.disabled = true; }
-    else if (shop.coins < it.price) { btn.textContent = '코인 부족'; btn.disabled = true; }
+    else if (shop.silver < it.price) { btn.textContent = '은화 부족'; btn.disabled = true; }
     else btn.textContent = '구매';
   }
 }
 
 function renderCoins(animate = true) {
-  if (animate) countUp($('coins'), shop.coins);
-  else $('coins').textContent = shop.coins;
+  if (animate) { countUp($('coins'), shop.coins); countUp($('silver'), shop.silver); }
+  else { $('coins').textContent = shop.coins; $('silver').textContent = shop.silver; }
   $('lv-chip').textContent = `레벨 ${level()}`;
 }
 
@@ -97,7 +99,7 @@ function renderDeco() {
     if (worn) foot = '<span class="tag tag-today">착용 중</span>';
     else if (it.owned) foot = '<span class="tag tag-done">가지고 있음</span>';
     else if (locked) foot = `<span class="shop-lock">${LOCK}Lv.${it.min_level}부터</span>`;
-    else foot = `<span class="shop-price${shop.coins < it.price ? ' short' : ''}">${COIN}<b class="num">${it.price}</b></span>`;
+    else foot = `<span class="shop-price${shop.silver < it.price ? ' short' : ''}">${SILVER}<b class="num">${it.price}</b></span>`;
     return `
       <button type="button" class="shop-item r-${esc(it.rarity)}${locked ? ' is-locked' : ''} press" aria-pressed="${trying?.id === it.id}" data-id="${esc(it.id)}">
         ${it.rarity !== 'common' ? `<span class="shop-rarity">${RARITY[it.rarity] ?? ''}</span>` : ''}
@@ -165,7 +167,7 @@ $('try-buy').addEventListener('click', async () => {
         return;
       }
       it.owned = true;
-      shop.coins = res.coins;
+      shop.silver = res.silver;
       shop.wardrobe = [...(shop.wardrobe ?? []), { id: it.id, slot: it.slot }];
       renderCoins();
     }
@@ -199,11 +201,11 @@ function renderRewards() {
           <span class="reward-ic ic-${kind}">${ICON[kind]}</span>
           <div class="reward-txt">
             <b>${esc(r.name)}</b>
-            <span>${r.cost} 코인</span>
+            <span>${r.cost} 금화</span>
           </div>
           ${pend(r.id)
             ? '<span class="tag tag-pending reward-tag">승인 대기</span>'
-            : `<button type="button" class="btn btn-primary btn-small press reward-btn" data-req="${esc(r.id)}"${short || picking ? ' disabled' : ''}>${short ? '코인 부족' : '구매 신청'}</button>`}
+            : `<button type="button" class="btn btn-primary btn-small press reward-btn" data-req="${esc(r.id)}"${short || picking ? ' disabled' : ''}>${short ? '금화 부족' : '구매 신청'}</button>`}
         </div>
         ${picking ? `
         <form class="pair-form" data-pair="${esc(r.id)}">
@@ -327,7 +329,7 @@ async function load(first = true) {
   }
 }
 
-// 다른 화면에 다녀오면 승인 결과·코인을 다시 읽는다
+// 다른 화면에 다녀오면 승인 결과·금화를 다시 읽는다
 document.addEventListener('visibilitychange', () => {
   if (document.visibilityState === 'visible' && shop && !busy) load(false);
 });

@@ -824,18 +824,18 @@ const sheetBand = {
     }
   },
 
-  // [인정 취소]: 지금 쪽에서 인정한 학생의 XP·코인을 거두고, 닫혔던 줄을 다시 V로 볼 수 있게
+  // [인정 취소]: 지금 쪽에서 인정한 학생의 XP·금화를 거두고, 닫혔던 줄을 다시 V로 볼 수 있게
   async undoAccept() {
     const slide = this.slide;
     const no = this.st?.accepted?.[slide];
     if (!board || this.undoing || no == null) return;
-    if (!confirm('인정을 취소할까요? 준 XP·코인을 거둬요')) return false;
+    if (!confirm('인정을 취소할까요? 준 XP·금화를 거둬요')) return false;
     this.undoing = true;
     this.render();
     try {
       const r = await unacceptWsFirst(board.id, slide);
       if (r?.ok) {
-        toast(`인정 취소 (−${r.xp} XP · −${r.coins}코인)`, 'ok');
+        toast(`인정 취소 (−${r.xp} XP · −${r.coins}금화)`, 'ok');
         sendClassRefresh(classId);
         return true;
       } else {
@@ -882,7 +882,7 @@ $('ws-band').addEventListener('click', (e) => {
    [제출 시작] 뒤 추첨 시간(settings.ws_first.draw초) 안에 낸 학생은 이번 달 인정 덜 받은 순 → 무작위, 늦게 낸 학생은 뒤에 낸 순서로.
    추첨 시간이 끝나기 전에는 V를 눌러도 뜨지 않는다(서버도 막음).
    [제출한 것 보기](V)를 눌러야 뜨고, 지금 보이는 수업자료 쪽의 줄만 보여 준다.
-   [인정] 1 XP·1코인 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람 · [이전] 방금 넘긴 사람 다시.
+   [인정] 1 XP·1금화 → 창을 닫고 그 쪽은 끝(남은 사람은 서버가 닫음) · [넘기기] 다음 사람 · [이전] 방금 넘긴 사람 다시.
    다 넘기면 창이 닫힌다. Esc로 닫으면 남은 것은 그 쪽에서 V로 다시 보기
    덮개가 열려 있는 동안은 숨겨 두었다가 닫으면 다시 보인다
    ========================================================= */
@@ -1041,7 +1041,7 @@ const wsFirst = {
         const r = await acceptWsFirst(it.id);
         if (r?.ok) {
           const who = it.group_no ? `${groupName(it.group_no)}${r.members > 1 ? ` ${r.members}명` : ''}` : it.nickname || '닉네임 미정';
-          toast(`${who} +${r.xp} XP · +${r.coins}코인`, 'ok');
+          toast(`${who} +${r.xp} XP · +${r.coins}금화`, 'ok');
           sendClassRefresh(classId);
           done = true;
         } else {

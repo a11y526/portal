@@ -3,13 +3,14 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;700;800&display=swap" rel="stylesheet">
 <title>712 태양계 행성 자료 탐색기</title>
 <style>
 :root{--p:#0066CC;--ink:#1D1D1F;--mut:#7A7A7A;--line:#E0E0E0;--parch:#F5F5F7;--pearl:#FAFAFC;--gray:#B8B8BD;--tint:#E6F0FA}
 *{box-sizing:border-box}
-html,body{margin:0;height:100%;background:#fff;color:var(--ink);font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:#fff;color:var(--ink);font-family:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;-webkit-tap-highlight-color:transparent}
 body{display:flex;flex-direction:column;overflow:hidden;font-size:18px}
-button{font:inherit;font-size:17px;border-radius:999px;border:1px solid var(--line);background:var(--pearl);color:var(--ink);padding:6px 16px;min-height:44px;cursor:pointer;touch-action:manipulation;white-space:nowrap}
+button{font:inherit;font-size:16px;font-weight:700;border-radius:999px;border:1.5px solid var(--p);background:#fff;color:var(--p);padding:6px 16px;min-height:44px;cursor:pointer;touch-action:manipulation;white-space:nowrap}
 button.on{background:var(--p);border-color:var(--p);color:#fff}
 button:focus-visible{outline:2px solid var(--p);outline-offset:2px}
 .bar{display:flex;gap:8px;align-items:center;padding:8px 10px;border-bottom:1px solid var(--line);flex-wrap:wrap}
@@ -52,8 +53,8 @@ button:focus-visible{outline:2px solid var(--p);outline-offset:2px}
 .groups button{padding:4px 10px;min-height:40px;font-size:16px}
 .groups button.ga{background:var(--tint);border-color:var(--p);color:var(--p)}
 .groups button.gb{background:#ECECEE;border-color:#8E8E93;color:#3A3A3C}
-text{font-family:"SF Pro Text",-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Malgun Gothic",sans-serif}
-@media (max-width:620px){#plist{grid-template-columns:repeat(4,1fr)}.v1main{flex-direction:column}.card{min-width:0}#v2{flex-direction:column}.tbl{width:auto;flex-direction:row;flex-wrap:wrap}}
+text{font-family:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+@media (max-width:480px){#plist{grid-template-columns:repeat(4,1fr)}.v1main{flex-direction:column}.card{min-width:0}#v2{flex-direction:column}.tbl{width:auto;flex-direction:row;flex-wrap:wrap}}
 </style>
 </head>
 <body>

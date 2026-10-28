@@ -3,7 +3,7 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>이번 달 TOP 20</title>
+<title>이번 달 TOP 40</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
@@ -21,12 +21,16 @@
 
   <header class="rank-head">
     <span class="glass rank-chip" id="scope"></span>
-    <h1 id="month-title">TOP 20</h1>
+    <h1 id="month-title">TOP 40</h1>
     <span class="muted" id="reset-note"></span>
+    <nav class="class-tabs glass rank-tabs" id="rank-tabs" role="tablist" aria-label="순위 범위">
+      <button type="button" class="class-tab press on" role="tab" data-mode="all" aria-selected="true">전체 TOP 40</button>
+      <button type="button" class="class-tab press" role="tab" data-mode="class" id="tab-class" aria-selected="false">우리 반 TOP 10</button>
+    </nav>
   </header>
 
   <div class="podium-row" id="podium" aria-label="1~3위"></div>
-  <ol class="rank-list glass hidden" id="rows" aria-label="4~20위"></ol>
+  <ol class="rank-list glass hidden" id="rows" aria-label="4~40위"></ol>
   <div class="empty hidden" id="empty"><strong>아직 이번 달 기록이 없어요</strong></div>
 </main>
 <script defer src="https://cdn.jsdelivr.net/npm/gsap@3.12.5/dist/gsap.min.js"></script>

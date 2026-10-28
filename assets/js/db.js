@@ -210,7 +210,9 @@ export function sendQuizShow(classId) {
   return ch.send({ type: 'broadcast', event: 'quizshow', payload: {} }).catch(() => {});
 }
 
-export async function getMonthTop20() {
+export async function getMonthTop20(token = null) {
+  const res = await need().rpc('get_month_top20', { p_token: token });
+  if (!res.error) return res.data;
   return unwrap(await need().rpc('get_month_top20'));
 }
 

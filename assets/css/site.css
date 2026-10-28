@@ -564,6 +564,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .rank-chip { padding: 6px 14px; border-radius: var(--r-pill); font-size: 14px; font-weight: 700; color: var(--ink-2); }
 .rank-head h1 { margin: 8px 0 0; font-size: clamp(40px, 8vw, 60px); line-height: 1.05; font-weight: 900; letter-spacing: -0.04em; }
 .rank-head .muted { font-size: 15px; }
+.rank-tabs { align-self: center; margin-top: 10px; }
 .podium-row { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; align-items: end; }
 .pod { display: flex; flex-direction: column; align-items: center; gap: 12px; min-width: 0; }
 .pod.empty { visibility: hidden; }
@@ -595,6 +596,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .rr-xp small { font-size: 12px; }
 @media (max-width: 600px) {
   .rank-wrap { padding: 20px 16px 56px; gap: 24px; }
+  .rank-tabs .class-tab { padding: 0 18px; font-size: 15px; }
   .podium-row { gap: 8px; }
   .pod-av svg { width: 64px; height: 64px; }
   .pod-name { font-size: 15px; }

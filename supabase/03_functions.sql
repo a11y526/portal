@@ -1358,26 +1358,35 @@ revoke all on function public.save_avatar(text, jsonb) from public;
 grant execute on function public.save_avatar(text, jsonb) to anon, authenticated;
 
 -- ---------------------------------------------------------
--- 이번 달 TOP 20 (누구나)
+-- 이번 달 순위표: 전체 TOP 40 + (출입증이 있으면) 자기 반 TOP 10
 -- 반, 승인된 닉네임(없으면 null), 캐릭터, 이번 달 XP, 순위 변화. 번호는 주지 않는다.
--- 동점은 같은 순위라서 20줄보다 많을 수 있다.
+-- 동점은 같은 순위라서 40줄/10줄보다 많을 수 있다.
 -- ---------------------------------------------------------
-create or replace function public.get_month_top20()
+drop function if exists public.get_month_top20();
+create or replace function public.get_month_top20(p_token text default null)
 returns jsonb
 language plpgsql
 stable
 security definer
-set search_path = public
+set search_path = public, extensions
 as $$
 declare
-  v_key  text := public._month_key();
-  v_snap boolean;
-  v_rows jsonb;
+  v_key   text := public._month_key();
+  v_sid   uuid := case when p_token is null then null else public._session_student(p_token) end;
+  v_class int;
+  v_snap  boolean;
+  v_rows  jsonb;
+  v_crows jsonb := '[]'::jsonb;
 begin
+  if v_sid is not null then
+    select class_id into v_class from public.students where id = v_sid;
+  end if;
+
   v_snap := exists (select 1 from public.rank_snapshots where month = v_key);
 
   select coalesce(jsonb_agg(jsonb_build_object(
            'rank',     m.rnk,
+           'me',       coalesce(m.student_id = v_sid, false),
            'class_id', s.class_id,
            'nickname', s.nickname,
            'avatar',   s.avatar,
@@ -1390,13 +1399,47 @@ begin
   from public._month_ranks() m
   join public.students s on s.id = m.student_id
   left join public.rank_snapshots p on p.student_id = m.student_id and p.month = v_key
-  where m.rnk <= 20;
+  where m.rnk <= 40;
 
-  return jsonb_build_object('month', v_key, 'rows', v_rows);
+  if v_class is not null then
+    select coalesce(jsonb_agg(jsonb_build_object(
+             'rank',     c.rnk,
+             'me',       coalesce(c.student_id = v_sid, false),
+             'class_id', v_class,
+             'nickname', c.nickname,
+             'avatar',   c.avatar,
+             'xp',       c.xp,
+             'move',     case when not v_snap then null
+                              when p.rnk is null then to_jsonb('new'::text)
+                              else to_jsonb(p.rnk - c.rnk) end
+           ) order by c.rnk, c.number), '[]'::jsonb)
+    into v_crows
+    from (
+      select m.student_id, s.number, s.nickname, s.avatar, m.xp,
+             (rank() over (order by m.xp desc))::int as rnk
+      from public._month_ranks() m
+      join public.students s on s.id = m.student_id
+      where s.class_id = v_class
+    ) c
+    left join (
+      select r.student_id, (rank() over (order by r.rank))::int as rnk
+      from public.rank_snapshots r
+      join public.students s on s.id = r.student_id
+      where r.month = v_key and s.class_id = v_class and s.active and s.number > 0
+    ) p on p.student_id = c.student_id
+    where c.rnk <= 10;
+  end if;
+
+  return jsonb_build_object(
+    'month',      v_key,
+    'rows',       v_rows,
+    'my_class',   v_class,
+    'class_rows', v_crows
+  );
 end;
 $$;
-revoke all on function public.get_month_top20() from public;
-grant execute on function public.get_month_top20() to anon, authenticated;
+revoke all on function public.get_month_top20(text) from public;
+grant execute on function public.get_month_top20(text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 닉네임 승인·거절 (교사)

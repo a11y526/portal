@@ -3,6 +3,7 @@
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
+import { mountWhatsNew } from '../whatsnew.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, cleanupPostPhotos,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
@@ -23,6 +24,7 @@ import { refreshAi } from './teacher-ai.js';
 import { initSide, markSide, syncSideBadges } from './teacher-side.js';
 
 initUI();
+mountWhatsNew(document.getElementById('wn'));
 
 const $ = (id) => document.getElementById(id);
 

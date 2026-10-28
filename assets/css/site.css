@@ -2229,3 +2229,26 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
 .rm-away-list li.is-now { background: var(--returned-bg, rgba(255,122,69,.16)); color: var(--returned-fg); font-weight: 700; }
 .rm-away-list .rm-away-n { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .rm-away-list small { color: var(--ink-2); font-weight: 500; }
+
+/* ---------- 새 기능 소식 (whatsnew.js) ---------- */
+.wn-slot { flex: 1 1 260px; min-width: 0; display: flex; justify-content: center; }
+.wn-pill {
+  display: inline-flex; align-items: center; gap: 8px; max-width: min(460px, 100%); min-width: 0;
+  padding: 6px 14px 6px 6px; border: 0; border-radius: var(--r-pill); font: inherit; font-size: 13px;
+  color: var(--ink-2); cursor: pointer; position: relative;
+}
+.wn-tag { flex: none; padding: 2px 9px; border-radius: var(--r-pill); background: var(--accent-tint); color: var(--accent); font-weight: 700; font-size: 12px; }
+.wn-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.wn-pill.is-unseen .wn-tag { background: var(--accent); color: #fff; }
+.wn-sheet .card { padding: 24px 28px; }
+.wn-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 8px; }
+.wn-head h2 { margin: 0; font-size: 22px; font-weight: 900; letter-spacing: -0.02em; }
+.wn-day { padding: 14px 0 4px; border-top: 1px solid rgba(78,88,104,.12); }
+.wn-day:first-of-type { border-top: 0; }
+.wn-day h3 { margin: 0 0 8px; font-size: 14px; font-weight: 700; color: var(--accent); }
+.wn-day p { display: flex; gap: 12px; margin: 0 0 10px; font-size: 14.5px; line-height: 1.55; color: var(--ink); }
+.wn-day time { flex: none; width: 40px; color: var(--ink-2); font-variant-numeric: tabular-nums; font-size: 13px; padding-top: 1px; }
+@media (max-width: 600px) {
+  .wn-slot { order: 3; flex-basis: 100%; justify-content: flex-start; }
+  .wn-sheet .card { padding: 18px; }
+}

@@ -4,9 +4,11 @@ import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
 import { studentLogin, studentLogout, getMyPage, getOmok } from '../db.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
+import { mountWhatsNew } from '../whatsnew.js';
 import { mountAvatar, react, bindReactions } from '../avatar.js';
 
 initUI();
+mountWhatsNew(document.getElementById('wn'));
 bindReactions();
 
 const $ = (id) => document.getElementById(id);

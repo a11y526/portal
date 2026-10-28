@@ -39,12 +39,13 @@ button:focus-visible{outline:2px solid var(--p);outline-offset:2px}
 .card dd small{font-size:14px;font-weight:400;color:var(--mut)}
 /* 2. 막대그래프 */
 #v2{gap:10px;padding:10px}
-.tbl{width:190px;flex:none;display:flex;flex-direction:column;gap:4px;overflow:auto}
+.tbl{width:190px;flex:none;display:none;flex-direction:column;gap:4px;overflow:auto}
 .tbl .h{display:flex;font-size:14px;color:var(--mut);padding:0 4px}
 .tbl .h span:first-child{width:72px}
 .tbl label{display:flex;align-items:center;gap:6px;font-size:19px}
 .tbl label b{width:66px;font-weight:600}
 .tbl input{width:84px;min-height:38px;font:inherit;font-size:19px;border:1px solid var(--line);border-radius:8px;padding:2px 8px;text-align:right}
+.tbl input.given{background:#F2F2F4;color:#7A7A7A;border-color:transparent}
 .tbl input:focus{outline:2px solid var(--p);border-color:var(--p)}
 .tbl i{font-style:normal;color:var(--p);width:16px;font-weight:600}
 .chartbox{flex:1;min-width:0;display:flex;flex-direction:column;gap:6px}
@@ -111,6 +112,9 @@ let st={radius:{},mass:{},groups:{}};
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)st=Object.assign({radius:{},mass:{},groups:{}},s);}catch(e){}}
 function save(){try{localStorage.setItem(KEY,JSON.stringify(st));}catch(e){}}
 load();
+/* 그래프는 함께 보는 모션 그래픽: 모든 값을 미리 채운다 */
+const GIVEN=P.map(p=>p.k);
+P.forEach(p=>{if(GIVEN.includes(p.k)){st.radius[p.k]=String(p.r);st.mass[p.k]=String(p.m);}});
 const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
 const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
 const fmt=v=>{if(v>=10)return String(+v.toFixed(1));return String(+v.toFixed(2));};
@@ -197,7 +201,7 @@ function ok(p){const v=parseFloat(st[metric][p.k]);if(!isFinite(v))return false;
 function buildTbl(){
   tbl.innerHTML=`<div class="h"><span>행성</span><span>${metric==='radius'?'반지름(배)':'질량(배)'}</span></div>`;
   P.forEach(p=>{const l=document.createElement('label');l.innerHTML=`<b>${p.n}</b><input inputmode="decimal" autocomplete="off" aria-label="${p.n}"><i></i>`;
-    const inp=l.querySelector('input');inp.value=st[metric][p.k]||'';l.querySelector('i').textContent=ok(p)?'✓':'';
+    const inp=l.querySelector('input');inp.value=st[metric][p.k]||'';if(GIVEN.includes(p.k)){inp.readOnly=true;inp.classList.add('given');}l.querySelector('i').textContent=ok(p)?'✓':'';
     inp.addEventListener('input',()=>{st[metric][p.k]=inp.value.trim();save();l.querySelector('i').textContent=ok(p)?'✓':'';growBar(p);});
     tbl.appendChild(l);});
 }
@@ -231,7 +235,7 @@ function growBar(p){
 function setMetric(m){metric=m;document.querySelectorAll('[data-m]').forEach(b=>b.classList.toggle('on',b.dataset.m===m));
   document.getElementById('zoom').style.display=m==='mass'?'':'none';if(m!=='mass')zoom=false;document.getElementById('zoom').classList.toggle('on',zoom);
   ymaxCur=axis().max;P.forEach(p=>{if(shown[m][p.k]==null)shown[m][p.k]=val(p);});buildTbl();drawChart();}
-document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>setMetric(b.dataset.m));
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=()=>{setMetric(b.dataset.m);document.getElementById('replay').click();});
 document.getElementById('zoom').onclick=e=>{zoom=!zoom;e.currentTarget.classList.toggle('on',zoom);const a=ymaxCur,b=axis().max;
   anim(1300,t=>{ymaxCur=Math.exp(Math.log(a)+(Math.log(b)-Math.log(a))*t);drawChart();});};
 const pauseB=document.getElementById('pause');
@@ -254,6 +258,8 @@ window.addEventListener('message',e=>{const d=e.data||{};if(d.type==='active'){a
 if(window.parent!==window)document.addEventListener('keydown',e=>{if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
   if(['ArrowLeft','ArrowRight','PageUp','PageDown',' ','Home','End','a','A','g','G','f','F'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
 setTab(init.tab===2?2:1);buildGroups();setMetric(metric);
+document.querySelector('[data-tab="2"]').addEventListener('click',()=>document.getElementById('replay').click());
+if(init.tab===2)document.getElementById('replay').click();
 curR=0;pick(init.planet||'mercury');
 })();
 </script>

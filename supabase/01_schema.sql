@@ -153,7 +153,7 @@ alter table public.students add column if not exists nickname_request text null;
 -- 캐릭터 부품: 그림은 assets/js/avatar-parts.js에 있고, 이 표는 가격·판매 여부만 관리
 create table if not exists public.avatar_items (
   id        text primary key,
-  slot      text not null check (slot in ('face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg')),
+  slot      text not null check (slot in ('face', 'hair', 'hat', 'eyes', 'mouth', 'outfit', 'acc', 'pet', 'aura', 'bg')),
   name      text not null,
   price     int  not null default 0 check (price >= 0),
   rarity    text not null default 'common' check (rarity in ('common', 'rare', 'legend')),
@@ -900,3 +900,8 @@ alter table public.ot_games add column if not exists paid boolean not null defau
 
 -- 닉네임 바꾸기 신청 은화 (2026-10-29): 신청할 때 낸 은화. 거절되면 돌려주고 0으로
 alter table public.students add column if not exists nickname_cost int not null default 0;
+
+-- 2026-10-29 꾸미기 칸 3개 추가: 모자(hat)·펫(pet)·오라(aura). 이미 있는 표의 칸 검사를 바꾼다
+alter table public.avatar_items drop constraint if exists avatar_items_slot_check;
+alter table public.avatar_items add constraint avatar_items_slot_check
+  check (slot in ('face', 'hair', 'hat', 'eyes', 'mouth', 'outfit', 'acc', 'pet', 'aura', 'bg'));

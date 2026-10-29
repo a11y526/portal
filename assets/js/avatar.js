@@ -1,4 +1,4 @@
-// 캐릭터 그리기: 부품 조합 {face,hair,eyes,mouth,outfit,acc,bg} → SVG 하나 + 모션
+// 캐릭터 그리기: 부품 조합 {face,hair,hat,eyes,mouth,outfit,acc,pet,aura,bg} → SVG 하나 + 모션
 // 망점 무늬 3단계(밝음·중간·어두움)는 캐릭터마다 접두어를 붙인 <pattern>으로 만든다.
 // 작은 크기일수록 점 간격과 선 굵기를 키워 뭉개지지 않게 한다.
 
@@ -8,6 +8,11 @@ const INK = '#15171C';
 const PAPER = '#fff';
 const ACCENT = '#2457E6'; // 희귀·전설 부품만
 const GOLD = '#D19A00';
+// 희귀·전설 부품만 쓰는 색 (2026-10-29 새 꾸미기)
+const COLORS = {
+  sky: '#6EA8FF', goldL: '#FFE07D', mint: '#0F8A5F', mintL: '#6FE3C8',
+  violet: '#6D4FD8', violetL: '#B79CFF', coral: '#C2410C', coralL: '#FF7A45',
+};
 const SALT = Math.random().toString(36).slice(2, 6); // 무늬 id가 다른 캐릭터와 겹치지 않게
 let seq = 0;
 
@@ -37,6 +42,7 @@ function makeKit(size) {
     paper: PAPER,
     accent: ACCENT,
     gold: GOLD,
+    ...COLORS,
     L: `url(#${id}-l)`,
     M: `url(#${id}-m)`,
     D: `url(#${id}-d)`,
@@ -102,6 +108,7 @@ export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null
   const P = (slot) => PARTS[slot][a[slot]];
   const face = P('face'), hair = P('hair'), eyes = P('eyes'), mouth = P('mouth');
   const outfit = P('outfit'), acc = P('acc'), bg = P('bg');
+  const hat = P('hat'), pet = P('pet'), aura = P('aura');
   const call = (fn) => (fn ? fn(k) : '');
   const drop = (slot, markup) => (fresh === slot && markup ? `<g class="av-item-new">${markup}</g>` : markup);
 
@@ -113,6 +120,7 @@ export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null
     (live ? ` style="--breathe-d:${(-Math.random() * 3).toFixed(2)}s"` : '') + `>` +
     `<defs>${patterns(k)}<clipPath id="${k.id}-clip"><path d="${clip}"/></clipPath></defs>` +
     `<g class="av-bg">${drop('bg', call(bg.draw))}</g>` +
+    `<g class="av-aura">${drop('aura', call(aura.draw))}</g>` +
     `<g clip-path="url(#${k.id}-clip)">` +
       `<g class="av-body">${call(outfit.behind)}${drawNeck(k)}${drop('outfit', call(outfit.draw))}${acc.layer === 'body' ? drop('acc', call(acc.draw)) : ''}</g>` +
       drawArm(k, outfit.sleeve) +
@@ -124,7 +132,10 @@ export function avatarSVG(avatar, size = 96, { label = '캐릭터', fresh = null
       drop('mouth', call(mouth.draw)) +
       drop('hair', call(hair.front)) +
       (acc.layer !== 'body' ? drop('acc', call(acc.draw)) : '') +
+      drop('hat', call(hat.draw)) +
     `</g>` +
+    // 펫은 (101, 32) 둘레에 그린 것을 1.5배로 키워 오른쪽 위에
+    `<g class="av-pet" style="transform-box:view-box;transform-origin:0 0" transform="translate(97 33) scale(1.5) translate(-101 -32)">${drop('pet', call(pet.draw))}</g>` +
     `</svg>`;
 }
 

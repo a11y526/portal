@@ -2,6 +2,7 @@
 import { esc } from './ui.js';
 
 const NEWS = [
+  ['2026-10-29 16:30', 'The avatar shop got 42 new items and three new slots: hats, pets and auras. Animal hats, the crown and the halo moved to the hat slot, the galaxy background is now a real spiral galaxy, and some items that looked plainer than their price got cheaper.'],
   ['2026-10-29 11:30', 'Changing your nickname now costs 5 silver. Your first nickname is still free, and if the teacher declines the request the silver comes back.'],
   ['2026-10-29 10:40', 'New game: Online 1-on-1 Othello across all six classes, with an illustrated rules guide. Winning on disc count earns XP and silver (set by the teacher).'],
   ['2026-10-29 10:30', 'Game wins (Omok vs AI, Rummikub, Quoridor) now pay silver instead of gold, so game rewards go toward avatar items.'],

@@ -1404,6 +1404,7 @@ as $$
 declare
   v_sid  uuid;
   v_out  jsonb := '{}'::jsonb;
+  v_cur  jsonb;
   v_slot text;
   v_id   text;
 begin
@@ -1412,8 +1413,16 @@ begin
     return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
 
-  foreach v_slot in array array['face', 'hair', 'eyes', 'mouth', 'outfit', 'acc', 'bg'] loop
+  select avatar into v_cur from public.students where id = v_sid;
+  foreach v_slot in array array['face', 'hair', 'hat', 'eyes', 'mouth', 'outfit', 'acc', 'pet', 'aura', 'bg'] loop
     v_id := case when jsonb_typeof(p_avatar) = 'object' then p_avatar ->> v_slot end;
+    -- 새 칸(모자·펫·오라)을 모르는 예전 화면이 7칸만 보내면: 입던 것을 그대로, 없으면 '없음'
+    if v_id is null and v_slot in ('hat', 'pet', 'aura') then
+      v_id := coalesce(v_cur ->> v_slot, v_slot || '_none');
+      if not public._can_wear(v_sid, v_id, v_slot) then
+        v_id := v_slot || '_none';
+      end if;
+    end if;
     if v_id is null or not public._can_wear(v_sid, v_id, v_slot) then
       return jsonb_build_object('ok', false, 'error', 'BAD_ITEM');
     end if;

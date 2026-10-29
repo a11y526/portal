@@ -1,0 +1,1033 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>상점 신규 꾸미기 시안</title>
+<style>
+  :root {
+    --bg: #EDF1F7;
+    --ink: #0B1220;
+    --ink-2: #3E4756;
+    --accent: #2457E6;
+    --accent-hover: #1A43B8;
+    --accent-tint: rgba(36,87,230,.10);
+    --gold: #D19A00;
+    --r-xl: 36px; --r-lg: 28px; --r-md: 22px; --r-sm: 14px; --r-pill: 999px;
+    --glass-bg: rgba(255,255,255,.68);
+    --glass-strong-bg: rgba(255,255,255,.84);
+    --glass-border: rgba(255,255,255,.85);
+    --shadow: 0 12px 32px rgba(28,39,76,.10);
+    --shadow-strong: 0 18px 40px rgba(28,39,76,.14);
+    --ease: cubic-bezier(.2,.8,.2,1);
+  }
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink);
+    font-family: 'Noto Sans KR', -apple-system, BlinkMacSystemFont, system-ui, sans-serif;
+    overflow-x: hidden;
+  }
+  .num { font-variant-numeric: tabular-nums; }
+  .glass {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow), inset 0 1px 0 rgba(255,255,255,.95);
+  }
+  .glass-strong {
+    background: var(--glass-strong-bg);
+    border: 1px solid rgba(255,255,255,.92);
+    box-shadow: var(--shadow-strong), inset 0 1px 0 #fff;
+  }
+  .btn {
+    display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    min-height: 38px; padding: 0 14px; border: 0; border-radius: var(--r-pill);
+    font: inherit; font-size: 13.5px; font-weight: 700; cursor: pointer;
+    transition: transform .15s;
+  }
+  .btn:active { transform: scale(.97); }
+  .btn-primary { background: var(--accent); color: #fff; box-shadow: 0 8px 20px rgba(36,87,230,.3); }
+  .btn-line { background: rgba(255,255,255,.8); color: var(--ink); border: 1px solid rgba(78,88,104,.22); }
+  .chip { display: inline-flex; align-items: center; padding: 4px 11px; border-radius: var(--r-pill); font-size: 12px; font-weight: 800; background: var(--accent-tint); color: var(--accent); }
+  .tag-off { display: inline-flex; align-items: center; padding: 4px 11px; border-radius: var(--r-pill); font-size: 12px; font-weight: 700; background: rgba(78,88,104,.12); color: var(--ink-2); }
+
+  .s-wrap { max-width: 1140px; margin: 0 auto; padding: 28px 20px 72px; display: flex; flex-direction: column; gap: 24px; }
+  .s-top { display: flex; align-items: flex-end; justify-content: space-between; flex-wrap: wrap; gap: 12px; }
+  .s-top h1 { margin: 0; font-size: 26px; font-weight: 900; letter-spacing: -.03em; }
+  .s-top p { margin: 4px 0 0; font-size: 14px; color: var(--ink-2); }
+
+  /* 조합 스튜디오 */
+  .studio { border-radius: var(--r-lg); padding: 22px 24px; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 24px; align-items: center; }
+  .studio-stage { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+  .studio-av { width: 200px; height: 200px; display: grid; place-items: center; }
+  .studio-sizes { display: flex; align-items: flex-end; gap: 12px; }
+  .studio-sizes figure { margin: 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11px; font-weight: 700; color: var(--ink-2); }
+  .studio-ctrl { display: flex; flex-direction: column; gap: 12px; min-width: 0; }
+  .studio-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; flex-wrap: wrap; }
+  .studio-head h2 { margin: 0; font-size: 18px; font-weight: 900; }
+  .studio-picks { display: grid; grid-template-columns: repeat(auto-fill, minmax(145px, 1fr)); gap: 8px; }
+  .pick-col { display: flex; flex-direction: column; gap: 4px; background: rgba(255,255,255,.65); padding: 8px 10px; border-radius: 14px; border: 1px solid rgba(78,88,104,.15); }
+  .pick-col label { font-size: 12px; font-weight: 900; color: var(--ink-2); display: flex; align-items: center; gap: 5px; }
+  .pick-col label .new-dot { padding: 1px 6px; border-radius: 999px; background: var(--accent-tint); color: var(--accent); font-size: 10px; }
+  .pick-col select { height: 34px; border-radius: 9px; border: 1px solid rgba(78,88,104,.22); background: #fff; padding: 0 6px; font: inherit; font-size: 12.5px; font-weight: 700; color: var(--ink); }
+
+  /* 탭 & 그리드 */
+  .cat-bar { display: flex; flex-wrap: wrap; gap: 6px; }
+  .cls-tab { min-height: 38px; padding: 0 14px; border-radius: var(--r-pill); border: 1px solid rgba(78,88,104,.2); background: rgba(255,255,255,.7); font: inherit; font-size: 13.5px; font-weight: 800; color: var(--ink); cursor: pointer; }
+  .cls-tab.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+  .cat-sec { display: flex; flex-direction: column; gap: 12px; }
+  .cat-head { display: flex; align-items: center; gap: 10px; }
+  .cat-head h2 { margin: 0; font-size: 20px; font-weight: 900; letter-spacing: -.02em; }
+  .s-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 14px; }
+  .s-card { position: relative; overflow: hidden; border-radius: 24px; padding: 16px 12px 12px; display: flex; flex-direction: column; align-items: center; gap: 6px; cursor: pointer; border: 2px solid rgba(78,88,104,.16); transition: transform .2s var(--ease), box-shadow .2s; }
+  .s-card:hover { transform: translateY(-3px); box-shadow: var(--shadow-strong); }
+  .s-card.r-rare { border-color: rgba(36,87,230,.55); }
+  .s-card.r-legend { border-color: var(--gold); isolation: isolate; }
+  @keyframes shine-x { 0% { transform: translateX(-100%); } 100% { transform: translateX(100%); } }
+  .s-card.r-legend::after { content: ""; position: absolute; inset: 0; z-index: -1; pointer-events: none;
+    background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.75) 50%, transparent 80%);
+    transform: translateX(-100%); animation: shine-x 3.2s ease-in-out infinite; }
+  .s-card.is-on { outline: 3px solid var(--accent); outline-offset: -2px; background: rgba(255,255,255,.95); }
+  .shop-rarity { position: absolute; top: 8px; right: 8px; padding: 2px 8px; border-radius: var(--r-pill); font-size: 11px; font-weight: 900; background: var(--accent-tint); color: var(--accent); }
+  .r-legend .shop-rarity { background: rgba(209,154,0,.18); color: #8A6400; }
+  .s-name { font-size: 15px; font-weight: 900; }
+  .s-desc { font-size: 12px; color: var(--ink-2); text-align: center; line-height: 1.38; min-height: 2.7em; }
+  .s-meta { display: inline-flex; align-items: center; gap: 4px; font-size: 13px; font-weight: 800; color: var(--ink); }
+  .s-sizes { display: flex; align-items: flex-end; gap: 8px; padding-top: 6px; border-top: 1px dashed rgba(78,88,104,.18); width: 100%; justify-content: center; }
+
+  /* 캐릭터 기본 & 신규 부품 모션 */
+  .av { transform-origin: center bottom; }
+  .av g { transform-box: fill-box; transform-origin: center bottom; }
+  @keyframes av-breathe { 0%,100% { transform: translateY(0) scaleY(1); } 50% { transform: translateY(-1.2%) scaleY(1.01); } }
+  .av-live { animation: av-breathe 3s ease-in-out infinite; }
+
+  @keyframes fx-spin     { to { transform: rotate(360deg); } }
+  @keyframes fx-spin-rev { to { transform: rotate(-360deg); } }
+  @keyframes fx-float    { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-4.5px); } }
+  @keyframes fx-pulse    { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.16); } }
+  @keyframes fx-flame    { 0%, 100% { transform: scaleY(1) skewX(0deg); } 50% { transform: scaleY(1.09) skewX(-3deg); } }
+  @keyframes fx-twinkle  { 0%, 100% { opacity: .35; transform: scale(.82); } 50% { opacity: 1; transform: scale(1.18); } }
+  @keyframes fx-rise     { 0% { opacity: 0; transform: translateY(5px) scale(.8); } 35% { opacity: 1; } 100% { opacity: 0; transform: translateY(-12px) scale(1.1); } }
+  @keyframes fx-meteor   { 0% { opacity: 0; transform: translate(6px, -6px); } 30% { opacity: 1; } 100% { opacity: 0; transform: translate(-10px, 10px); } }
+  @keyframes fx-wave     { 0% { opacity: .95; transform: scale(.75); } 100% { opacity: 0; transform: scale(1.35); } }
+  @keyframes fx-wobble   { 0%, 100% { transform: rotate(-6deg); } 50% { transform: rotate(8deg); } }
+  @keyframes fx-scan     { 0%, 100% { transform: translateY(-3px); opacity: .55; } 50% { transform: translateY(3px); opacity: 1; } }
+
+  .av-live .fx-spin      { transform-origin: center; animation: fx-spin 9s linear infinite; }
+  .av-live .fx-spin-slow { transform-origin: center; animation: fx-spin 16s linear infinite; }
+  .av-live .fx-spin-rev  { transform-origin: center; animation: fx-spin-rev 9s linear infinite; }
+  .av-live .fx-float     { transform-origin: center; animation: fx-float 2.4s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-pulse     { transform-origin: center; animation: fx-pulse 1.5s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-flame     { transform-origin: center bottom; animation: fx-flame 1.1s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-twinkle   { transform-origin: center; animation: fx-twinkle 1.6s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-rise      { transform-origin: center; animation: fx-rise 2.4s ease-in infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-meteor    { transform-origin: center; animation: fx-meteor 2.4s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-wave      { transform-origin: center; animation: fx-wave 1.8s ease-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-wobble    { transform-origin: center; animation: fx-wobble 1.4s ease-in-out infinite; animation-delay: var(--d, 0s); }
+  .av-live .fx-scan      { transform-origin: center; animation: fx-scan 2s ease-in-out infinite; }
+
+  .lite .av, .lite .av g, .lite .s-card.r-legend::after { animation: none !important; }
+
+  @media (max-width: 720px) {
+    .studio { grid-template-columns: 1fr; justify-items: center; }
+  }
+</style>
+</head>
+<body>
+<main class="s-wrap">
+  <header class="s-top">
+    <div>
+      <h1>상점 신규 꾸미기 시안</h1>
+      <p>카드를 클릭하면 위 캐릭터에 즉시 착용되며, 200px · 96px · 48px · 40px 크기별 모습을 함께 확인합니다.</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button type="button" class="btn btn-line" id="btn-lite">저사양(.lite) 비교</button>
+      <button type="button" class="btn btn-primary" id="btn-rand">무작위 화려한 조합</button>
+    </div>
+  </header>
+
+  <section class="studio glass-strong">
+    <div class="studio-stage">
+      <div class="studio-av" id="studio-av"></div>
+      <div class="studio-sizes" id="studio-sizes"></div>
+    </div>
+    <div class="studio-ctrl">
+      <div class="studio-head">
+        <h2>9개 슬롯 동시 조합 테스트</h2>
+        <button type="button" class="btn btn-line" id="btn-reset">기본값으로</button>
+      </div>
+      <div class="studio-picks" id="studio-picks"></div>
+    </div>
+  </section>
+
+  <nav class="cat-bar" id="cat-bar"></nav>
+  <div id="sections" style="display:flex;flex-direction:column;gap:28px"></div>
+</main>
+
+<script>
+  const INK = '#15171C';
+  const PAPER = '#fff';
+  const PALETTE = {
+    accent: '#2457E6',
+    sky:    '#6EA8FF',
+    gold:   '#D19A00',
+    goldL:  '#FFE07D',
+    mint:   '#0F8A5F',
+    mintL:  '#6FE3C8',
+    violet: '#6D4FD8',
+    violetL:'#B79CFF',
+    coral:  '#C2410C',
+    coralL: '#FF7A45',
+  };
+
+  let seq = 0;
+  const lite = () => document.documentElement.classList.contains('lite');
+
+  function makeKit(size) {
+    const id = 'av' + (++seq).toString(36);
+    const cellPx = lite() ? 4.2 : Math.min(4.2, Math.max(2.4, size / 50));
+    return {
+      id,
+      cell: (cellPx * 120) / size,
+      sw: Math.max(2.4, (1.3 * 120) / size),
+      detail: size >= 64,
+      ink: INK,
+      paper: PAPER,
+      ...PALETTE,
+      L: `url(#${id}-l)`,
+      M: `url(#${id}-m)`,
+      D: `url(#${id}-d)`,
+    };
+  }
+
+  function patterns(k) {
+    const c = +k.cell.toFixed(3);
+    const dot = (name, r) =>
+      `<pattern id="${k.id}-${name}" patternUnits="userSpaceOnUse" width="${c}" height="${c}" patternTransform="rotate(45)">` +
+      `<rect width="${c}" height="${c}" fill="${PAPER}"/>` +
+      `<circle cx="${c / 2}" cy="${c / 2}" r="${(c * r).toFixed(3)}" fill="${INK}"/></pattern>`;
+    return dot('l', k.detail ? 0.17 : 0.11) + dot('m', 0.3) + dot('d', 0.48);
+  }
+
+  const sw = (k, w = 1) => `stroke="${INK}" stroke-width="${(k.sw * w).toFixed(2)}"`;
+  const line = (k, d, w = 1) => `<path d="${d}" fill="none" stroke="${k.ink}" stroke-width="${(k.sw * w).toFixed(2)}"/>`;
+  const shape = (k, d, fill, w = 1) => `<path d="${d}" fill="${fill}" stroke="${k.ink}" stroke-width="${(k.sw * w).toFixed(2)}"/>`;
+  const spark = (x, y, r, fill, cls = '', delay = 0) =>
+    `<path ${cls ? `class="${cls}" style="--d:${delay}s"` : ''} d="M${x} ${y - r} Q${x} ${y} ${x + r} ${y} Q${x} ${y} ${x} ${y + r} Q${x} ${y} ${x - r} ${y} Q${x} ${y} ${x} ${y - r} Z" fill="${fill}"/>`;
+  const star5 = (x, y, R, r) => 'M' + Array.from({ length: 10 }, (_, i) => {
+    const a = -Math.PI / 2 + (i * Math.PI) / 5, d = i % 2 ? r : R;
+    return `${(x + d * Math.cos(a)).toFixed(2)} ${(y + d * Math.sin(a)).toFixed(2)}`;
+  }).join(' L') + ' Z';
+  const blob = (k, circles, fill) =>
+    `<g fill="${k.ink}" stroke="${k.ink}" stroke-width="${(k.sw * 2).toFixed(2)}">` +
+    circles.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('') +
+    `</g><g fill="${fill}">` +
+    circles.map(([x, y, r]) => `<circle cx="${x}" cy="${y}" r="${r}"/>`).join('') +
+    `</g>`;
+  const FLAT = 'transform-box:view-box;transform-origin:0 0';
+  const BG_BASE = (k) => `<circle cx="60" cy="60" r="58" fill="${k.L}" opacity=".5"/>`;
+  const TEE = 'M18 124 C18 102 30 91.5 47 88 C51 94.5 69 94.5 73 88 C90 91.5 102 102 102 124 Z';
+
+  const BASE_DEFAULTS = {
+    face: {
+      face_round: {
+        name: '둥근',
+        d: 'M60 29.5 C74 29.5 85 40.5 85 54 C85 67.5 74 78.5 60 78.5 C46 78.5 35 67.5 35 54 C35 40.5 46 29.5 60 29.5 Z',
+        ears: [[35.5, 57], [84.5, 57]],
+      }
+    },
+    hair: {
+      hair_short: {
+        name: '짧은',
+        front: (k) =>
+          shape(k, 'M34.5 57 C31 37 42 21.5 60 21.5 C78 21.5 89 37 85.5 57 C84 50 82.5 45.5 79 42.5 C75 44 70 44 66.5 41 C63 43.5 57 44 53 40.5 C49 43.5 43 44 39.5 42.5 C37 46 35.5 51 34.5 57 Z', k.D) +
+          (k.detail ? line(k, 'M61 25 C57 29 54.5 33 53.5 37.5 M72 27.5 C70 31.5 68.5 35 67 38.5', 0.6) : ''),
+      }
+    },
+    eyes: {
+      eyes_round: {
+        name: '동그란',
+        draw: (k) => [50, 70].map((x) =>
+          `<ellipse cx="${x}" cy="55" rx="4.8" ry="5.8" fill="${k.ink}"/>` +
+          (k.detail ? `<circle cx="${x - 1.6}" cy="52.9" r="1.7" fill="${k.paper}"/><circle cx="${x + 1.7}" cy="57.3" r=".8" fill="${k.paper}"/>` : '')).join(''),
+      }
+    },
+    mouth: {
+      mouth_smile: {
+        name: '미소',
+        draw: (k) => line(k, 'M54.5 66 Q60 71.5 65.5 66', 1),
+      }
+    },
+    outfit: {
+      outfit_tee: {
+        name: '티셔츠',
+        draw: (k) =>
+          shape(k, TEE, k.M) +
+          shape(k, 'M47 88 C51 94.5 69 94.5 73 88 L70.8 87.4 C67.5 91.6 52.5 91.6 49.2 87.4 Z', k.paper, 0.7),
+      }
+    },
+    acc: {
+      acc_none: { name: '없음' }
+    },
+    bg: {
+      bg_circle: { name: '연한 원', draw: (k) => BG_BASE(k) }
+    }
+  };
+
+  const NEW_PARTS = {
+    hair: {
+      hair_flame: {
+        name: '플라즈마 불꽃 머리', tier: 'legend', price: 300, lv: 5,
+        desc: '하프톤 불꽃 헤어 안쪽에 코랄·금빛 플라즈마 코어가 일렁입니다',
+        front: (k) =>
+          `<g class="fx-flame">` +
+          shape(k, 'M34 55 C30 41 33 29 39 23 L35 13 L46 18 L51 6 L59 15 L65 4 L71 16 L82 10 L79 22 C86 28 89 40 86 55 C83 46 79 41 74 39 C68 42 63 41 60 37 C56 41 50 42 45 39 C40 41 37 46 34 55 Z', k.D) +
+          shape(k, 'M43 32 L42 20 L51 25 L56 13 L62 22 L67 12 L72 24 L78 19 L76 32 C70 35 50 35 43 32 Z', k.coralL, 0.75) +
+          (k.detail ? `<path d="M50 30 L55 18 L60 26 L65 17 L69 30 Z" fill="${k.gold}"/>` : '') +
+          `</g>` +
+          spark(33, 18, k.detail ? 3.5 : 4.5, k.gold, 'fx-twinkle', 0.1) +
+          spark(86, 16, k.detail ? 3.5 : 4.5, k.coralL, 'fx-twinkle', 0.5),
+      },
+      hair_zero_g: {
+        name: '무중력 우주 머리', tier: 'rare', price: 90, lv: 1,
+        desc: '무중력 공간처럼 둥실 떠오르는 머리결과 파란 별빛 입자',
+        ears: false,
+        back: (k) =>
+          `<g class="fx-float">` +
+          shape(k, 'M30 56 C22 42 20 24 29 14 C34 22 37 28 38 34 C42 18 52 12 60 12 C68 12 78 18 82 34 C83 28 86 22 91 14 C100 24 98 42 90 56 L95 76 C88 78 83 72 81 64 L39 64 C37 72 32 78 25 76 Z', k.D) +
+          `</g>`,
+        front: (k) =>
+          shape(k, 'M34.5 54 C33 34 44 23 60 23 C76 23 87 34 85.5 54 C83 46 79 41 74 39 C68 42 52 42 46 39 C41 41 37 46 34.5 54 Z', k.D) +
+          `<circle class="fx-twinkle" style="--d:.1s" cx="27" cy="24" r="2.2" fill="${k.sky}" ${sw(k, 0.5)}/>` +
+          `<circle class="fx-twinkle" style="--d:.6s" cx="93" cy="24" r="2.2" fill="${k.sky}" ${sw(k, 0.5)}/>` +
+          spark(60, 16, k.detail ? 4 : 5, k.accent, 'fx-twinkle', 0.3),
+      },
+      hair_neon: {
+        name: '사이버 네온 브릿지', tier: 'rare', price: 100, lv: 1,
+        desc: '샤프한 비대칭 컷 사이로 민트·블루 네온 브릿지가 빛납니다',
+        front: (k) =>
+          shape(k, 'M34 56 C31 36 42 21 60 21 C78 21 89 36 86 56 C84 48 81 42 76 39 L71 45 L67 38 L56 46 L53 38 C45 40 38 46 34 56 Z', k.D) +
+          `<g class="fx-twinkle">` +
+          shape(k, 'M46 27 L55 25 L51 35 L58 34 L48 45 L50 36 L44 37 Z', k.mintL, 0.7) +
+          shape(k, 'M66 25 L74 28 L69 36 L75 37 L65 45 L67 37 L63 36 Z', k.sky, 0.7) +
+          `</g>`,
+      },
+      hair_cloud: {
+        name: '구름 솜사탕 머리', tier: 'rare', price: 110, lv: 1,
+        desc: '몽글몽글한 밝은 망점 구름 헤어를 따라 별사탕 방울이 통통 튑니다',
+        ears: false,
+        front: (k) =>
+          blob(k, [
+            [35, 50, 7], [34, 39, 8.5], [41, 29, 9.5], [52, 23, 10], [65, 23, 10],
+            [77, 28, 9.5], [85, 38, 8.5], [85, 50, 7], [46, 36, 7.5], [58, 34, 8], [71, 36, 7.5]
+          ], k.L) +
+          `<g class="fx-float" style="--d:0s"><circle cx="28" cy="27" r="3.4" fill="${k.violetL}" ${sw(k, 0.7)}/></g>` +
+          `<g class="fx-float" style="--d:.5s"><circle cx="91" cy="26" r="3.4" fill="${k.goldL}" ${sw(k, 0.7)}/></g>` +
+          `<g class="fx-float" style="--d:1s"><circle cx="60" cy="12" r="3" fill="${k.sky}" ${sw(k, 0.7)}/></g>`,
+      },
+      hair_volt: {
+        name: '번개 삐죽 머리', tier: 'legend', price: 270, lv: 4,
+        desc: '초전도 에너지로 솟은 머리카락 주위에 황금 스파크가 찌릿거립니다',
+        front: (k) =>
+          shape(k, 'M34 55 C32 43 34 35 38 30 L28 24 L41 23 L38 12 L51 19 L57 7 L63 18 L73 8 L73 20 L86 14 L81 25 L92 27 L82 33 C86 39 87 46 86 55 C83 47 79 42 74 40 L68 44 L63 39 L55 44 L50 39 C43 41 37 46 34 55 Z', k.M) +
+          shape(k, 'M45 27 L55 15 L54 24 L64 14 L62 24 L74 17 L68 29 Z', k.gold, 0.7) +
+          `<g class="fx-twinkle" style="--d:.1s">` + shape(k, 'M23 36 L30 32 L28 38 L34 36 L25 43 L27 37 Z', k.gold, 0.65) + `</g>` +
+          `<g class="fx-twinkle" style="--d:.6s">` + shape(k, 'M96 35 L89 31 L91 37 L85 35 L94 42 L92 36 Z', k.gold, 0.65) + `</g>`,
+      },
+    },
+
+    hat: {
+      hat_none: { name: '없음', tier: 'common', price: 0, lv: 1, desc: '모자 없음' },
+      hat_astro: {
+        name: '우주 비행사 헬멧', tier: 'legend', price: 300, lv: 5,
+        desc: '반투명 블루 바이저와 전파를 쏘는 우주 통신 안테나 헬멧',
+        draw: (k) =>
+          `<line x1="60" y1="12" x2="60" y2="4" ${sw(k, 1.1)}/>` +
+          `<circle class="fx-pulse" cx="60" cy="3.5" r="3.2" fill="${k.gold}" ${sw(k, 0.7)}/>` +
+          (k.detail ? `<circle class="fx-wave" cx="60" cy="3.5" r="6.5" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.6).toFixed(2)}"/>` : '') +
+          shape(k, 'M28 50 C26 24 40 11 60 11 C80 11 94 24 92 50 C88 45 83 42 76 41 C66 39 54 39 44 41 C37 42 32 45 28 50 Z', k.L) +
+          `<path d="M35 43 C35 25 45 17 60 17 C75 17 85 25 85 43 C74 39 46 39 35 43 Z" fill="${k.accent}" fill-opacity=".32" ${sw(k, 0.85)}/>` +
+          (k.detail ? line(k, 'M43 26 Q50 21 58 21', 0.7) : '') +
+          spark(73, 26, k.detail ? 3.2 : 4, k.paper, 'fx-twinkle', 0.2),
+      },
+      hat_wizard: {
+        name: '별빛 마법사 모자', tier: 'rare', price: 130, lv: 1,
+        desc: '보라빛 마법 리본과 모자 끝에서 흔들리는 황금 별 방울',
+        draw: (k) =>
+          shape(k, 'M34 39 L47 11 C51 4 59 3 67 6 L83 13 L73 19 L84 39 Z', k.D) +
+          shape(k, 'M33 34 C48 30 72 30 87 34 L88 40 C72 36 48 36 32 40 Z', k.violet, 0.85) +
+          shape(k, 'M22 41 C42 34 78 34 98 41 C78 46 42 46 22 41 Z', k.D) +
+          `<g class="fx-wobble">` +
+          `<line x1="82" y1="13" x2="87" y2="21" ${sw(k, 0.7)}/>` +
+          `<path d="${star5(88, 24, 5.5, 2.5)}" fill="${k.gold}" ${sw(k, 0.65)}/>` +
+          `</g>` +
+          spark(54, 22, k.detail ? 3.5 : 4.5, k.goldL, 'fx-twinkle', 0.3),
+      },
+      hat_alchem: {
+        name: '연금술사 고글 모자', tier: 'rare', price: 110, lv: 1,
+        desc: '민트·골드 연금술 루페와 회전하는 태엽 기어가 달린 모자',
+        draw: (k) =>
+          shape(k, 'M32 43 C31 24 43 14 60 14 C77 14 89 24 88 43 Z', k.M) +
+          shape(k, 'M30 41 C46 37 74 37 90 41 L90 46 C74 42 46 42 30 46 Z', k.D, 0.9) +
+          `<g class="fx-spin" style="transform-box:view-box;transform-origin:60px 28px">` +
+          `<circle cx="60" cy="28" r="5.5" fill="${k.gold}" ${sw(k, 0.75)}/>` +
+          `<circle cx="60" cy="28" r="2" fill="${k.paper}"/>` +
+          `</g>` +
+          `<circle cx="46" cy="29" r="7" fill="${k.mintL}" ${sw(k, 0.9)}/>` +
+          `<circle cx="74" cy="29" r="7" fill="${k.goldL}" ${sw(k, 0.9)}/>` +
+          (k.detail ? line(k, 'M43 26 Q45 24 48 24 M71 26 Q73 24 76 24', 0.55) : ''),
+      },
+    },
+
+    eyes: {
+      eyes_cyber: {
+        name: '사이보그 스캐너 눈', tier: 'rare', price: 110, lv: 1,
+        desc: '눈동자 속 파란 디지털 타깃 링이 정밀하게 회전합니다',
+        draw: (k) => [50, 70].map((x) =>
+          `<ellipse cx="${x}" cy="55" rx="5.8" ry="6.6" fill="${k.ink}"/>` +
+          `<g class="fx-spin" style="transform-box:view-box;transform-origin:${x}px 55px">` +
+          `<circle cx="${x}" cy="55" r="3.6" fill="none" stroke="${k.sky}" stroke-width="${(k.sw * 0.75).toFixed(2)}" stroke-dasharray="3.5 2"/>` +
+          `</g>` +
+          `<circle cx="${x}" cy="55" r="1.4" fill="${k.paper}"/>`
+        ).join(''),
+      },
+      eyes_fire: {
+        name: '타오르는 열정 눈', tier: 'rare', price: 100, lv: 1,
+        desc: '눈동자 속에서 코랄과 황금 불꽃이 이글거리며 타오릅니다',
+        draw: (k) => [50, 70].map((x, i) =>
+          `<ellipse cx="${x}" cy="55" rx="5.6" ry="6.5" fill="${k.ink}"/>` +
+          `<g class="fx-flame" style="--d:${i * 0.25}s">` +
+          `<path d="M${x} 49.5 C${x + 3.5} 52 ${x + 3.5} 58 ${x} 59.5 C${x - 3.5} 58 ${x - 3.5} 52 ${x} 49.5 Z" fill="${k.coralL}"/>` +
+          `<path d="M${x} 52 C${x + 2} 54 ${x + 2} 57.5 ${x} 58.8 C${x - 2} 57.5 ${x - 2} 54 ${x} 52 Z" fill="${k.gold}"/>` +
+          `</g>`
+        ).join(''),
+      },
+      eyes_galaxy: {
+        name: '은하수 오드아이', tier: 'legend', price: 260, lv: 4,
+        desc: '푸른 별과 황금 별이 양쪽 눈에서 서로 반대로 회전하는 신비한 눈',
+        draw: (k) =>
+          [[50, k.sky, 'fx-spin'], [70, k.goldL, 'fx-spin-rev']].map(([x, col, cls]) =>
+            `<ellipse cx="${x}" cy="55" rx="6" ry="7" fill="${k.ink}"/>` +
+            `<g class="${cls}" style="transform-box:view-box;transform-origin:${x}px 55px">` +
+            `<path d="${star5(x, 55, 5, 2.2)}" fill="${col}"/>` +
+            `</g>` +
+            (k.detail ? `<circle cx="${x + 2.2}" cy="58" r="1.1" fill="${k.paper}"/>` : '')
+          ).join('') +
+          spark(39, 49, k.detail ? 3.2 : 4, k.sky, 'fx-twinkle', 0.1) +
+          spark(81, 49, k.detail ? 3.2 : 4, k.gold, 'fx-twinkle', 0.5),
+      },
+      eyes_pulse: {
+        name: '네온 하트비트 눈', tier: 'rare', price: 90, lv: 1,
+        desc: '심장 박동 리듬에 맞춰 두근두근 튀어 오르는 네온 하트 눈',
+        draw: (k) => [50, 70].map((x, i) =>
+          `<ellipse cx="${x}" cy="55" rx="5.8" ry="6.6" fill="${k.ink}"/>` +
+          `<g class="fx-pulse" style="transform-box:view-box;transform-origin:${x}px 55px;--d:${i * 0.2}s">` +
+          `<path d="M${x} 59.5 C${x - 6} 55.5 ${x - 4.5} 49.5 ${x} 52.8 C${x + 4.5} 49.5 ${x + 6} 55.5 ${x} 59.5 Z" fill="${i === 0 ? k.coralL : k.violetL}"/>` +
+          `</g>`
+        ).join(''),
+      },
+      eyes_swirl: {
+        name: '빙글빙글 최면 눈', tier: 'rare', price: 75, lv: 1,
+        desc: '파란 나선 소용돌이가 빙글빙글 돌아가는 코믹한 최면 눈',
+        draw: (k) => [50, 70].map((x) =>
+          `<circle cx="${x}" cy="55" r="6" fill="${k.paper}" ${sw(k, 0.9)}/>` +
+          `<g class="fx-spin" style="transform-box:view-box;transform-origin:${x}px 55px">` +
+          `<path d="M${x} 55 m0 -4.2 a4.2 4.2 0 1 1 -3.8 2.4 a2.6 2.6 0 1 0 3.8 -0.6" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.85).toFixed(2)}"/>` +
+          `</g>`
+        ).join(''),
+      },
+    },
+
+    mouth: {
+      mouth_bubble: {
+        name: '풍선껌', tier: 'rare', price: 80, lv: 1,
+        desc: '입가에서 보라빛 풍선껌이 숨결에 맞춰 부풀었다 줄어듭니다',
+        draw: (k) =>
+          line(k, 'M55 67 Q60 70 64 67', 0.9) +
+          `<g class="fx-pulse" style="transform-box:view-box;transform-origin:66px 68px">` +
+          `<circle cx="67.5" cy="68.5" r="6.5" fill="${k.violetL}" fill-opacity=".75" ${sw(k, 0.85)}/>` +
+          (k.detail ? `<circle cx="65.2" cy="66.2" r="1.6" fill="${k.paper}"/>` : '') +
+          `</g>`,
+      },
+      mouth_meat: {
+        name: '만화 고기 먹방', tier: 'common', price: 45, lv: 1,
+        desc: '뼈다귀가 달린 만화 고기를 앙 물고 신나게 오물거립니다',
+        draw: (k) =>
+          line(k, 'M54 66.5 Q60 71 66 66.5', 1) +
+          `<g class="fx-wobble" style="transform-box:view-box;transform-origin:64px 68px">` +
+          `<path d="M72 68.5 H78.5" stroke="${k.paper}" stroke-width="${(k.sw * 2.2).toFixed(2)}"/>` +
+          `<path d="M72 68.5 H78.5" stroke="${k.ink}" stroke-width="${(k.sw * 0.8).toFixed(2)}"/>` +
+          `<circle cx="79.5" cy="67" r="2" fill="${k.paper}" ${sw(k, 0.65)}/>` +
+          `<circle cx="79.5" cy="70" r="2" fill="${k.paper}" ${sw(k, 0.65)}/>` +
+          `<ellipse cx="68.5" cy="68.5" rx="6" ry="4.2" fill="${k.M}" ${sw(k, 0.85)}/>` +
+          `</g>`,
+      },
+      mouth_beam: {
+        name: '무지개 빔 발사', tier: 'rare', price: 90, lv: 1,
+        desc: '입에서 3색 에너지 파동과 별빛이 뿜어져 나오는 코믹 이펙트',
+        draw: (k) =>
+          `<ellipse cx="60" cy="68.5" rx="4.2" ry="5" fill="${k.ink}"/>` +
+          `<circle cx="60" cy="68.5" r="2.4" fill="${k.sky}"/>` +
+          `<g class="fx-wave" style="transform-box:view-box;transform-origin:60px 68.5px">` +
+          `<ellipse cx="60" cy="72" rx="7.5" ry="3.2" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.8).toFixed(2)}"/>` +
+          `<ellipse cx="60" cy="75.5" rx="10.5" ry="4" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 0.75).toFixed(2)}"/>` +
+          `</g>` +
+          spark(50, 72, k.detail ? 3 : 3.8, k.mintL, 'fx-twinkle', 0.2) +
+          spark(70, 72, k.detail ? 3 : 3.8, k.gold, 'fx-twinkle', 0.6),
+      },
+      mouth_fang: {
+        name: '뱀파이어 송곳니', tier: 'rare', price: 75, lv: 1,
+        desc: '씩 웃는 입가의 뾰족한 송곳니 끝에서 황금빛이 반짝입니다',
+        draw: (k) =>
+          line(k, 'M52.5 66 Q60 70.5 67.5 66', 1) +
+          shape(k, 'M54.2 66.8 L56 71.8 L57.8 67.3 Z M62.2 67.3 L64 71.8 L65.8 66.8 Z', k.paper, 0.7) +
+          spark(66.5, 72.5, k.detail ? 3.2 : 4, k.gold, 'fx-twinkle', 0.2),
+      },
+      mouth_whistle: {
+        name: '휘파람 음표', tier: 'rare', price: 70, lv: 1,
+        desc: '휘파람을 부는 입 옆으로 파랑·금색 음표가 둥실 떠오릅니다',
+        draw: (k) =>
+          `<circle cx="61" cy="68" r="2.6" fill="${k.ink}"/>` +
+          `<g class="fx-float" style="--d:0s">` +
+          `<circle cx="71" cy="66" r="2.1" fill="${k.accent}" ${sw(k, 0.5)}/>` +
+          `<path d="M72.8 66 V59.5 L76 61" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.85).toFixed(2)}"/>` +
+          `</g>` +
+          (k.detail ? `<g class="fx-float" style="--d:.6s"><circle cx="78" cy="62" r="1.8" fill="${k.gold}" ${sw(k, 0.45)}/><path d="M79.5 62 V56.5" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 0.75).toFixed(2)}"/></g>` : ''),
+      },
+    },
+
+    outfit: {
+      outfit_core: {
+        name: '핵융합 코어 슈트', tier: 'legend', price: 300, lv: 6,
+        desc: '가슴 중앙의 핵융합 코어가 회전하며 푸른 빛을 내는 슈트',
+        draw: (k) =>
+          shape(k, 'M16 124 C16 100 28 90 45 87.5 H75 C92 90 104 100 104 124 Z', k.D) +
+          shape(k, 'M30 93 L46 88 L52 104 L34 110 Z M90 93 L74 88 L68 104 L86 110 Z', k.M, 0.85) +
+          `<circle class="fx-pulse" cx="60" cy="105" r="8.5" fill="${k.accent}" ${sw(k, 0.9)}/>` +
+          `<g class="fx-spin" style="transform-box:view-box;transform-origin:60px 105px">` +
+          `<circle cx="60" cy="105" r="6" fill="none" stroke="${k.paper}" stroke-width="${(k.sw * 0.75).toFixed(2)}" stroke-dasharray="3 2.5"/>` +
+          `</g>` +
+          `<circle cx="60" cy="105" r="3" fill="${k.paper}"/>`,
+      },
+      outfit_wizard: {
+        name: '대마법사 망토', tier: 'rare', price: 130, lv: 1,
+        desc: '높은 마법사 깃과 보라빛 마법 결정·황금 별 브로치가 빛나는 망토',
+        behind: (k) =>
+          shape(k, 'M34 92 L29 74 L46 80 L60 73 L74 80 L91 74 L86 92 Z', k.D),
+        draw: (k) =>
+          shape(k, TEE, k.D) +
+          shape(k, 'M45 88 L60 124 L75 88 C68 93 52 93 45 88 Z', k.M, 0.8) +
+          `<path d="${star5(60, 98, 6.5, 2.8)}" fill="${k.gold}" ${sw(k, 0.7)}/>` +
+          spark(48, 106, k.detail ? 3.2 : 4, k.violetL, 'fx-twinkle', 0.2) +
+          spark(72, 106, k.detail ? 3.2 : 4, k.violetL, 'fx-twinkle', 0.7),
+      },
+      outfit_gamer: {
+        name: '네온 게이밍 후드', tier: 'rare', price: 100, lv: 1,
+        desc: '민트·블루 네온 라인과 번개 엠블럼이 점멸하는 게이머 후드',
+        behind: (k) =>
+          shape(k, 'M38 92 C35 80 45 74.5 60 74.5 C75 74.5 85 80 82 92 Z', k.D),
+        draw: (k) =>
+          shape(k, 'M17 124 C17 102 29 92 45 88.5 C50 95 70 95 75 88.5 C91 92 103 102 103 124 Z', k.D) +
+          `<path d="M30 98 L25 122 M90 98 L95 122" stroke="${k.mintL}" stroke-width="${(k.sw * 1.4).toFixed(2)}" fill="none"/>` +
+          `<g class="fx-twinkle">` +
+          shape(k, 'M62 96 L54 106 H60 L57 116 L67 104 H61 Z', k.mintL, 0.75) +
+          `</g>`,
+      },
+      outfit_chem: {
+        name: '화학 마스터 앞치마', tier: 'rare', price: 110, lv: 1,
+        desc: '3색 용액 시험관이 꽂힌 실험 앞치마에서 기포가 보글보글 올라옵니다',
+        draw: (k) =>
+          shape(k, TEE, k.L) +
+          shape(k, 'M38 90 H82 L85 124 H35 Z', k.M, 0.85) +
+          [[52, k.accent], [60, k.mintL], [68, k.coralL]].map(([x, c]) =>
+            `<rect x="${x - 2.6}" y="102" width="5.2" height="12" rx="2.5" fill="${c}" ${sw(k, 0.65)}/>`
+          ).join('') +
+          shape(k, 'M47 108 H73 V120 H47 Z', k.D, 0.8) +
+          `<circle class="fx-rise" style="--d:0s" cx="53" cy="99" r="1.8" fill="${k.sky}"/>` +
+          `<circle class="fx-rise" style="--d:.8s" cx="67" cy="98" r="2" fill="${k.coralL}"/>`,
+      },
+      outfit_champ: {
+        name: '챔피언 황금 망토', tier: 'legend', price: 320, lv: 7,
+        desc: '황금 견장과 빛나는 챔피언 메달이 달린 위엄 있는 제복 망토',
+        behind: (k) =>
+          shape(k, 'M22 95 C26 80 42 76 60 76 C78 76 94 80 98 95 L106 124 H14 Z', k.coral),
+        draw: (k) =>
+          shape(k, TEE, k.D) +
+          shape(k, 'M24 96 C28 89 37 87 46 88 L42 98 Z M96 96 C92 89 83 87 74 88 L78 98 Z', k.gold, 0.85) +
+          `<path d="M46 89 Q60 102 74 89" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 1.3).toFixed(2)}"/>` +
+          `<circle class="fx-pulse" cx="60" cy="103" r="6" fill="${k.gold}" ${sw(k, 0.8)}/>` +
+          spark(60, 103, 3.5, k.paper, 'fx-twinkle', 0.2),
+      },
+    },
+
+    acc: {
+      acc_holo: {
+        name: '홀로그램 측정기', tier: 'rare', price: 100, lv: 1,
+        desc: '한쪽 눈 위에서 데이터 스캔 라인이 위아래로 움직이는 홀로그램 기기',
+        draw: (k) =>
+          shape(k, 'M31 50 H38 V60 H31 Z', k.D, 0.8) +
+          `<rect x="37" y="47.5" width="22" height="15" rx="4" fill="${k.sky}" fill-opacity=".42" stroke="${k.accent}" stroke-width="${(k.sw * 0.95).toFixed(2)}"/>` +
+          `<g class="fx-scan">` +
+          `<line x1="40" y1="55" x2="56" y2="55" stroke="${k.paper}" stroke-width="${(k.sw * 0.8).toFixed(2)}"/>` +
+          `</g>`,
+      },
+      acc_cyber_shades: {
+        name: '사이버 네온 선글라스', tier: 'rare', price: 130, lv: 1,
+        desc: '미래형 일자 바이저 위로 민트·골드 네온 광택이 흐르는 선글라스',
+        draw: (k) =>
+          shape(k, 'M35 49 H85 L82 61 L63 59 L60 55 L57 59 L38 61 Z', k.D) +
+          `<path class="fx-twinkle" d="M40 51.5 H56 L53 58 H42 Z" fill="${k.mintL}"/>` +
+          `<path class="fx-twinkle" style="--d:.4s" d="M64 51.5 H79 L76 58 H66 Z" fill="${k.goldL}"/>`,
+      },
+      acc_tesla: {
+        name: '번개 마법봉', tier: 'rare', price: 90, lv: 1,
+        layer: 'body',
+        desc: '코일 스태프 꼭대기 구슬에서 파랑·금색 고전압 스파크가 방전됩니다',
+        draw: (k) =>
+          `<g style="${FLAT}" transform="translate(-4 -8)">` +
+          shape(k, 'M84 100 H89 V120 H84 Z', k.D, 0.8) +
+          line(k, 'M82 103 H91 M82 107 H91', 0.85) +
+          `<circle class="fx-pulse" cx="86.5" cy="95.5" r="5.8" fill="${k.sky}" ${sw(k, 0.85)}/>` +
+          `<circle cx="86.5" cy="95.5" r="2.5" fill="${k.paper}"/>` +
+          spark(95, 89, k.detail ? 3.8 : 4.5, k.gold, 'fx-twinkle', 0.1) +
+          spark(77, 91, k.detail ? 3.2 : 4, k.accent, 'fx-twinkle', 0.5) +
+          `</g>`,
+      },
+      acc_wings: {
+        name: '사이버 발키리 날개', tier: 'legend', price: 300, lv: 6,
+        layer: 'body',
+        desc: '어깨 양옆으로 펼쳐진 하프톤·네온 에너지 날개가 힘차게 날개짓합니다',
+        draw: (k) =>
+          `<g class="fx-flame">` +
+          shape(k, 'M26 96 L5 82 L9 93 L3 98 L12 104 L8 110 L24 108 Z', k.paper, 0.85) +
+          shape(k, 'M94 96 L115 82 L111 93 L117 98 L108 104 L112 110 L96 108 Z', k.paper, 0.85) +
+          `<path d="M22 98 L10 88 M21 103 L11 100 M98 98 L110 88 M99 103 L109 100" stroke="${k.accent}" stroke-width="${(k.sw * 1.1).toFixed(2)}"/>` +
+          `</g>`,
+      },
+      acc_flask: {
+        name: '빛나는 플라스크', tier: 'rare', price: 100, lv: 1, merged: '기존 빛나는 플라스크 + 별빛 물약 플라스크',
+        layer: 'body',
+        desc: '보라빛 은하수 용액이 담긴 둥근 마법 물약에서 황금 별 기포가 솟아오릅니다',
+        draw: (k) =>
+          `<g style="${FLAT}" transform="translate(-5 -11)">` +
+          shape(k, 'M83 93 H89 V99 C94 101 96 106 96 111 C96 116 92 119 86 119 C80 119 76 116 76 111 C76 106 78 101 83 99 Z', k.paper, 0.9) +
+          `<path d="M77.5 109 H94.5 C95 114 91.5 117.5 86 117.5 C80.5 117.5 77 114 77.5 109 Z" fill="${k.violet}"/>` +
+          spark(86, 113, 3, k.goldL, 'fx-twinkle', 0.2) +
+          `<circle class="fx-rise" cx="84" cy="104" r="1.8" fill="${k.gold}"/>` +
+          spark(97, 96, k.detail ? 3.8 : 4.6, k.violetL, 'fx-twinkle', 0.6) +
+          `</g>`,
+      },
+      acc_crown: {
+        name: '왕관', tier: 'legend', price: 375, lv: 10, merged: '기존 왕관 + 태양신 황금 관',
+        desc: '회전하는 태양 후광과 사파이어·루비가 박힌 황금 왕관',
+        draw: (k) =>
+          `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 18px">` +
+          `<circle cx="60" cy="18" r="16" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 0.7).toFixed(2)}" stroke-dasharray="3 4"/>` +
+          `</g>` +
+          shape(k, 'M38 26 L34 9 L46 18 L53 5 L60 16 L67 5 L74 18 L86 9 L82 26 Z', k.gold) +
+          shape(k, 'M37 24 H83 V30 H37 Z', k.gold) +
+          `<polygon points="60,10 64,18 60,23 56,18" fill="${k.accent}" ${sw(k, 0.65)}/>` +
+          `<circle cx="46" cy="27" r="2.2" fill="${k.coralL}" ${sw(k, 0.5)}/>` +
+          `<circle cx="74" cy="27" r="2.2" fill="${k.coralL}" ${sw(k, 0.5)}/>` +
+          spark(60, 2, k.detail ? 4.5 : 5.5, k.gold, 'fx-twinkle', 0.1),
+      },
+    },
+
+    pet: {
+      pet_none: { name: '없음', tier: 'common', price: 0, lv: 1, desc: '짝꿍 펫 없음' },
+      pet_drone: {
+        name: '미니 과학 드론', tier: 'legend', price: 240, lv: 4,
+        desc: '캐릭터 옆 공중에서 프로펠러를 돌리며 호버링하는 귀여운 AI 과학 드론',
+        draw: (k) =>
+          `<g class="fx-float">` +
+          `<line x1="93" y1="26" x2="109" y2="26" ${sw(k, 0.9)}/>` +
+          `<line x1="91" y1="23" x2="97" y2="23" stroke="${k.accent}" stroke-width="${(k.sw * 1.1).toFixed(2)}"/>` +
+          `<line x1="105" y1="23" x2="111" y2="23" stroke="${k.accent}" stroke-width="${(k.sw * 1.1).toFixed(2)}"/>` +
+          `<circle cx="101" cy="32" r="7.5" fill="${k.L}" ${sw(k, 0.9)}/>` +
+          `<circle cx="101" cy="32" r="4" fill="${k.ink}"/>` +
+          `<circle class="fx-twinkle" cx="101" cy="32" r="2" fill="${k.sky}"/>` +
+          `</g>`,
+      },
+      pet_slime: {
+        name: '플라즈마 슬라임', tier: 'rare', price: 100, lv: 1,
+        desc: '민트빛 에너지 코어를 품고 말랑말랑 통통 튀어 오르는 실험실 슬라임',
+        draw: (k) =>
+          `<g class="fx-pulse" style="transform-box:view-box;transform-origin:101px 36px">` +
+          shape(k, 'M92 38 C92 29 96 25 101 25 C106 25 110 29 110 38 C110 42 106 43 101 43 C96 43 92 42 92 38 Z', k.mintL, 0.85) +
+          `<circle cx="98" cy="35" r="1.5" fill="${k.ink}"/><circle cx="104" cy="35" r="1.5" fill="${k.ink}"/>` +
+          (k.detail ? `<circle cx="96.5" cy="31" r="1.6" fill="${k.paper}"/>` : '') +
+          `</g>`,
+      },
+      pet_star: {
+        name: '아기 별 정령', tier: 'rare', price: 110, lv: 1,
+        desc: '반짝이는 별가루를 흘리며 둥실둥실 따라다니는 황금 아기 별',
+        draw: (k) =>
+          `<g class="fx-float">` +
+          `<path d="${star5(101, 32, 10, 4.8)}" fill="${k.goldL}" ${sw(k, 0.85)}/>` +
+          `<circle cx="98.5" cy="32" r="1.4" fill="${k.ink}"/><circle cx="103.5" cy="32" r="1.4" fill="${k.ink}"/>` +
+          spark(91, 41, 3, k.gold, 'fx-twinkle', 0.3) +
+          `</g>`,
+      },
+      pet_atom: {
+        name: '꼬마 원자 요정', tier: 'rare', price: 130, lv: 1,
+        desc: '파란 원자핵 요정 주위로 황금 전자가 빙글빙글 공전합니다',
+        draw: (k) =>
+          `<g class="fx-float">` +
+          `<g class="fx-spin" style="transform-box:view-box;transform-origin:101px 32px">` +
+          `<ellipse cx="101" cy="32" rx="11" ry="4.2" transform="rotate(30 101 32)" fill="none" stroke="${k.ink}" stroke-width="${(k.sw * 0.7).toFixed(2)}"/>` +
+          `<circle cx="110" cy="37" r="2.2" fill="${k.gold}" ${sw(k, 0.5)}/>` +
+          `</g>` +
+          `<circle cx="101" cy="32" r="5.8" fill="${k.sky}" ${sw(k, 0.85)}/>` +
+          `<circle cx="99" cy="31.5" r="1.2" fill="${k.ink}"/><circle cx="103" cy="31.5" r="1.2" fill="${k.ink}"/>` +
+          `</g>`,
+      },
+      pet_dragon: {
+        name: '아기 드래곤', tier: 'legend', price: 300, lv: 6,
+        desc: '작은 날개를 파닥이며 코랄빛 불꽃을 뿜는 아기 드래곤',
+        draw: (k) =>
+          `<g class="fx-float">` +
+          shape(k, 'M105 28 L113 22 L111 30 L115 33 L106 34 Z', k.gold, 0.75) +
+          `<circle cx="100" cy="32" r="7" fill="${k.M}" ${sw(k, 0.85)}/>` +
+          shape(k, 'M96 26 L94 20 L99 25 Z M102 25 L104 19 L105 26 Z', k.gold, 0.7) +
+          `<circle cx="98" cy="31" r="1.5" fill="${k.ink}"/>` +
+          `<circle class="fx-pulse" cx="90" cy="33" r="3" fill="${k.coralL}"/>` +
+          `</g>`,
+      },
+    },
+
+    aura: {
+      aura_none: { name: '없음', tier: 'common', price: 0, lv: 1, desc: '오라 없음' },
+      aura_thunder: {
+        name: '초전도 번개 스파크', tier: 'rare', price: 150, lv: 1,
+        desc: '캐릭터 전신 주변에 황금빛과 푸른빛 고전압 번개 스파크가 번쩍입니다',
+        draw: (k) =>
+          `<g class="fx-twinkle" style="--d:0s">` +
+          shape(k, 'M16 48 L25 40 L22 49 L29 47 L17 59 L20 50 Z', k.gold, 0.75) +
+          shape(k, 'M102 52 L93 44 L96 53 L89 51 L101 63 L98 54 Z', k.sky, 0.75) +
+          `</g>` +
+          `<g class="fx-twinkle" style="--d:.5s">` +
+          shape(k, 'M22 82 L30 75 L27 83 L33 82 L23 92 L25 84 Z', k.sky, 0.75) +
+          shape(k, 'M98 22 L90 16 L93 23 L87 22 L97 31 L95 24 Z', k.gold, 0.75) +
+          `</g>` +
+          spark(24, 22, k.detail ? 4.5 : 5.5, k.gold, 'fx-twinkle', 0.25),
+      },
+      aura_orbit: {
+        name: '회전하는 전자 궤도', tier: 'legend', price: 260, lv: 4,
+        desc: '캐릭터를 감싸는 이중 원자 궤도를 따라 전자 구슬들이 회전합니다',
+        draw: (k) =>
+          `<g class="fx-spin" style="transform-box:view-box;transform-origin:60px 62px">` +
+          `<ellipse cx="60" cy="62" rx="52" ry="18" transform="rotate(-22 60 62)" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.9).toFixed(2)}" stroke-dasharray="6 4"/>` +
+          `<circle cx="12" cy="80" r="3.8" fill="${k.sky}" ${sw(k, 0.7)}/>` +
+          `<circle cx="108" cy="44" r="3.8" fill="${k.gold}" ${sw(k, 0.7)}/>` +
+          `</g>`,
+      },
+      aura_fire: {
+        name: '타오르는 불꽃 오라', tier: 'legend', price: 300, lv: 5,
+        desc: '몸 양옆에서 코랄·골드 플라즈마 화염 기운이 솟구쳐 오릅니다',
+        draw: (k) =>
+          `<g class="fx-flame">` +
+          shape(k, 'M16 92 C10 78 15 64 22 58 C19 67 22 72 26 76 C24 83 20 88 16 92 Z', k.coralL, 0.75) +
+          shape(k, 'M104 92 C110 78 105 64 98 58 C101 67 98 72 94 76 C96 83 100 88 104 92 Z', k.coralL, 0.75) +
+          shape(k, 'M22 44 C17 34 21 24 27 20 C25 27 27 32 30 35 Z', k.gold, 0.7) +
+          shape(k, 'M98 44 C103 34 99 24 93 20 C95 27 93 32 90 35 Z', k.gold, 0.7) +
+          `</g>`,
+      },
+      aura_music: {
+        name: '네온 비트 파동', tier: 'rare', price: 110, lv: 1,
+        desc: '민트·바이올렛 네온 음표와 사운드 비트가 리듬에 맞춰 떠오릅니다',
+        draw: (k) =>
+          `<g class="fx-float" style="--d:0s">` +
+          `<circle cx="18" cy="54" r="3.2" fill="${k.mintL}" ${sw(k, 0.65)}/>` +
+          `<path d="M21 54 V43 L27 45" fill="none" stroke="${k.ink}" stroke-width="${(k.sw * 0.9).toFixed(2)}"/>` +
+          `</g>` +
+          `<g class="fx-float" style="--d:.6s">` +
+          `<circle cx="100" cy="64" r="3.2" fill="${k.violetL}" ${sw(k, 0.65)}/>` +
+          `<path d="M103 64 V53 L109 55" fill="none" stroke="${k.ink}" stroke-width="${(k.sw * 0.9).toFixed(2)}"/>` +
+          `</g>` +
+          spark(22, 78, k.detail ? 4 : 5, k.sky, 'fx-twinkle', 0.3) +
+          spark(96, 36, k.detail ? 4 : 5, k.gold, 'fx-twinkle', 0.8),
+      },
+      aura_starlight: {
+        name: '은하수 별빛 세례', tier: 'rare', price: 140, lv: 1,
+        desc: '360도 회전하는 황금 성운 고리와 다이아몬드 별빛이 캐릭터를 감쌉니다',
+        draw: (k) =>
+          `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 60px">` +
+          `<circle cx="60" cy="60" r="52" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 0.8).toFixed(2)}" stroke-dasharray="2 8"/>` +
+          `</g>` +
+          [[16, 36, 5.5, k.gold, 0.1], [104, 38, 5.5, k.sky, 0.4], [18, 78, 4.5, k.violetL, 0.7], [102, 78, 5, k.gold, 1.0]]
+            .map(([x, y, r, c, d]) => spark(x, y, k.detail ? r : r * 1.2, c, 'fx-twinkle', d)).join(''),
+      },
+    },
+
+    bg: {
+      bg_blackhole: {
+        name: '블랙홀 사건의 지평선', tier: 'legend', price: 320, lv: 6,
+        desc: '어두운 중력장 배경 위로 황금·파란 강착원반 고리가 신비롭게 회전합니다',
+        draw: (k) =>
+          `<circle cx="60" cy="60" r="58" fill="${k.D}" opacity=".75"/>` +
+          `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 60px">` +
+          `<circle cx="60" cy="60" r="53" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 1.1).toFixed(2)}" stroke-dasharray="18 10"/>` +
+          `<circle cx="60" cy="60" r="46" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.9).toFixed(2)}" stroke-dasharray="12 14"/>` +
+          `</g>` +
+          spark(20, 26, k.detail ? 5 : 6, k.gold, 'fx-twinkle', 0.2) +
+          spark(100, 28, k.detail ? 4.5 : 5.5, k.sky, 'fx-twinkle', 0.7),
+      },
+      bg_meteor: {
+        name: '별똥별 유성우', tier: 'rare', price: 130, lv: 1,
+        desc: '밤하늘 배경 위로 파란·황금 꼬리를 남기며 별똥별이 쏟아집니다',
+        draw: (k) =>
+          `<circle cx="60" cy="60" r="58" fill="${k.M}" opacity=".6"/>` +
+          [[26, 22, k.gold, 0], [98, 26, k.sky, 0.7], [18, 66, k.sky, 1.3], [104, 64, k.gold, 1.9]].map(([x, y, c, d]) =>
+            `<g class="fx-meteor" style="--d:${d}s">` +
+            `<line x1="${x}" y1="${y}" x2="${x + 12}" y2="${y - 12}" stroke="${c}" stroke-width="${(k.sw * 1.2).toFixed(2)}"/>` +
+            `<circle cx="${x}" cy="${y}" r="2.6" fill="${c}" ${sw(k, 0.5)}/>` +
+            `</g>`
+          ).join(''),
+      },
+      bg_circuit: {
+        name: '사이버 매트릭스 회로', tier: 'rare', price: 110, lv: 1,
+        desc: '디지털 기판 회로 선을 따라 민트·블루 데이터 노드가 반짝입니다',
+        draw: (k) =>
+          BG_BASE(k) +
+          `<g fill="none" stroke="${k.ink}" stroke-width="${(k.sw * 0.75).toFixed(2)}">` +
+          `<path d="M12 36 H26 L34 28 M108 36 H94 L86 28 M10 68 H24 L30 76 M110 68 H96 L90 76"/>` +
+          `</g>` +
+          [[34, 28, k.mintL, 0.1], [86, 28, k.sky, 0.4], [30, 76, k.sky, 0.7], [90, 76, k.mintL, 1.0]].map(([x, y, c, d]) =>
+            `<circle class="fx-twinkle" style="--d:${d}s" cx="${x}" cy="${y}" r="3.2" fill="${c}" ${sw(k, 0.65)}/>`
+          ).join(''),
+      },
+      bg_bubbles: {
+        name: '보글보글 플라스크', tier: 'rare', price: 100, lv: 1,
+        desc: '배경 아래에서 민트·블루 실험실 기포 방울들이 끊임없이 떠오릅니다',
+        draw: (k) =>
+          BG_BASE(k) +
+          [[18, 34, 5, k.mintL, 0], [100, 30, 6, k.sky, 0.5], [14, 70, 4.5, k.sky, 1.0], [104, 68, 5.5, k.mintL, 1.5], [30, 16, 3.5, k.paper, 0.8], [90, 16, 4, k.paper, 1.2]]
+            .map(([x, y, r, c, d]) =>
+              `<circle class="fx-rise" style="--d:${d}s" cx="${x}" cy="${y}" r="${r}" fill="${c}" fill-opacity=".75" ${sw(k, 0.65)}/>`
+            ).join(''),
+      },
+      bg_sunburst: {
+        name: '황금 태양광', tier: 'legend', price: 300, lv: 5,
+        desc: '중심에서 뻗어 나오는 황금 광선이 천천히 회전하는 챔피언 배경',
+        draw: (k) =>
+          `<clipPath id="${k.id}-sun"><circle cx="60" cy="60" r="58"/></clipPath>` +
+          `<circle cx="60" cy="60" r="58" fill="${k.L}" opacity=".65"/>` +
+          `<g clip-path="url(#${k.id}-sun)">` +
+          `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 60px" fill="${k.gold}" opacity=".28">` +
+          Array.from({ length: 12 }, (_, i) => {
+            const a1 = (i * 30 * Math.PI) / 180, a2 = ((i * 30 + 12) * Math.PI) / 180;
+            return `<path d="M60 60 L${(60 + 70 * Math.cos(a1)).toFixed(1)} ${(60 + 70 * Math.sin(a1)).toFixed(1)} L${(60 + 70 * Math.cos(a2)).toFixed(1)} ${(60 + 70 * Math.sin(a2)).toFixed(1)} Z"/>`;
+          }).join('') +
+          `</g></g>` +
+          `<circle cx="60" cy="60" r="57" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 1.1).toFixed(2)}"/>`,
+      },
+    },
+  };
+
+  const ALL_PARTS = {
+    face: BASE_DEFAULTS.face,
+    hair: { ...BASE_DEFAULTS.hair, ...NEW_PARTS.hair },
+    hat:  { ...NEW_PARTS.hat },
+    eyes: { ...BASE_DEFAULTS.eyes, ...NEW_PARTS.eyes },
+    mouth:{ ...BASE_DEFAULTS.mouth, ...NEW_PARTS.mouth },
+    outfit:{ ...BASE_DEFAULTS.outfit, ...NEW_PARTS.outfit },
+    acc:  { ...BASE_DEFAULTS.acc, ...NEW_PARTS.acc },
+    pet:  { ...NEW_PARTS.pet },
+    aura: { ...NEW_PARTS.aura },
+    bg:   { ...BASE_DEFAULTS.bg, ...NEW_PARTS.bg },
+  };
+
+  const SLOT_INFO = [
+    ['aura',   '오라 · 이펙트', true],
+    ['hat',    '모자 · 머리장식', true],
+    ['pet',    '짝꿍 펫', true],
+    ['hair',   '머리', false],
+    ['eyes',   '눈', false],
+    ['mouth',  '입', false],
+    ['outfit', '옷', false],
+    ['acc',    '소품', false],
+    ['bg',     '배경', false],
+  ];
+
+  const DEFAULTS = {
+    face: 'face_round', hair: 'hair_short', hat: 'hat_none',
+    eyes: 'eyes_round', mouth: 'mouth_smile', outfit: 'outfit_tee',
+    acc: 'acc_none', pet: 'pet_none', aura: 'aura_none', bg: 'bg_circle',
+  };
+
+  function drawFace(k, f, ears) {
+    let s = '';
+    if (ears) {
+      s += f.ears.map(([x, y]) =>
+        `<ellipse cx="${x}" cy="${y}" rx="4.6" ry="6" fill="${k.L}" ${sw(k)}/>` +
+        (k.detail ? `<path d="M${x + (x < 60 ? 1 : -1)} ${y - 2.5} q${x < 60 ? -2 : 2} 2.5 0 5" fill="none" ${sw(k, 0.5)}/>` : '')
+      ).join('');
+    }
+    s += `<clipPath id="${k.id}-fc"><path d="${f.d}"/></clipPath>`;
+    s += `<path d="${f.d}" fill="${k.M}"/>`;
+    s += `<g clip-path="url(#${k.id}-fc)"><path d="${f.d}" fill="${k.L}" transform="translate(-4.5 -4)"/></g>`;
+    if (k.detail) {
+      const hatch = (cx) => [0, 1, 2].map((i) => {
+        const x = cx - 3.2 + i * 2.8;
+        return `M${x.toFixed(1)} 65.4 L${(x + 1.6).toFixed(1)} 62`;
+      }).join(' ');
+      s += `<path d="${hatch(43)} ${hatch(77)}" fill="none" ${sw(k, 0.5)}/>`;
+    }
+    s += `<path d="${f.d}" fill="none" ${sw(k)}/>`;
+    return s;
+  }
+
+  function drawNeck(k) {
+    return `<path d="M53.5 70 V84 Q53 88.5 45 90 V100 H75 V90 Q67 88.5 66.5 84 V70 Z" fill="${k.L}"/>` +
+      `<path d="M53.5 70 V80.5 Q60 85 66.5 80.5 V70 Z" fill="${k.M}"/>` +
+      `<path d="M53.5 72 V84 Q53 88.5 45 90 M66.5 72 V84 Q67 88.5 75 90" fill="none" ${sw(k)}/>`;
+  }
+
+  function renderAvatarSVG(av, size = 96, { live = false } = {}) {
+    const a = { ...DEFAULTS, ...av };
+    const k = makeKit(size);
+    const P = (slot) => ALL_PARTS[slot]?.[a[slot]] || ALL_PARTS[slot]?.[DEFAULTS[slot]];
+    const face = P('face'), hair = P('hair'), hat = P('hat'), eyes = P('eyes'), mouth = P('mouth');
+    const outfit = P('outfit'), acc = P('acc'), pet = P('pet'), aura = P('aura'), bg = P('bg');
+    const call = (fn) => (fn ? fn(k) : '');
+    const clip = `M-30 -40 H150 V60 H118 A58 58 0 0 1 2 60 H-30 Z`;
+
+    return `<svg class="av${live ? ' av-live' : ''}" viewBox="0 0 120 120" width="${size}" height="${size}" overflow="visible" stroke-linejoin="round" stroke-linecap="round">` +
+      `<defs>${patterns(k)}<clipPath id="${k.id}-clip"><path d="${clip}"/></clipPath></defs>` +
+      `<g class="av-bg">${call(bg.draw)}</g>` +
+      `<g class="av-aura">${call(aura.draw)}</g>` +
+      `<g clip-path="url(#${k.id}-clip)">` +
+        `<g class="av-body">${call(outfit.behind)}${drawNeck(k)}${call(outfit.draw)}${acc.layer === 'body' ? call(acc.draw) : ''}</g>` +
+      `</g>` +
+      `<g class="av-head">` +
+        call(hair.back) +
+        drawFace(k, face, hair.ears !== false) +
+        `<g class="av-eyes">${call(eyes.draw)}</g>` +
+        call(mouth.draw) +
+        call(hair.front) +
+        (acc.layer !== 'body' ? call(acc.draw) : '') +
+        call(hat.draw) +
+      `</g>` +
+      `<g class="av-pet" style="${FLAT}" transform="translate(97 33) scale(1.5) translate(-101 -32)">${call(pet.draw)}</g>` +
+      `</svg>`;
+  }
+
+  let current = {
+    ...DEFAULTS,
+    hair: 'hair_flame', hat: 'hat_astro', eyes: 'eyes_galaxy',
+    mouth: 'mouth_fang', outfit: 'outfit_core', acc: 'acc_holo',
+    pet: 'pet_drone', aura: 'aura_orbit', bg: 'bg_blackhole',
+  };
+  let filterCat = 'all';
+
+  const TIER_NAME = { common: '일반', rare: '희귀', legend: '전설' };
+  const SILVER_ICON = '<svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="10" fill="#C9D1DC"/><circle cx="12" cy="12" r="6.5" fill="none" stroke="#7D8796" stroke-width="1.6"/></svg>';
+
+  function updateStudio() {
+    document.getElementById('studio-av').innerHTML = renderAvatarSVG(current, 196, { live: true });
+    document.getElementById('studio-sizes').innerHTML = [96, 48, 40].map((sz) =>
+      `<figure>${renderAvatarSVG(current, sz, { live: false })}<figcaption>${sz}px</figcaption></figure>`
+    ).join('');
+
+    document.getElementById('studio-picks').innerHTML = SLOT_INFO.map(([slot, label, isNew]) => {
+      const entries = Object.entries(NEW_PARTS[slot]).filter(([id]) => !id.endsWith('_none'));
+      const defId = DEFAULTS[slot];
+      const defName = ALL_PARTS[slot][defId]?.name || '기본';
+      return `
+        <div class="pick-col">
+          <label>${label}${isNew ? '<span class="new-dot">신규</span>' : ''}</label>
+          <select data-slot="${slot}">
+            <option value="${defId}" ${current[slot] === defId ? 'selected' : ''}>기본 (${defName})</option>
+            ${entries.map(([id, it]) => `<option value="${id}" ${current[slot] === id ? 'selected' : ''}>[${TIER_NAME[it.tier]}] ${it.name}</option>`).join('')}
+          </select>
+        </div>`;
+    }).join('');
+
+    document.querySelectorAll('.s-card[data-slot]').forEach((card) => {
+      card.classList.toggle('is-on', current[card.dataset.slot] === card.dataset.id);
+    });
+  }
+
+  function renderCatalog() {
+    document.getElementById('cat-bar').innerHTML =
+      `<button type="button" class="cls-tab ${filterCat === 'all' ? 'on' : ''}" data-cat="all">전체 보기 (${Object.values(NEW_PARTS).reduce((n, g) => n + Object.keys(g).filter((id) => !id.endsWith('_none')).length, 0)}종)</button>` +
+      SLOT_INFO.map(([slot, label, isNew]) =>
+        `<button type="button" class="cls-tab ${filterCat === slot ? 'on' : ''}" data-cat="${slot}">${label}${isNew ? ' ★' : ''}</button>`
+      ).join('');
+
+    const visibleSlots = filterCat === 'all' ? SLOT_INFO : SLOT_INFO.filter(([s]) => s === filterCat);
+    document.getElementById('sections').innerHTML = visibleSlots.map(([slot, label, isNew]) => {
+      const items = Object.entries(NEW_PARTS[slot]).filter(([id]) => !id.endsWith('_none'));
+      return `
+        <section class="cat-sec">
+          <div class="cat-head">
+            <h2>${label}</h2>
+            ${isNew ? '<span class="chip">신규 추가 항목</span>' : `<span class="tag-off">기존 항목 · 신규 ${items.length}종</span>`}
+          </div>
+          <div class="s-grid">
+            ${items.map(([id, it]) => {
+              const sampleAv = { ...DEFAULTS, [slot]: id };
+              return `
+                <article class="s-card glass r-${it.tier} ${current[slot] === id ? 'is-on' : ''}" data-slot="${slot}" data-id="${id}">
+                  ${it.tier !== 'common' ? `<span class="shop-rarity">${TIER_NAME[it.tier]}${it.lv > 1 ? ` · Lv.${it.lv}` : ''}</span>` : ''}
+                  ${renderAvatarSVG(sampleAv, 148, { live: true })}
+                  <div class="s-name">${it.name}</div>
+                  ${it.merged ? `<span class="chip">통합 · ${it.merged}</span>` : ''}
+                  <div class="s-desc">${it.desc}</div>
+                  <div class="s-meta">${SILVER_ICON}<b class="num">${it.price}</b> 은화</div>
+                  <div class="s-sizes">
+                    ${renderAvatarSVG(sampleAv, 72)}${renderAvatarSVG(sampleAv, 48)}${renderAvatarSVG(sampleAv, 40)}
+                  </div>
+                </article>`;
+            }).join('')}
+          </div>
+        </section>`;
+    }).join('');
+  }
+
+  document.getElementById('studio-picks').addEventListener('change', (e) => {
+    const sel = e.target.closest('select[data-slot]');
+    if (!sel) return;
+    current[sel.dataset.slot] = sel.value;
+    updateStudio();
+  });
+
+  document.getElementById('sections').addEventListener('click', (e) => {
+    const card = e.target.closest('.s-card[data-slot]');
+    if (!card) return;
+    const { slot, id } = card.dataset;
+    current[slot] = current[slot] === id ? DEFAULTS[slot] : id;
+    updateStudio();
+  });
+
+  document.getElementById('cat-bar').addEventListener('click', (e) => {
+    const btn = e.target.closest('[data-cat]');
+    if (!btn) return;
+    filterCat = btn.dataset.cat;
+    renderCatalog();
+  });
+
+  document.getElementById('btn-reset').addEventListener('click', () => {
+    current = { ...DEFAULTS };
+    updateStudio();
+  });
+
+  document.getElementById('btn-rand').addEventListener('click', () => {
+    SLOT_INFO.forEach(([slot]) => {
+      const keys = Object.keys(NEW_PARTS[slot]).filter((k) => !k.endsWith('_none'));
+      current[slot] = keys[Math.floor(Math.random() * keys.length)];
+    });
+    updateStudio();
+  });
+
+  document.getElementById('btn-lite').addEventListener('click', (e) => {
+    const on = document.documentElement.classList.toggle('lite');
+    e.currentTarget.textContent = on ? '저사양(.lite) 켜짐 · 다시 누르면 일반' : '저사양(.lite) 비교';
+    updateStudio();
+    renderCatalog();
+  });
+
+  renderCatalog();
+  updateStudio();
+</script>
+</body>
+</html>

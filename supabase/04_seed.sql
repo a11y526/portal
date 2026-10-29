@@ -257,3 +257,90 @@ $$;
 -- 닉네임 바꾸기 신청 은화 (2026-10-29). 처음 정하는 닉네임은 무료, 거절되면 돌려줌
 insert into public.settings (key, value) values ('nickname', '{"silver": 5}'::jsonb)
 on conflict (key) do nothing;
+
+-- 2026-10-29 꾸미기 가격 다듬기: 모양에 비해 비싼 것 내림, 왕관(태양신 황금 관과 통합)이 가장 비싸게.
+--   한 번만(settings.price_fix_1029가 있으면 건너뜀) — 관리 화면에서 바꾼 가격을 다시 덮지 않게
+do $$
+begin
+  if exists (select 1 from public.settings where key = 'price_fix_1029') then
+    return;
+  end if;
+  update public.avatar_items as a set price = v.price
+  from (values
+    ('eyes_sparkle', 75), ('mouth_tongue', 30), ('outfit_space', 75),
+    ('acc_atom', 23), ('acc_beaker', 23), ('acc_magnifier', 30), ('acc_flask', 100),
+    ('acc_halo', 260), ('acc_crown', 375)
+  ) as v(id, price)
+  where a.id = v.id;
+  insert into public.settings (key, value) values ('price_fix_1029', jsonb_build_object('at', now()));
+end;
+$$;
+
+-- 2026-10-29 새 꾸미기 칸(모자·펫·오라)과 새 부품 42종 (그림은 avatar-parts.js, 미리보기 docs/design/shop-parts-v2.html).
+--   소품 칸의 모자 8개(야구 모자·동물 모자 6개·전자 고리)와 왕관은 모자 칸으로 옮긴다
+insert into public.avatar_items (id, slot, name, price, rarity, min_level, sort) values
+  ('hat_none',  'hat',  '없음', 0, 'common', 1, 0),
+  ('pet_none',  'pet',  '없음', 0, 'common', 1, 0),
+  ('aura_none', 'aura', '없음', 0, 'common', 1, 0)
+on conflict (id) do nothing;
+
+update public.avatar_items set slot = 'hat'
+where id in ('acc_cap', 'acc_hat_chick', 'acc_hat_frog', 'acc_hat_cat', 'acc_hat_bear', 'acc_hat_rabbit',
+             'acc_hat_dino', 'acc_halo', 'acc_crown')
+  and slot <> 'hat';
+
+-- 옮긴 모자를 소품 칸에 입고 있던 학생: 모자 칸으로 옮겨 입히고 소품은 '없음'
+update public.students s
+set avatar = s.avatar || jsonb_build_object('hat', s.avatar ->> 'acc', 'acc', 'acc_none')
+from public.avatar_items i
+where i.id = s.avatar ->> 'acc' and i.slot = 'hat';
+
+-- 새 칸이 없는 학생은 '없음'
+update public.students
+set avatar = jsonb_build_object('hat', 'hat_none', 'pet', 'pet_none', 'aura', 'aura_none') || avatar
+where not (avatar ? 'hat' and avatar ? 'pet' and avatar ? 'aura');
+
+insert into public.avatar_items (id, slot, name, price, rarity, min_level, sort) values
+  ('hair_flame', 'hair', '플라즈마 불꽃 머리', 300, 'legend', 5, 51),
+  ('hair_zero_g', 'hair', '무중력 우주 머리', 90, 'rare', 1, 52),
+  ('hair_neon', 'hair', '사이버 네온 브릿지', 100, 'rare', 1, 53),
+  ('hair_cloud', 'hair', '구름 솜사탕 머리', 110, 'rare', 1, 54),
+  ('hair_volt', 'hair', '번개 삐죽 머리', 270, 'legend', 4, 55),
+  ('hat_astro', 'hat', '우주 비행사 헬멧', 300, 'legend', 5, 51),
+  ('hat_wizard', 'hat', '별빛 마법사 모자', 130, 'rare', 1, 52),
+  ('hat_alchem', 'hat', '연금술사 고글 모자', 110, 'rare', 1, 53),
+  ('eyes_cyber', 'eyes', '사이보그 스캐너 눈', 110, 'rare', 1, 51),
+  ('eyes_fire', 'eyes', '타오르는 열정 눈', 100, 'rare', 1, 52),
+  ('eyes_galaxy', 'eyes', '은하수 오드아이', 260, 'legend', 4, 53),
+  ('eyes_pulse', 'eyes', '네온 하트비트 눈', 90, 'rare', 1, 54),
+  ('eyes_swirl', 'eyes', '빙글빙글 최면 눈', 75, 'rare', 1, 55),
+  ('mouth_bubble', 'mouth', '풍선껌', 80, 'rare', 1, 51),
+  ('mouth_meat', 'mouth', '만화 고기 먹방', 45, 'common', 1, 52),
+  ('mouth_beam', 'mouth', '무지개 빔 발사', 90, 'rare', 1, 53),
+  ('mouth_fang', 'mouth', '뱀파이어 송곳니', 75, 'rare', 1, 54),
+  ('mouth_whistle', 'mouth', '휘파람 음표', 70, 'rare', 1, 55),
+  ('outfit_core', 'outfit', '핵융합 코어 슈트', 300, 'legend', 6, 51),
+  ('outfit_wizard', 'outfit', '대마법사 망토', 130, 'rare', 1, 52),
+  ('outfit_gamer', 'outfit', '네온 게이밍 후드', 100, 'rare', 1, 53),
+  ('outfit_chem', 'outfit', '화학 마스터 앞치마', 110, 'rare', 1, 54),
+  ('outfit_champ', 'outfit', '챔피언 황금 망토', 320, 'legend', 7, 55),
+  ('acc_holo', 'acc', '홀로그램 측정기', 100, 'rare', 1, 51),
+  ('acc_cyber_shades', 'acc', '사이버 네온 선글라스', 130, 'rare', 1, 52),
+  ('acc_tesla', 'acc', '번개 마법봉', 90, 'rare', 1, 53),
+  ('acc_wings', 'acc', '사이버 발키리 날개', 300, 'legend', 6, 54),
+  ('pet_drone', 'pet', '미니 과학 드론', 240, 'legend', 4, 51),
+  ('pet_slime', 'pet', '플라즈마 슬라임', 100, 'rare', 1, 52),
+  ('pet_star', 'pet', '아기 별 정령', 110, 'rare', 1, 53),
+  ('pet_atom', 'pet', '꼬마 원자 요정', 130, 'rare', 1, 54),
+  ('pet_dragon', 'pet', '아기 드래곤', 300, 'legend', 6, 55),
+  ('aura_thunder', 'aura', '초전도 번개 스파크', 150, 'rare', 1, 51),
+  ('aura_orbit', 'aura', '회전하는 전자 궤도', 260, 'legend', 4, 52),
+  ('aura_fire', 'aura', '타오르는 불꽃 오라', 300, 'legend', 5, 53),
+  ('aura_music', 'aura', '네온 비트 파동', 110, 'rare', 1, 54),
+  ('aura_starlight', 'aura', '은하수 별빛 세례', 140, 'rare', 1, 55),
+  ('bg_blackhole', 'bg', '블랙홀 사건의 지평선', 320, 'legend', 6, 51),
+  ('bg_meteor', 'bg', '별똥별 유성우', 130, 'rare', 1, 52),
+  ('bg_circuit', 'bg', '사이버 매트릭스 회로', 110, 'rare', 1, 53),
+  ('bg_bubbles', 'bg', '보글보글 플라스크', 100, 'rare', 1, 54),
+  ('bg_sunburst', 'bg', '황금 태양광', 300, 'legend', 5, 55)
+on conflict (id) do nothing;

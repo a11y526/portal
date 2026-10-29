@@ -88,8 +88,7 @@ function render() {
 function renderInfo() {
   if (!info) return;
   $('turn-sec').textContent = info.turn;
-  $('rw-xp').textContent = info.xp;
-  $('rw-co').textContent = info.xp + (info.silver ?? 0);
+  $('rw-co').textContent = info.silver ?? 0;
   $('rw-today').textContent = `${Math.min(info.rewarded, info.reward_daily)} / ${info.reward_daily}`;
   $('dots').innerHTML = Array.from({ length: info.daily }, (_, i) => `<i class="${i < info.today ? 'on' : ''}"></i>`).join('');
   $('today').textContent = `${Math.min(info.today, info.daily)} / ${info.daily}`;
@@ -173,7 +172,7 @@ function resultTitle(g) {
 
 function resultSub(g) {
   const won = g.winner === g.me;
-  if (g.reward) return `+${g.reward.xp} XP · +${g.reward.xp + (g.reward.silver ?? 0)}은화`;
+  if (g.reward) return `+${g.reward.silver ?? 0}은화`;
   if (g.end_reason === 'time') return won ? '상대 시간 초과' : '시간 초과';
   if (g.end_reason === 'left') return won ? '상대가 나갔어요' : '기권했어요';
   const { black, white } = counts(g.board);
@@ -298,7 +297,7 @@ function setTab(t) {
   if (info) {
     $('help-turn').textContent = info.turn;
     $('help-daily').textContent = info.daily;
-    $('help-reward').textContent = `${info.xp} XP · ${info.xp + (info.silver ?? 0)}은화`;
+    $('help-reward').textContent = `${info.silver ?? 0}은화`;
     $('help-rdaily').textContent = info.reward_daily ?? 1;
   }
   scrollTo({ top: 0 });

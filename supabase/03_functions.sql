@@ -3140,7 +3140,7 @@ begin
     'open',   (select omok_open from public.classes where id = s.class_id),
     'today',  public._omok_today(v_sid),
     'daily',  coalesce((v_set ->> 'daily')::int, 7),
-    'xp',     coalesce((v_set ->> 'xp')::int, 2),
+    'xp',     0,  -- 2026-10-29부터 게임은 XP 없음(은화만)
     'silver', coalesce((v_set ->> 'silver')::int, 0),
     'reward_daily', coalesce((v_set ->> 'reward_daily')::int, 2),
     'rewarded', public._omok_paid_today(v_sid),
@@ -3287,7 +3287,7 @@ begin
 
   -- 이긴 판은 늘 기록(랭킹), 보상(XP·은화, 2026-10-29부터 금화 대신 은화)은 오늘 reward_daily번까지
   update public.omok_games set won_at = now() where id = gm.id;
-  v_xp := coalesce((v_set ->> 'xp')::int, 2);
+  v_xp := 0;  -- 2026-10-29부터 게임은 XP 없음(은화만)
   v_co := coalesce((v_set ->> 'silver')::int, 0);
   v_cap := public._omok_paid_today(v_sid) >= coalesce((v_set ->> 'reward_daily')::int, 2);
   if v_cap then
@@ -3406,7 +3406,7 @@ stable
 set search_path = public
 as $$
   select jsonb_build_object(
-    'xp',    coalesce((v ->> 'xp')::int, 5),
+    'xp',    0,  -- 2026-10-29부터 게임은 XP 없음(은화만)
     'silver', coalesce((v ->> 'silver')::int, 0),
     'daily', coalesce((v ->> 'daily')::int, 5),
     'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
@@ -6168,7 +6168,7 @@ stable
 set search_path = public
 as $$
   select jsonb_build_object(
-    'xp',    coalesce((v ->> 'xp')::int, 5),
+    'xp',    0,  -- 2026-10-29부터 게임은 XP 없음(은화만)
     'silver', coalesce((v ->> 'silver')::int, 0),
     'daily', greatest(coalesce((v ->> 'daily')::int, 5), 1),
     'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
@@ -7354,7 +7354,7 @@ stable
 set search_path = public
 as $$
   select jsonb_build_object(
-    'xp',     coalesce((v ->> 'xp')::int, 3),
+    'xp',     0,  -- 2026-10-29부터 게임은 XP 없음(은화만)
     'silver', coalesce((v ->> 'silver')::int, 0),
     'daily', greatest(coalesce((v ->> 'daily')::int, 5), 1),
     'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),

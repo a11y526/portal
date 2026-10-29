@@ -233,3 +233,23 @@ on conflict (key) do nothing;
 -- 이미 있는 DB: 보상 값이 없으면 채움(있으면 그대로)
 update public.settings set value = '{"xp": 3, "silver": 0, "reward_daily": 1}'::jsonb || value
 where key = 'othello' and not (value ? 'xp');
+
+-- 2026-10-29 게임(오목 AI·루미큐브·쿼리도·오델로)은 XP 없음, 은화만(서버가 xp를 0으로 둠).
+--   한 번만(settings.game_xp_off가 있으면 건너뜀): 지금까지 게임으로 받은 XP를 거둬 가는 정정 이벤트.
+--   은화 잔액(XP 합 + silver 합)은 그대로 두려고, 뺀 XP만큼 silver를 더한다
+do $$
+begin
+  if exists (select 1 from public.settings where key = 'game_xp_off') then
+    return;
+  end if;
+  insert into public.point_events (student_id, xp, coins, silver, reason)
+  select student_id, -sum(xp)::int, 0, sum(xp)::int, '게임 XP 회수'
+  from public.point_events
+  where reason in ('오목 승리', '루미큐브 승리', '쿼리도 승리', '오델로 승리')
+  group by student_id
+  having sum(xp) <> 0;
+  update public.settings set value = value || '{"xp": 0}'::jsonb
+  where key in ('omok', 'rummikub', 'quoridor', 'othello');
+  insert into public.settings (key, value) values ('game_xp_off', jsonb_build_object('at', now()));
+end;
+$$;

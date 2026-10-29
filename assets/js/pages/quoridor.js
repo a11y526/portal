@@ -78,8 +78,7 @@ function render() {
 function renderInfo() {
   if (!info) return;
   $('turn-sec').textContent = info.turn;
-  $('rw-xp').textContent = info.xp;
-  $('rw-co').textContent = info.xp + (info.silver ?? 0);
+  $('rw-co').textContent = info.silver ?? 0;
   $('rw-today').textContent = `${Math.min(info.rewarded, info.reward_daily)} / ${info.reward_daily}`;
   $('dots').innerHTML = Array.from({ length: info.daily }, (_, i) => `<i class="${i < info.today ? 'on' : ''}"></i>`).join('');
   $('today').textContent = `${Math.min(info.today, info.daily)} / ${info.daily}`;
@@ -206,7 +205,7 @@ function resultTitle(g) {
 
 function resultSub(g) {
   const won = g.winner === g.me;
-  if (g.reward) return `+${g.reward.xp} XP · +${g.reward.xp + (g.reward.silver ?? 0)}은화`;
+  if (g.reward) return `+${g.reward.silver ?? 0}은화`;
   if (g.end_reason === 'left') return won ? '모두 나가서 끝난 판은 보상이 없어요' : '';
   if (won && (info?.rewarded ?? 0) >= (info?.reward_daily ?? 1)) return '오늘 보상은 다 받았어요';
   return `${g.moves}수`;
@@ -302,7 +301,7 @@ function setTab(t) {
   else $('v-login').classList.toggle('hidden', t !== 'game');
   if (info) {
     $('help-turn').textContent = info.turn;
-    $('help-reward').textContent = `${info.xp} XP · ${info.xp + (info.silver ?? 0)}은화`;
+    $('help-reward').textContent = `${info.silver ?? 0}은화`;
     $('help-daily').textContent = info.daily;
     $('help-rdaily').textContent = info.reward_daily ?? 1;
   }

@@ -1024,13 +1024,9 @@ async function refreshPoints() {
   f.wf_draw.value = wf.draw ?? 50;
   f.qb_xp.value = quizRules.xp ?? 4;
   f.qb_coins.value = quizRules.coins ?? 4;
-  f.om_xp.value = omokRules.xp ?? 2;
   f.om_silver.value = omokRules.silver ?? 0;
-  f.rk_xp.value = rkRules.xp;
   f.rk_silver.value = rkRules.silver ?? 0;
-  f.qd_xp.value = qdRules.xp;
   f.qd_silver.value = qdRules.silver ?? 0;
-  f.ot_xp.value = otRules.xp;
   f.ot_silver.value = otRules.silver ?? 0;
   const qs = (await getQuizShowRules()) ?? {};
   [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
@@ -1062,10 +1058,10 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins'), draw: Math.min(600, q('wf_draw')) });
     await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
     // 오목·루미큐브·쿼리도·오델로는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
-    await saveOmokRules({ xp: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), silver: q('om_silver') });
-    await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: q('rk_xp'), silver: q('rk_silver') });
-    await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), xp: q('qd_xp'), silver: q('qd_silver') });
-    await saveOthelloRules({ ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}), xp: q('ot_xp'), silver: q('ot_silver') });
+    await saveOmokRules({ xp: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: 0, silver: q('om_silver') });
+    await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: 0, silver: q('rk_silver') });
+    await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), xp: 0, silver: q('qd_silver') });
+    await saveOthelloRules({ ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}), xp: 0, silver: q('ot_silver') });
     await saveQuizShowRules({ xp: [0, 1, 2].map((i) => q('qs_xp' + i)), coins: [0, 1, 2].map((i) => q('qs_coins' + i)) });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
@@ -1114,6 +1110,7 @@ function eventKind(e) {
   if (e.reason === '루미큐브 승리') return '루미큐브';
   if (e.reason === '쿼리도 승리') return '쿼리도';
   if (e.reason === '오델로 승리') return '오델로';
+  if (e.reason === '게임 XP 회수') return '게임 XP 회수';
   return '직접 줌';
 }
 
@@ -1543,7 +1540,7 @@ async function refreshOmokRules() {
   omokRules = (await getOmokRules()) ?? { xp: 2, silver: 0, daily: 7 };
   $('omok-daily').value = omokRules.daily ?? 7;
   $('omok-rdaily').value = omokRules.reward_daily ?? 2;
-  $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${(omokRules.xp ?? 2) + (omokRules.silver ?? 0)}은화`;
+  $('omok-reward').textContent = `${omokRules.silver ?? 0}은화`;
   updateHub();
 }
 
@@ -1582,7 +1579,7 @@ async function refreshOtRules() {
   otRules = { ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}) };
   $('ot-daily').value = otRules.daily;
   $('ot-turn').textContent = otRules.turn;
-  $('ot-reward').textContent = `${otRules.xp} XP · ${otRules.xp + (otRules.silver ?? 0)}은화`;
+  $('ot-reward').textContent = `${otRules.silver ?? 0}은화`;
   $('ot-rdaily').value = otRules.reward_daily;
   updateHub();
 }
@@ -1618,7 +1615,7 @@ async function refreshQdRules() {
   qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   $('qd-daily').value = qdRules.daily;
   $('qd-turn').textContent = qdRules.turn;
-  $('qd-reward').textContent = `${qdRules.xp} XP · ${qdRules.xp + (qdRules.silver ?? 0)}은화`;
+  $('qd-reward').textContent = `${qdRules.silver ?? 0}은화`;
   $('qd-rdaily').value = qdRules.reward_daily;
   updateHub();
 }
@@ -1654,7 +1651,7 @@ async function refreshRkRules() {
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   $('rk-daily').value = rkRules.daily;
   $('rk-turn').textContent = rkRules.turn;
-  $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.xp + (rkRules.silver ?? 0)}은화`;
+  $('rk-reward').textContent = `${rkRules.silver ?? 0}은화`;
   $('rk-rdaily').value = rkRules.reward_daily;
   updateHub();
 }

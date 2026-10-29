@@ -850,3 +850,50 @@ alter table public.ws_firsts add column if not exists shown int not null default
 -- 은화 (2026-10-28): 꾸미기 아이템은 은화로 산다. 은화 잔액 = XP 합 + silver 합(꾸미기를 사면 silver = -가격).
 -- coins는 금화(보상용)
 alter table public.point_events add column if not exists silver int not null default 0;
+
+-- ---------------------------------------------------------
+-- 오델로 (2026-10-29 사용자 요청): 6개 반 전체에서 먼저 온 2명끼리 온라인 대전. 돌 개수로 이긴 판만 XP·은화(아래 paid).
+-- 오목 스위치(classes.omok_open)를 같이 쓰고, 하루 판 수는 settings.othello.daily(시작된 판), 한 수 turn초.
+-- 보드: int[64] (r*8 + c + 1), 0 빈 칸 · 1 흑 · 2 백. 정중앙 4칸 (3,3)·(4,4) 백, (3,4)·(4,3) 흑으로 시작, 흑이 먼저
+-- ---------------------------------------------------------
+create table if not exists public.ot_games (
+  id         uuid primary key default gen_random_uuid(),
+  status     text not null default 'waiting' check (status in ('waiting', 'playing', 'done')),
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null,
+  board      int[] not null default array[
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,2,1,0,0,0,
+    0,0,0,1,2,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0,
+    0,0,0,0,0,0,0,0
+  ],
+  turn       smallint not null default 1,        -- 지금 둘 색(1 흑 · 2 백)
+  turn_at    timestamptz null,                   -- 지금 차례가 시작된 시각(제한 시간 기준)
+  version    int not null default 0,             -- 바뀔 때마다 +1
+  moves      smallint not null default 0,
+  last       smallint null,                      -- 마지막 둔 칸(0~63)
+  flipped    int[] not null default '{}',        -- 마지막 수로 뒤집힌 칸(0~63)
+  passed     boolean not null default false,     -- 직전 수 뒤 상대가 둘 곳이 없어 자동 패스됐는지
+  winner     smallint null,                      -- 이긴 색(무승부면 null)
+  end_reason text null check (end_reason in ('end', 'time', 'left'))
+);
+create index if not exists ot_games_status_idx on public.ot_games (status, created_at);
+
+create table if not exists public.ot_players (
+  game_id    uuid not null references public.ot_games(id) on delete cascade,
+  student_id uuid not null references public.students(id) on delete cascade,
+  color      smallint not null check (color in (1, 2)),
+  left_at    timestamptz null,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, student_id)
+);
+create index if not exists ot_players_student_idx on public.ot_players (student_id, joined_at);
+
+-- 오델로 보상 (2026-10-29): 돌 개수로 이긴 판에 보상을 줬는지
+alter table public.ot_games add column if not exists paid boolean not null default false;

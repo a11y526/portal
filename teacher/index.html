@@ -374,6 +374,9 @@
         <span>쿼리도 승리</span>
         <input class="input num" type="number" min="0" max="1000" name="qd_xp" aria-label="쿼리도 승리 XP" required>
         <input class="input num" type="number" min="0" max="1000" name="qd_silver" aria-label="쿼리도 승리 추가 은화" required>
+        <span>오델로 승리</span>
+        <input class="input num" type="number" min="0" max="1000" name="ot_xp" aria-label="오델로 승리 XP" required>
+        <input class="input num" type="number" min="0" max="1000" name="ot_silver" aria-label="오델로 승리 추가 은화" required>
         <span>퀴즈 쇼 1위</span>
         <input class="input num" type="number" min="0" max="1000" name="qs_xp0" aria-label="퀴즈 쇼 1위 XP" required>
         <input class="input num" type="number" min="0" max="1000" name="qs_coins0" aria-label="퀴즈 쇼 1위 금화" required>
@@ -425,7 +428,7 @@
 
     <section class="card glass rise panel hidden" data-panel="omok" data-title="게임" aria-labelledby="h-omok">
       <h2 id="h-omok">게임</h2>
-      <p class="muted" style="margin:0">켠 반만 오목·루미큐브·쿼리도를 할 수 있어요(학생 첫 화면의 '게임'). 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 온라인 판에서도 나가요.</p>
+      <p class="muted" style="margin:0">켠 반만 오목·오델로·루미큐브·쿼리도를 할 수 있어요(학생 첫 화면의 '게임'). 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 온라인 판에서도 나가요.</p>
       <p class="muted" style="margin:0">오목: 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2금화</span>(보상은 하루에 정한 횟수까지, 그 뒤 승리는 랭킹에만).</p>
       <form class="row-actions" id="omok-form">
         <label for="omok-daily">오목 하루 판 수</label>
@@ -438,6 +441,14 @@
       <form class="row-actions" id="omp-form">
         <label for="omp-daily">오목 1대1 하루 판 수</label>
         <input class="input num" type="number" min="1" max="100" step="1" id="omp-daily" name="daily" required style="width:96px">
+        <button type="submit" class="btn btn-primary btn-small press">저장</button>
+      </form>
+      <p class="muted" style="margin:0">오델로: 6개 반 전체에서 먼저 온 2명끼리, 한 수 <span class="num" id="ot-turn">30</span>초(넘기면 짐). 시작된 판을 한 판으로 세고, 돌이 더 많아 이긴 사람만 <span class="num" id="ot-reward">3 XP · 3은화</span>, 보상은 하루에 정한 횟수까지(시간 초과·기권으로 이긴 판은 없음).</p>
+      <form class="row-actions" id="ot-form">
+        <label for="ot-daily">오델로 하루 판 수</label>
+        <input class="input num" type="number" min="1" max="100" step="1" id="ot-daily" name="daily" required style="width:96px">
+        <label for="ot-rdaily">보상 받는 승리(하루)</label>
+        <input class="input num" type="number" min="0" max="100" step="1" id="ot-rdaily" name="reward_daily" required style="width:96px">
         <button type="submit" class="btn btn-primary btn-small press">저장</button>
       </form>
       <p class="muted" style="margin:0">루미큐브: 6개 반 전체에서 먼저 온 3명끼리, 한 턴 <span class="num" id="rk-turn">60</span>초. 시작된 판을 한 판으로 세고, 1등만 <span class="num" id="rk-reward">5 XP · 5금화</span>, 보상은 하루에 정한 횟수까지(다른 사람이 모두 나가서 이긴 판은 없음).</p>

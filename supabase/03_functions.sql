@@ -7338,3 +7338,490 @@ end;
 $$;
 revoke all on function public.get_away_stats(uuid) from public;
 grant execute on function public.get_away_stats(uuid) to authenticated;
+
+-- ---------------------------------------------------------
+-- 오델로 (2026-10-29): 6개 반 전체에서 먼저 온 2명끼리(advisory lock).
+-- 돌 개수로 끝난 판(end)의 승자만 XP·추가 은화(settings.othello xp·silver, 오늘 reward_daily번까지, 반이 켜져 있을 때).
+-- 시간 초과·기권으로 이긴 판은 보상 없음(짜고 져 주기 막기).
+-- 오목 스위치(omok_open)가 켜진 반만. 하루 판 수는 settings.othello.daily(시작된 판), 한 수 turn초.
+-- 시간을 넘기면 진다(_ot_tick). 상대가 둘 수 있는 칸이 없으면 자동으로 차례가 넘어가고(passed = true),
+-- 양쪽 모두 둘 수 있는 칸이 없으면 돌이 더 많은 쪽이 이긴다(같으면 무승부). 규칙은 assets/js/othello.js와 같다.
+-- ---------------------------------------------------------
+create or replace function public._ot_settings()
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'xp',     coalesce((v ->> 'xp')::int, 3),
+    'silver', coalesce((v ->> 'silver')::int, 0),
+    'daily', greatest(coalesce((v ->> 'daily')::int, 5), 1),
+    'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
+    'turn',  greatest(coalesce((v ->> 'turn')::int, 30), 10))
+  from (select (select value from public.settings where key = 'othello') as v) x;
+$$;
+revoke all on function public._ot_settings() from public, anon, authenticated;
+
+-- 오늘(KST) 시작된 판 중 내가 들어간 판 수
+create or replace function public._ot_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int
+  from public.ot_players p
+  join public.ot_games g on g.id = p.game_id
+  where p.student_id = p_student_id
+    and g.started_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._ot_today(uuid) from public, anon, authenticated;
+
+-- 오늘(KST) 보상을 받은 오델로 승리 수
+create or replace function public._ot_paid_today(p_student_id uuid)
+returns int
+language sql
+stable
+set search_path = public
+as $$
+  select count(*)::int from public.point_events
+  where student_id = p_student_id and reason = '오델로 승리'
+    and created_at >= date_trunc('day', now() at time zone 'Asia/Seoul') at time zone 'Asia/Seoul';
+$$;
+revoke all on function public._ot_paid_today(uuid) from public, anon, authenticated;
+
+-- p_cell(0~63)에 p_color(1 흑 | 2 백)를 놓았을 때 뒤집히는 칸 번호(0~63) 배열. 빈 배열이면 둘 수 없는 칸
+create or replace function public._ot_flips(p_board int[], p_cell int, p_color int)
+returns int[]
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  v_dr   int[] := array[-1, -1, -1, 0, 0, 1, 1, 1];
+  v_dc   int[] := array[-1, 0, 1, -1, 1, -1, 0, 1];
+  v_opp  int := 3 - p_color;
+  v_r0   int;
+  v_c0   int;
+  v_r    int;
+  v_c    int;
+  v_line int[];
+  v_out  int[] := '{}';
+  d      int;
+begin
+  if p_cell is null or p_cell < 0 or p_cell > 63 or p_board[p_cell + 1] <> 0 then
+    return v_out;
+  end if;
+  v_r0 := p_cell / 8;
+  v_c0 := p_cell % 8;
+  for d in 1..8 loop
+    v_line := '{}';
+    v_r := v_r0 + v_dr[d];
+    v_c := v_c0 + v_dc[d];
+    while v_r between 0 and 7 and v_c between 0 and 7 and p_board[v_r * 8 + v_c + 1] = v_opp loop
+      v_line := array_append(v_line, v_r * 8 + v_c);
+      v_r := v_r + v_dr[d];
+      v_c := v_c + v_dc[d];
+    end loop;
+    if coalesce(array_length(v_line, 1), 0) > 0
+       and v_r between 0 and 7 and v_c between 0 and 7
+       and p_board[v_r * 8 + v_c + 1] = p_color then
+      v_out := v_out || v_line;
+    end if;
+  end loop;
+  return v_out;
+end;
+$$;
+revoke all on function public._ot_flips(int[], int, int) from public, anon, authenticated;
+
+-- p_color가 둘 수 있는 칸이 하나라도 있는지
+create or replace function public._ot_has_move(p_board int[], p_color int)
+returns boolean
+language plpgsql
+immutable
+set search_path = public
+as $$
+declare
+  i int;
+begin
+  for i in 0..63 loop
+    if p_board[i + 1] = 0 and coalesce(array_length(public._ot_flips(p_board, i, p_color), 1), 0) > 0 then
+      return true;
+    end if;
+  end loop;
+  return false;
+end;
+$$;
+revoke all on function public._ot_has_move(int[], int) from public, anon, authenticated;
+
+-- 판 끝내기. 돌 개수로 이긴 판(end)만 승자에게 보상(반이 켜져 있을 때, 오늘 reward_daily번까지)
+create or replace function public._ot_end(p_game_id uuid, p_winner int, p_reason text)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  v_sid uuid;
+  v_set jsonb := public._ot_settings();
+  v_pay boolean := false;
+begin
+  if not exists (select 1 from public.ot_games where id = p_game_id and status = 'playing') then
+    return;
+  end if;
+  select student_id into v_sid from public.ot_players where game_id = p_game_id and color = p_winner and left_at is null;
+  if p_reason = 'end' and v_sid is not null
+     and coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false)
+     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'silver')::int <> 0)
+     and public._ot_paid_today(v_sid) < (v_set ->> 'reward_daily')::int then
+    insert into public.point_events (student_id, xp, silver, reason)
+    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'silver')::int, '오델로 승리');
+    v_pay := true;
+  end if;
+  update public.ot_games
+  set status = 'done', ended_at = now(), winner = p_winner, end_reason = p_reason, paid = v_pay, version = version + 1
+  where id = p_game_id and status = 'playing';
+end;
+$$;
+revoke all on function public._ot_end(uuid, int, text) from public, anon, authenticated;
+
+-- 차례 시간을 넘겼으면(2초 여유) 그 차례인 사람이 진다
+create or replace function public._ot_tick(p_game_id uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g public.ot_games;
+begin
+  select * into g from public.ot_games where id = p_game_id;
+  if g.status = 'playing'
+     and now() >= g.turn_at + make_interval(secs => (public._ot_settings() ->> 'turn')::int) + interval '2 seconds' then
+    perform public._ot_end(p_game_id, 3 - g.turn, 'time');
+  end if;
+end;
+$$;
+revoke all on function public._ot_tick(uuid) from public, anon, authenticated;
+
+-- 판에서 나가기(내부). 대기 중이면 자리를 비우고, 하는 중이면 기권(상대가 이김)
+create or replace function public._ot_leave(p_game_id uuid, p_sid uuid)
+returns void
+language plpgsql
+volatile
+set search_path = public
+as $$
+declare
+  g  public.ot_games;
+  me public.ot_players;
+begin
+  select * into g from public.ot_games where id = p_game_id for update;
+  select * into me from public.ot_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null or me.left_at is not null then
+    return;
+  end if;
+  if g.status = 'waiting' then
+    delete from public.ot_games where id = p_game_id;
+  elsif g.status = 'playing' then
+    update public.ot_players set left_at = now() where game_id = p_game_id and student_id = p_sid;
+    perform public._ot_end(p_game_id, 3 - me.color, 'left');
+  end if;
+end;
+$$;
+revoke all on function public._ot_leave(uuid, uuid) from public, anon, authenticated;
+
+-- 학생에게 보낼 판
+create or replace function public._ot_view(p_game_id uuid, p_sid uuid)
+returns jsonb
+language plpgsql
+stable
+set search_path = public
+as $$
+declare
+  g     public.ot_games;
+  me    public.ot_players;
+  v_set jsonb := public._ot_settings();
+  v_t   int := (v_set ->> 'turn')::int;
+  v_tot int;
+  v_rw  jsonb;
+begin
+  select * into g from public.ot_games where id = p_game_id;
+  select * into me from public.ot_players where game_id = p_game_id and student_id = p_sid;
+  if g.id is null or me.game_id is null then
+    return null;
+  end if;
+  if g.status = 'done' and g.paid and g.winner = me.color then
+    select coalesce(sum(xp), 0)::int into v_tot from public.point_events where student_id = p_sid;
+    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'silver', (v_set ->> 'silver')::int, 'total_xp', v_tot,
+      'level_before', (public._level_info(v_tot - (v_set ->> 'xp')::int) ->> 'level')::int,
+      'level_after',  (public._level_info(v_tot) ->> 'level')::int);
+  end if;
+  return jsonb_build_object(
+    'id',         g.id,
+    'status',     g.status,
+    'version',    g.version,
+    'me',         me.color,
+    'turn',       g.turn,
+    'turn_sec',   v_t,
+    'left_ms',    case when g.status = 'playing'
+                    then greatest(0, floor(extract(epoch from (g.turn_at + make_interval(secs => v_t) - now())) * 1000))::bigint
+                  end,
+    'board',      to_jsonb(g.board),
+    'moves',      g.moves,
+    'last',       g.last,
+    'flipped',    to_jsonb(g.flipped),
+    'passed',     g.passed,
+    'winner',     g.winner,
+    'end_reason', g.end_reason,
+    'reward',     v_rw,
+    'players', (
+      select coalesce(jsonb_agg(jsonb_build_object(
+        'color',    p.color,
+        'me',       p.student_id = p_sid,
+        'class_id', s.class_id,
+        'nickname', s.nickname,
+        'avatar',   s.avatar,
+        'left',     p.left_at is not null
+      ) order by p.color), '[]'::jsonb)
+      from public.ot_players p join public.students s on s.id = p.student_id
+      where p.game_id = g.id)
+  );
+end;
+$$;
+revoke all on function public._ot_view(uuid, uuid) from public, anon, authenticated;
+
+-- 오델로 화면 (학생). p_game_id를 주면 그 판(끝난 판 포함), 없으면 지금 하는 판(없으면 game: null).
+-- 부를 때마다 '아직 있음'을 기록하고 밀린 시간 초과를 처리한다. 반이 꺼져 있으면 하던 판에서 나간다.
+-- 결과: {ok: true, open, today, daily, turn, xp, silver, reward_daily, rewarded, avatar, game} 또는 {ok: false, error: 'NO_SESSION'}
+create or replace function public.ot_state(p_token text, p_game_id uuid default null)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid;
+  s      public.students;
+  v_open boolean;
+  v_gid  uuid := p_game_id;
+  v_set  jsonb := public._ot_settings();
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid;
+  v_open := coalesce((select omok_open from public.classes where id = s.class_id), false);
+
+  if v_gid is null or not exists (select 1 from public.ot_players where game_id = v_gid and student_id = v_sid) then
+    select p.game_id into v_gid
+    from public.ot_players p join public.ot_games g on g.id = p.game_id
+    where p.student_id = v_sid and p.left_at is null and g.status in ('waiting', 'playing')
+    order by p.joined_at desc
+    limit 1;
+  end if;
+
+  if v_gid is not null then
+    if not v_open then
+      perform public._ot_leave(v_gid, v_sid);
+    else
+      perform 1 from public.ot_games where id = v_gid for update;
+      update public.ot_players set seen_at = now() where game_id = v_gid and student_id = v_sid;
+      perform public._ot_tick(v_gid);
+    end if;
+  end if;
+
+  return jsonb_build_object(
+    'ok',     true,
+    'open',   v_open,
+    'today',  public._ot_today(v_sid),
+    'daily',  (v_set ->> 'daily')::int,
+    'turn',   (v_set ->> 'turn')::int,
+    'xp',     (v_set ->> 'xp')::int,
+    'silver', (v_set ->> 'silver')::int,
+    'reward_daily', (v_set ->> 'reward_daily')::int,
+    'rewarded', public._ot_paid_today(v_sid),
+    'avatar', s.avatar,
+    'game',   case when v_gid is null then null else public._ot_view(v_gid, v_sid) end
+  );
+end;
+$$;
+revoke all on function public.ot_state(text, uuid) from public;
+grant execute on function public.ot_state(text, uuid) to anon, authenticated;
+
+-- 상대 찾기 (학생): 6개 반 전체에서 먼저 온 2명끼리. 이미 하는 판이 있으면 그 판.
+-- 15초 넘게 소식이 없는 대기자는 지운다. 2명이 되면 흑·백을 무작위로 정하고 시작(흑이 먼저, 3초 준비)
+-- 결과: ot_state와 같음 또는 error = 'NO_SESSION' | 'CLOSED' | 'LIMIT'
+create or replace function public.ot_join(p_token text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  s       public.students;
+  v_set   jsonb := public._ot_settings();
+  v_today int;
+  v_gid   uuid;
+  v_color int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid;
+  if not coalesce((select omok_open from public.classes where id = s.class_id), false) then
+    return jsonb_build_object('ok', false, 'error', 'CLOSED');
+  end if;
+
+  -- 짝 맞추기는 한 번에 한 명씩
+  perform pg_advisory_xact_lock(hashtext('ot_match'));
+
+  if exists (select 1 from public.ot_players p join public.ot_games g on g.id = p.game_id
+             where p.student_id = v_sid and p.left_at is null and g.status in ('waiting', 'playing')) then
+    return public.ot_state(p_token, null);
+  end if;
+
+  v_today := public._ot_today(v_sid);
+  if v_today >= (v_set ->> 'daily')::int then
+    return jsonb_build_object('ok', false, 'error', 'LIMIT', 'today', v_today, 'daily', (v_set ->> 'daily')::int);
+  end if;
+
+  delete from public.ot_games g
+  where g.status = 'waiting'
+    and not exists (select 1 from public.ot_players p where p.game_id = g.id and p.seen_at >= now() - interval '15 seconds');
+
+  select g.id into v_gid from public.ot_games g
+  where g.status = 'waiting'
+  order by g.created_at
+  limit 1
+  for update;
+
+  if v_gid is null then
+    insert into public.ot_games default values returning id into v_gid;
+    insert into public.ot_players (game_id, student_id, color) values (v_gid, v_sid, 1);
+  else
+    v_color := case when random() < 0.5 then 1 else 2 end;
+    update public.ot_players set color = 3 - v_color, seen_at = now() where game_id = v_gid;
+    insert into public.ot_players (game_id, student_id, color) values (v_gid, v_sid, v_color);
+    update public.ot_games
+    set status = 'playing', started_at = now(), turn = 1, turn_at = now() + interval '3 seconds', version = version + 1
+    where id = v_gid;
+  end if;
+
+  return public.ot_state(p_token, v_gid);
+end;
+$$;
+revoke all on function public.ot_join(text) from public;
+grant execute on function public.ot_join(text) to anon, authenticated;
+
+-- 나가기 (학생): 대기 중이면 취소, 하는 중이면 기권
+create or replace function public.ot_leave(p_token text, p_game_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid uuid;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  perform pg_advisory_xact_lock(hashtext('ot_match'));
+  perform public._ot_leave(p_game_id, v_sid);
+  return public.ot_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.ot_leave(text, uuid) from public;
+grant execute on function public.ot_leave(text, uuid) to anon, authenticated;
+
+-- 한 수 두기 (학생, 내 차례): p_cell = r*8 + c (0~63)
+-- 결과: ot_state와 같음(ok: true) 또는 {ok: false, error: 'NO_SESSION' | 'BAD_GAME' | 'OVER' | 'NOT_TURN' | 'BAD_MOVE', state}
+create or replace function public.ot_play(p_token text, p_game_id uuid, p_cell int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid   uuid;
+  g       public.ot_games;
+  me      public.ot_players;
+  v_err   text;
+  v_flips int[];
+  v_f     int;
+  v_opp   int;
+  v_b     int;
+  v_w     int;
+  v_win   int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into g from public.ot_games where id = p_game_id for update;
+  select * into me from public.ot_players where game_id = p_game_id and student_id = v_sid;
+  if g.id is null or me.game_id is null then
+    return jsonb_build_object('ok', false, 'error', 'BAD_GAME');
+  end if;
+  update public.ot_players set seen_at = now() where game_id = p_game_id and student_id = v_sid;
+  perform public._ot_tick(p_game_id);
+  select * into g from public.ot_games where id = p_game_id;
+
+  if g.status <> 'playing' or me.left_at is not null then
+    v_err := 'OVER';
+  elsif not coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false) then
+    v_err := 'OVER';
+  elsif g.turn <> me.color then
+    v_err := 'NOT_TURN';
+  else
+    v_flips := public._ot_flips(g.board, p_cell, me.color);
+    if coalesce(array_length(v_flips, 1), 0) = 0 then
+      v_err := 'BAD_MOVE';
+    end if;
+  end if;
+  if v_err is not null then
+    return jsonb_build_object('ok', false, 'error', v_err, 'state', public.ot_state(p_token, p_game_id));
+  end if;
+
+  g.board[p_cell + 1] := me.color;
+  foreach v_f in array v_flips loop
+    g.board[v_f + 1] := me.color;
+  end loop;
+
+  v_opp := 3 - me.color;
+  if public._ot_has_move(g.board, v_opp) then
+    update public.ot_games
+    set board = g.board, moves = moves + 1, last = p_cell, flipped = v_flips, passed = false,
+        turn = v_opp, turn_at = now(), version = version + 1
+    where id = p_game_id;
+  elsif public._ot_has_move(g.board, me.color) then
+    update public.ot_games
+    set board = g.board, moves = moves + 1, last = p_cell, flipped = v_flips, passed = true,
+        turn = me.color, turn_at = now(), version = version + 1
+    where id = p_game_id;
+  else
+    update public.ot_games
+    set board = g.board, moves = moves + 1, last = p_cell, flipped = v_flips, passed = false,
+        version = version + 1
+    where id = p_game_id;
+    select count(*) filter (where x = 1), count(*) filter (where x = 2)
+    into v_b, v_w
+    from unnest(g.board) as x;
+    v_win := case when v_b > v_w then 1 when v_w > v_b then 2 else null end;
+    perform public._ot_end(p_game_id, v_win, 'end');
+  end if;
+
+  return public.ot_state(p_token, p_game_id);
+end;
+$$;
+revoke all on function public.ot_play(text, uuid, int) from public;
+grant execute on function public.ot_play(text, uuid, int) to anon, authenticated;

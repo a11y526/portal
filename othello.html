@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>오델로</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap omok-wrap ot-wrap">
+  <div class="page-top">
+    <a href="games.html" class="icon-btn glass lift" aria-label="게임으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <nav class="class-tabs glass omok-modes" aria-label="오델로">
+    <button type="button" class="class-tab press on" data-tab="game" aria-current="page">게임</button>
+    <button type="button" class="class-tab press" data-tab="rules">규칙</button>
+  </nav>
+
+  <!-- 로그인 필요 -->
+  <section class="glass-strong me-card omok-msg hidden rise" id="v-login">
+    <h1 class="omok-msg-h">오델로</h1>
+    <p class="muted">로그인하면 할 수 있어요</p>
+    <a class="btn btn-primary press" href="index.html">로그인</a>
+  </section>
+
+  <div class="omok-body hidden" id="v-game">
+    <section class="glass-strong omok-hero rise" id="hero">
+      <div class="omok-av" id="av"></div>
+      <div class="omok-hero-main">
+        <div class="me-name-row">
+          <h1 class="me-name">오델로</h1>
+          <span class="chip">6개 반 · 한 수 <span class="num" id="turn-sec">30</span>초</span>
+        </div>
+        <p class="omok-reward">이기면 <b class="num" id="rw-xp">3</b> XP · <b class="num" id="rw-co">3</b>은화 · 오늘 보상 <b class="num" id="rw-today">0 / 1</b></p>
+        <div class="omok-today">
+          <span>오늘 한 판</span>
+          <span class="omok-dots" id="dots" aria-hidden="true"></span>
+          <b class="num" id="today"></b>
+        </div>
+      </div>
+    </section>
+
+    <!-- 상대 찾기 -->
+    <section class="glass-strong rk-lobby rise" style="--d:.06s" id="lobby">
+      <div class="rk-seats" id="seats"></div>
+      <b class="rk-lobby-h" id="lobby-h">2명이 모이면 시작해요</b>
+      <div class="row-actions">
+        <button type="button" class="btn btn-primary btn-big press" id="find">상대 찾기</button>
+        <button type="button" class="btn btn-line press hidden" id="cancel">취소</button>
+      </div>
+
+      <div class="omok-cover hidden" id="closed">
+        <div class="omok-cover-card glass-strong pop">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+          <b>지금은 게임을 할 수 없어요</b>
+          <span class="muted">선생님이 열면 할 수 있어요</span>
+        </div>
+      </div>
+
+      <div class="omok-cover hidden" id="limit">
+        <div class="omok-cover-card glass-strong pop">
+          <b>오늘 판을 다 했어요</b>
+          <span class="muted">내일 다시 할 수 있어요</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 대국 -->
+    <section class="omok-play hidden" id="table">
+      <div class="omok-board-box glass-strong ot-board-box">
+        <div class="ot-board" id="board" role="grid" aria-label="오델로판 8×8"></div>
+
+        <div class="omok-cover hidden" id="result">
+          <div class="omok-cover-card glass-strong pop" id="result-card">
+            <b class="omok-result-h" id="result-h"></b>
+            <span class="omok-result-s" id="result-s"></span>
+            <div class="row-actions">
+              <button type="button" class="btn btn-line press" id="view">판 보기</button>
+              <button type="button" class="btn btn-primary press" id="again">한 판 더</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="omok-side om-side">
+        <div class="glass me-card omok-state">
+          <span class="omok-turn" id="turn"></span>
+          <span class="rk-clock num" id="clock" aria-live="off"></span>
+          <span class="muted qd-last" id="pass-msg"></span>
+        </div>
+        <div class="om-players" id="players"></div>
+        <div class="omok-btns">
+          <button type="button" class="btn btn-line press" id="resign">기권</button>
+          <button type="button" class="btn btn-primary press hidden" id="again2">한 판 더</button>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <!-- 규칙 탭 -->
+  <section class="glass-strong qd-rules hidden rise" id="v-rules" aria-labelledby="rules-h">
+    <h1 class="qd-rules-h" id="rules-h">오델로 규칙</h1>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="start"></div>
+      <div>
+        <h3>목표와 시작 배치</h3>
+        <p>8×8 판 정중앙 네 칸에 <b>흑돌 2개·백돌 2개</b>를 대각선으로 엇갈리게 놓고, <b>흑부터</b> 번갈아 한 수씩 둬요.</p>
+        <p class="muted">게임이 끝났을 때 판 위에 내 색 돌이 더 많으면 이겨요(개수가 같으면 무승부).</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="flip"></div>
+      <div>
+        <h3>포위해서 뒤집기</h3>
+        <p>새로 놓는 내 돌과 이미 놓여 있는 내 돌 사이에 <b>상대 돌이 가로·세로·대각선으로 빈 칸 없이 끼도록</b> 놓아요. 사이에 끼인 상대 돌은 모두 내 색으로 뒤집혀요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="valid"></div>
+      <div>
+        <h3>놓을 수 있는 칸</h3>
+        <p>상대 돌을 <b>최소 1개 이상 뒤집을 수 있는 빈 칸</b>에만 놓을 수 있어요. 뒤집을 돌이 없는 자리에는 놓을 수 없어요.</p>
+        <p class="muted">내 차례에는 놓을 수 있는 칸에 점이 찍히고, 마우스를 올리면 뒤집힐 돌이 표시돼요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="multi"></div>
+      <div>
+        <h3>여러 방향 한꺼번에 뒤집기</h3>
+        <p>한 수를 놓았을 때 가로·세로·대각선 <b>여러 줄이 동시에 포위되면</b>, 그 줄들에 끼인 상대 돌을 모두 한꺼번에 뒤집어요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini" data-mini="pass"></div>
+      <div>
+        <h3>자동 패스와 게임 종료</h3>
+        <p>상대 돌을 뒤집을 수 있는 자리가 판 위에 하나도 없으면 차례가 <b>자동으로 넘어가고(패스)</b> 상대가 한 번 더 둬요.</p>
+        <p class="muted">64칸이 모두 차거나, 양쪽 모두 더 이상 둘 곳이 없으면(한쪽 돌이 모두 뒤집힌 경우 포함) 바로 끝나요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule qd-rule-text">
+      <div>
+        <h3>시간과 판 수</h3>
+        <ul>
+          <li>한 수 <b class="num" id="help-turn">30</b>초. 시간을 넘기면 시간 초과로 패배해요</li>
+          <li>하루 <b class="num" id="help-daily">5</b>판까지 할 수 있어요. 시작된 판은 중간에 나가도 한 판으로 세요</li>
+          <li>돌이 더 많아 이기면 <b class="num" id="help-reward">3 XP · 3은화</b>(하루 <b class="num" id="help-rdaily">1</b>번까지). 상대의 시간 초과나 기권으로 이긴 판은 보상이 없어요</li>
+        </ul>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary press qd-rules-go" data-tab="game">게임으로</button>
+  </section>
+
+  <div class="lvup hidden" id="lvup" role="dialog" aria-modal="true" aria-labelledby="lvup-h">
+    <div class="lvup-box">
+      <div class="lvup-rays" aria-hidden="true"><svg class="rays" viewBox="0 0 200 200">
+        <g fill="#FFC48A"><path d="M100 100 L96 0 L104 0 Z"/><path d="M100 100 L196 96 L196 104 Z"/><path d="M100 100 L104 200 L96 200 Z"/><path d="M100 100 L4 104 L4 96 Z"/><path d="M100 100 L168 26 L174 32 Z"/><path d="M100 100 L174 168 L168 174 Z"/><path d="M100 100 L32 174 L26 168 Z"/><path d="M100 100 L26 32 L32 26 Z"/></g>
+      </svg></div>
+      <div class="lvup-card glass-strong">
+        <div class="lvup-av" id="lvup-av"></div>
+        <span class="lvup-h" id="lvup-h">레벨 업!</span>
+        <span class="lvup-n num" id="lvup-n"></span>
+        <span class="lvup-s" id="lvup-s"></span>
+        <button type="button" class="btn btn-primary btn-big press" id="lvup-ok">확인</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/othello.js"></script>
+</body>
+</html>

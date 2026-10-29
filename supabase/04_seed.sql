@@ -225,3 +225,11 @@ begin
   insert into public.settings (key, value) values ('silver_switch', jsonb_build_object('at', now()));
 end;
 $$;
+
+-- 오델로 (2026-10-29): 하루 판 수(시작된 판), 한 수 제한 시간(초), 돌 개수로 이긴 판의 XP·추가 은화(하루 reward_daily번까지)
+insert into public.settings (key, value) values
+  ('othello', '{"xp": 3, "silver": 0, "daily": 5, "reward_daily": 1, "turn": 30}'::jsonb)
+on conflict (key) do nothing;
+-- 이미 있는 DB: 보상 값이 없으면 채움(있으면 그대로)
+update public.settings set value = '{"xp": 3, "silver": 0, "reward_daily": 1}'::jsonb || value
+where key = 'othello' and not (value ? 'xp');

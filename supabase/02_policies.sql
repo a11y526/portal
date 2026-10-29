@@ -395,3 +395,19 @@ drop policy if exists away_log_teacher_all on public.away_log;
 create policy away_log_teacher_all on public.away_log
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- 오델로 (2026-10-29): 학생은 ot_* 함수로만
+alter table public.ot_games enable row level security;
+alter table public.ot_players enable row level security;
+revoke all on public.ot_games from anon;
+revoke all on public.ot_players from anon;
+
+drop policy if exists ot_games_teacher_all on public.ot_games;
+create policy ot_games_teacher_all on public.ot_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists ot_players_teacher_all on public.ot_players;
+create policy ot_players_teacher_all on public.ot_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

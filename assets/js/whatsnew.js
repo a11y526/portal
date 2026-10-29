@@ -2,6 +2,7 @@
 import { esc } from './ui.js';
 
 const NEWS = [
+  ['2026-10-29 10:40', 'New game: Online 1-on-1 Othello across all six classes, with an illustrated rules guide. Winning on disc count earns XP and silver (set by the teacher).'],
   ['2026-10-29 10:30', 'Game wins (Omok vs AI, Rummikub, Quoridor) now pay silver instead of gold, so game rewards go toward avatar items.'],
   ['2026-10-28 15:45', 'Two currencies in the shop: gold (the old coins) buys rewards, and silver, earned one-for-one with XP, buys avatar items. Coins spent on items before were returned as gold.'],
   ['2026-10-28 14:10', 'Cleaner look on slower computers: sharper card borders, easier-to-read gray text, and a six-box code input on the login screen.'],

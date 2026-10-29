@@ -2253,3 +2253,44 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
   .wn-slot { order: 3; flex-basis: 100%; justify-content: flex-start; }
   .wn-sheet .card { padding: 18px; }
 }
+
+/* ---------- 오델로 (othello.html) ---------- */
+.ot-board-box { padding: 3%; }
+.ot-board {
+  position: relative; width: 100%; aspect-ratio: 1; display: grid;
+  grid-template-columns: repeat(8, 1fr); grid-template-rows: repeat(8, 1fr);
+  background: rgba(22, 163, 106, .12); border-radius: 14px;
+  border: 1.5px solid rgba(11, 18, 32, .22); overflow: hidden;
+}
+.ot-lines {
+  position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none;
+  stroke: rgba(11, 18, 32, .22); stroke-width: .28;
+}
+.ot-lines g { fill: rgba(11, 18, 32, .42); stroke: none; }
+.ot-cell { position: relative; border: 0; padding: 0; background: none; cursor: default; min-width: 0; }
+.ot-cell.can { cursor: pointer; }
+.ot-cell i { position: absolute; inset: 11%; border-radius: 50%; transition: transform .18s, box-shadow .18s; }
+.ot-cell.can i::after {
+  content: ''; position: absolute; inset: 34%; border-radius: 50%;
+  background: rgba(22, 163, 106, .55); transition: transform .15s, background .15s;
+}
+.ot-cell.can:hover i::after { transform: scale(1.25); background: var(--accent); }
+.ot-cell.black i {
+  background: radial-gradient(circle at 34% 30%, #4A5466, #0B1220 68%);
+  box-shadow: 0 2px 5px rgba(11, 18, 32, .35);
+  animation: oc-drop .22s var(--ease-back) both;
+}
+.ot-cell.white i {
+  background: radial-gradient(circle at 34% 30%, #fff, #E3E8F0 75%);
+  box-shadow: 0 2px 5px rgba(11, 18, 32, .22), inset 0 0 0 1px rgba(11, 18, 32, .12);
+  animation: oc-drop .22s var(--ease-back) both;
+}
+.ot-cell.flipped i { animation: ot-flip .36s var(--ease-back) both; }
+.ot-cell.last i { outline: 2.5px solid var(--accent); outline-offset: 1px; }
+.ot-cell.will-flip i { outline: 2.5px dashed var(--passed-solid); outline-offset: 2px; transform: scale(1.06); }
+@keyframes ot-flip {
+  0% { transform: scaleX(1); }
+  45% { transform: scaleX(.12) scaleY(1.08); }
+  100% { transform: scaleX(1); }
+}
+.ot-cnt { margin-left: auto; font-size: 22px; font-weight: 900; padding-right: 4px; }

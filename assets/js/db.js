@@ -287,7 +287,30 @@ export async function qdPlay(token, gameId, kind, value) {
   return unwrap(await need().rpc('qd_play', { p_token: token, p_game_id: gameId, p_kind: kind, p_value: value }));
 }
 
-/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>) ---------- */
+// 오델로 (1대1 온라인). 결과: { ok: true, open, today, daily, turn(초), avatar,
+//   game: null | { id, status(waiting|playing|done), version, me(1 흑 | 2 백), turn, turn_sec, left_ms, board(64칸, 0 빈 칸·1 흑·2 백),
+//                  moves, last(칸), flipped(뒤집힌 칸들), passed(상대 자동 패스), winner, end_reason(end|time|left),
+//                  players: [{ color, me, class_id, nickname, avatar, left }] } }
+export async function otState(token, gameId = null) {
+  return unwrap(await need().rpc('ot_state', { p_token: token, p_game_id: gameId }));
+}
+
+// 상대 찾기: otState와 같은 결과 또는 error = 'CLOSED' | 'LIMIT'
+export async function otJoin(token) {
+  return unwrap(await need().rpc('ot_join', { p_token: token }));
+}
+
+// 나가기(대기 중이면 취소, 하는 중이면 기권)
+export async function otLeave(token, gameId) {
+  return unwrap(await need().rpc('ot_leave', { p_token: token, p_game_id: gameId }));
+}
+
+// 한 수(칸 = 행*8 + 열). 실패하면 { ok: false, error: 'OVER' | 'NOT_TURN' | 'BAD_MOVE' | 'BAD_GAME', state }
+export async function otPlay(token, gameId, cell) {
+  return unwrap(await need().rpc('ot_play', { p_token: token, p_game_id: gameId, p_cell: cell }));
+}
+
+/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>, 오델로 ot-<판>) ---------- */
 let gameChannel = null;
 let gameChannelId = null;
 
@@ -602,7 +625,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -957,6 +980,16 @@ export async function getQuoridorRules() {
 
 export async function saveQuoridorRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'quoridor', value }, { onConflict: 'key' }));
+}
+
+// 오델로 { daily(하루 판 수), turn(한 수 초) }
+export async function getOthelloRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'othello'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveOthelloRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'othello', value }, { onConflict: 'key' }));
 }
 
 

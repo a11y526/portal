@@ -1,4 +1,4 @@
-// 게임 모음: 오목(AI)·오목 1대1·오델로·루미큐브·쿼리도·오목 랭킹. 모두 오목 스위치(classes.omok_open) 하나로 켜고 끈다.
+// 게임 모음: 오목(안에서 AI 대전·1대1·랭킹 탭)·오델로·루미큐브·쿼리도. 모두 오목 스위치(classes.omok_open) 하나로 켜고 끈다.
 // 칸마다 오늘 한 판 수 또는 하는 중인 판을 보여 준다.
 import { initUI, prepareDraw } from '../ui.js';
 import { getOmok, omState, otState, rkState, qdState } from '../db.js';
@@ -26,10 +26,15 @@ async function load() {
   }
   $('v-games').classList.remove('hidden');
   prepareDraw($('v-games'));
-  $('go-omok-sub').textContent = `AI 대전 · 오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판`;
-  $('go-omr-sub').textContent = '이번 달 AI 대전';
+  const omokSub = `AI 대전 · 1대1 · 랭킹 · 오늘 ${Math.min(o.today, o.daily)} / ${o.daily}판`;
+  $('go-omok-sub').textContent = omokSub;
   const fill = (id, job) => job.then((r) => { if (r?.ok) $(id).textContent = online(r); }).catch(() => {});
-  fill('go-omp-sub', omState(login.token));
+  // 1대1을 하는 중이면 오목 칸에서 알려 주고 바로 1대1 화면으로
+  omState(login.token).then((r) => {
+    if (!r?.ok || !r.game || r.game.status === 'done') return;
+    $('go-omok-sub').textContent = `1대1 ${online(r)}`;
+    $('go-omok').href = 'omok-online.html';
+  }).catch(() => {});
   fill('go-ot-sub', otState(login.token));
   fill('go-rk-sub', rkState(login.token));
   qdState(login.token).then((r) => {

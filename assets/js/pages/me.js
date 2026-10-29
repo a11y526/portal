@@ -16,6 +16,7 @@ const ERR = {
   BAD_NICK: '2~8자, 한글·영문·숫자만 쓸 수 있어요',
   SAME: '지금 닉네임과 같아요',
   TAKEN: '다른 친구가 쓰고 있는 닉네임이에요',
+  NO_SILVER: '은화가 부족해요',
   BAD_ITEM: '입을 수 없는 부품이 있어요',
 };
 
@@ -80,6 +81,9 @@ function renderNick() {
     st.className = 'tag hidden';
   }
   $('nick-open').textContent = me.nickname ? '닉네임 바꾸기' : '닉네임 정하기';
+  // 바꾸기 신청은 은화(신청 중이면 이미 냄), 처음 정하기는 무료. 거절되면 돌려받음
+  const price = me.nickname && me.nickname_status !== 'pending' ? (me.nickname_price ?? 0) : 0;
+  $('nick-submit').textContent = price > 0 ? `신청 · 은화 ${price}` : '신청';
   $('nick-open').classList.remove('hidden');
   $('nick-form').classList.add('hidden');
 }
@@ -107,6 +111,10 @@ $('nick-form').addEventListener('submit', async (e) => {
     }
     me.nickname_request = res.nickname_request;
     me.nickname_status = res.nickname_status;
+    if (res.silver != null && res.silver !== me.silver) {
+      me.silver = res.silver;
+      countUp($('silver'), me.silver);
+    }
     renderNick();
     toast('신청했어요', 'ok');
   } catch (err) {

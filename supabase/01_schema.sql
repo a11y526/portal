@@ -897,3 +897,6 @@ create index if not exists ot_players_student_idx on public.ot_players (student_
 
 -- 오델로 보상 (2026-10-29): 돌 개수로 이긴 판에 보상을 줬는지
 alter table public.ot_games add column if not exists paid boolean not null default false;
+
+-- 닉네임 바꾸기 신청 은화 (2026-10-29): 신청할 때 낸 은화. 거절되면 돌려주고 0으로
+alter table public.students add column if not exists nickname_cost int not null default 0;

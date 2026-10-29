@@ -1269,6 +1269,7 @@ begin
     'nickname',         s.nickname,
     'nickname_request', s.nickname_request,
     'nickname_status',  s.nickname_status,
+    'nickname_price',   public._nickname_price(),
     'avatar',           s.avatar,
     'total_xp',         v_total,
     'level',            public._level_info(v_total),
@@ -1290,8 +1291,42 @@ grant execute on function public.get_my_page(text) to anon, authenticated;
 -- ---------------------------------------------------------
 -- 닉네임 신청 (학생)
 -- 2~8자, 한글·영문·숫자만. 승인 전까지는 원래 닉네임(있으면)이 그대로 보인다.
--- 오류: NO_SESSION, BAD_NICK(규칙에 안 맞음), SAME(지금 닉네임과 같음), TAKEN(다른 학생이 쓰거나 신청 중)
+-- 오류: NO_SESSION, BAD_NICK(규칙에 안 맞음), SAME(지금 닉네임과 같음), TAKEN(다른 학생이 쓰거나 신청 중), NO_SILVER
+-- 2026-10-29: 닉네임을 바꾸는 신청은 은화 settings.nickname.silver(처음 5)개. 처음 정하는 닉네임은 무료.
+-- 낸 은화는 students.nickname_cost에 적어 두고, 거절되면 돌려준다. 신청 중에 다시 신청하면 더 내지 않는다
 -- ---------------------------------------------------------
+create or replace function public._nickname_price()
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select greatest(0, coalesce((select (value->>'silver')::int from public.settings where key = 'nickname'), 5));
+$$;
+revoke all on function public._nickname_price() from public, anon, authenticated;
+
+-- 신청 때 낸 은화 돌려주기 (내부용). 낸 것이 없으면 아무것도 안 함
+create or replace function public._nickname_refund(p_student_id uuid)
+returns void
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  s public.students;
+begin
+  select * into s from public.students where id = p_student_id;
+  if s.nickname_cost > 0 then
+    insert into public.point_events (student_id, xp, coins, silver, reason)
+    values (s.id, 0, 0, s.nickname_cost, '닉네임 돌려줌: ' || coalesce(s.nickname_request, ''));
+  end if;
+  update public.students set nickname_cost = 0 where id = s.id;
+end;
+$$;
+revoke all on function public._nickname_refund(uuid) from public, anon, authenticated;
+
 drop function if exists public.request_nickname(int, int, text, text);
 create or replace function public.request_nickname(p_token text, p_nickname text)
 returns jsonb
@@ -1303,6 +1338,7 @@ as $$
 declare
   v_sid  uuid;
   v_nick text := btrim(coalesce(p_nickname, ''));
+  v_cost int := 0;
   s      public.students;
 begin
   v_sid := public._session_student(p_token);
@@ -1327,11 +1363,26 @@ begin
     return jsonb_build_object('ok', false, 'error', 'TAKEN');
   end if;
 
+  -- 신청 중이면 이미 낸 은화로 신청만 바꿈. 처음 정하는 닉네임은 무료
+  if s.nickname_status = 'pending' and s.nickname_request is not null then
+    v_cost := s.nickname_cost;
+  elsif s.nickname is not null then
+    v_cost := public._nickname_price();
+    if v_cost > 0 then
+      if public._silver_balance(v_sid) < v_cost then
+        return jsonb_build_object('ok', false, 'error', 'NO_SILVER', 'price', v_cost);
+      end if;
+      insert into public.point_events (student_id, xp, coins, silver, reason)
+      values (v_sid, 0, 0, -v_cost, '닉네임 신청: ' || v_nick);
+    end if;
+  end if;
+
   update public.students
-  set nickname_request = v_nick, nickname_status = 'pending'
+  set nickname_request = v_nick, nickname_status = 'pending', nickname_cost = v_cost
   where id = v_sid;
 
-  return jsonb_build_object('ok', true, 'nickname_request', v_nick, 'nickname_status', 'pending');
+  return jsonb_build_object('ok', true, 'nickname_request', v_nick, 'nickname_status', 'pending',
+                            'silver', public._silver_balance(v_sid));
 end;
 $$;
 revoke all on function public.request_nickname(text, text) from public;
@@ -1462,7 +1513,7 @@ grant execute on function public.get_month_top20(text) to anon, authenticated;
 
 -- ---------------------------------------------------------
 -- 닉네임 승인·거절 (교사)
--- 승인: 신청한 닉네임이 공개 닉네임이 된다. 거절: 원래 닉네임(있으면)은 그대로, 상태만 'rejected'
+-- 승인: 신청한 닉네임이 공개 닉네임이 된다. 거절: 원래 닉네임(있으면)은 그대로, 상태만 'rejected', 낸 은화는 돌려줌
 -- ---------------------------------------------------------
 create or replace function public.decide_nickname(p_student_id uuid, p_approve boolean)
 returns jsonb
@@ -1488,9 +1539,10 @@ begin
 
   if p_approve then
     update public.students
-    set nickname = nickname_request, nickname_request = null, nickname_status = 'approved'
+    set nickname = nickname_request, nickname_request = null, nickname_status = 'approved', nickname_cost = 0
     where id = s.id;
   else
+    perform public._nickname_refund(s.id);
     update public.students set nickname_status = 'rejected' where id = s.id;
   end if;
 
@@ -1520,8 +1572,12 @@ begin
   if not found then
     raise exception 'NOT_FOUND';
   end if;
+  -- 신청 중이던 닉네임과 다르게 고치면 신청은 거절된 셈이라 낸 은화를 돌려줌
   if v_nick = '' then
-    update public.students set nickname = null, nickname_request = null, nickname_status = 'none' where id = s.id;
+    if s.nickname_status = 'pending' then
+      perform public._nickname_refund(s.id);
+    end if;
+    update public.students set nickname = null, nickname_request = null, nickname_status = 'none', nickname_cost = 0 where id = s.id;
     return jsonb_build_object('ok', true, 'nickname', null, 'class_id', s.class_id);
   end if;
   if char_length(v_nick) not between 2 and 8 or v_nick !~ '^[가-힣A-Za-z0-9]+$' then
@@ -1535,7 +1591,10 @@ begin
   ) then
     return jsonb_build_object('ok', false, 'error', 'TAKEN');
   end if;
-  update public.students set nickname = v_nick, nickname_request = null, nickname_status = 'approved' where id = s.id;
+  if s.nickname_status = 'pending' and lower(coalesce(s.nickname_request, '')) <> lower(v_nick) then
+    perform public._nickname_refund(s.id);
+  end if;
+  update public.students set nickname = v_nick, nickname_request = null, nickname_status = 'approved', nickname_cost = 0 where id = s.id;
   return jsonb_build_object('ok', true, 'nickname', v_nick, 'class_id', s.class_id);
 end;
 $$;

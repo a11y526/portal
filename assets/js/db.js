@@ -625,7 +625,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","게임 XP 회수")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","게임 XP 회수")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 

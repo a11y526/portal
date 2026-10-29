@@ -253,3 +253,7 @@ begin
   insert into public.settings (key, value) values ('game_xp_off', jsonb_build_object('at', now()));
 end;
 $$;
+
+-- 닉네임 바꾸기 신청 은화 (2026-10-29). 처음 정하는 닉네임은 무료, 거절되면 돌려줌
+insert into public.settings (key, value) values ('nickname', '{"silver": 5}'::jsonb)
+on conflict (key) do nothing;

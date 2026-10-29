@@ -185,6 +185,11 @@ insert into public.settings (key, value) values
   ('quoridor', '{"xp": 5, "coins": 5, "daily": 5, "reward_daily": 1, "turn": 40}'::jsonb)
 on conflict (key) do nothing;
 
+-- 2026-10-29 게임(오목 AI·루미큐브·쿼리도) 보상은 금화 대신 은화. XP를 받으면 은화도 같은 만큼 쌓이고, silver는 그 위에 더 주는 은화.
+--   예전 coins 값을 silver로 옮기고 coins는 지운다(이미 silver가 있으면 그대로)
+update public.settings set value = (value - 'coins') || jsonb_build_object('silver', coalesce((value ->> 'coins')::int, 0))
+where key in ('omok', 'rummikub', 'quoridor') and not (value ? 'silver');
+
 -- 학습지 AI 채점 (2026-10-24): 처음 설치할 때만. on은 꺼 둠(관리 'AI 채점'에서 켬)
 --   url = Edge Function ws-grade 주소, secret = cron이 함수에 보내는 비밀 표(48자). 둘 다 학생 쪽으로 나가지 않는다
 --   wait = 이 초가 지나도록 판정이 없으면 지금 방식으로 채점(빈칸은 등록 답, 서술은 채우면 맞음)

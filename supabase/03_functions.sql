@@ -3141,7 +3141,7 @@ begin
     'today',  public._omok_today(v_sid),
     'daily',  coalesce((v_set ->> 'daily')::int, 7),
     'xp',     coalesce((v_set ->> 'xp')::int, 2),
-    'coins',  coalesce((v_set ->> 'coins')::int, 2),
+    'silver', coalesce((v_set ->> 'silver')::int, 0),
     'reward_daily', coalesce((v_set ->> 'reward_daily')::int, 2),
     'rewarded', public._omok_paid_today(v_sid),
     'avatar', s.avatar
@@ -3243,7 +3243,7 @@ begin
   select coalesce(sum(xp), 0)::int into v_before from public.point_events where student_id = v_sid;
 
   if gm.won_at is not null then
-    return jsonb_build_object('ok', true, 'paid', false, 'xp', 0, 'coins', 0,
+    return jsonb_build_object('ok', true, 'paid', false, 'xp', 0, 'silver', 0,
       'today', public._omok_today(v_sid), 'daily', coalesce((v_set ->> 'daily')::int, 7),
       'level_before', (public._level_info(v_before) ->> 'level')::int,
       'level_after',  (public._level_info(v_before) ->> 'level')::int,
@@ -3285,21 +3285,21 @@ begin
     return jsonb_build_object('ok', false, 'error', 'BAD_GAME');
   end if;
 
-  -- 이긴 판은 늘 기록(랭킹), 보상은 오늘 reward_daily번까지
+  -- 이긴 판은 늘 기록(랭킹), 보상(XP·은화, 2026-10-29부터 금화 대신 은화)은 오늘 reward_daily번까지
   update public.omok_games set won_at = now() where id = gm.id;
   v_xp := coalesce((v_set ->> 'xp')::int, 2);
-  v_co := coalesce((v_set ->> 'coins')::int, 2);
+  v_co := coalesce((v_set ->> 'silver')::int, 0);
   v_cap := public._omok_paid_today(v_sid) >= coalesce((v_set ->> 'reward_daily')::int, 2);
   if v_cap then
     v_xp := 0;
     v_co := 0;
   end if;
   if v_xp <> 0 or v_co <> 0 then
-    insert into public.point_events (student_id, xp, coins, reason)
+    insert into public.point_events (student_id, xp, silver, reason)
     values (v_sid, v_xp, v_co, '오목 승리');
   end if;
 
-  return jsonb_build_object('ok', true, 'paid', v_xp <> 0 or v_co <> 0, 'capped', v_cap, 'xp', v_xp, 'coins', v_co,
+  return jsonb_build_object('ok', true, 'paid', v_xp <> 0 or v_co <> 0, 'capped', v_cap, 'xp', v_xp, 'silver', v_co,
     'today', public._omok_today(v_sid), 'daily', coalesce((v_set ->> 'daily')::int, 7),
     'level_before', (public._level_info(v_before) ->> 'level')::int,
     'level_after',  (public._level_info(v_before + v_xp) ->> 'level')::int,
@@ -3407,7 +3407,7 @@ set search_path = public
 as $$
   select jsonb_build_object(
     'xp',    coalesce((v ->> 'xp')::int, 5),
-    'coins', coalesce((v ->> 'coins')::int, 5),
+    'silver', coalesce((v ->> 'silver')::int, 0),
     'daily', coalesce((v ->> 'daily')::int, 5),
     'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
     'turn',  greatest(coalesce((v ->> 'turn')::int, 60), 15))
@@ -3444,10 +3444,10 @@ begin
   select student_id into v_sid from public.rk_players where game_id = p_game_id and seat = p_winner;
   if p_reason in ('out', 'pool') and v_sid is not null
      and coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false)
-     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'coins')::int <> 0)
+     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'silver')::int <> 0)
      and public._rk_paid_today(v_sid) < (v_set ->> 'reward_daily')::int then
-    insert into public.point_events (student_id, xp, coins, reason)
-    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'coins')::int, '루미큐브 승리');
+    insert into public.point_events (student_id, xp, silver, reason)
+    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'silver')::int, '루미큐브 승리');
     v_pay := true;
   end if;
   update public.rk_games
@@ -3580,7 +3580,7 @@ begin
   end if;
   if g.status = 'done' and g.paid and g.winner = me.seat then
     select coalesce(sum(xp), 0)::int into v_tot from public.point_events where student_id = p_sid;
-    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'coins', (v_set ->> 'coins')::int, 'total_xp', v_tot,
+    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'silver', (v_set ->> 'silver')::int, 'total_xp', v_tot,
       'level_before', (public._level_info(v_tot - (v_set ->> 'xp')::int) ->> 'level')::int,
       'level_after',  (public._level_info(v_tot) ->> 'level')::int);
   end if;
@@ -3705,7 +3705,7 @@ begin
     'today',  public._rk_today(v_sid),
     'daily',  (v_set ->> 'daily')::int,
     'xp',     (v_set ->> 'xp')::int,
-    'coins',  (v_set ->> 'coins')::int,
+    'silver', (v_set ->> 'silver')::int,
     'reward_daily', (v_set ->> 'reward_daily')::int,
     'rewarded', public._rk_paid_today(v_sid),
     'turn',   (v_set ->> 'turn')::int,
@@ -6169,7 +6169,7 @@ set search_path = public
 as $$
   select jsonb_build_object(
     'xp',    coalesce((v ->> 'xp')::int, 5),
-    'coins', coalesce((v ->> 'coins')::int, 5),
+    'silver', coalesce((v ->> 'silver')::int, 0),
     'daily', greatest(coalesce((v ->> 'daily')::int, 5), 1),
     'reward_daily', coalesce((v ->> 'reward_daily')::int, 1),
     'turn',  greatest(coalesce((v ->> 'turn')::int, 40), 15))
@@ -6360,10 +6360,10 @@ begin
   select student_id into v_sid from public.qd_players where game_id = p_game_id and seat = p_winner;
   if p_reason = 'goal' and v_sid is not null
      and coalesce((select c.omok_open from public.students s join public.classes c on c.id = s.class_id where s.id = v_sid), false)
-     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'coins')::int <> 0)
+     and ((v_set ->> 'xp')::int <> 0 or (v_set ->> 'silver')::int <> 0)
      and public._qd_paid_today(v_sid) < (v_set ->> 'reward_daily')::int then
-    insert into public.point_events (student_id, xp, coins, reason)
-    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'coins')::int, '쿼리도 승리');
+    insert into public.point_events (student_id, xp, silver, reason)
+    values (v_sid, (v_set ->> 'xp')::int, (v_set ->> 'silver')::int, '쿼리도 승리');
     v_pay := true;
   end if;
   update public.qd_games
@@ -6453,7 +6453,7 @@ begin
   end if;
   if g.status = 'done' and g.paid and g.winner = me.seat then
     select coalesce(sum(xp), 0)::int into v_tot from public.point_events where student_id = p_sid;
-    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'coins', (v_set ->> 'coins')::int, 'total_xp', v_tot,
+    v_rw := jsonb_build_object('xp', (v_set ->> 'xp')::int, 'silver', (v_set ->> 'silver')::int, 'total_xp', v_tot,
       'level_before', (public._level_info(v_tot - (v_set ->> 'xp')::int) ->> 'level')::int,
       'level_after',  (public._level_info(v_tot) ->> 'level')::int);
   end if;
@@ -6575,7 +6575,7 @@ begin
     'today',  public._qd_today(v_sid),
     'daily',  (v_set ->> 'daily')::int,
     'xp',     (v_set ->> 'xp')::int,
-    'coins',  (v_set ->> 'coins')::int,
+    'silver', (v_set ->> 'silver')::int,
     'reward_daily', (v_set ->> 'reward_daily')::int,
     'rewarded', public._qd_paid_today(v_sid),
     'turn',   (v_set ->> 'turn')::int,

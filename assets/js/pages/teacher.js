@@ -1004,7 +1004,7 @@ async function refreshPoints() {
   const ws = (await getWorksheetRules()) ?? {};
   const wf = (await getWsFirstRules()) ?? {};
   quizRules = (await getQuizRules()) ?? {};
-  omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
+  omokRules = (await getOmokRules()) ?? { xp: 2, silver: 0, daily: 7 };
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   const r = (await getPointRules()) ?? {};
@@ -1023,11 +1023,11 @@ async function refreshPoints() {
   f.qb_xp.value = quizRules.xp ?? 4;
   f.qb_coins.value = quizRules.coins ?? 4;
   f.om_xp.value = omokRules.xp ?? 2;
-  f.om_coins.value = omokRules.coins ?? 2;
+  f.om_silver.value = omokRules.silver ?? 0;
   f.rk_xp.value = rkRules.xp;
-  f.rk_coins.value = rkRules.coins;
+  f.rk_silver.value = rkRules.silver ?? 0;
   f.qd_xp.value = qdRules.xp;
-  f.qd_coins.value = qdRules.coins;
+  f.qd_silver.value = qdRules.silver ?? 0;
   const qs = (await getQuizShowRules()) ?? {};
   [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
   renderPointsSum();
@@ -1058,9 +1058,9 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins'), draw: Math.min(600, q('wf_draw')) });
     await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
     // 오목·루미큐브·쿼리도는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
-    await saveOmokRules({ xp: 2, coins: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), coins: q('om_coins') });
-    await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: q('rk_xp'), coins: q('rk_coins') });
-    await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), xp: q('qd_xp'), coins: q('qd_coins') });
+    await saveOmokRules({ xp: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: q('om_xp'), silver: q('om_silver') });
+    await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: q('rk_xp'), silver: q('rk_silver') });
+    await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), xp: q('qd_xp'), silver: q('qd_silver') });
     await saveQuizShowRules({ xp: [0, 1, 2].map((i) => q('qs_xp' + i)), coins: [0, 1, 2].map((i) => q('qs_coins' + i)) });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
@@ -1532,12 +1532,12 @@ $('lock-list').addEventListener('click', async (e) => {
 });
 
 /* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
-// 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·coins는 '포인트 규칙'에서)
+// 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·silver는 '포인트 규칙'에서)
 async function refreshOmokRules() {
-  omokRules = (await getOmokRules()) ?? { xp: 2, coins: 2, daily: 7 };
+  omokRules = (await getOmokRules()) ?? { xp: 2, silver: 0, daily: 7 };
   $('omok-daily').value = omokRules.daily ?? 7;
   $('omok-rdaily').value = omokRules.reward_daily ?? 2;
-  $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${omokRules.coins ?? 2}금화`;
+  $('omok-reward').textContent = `${omokRules.xp ?? 2} XP · ${(omokRules.xp ?? 2) + (omokRules.silver ?? 0)}은화`;
   updateHub();
 }
 
@@ -1570,13 +1570,13 @@ $('omp-form').addEventListener('submit', async (e) => {
   }
 });
 
-// 쿼리도 하루 판 수·보상 받는 승리: settings.quoridor.daily·reward_daily (xp·coins는 '포인트 규칙'에서, turn은 그대로)
-const QD_DEFAULT = { xp: 5, coins: 5, daily: 5, reward_daily: 1, turn: 40 };
+// 쿼리도 하루 판 수·보상 받는 승리: settings.quoridor.daily·reward_daily (xp·silver는 '포인트 규칙'에서, turn은 그대로)
+const QD_DEFAULT = { xp: 5, silver: 0, daily: 5, reward_daily: 1, turn: 40 };
 async function refreshQdRules() {
   qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   $('qd-daily').value = qdRules.daily;
   $('qd-turn').textContent = qdRules.turn;
-  $('qd-reward').textContent = `${qdRules.xp} XP · ${qdRules.coins}금화`;
+  $('qd-reward').textContent = `${qdRules.xp} XP · ${qdRules.xp + (qdRules.silver ?? 0)}은화`;
   $('qd-rdaily').value = qdRules.reward_daily;
   updateHub();
 }
@@ -1606,13 +1606,13 @@ $('qd-form').addEventListener('submit', async (e) => {
   }
 });
 
-// 루미큐브 하루 판 수·보상 받는 1등: settings.rummikub.daily·reward_daily (xp·coins는 '포인트 규칙'에서, turn은 그대로)
-const RK_DEFAULT = { xp: 5, coins: 5, daily: 5, reward_daily: 1, turn: 60 };
+// 루미큐브 하루 판 수·보상 받는 1등: settings.rummikub.daily·reward_daily (xp·silver는 '포인트 규칙'에서, turn은 그대로)
+const RK_DEFAULT = { xp: 5, silver: 0, daily: 5, reward_daily: 1, turn: 60 };
 async function refreshRkRules() {
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   $('rk-daily').value = rkRules.daily;
   $('rk-turn').textContent = rkRules.turn;
-  $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.coins}금화`;
+  $('rk-reward').textContent = `${rkRules.xp} XP · ${rkRules.xp + (rkRules.silver ?? 0)}은화`;
   $('rk-rdaily').value = rkRules.reward_daily;
   updateHub();
 }
@@ -1657,7 +1657,7 @@ $('omok-form').addEventListener('submit', async (e) => {
   const btn = e.currentTarget.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
-    await saveOmokRules({ xp: 2, coins: 2, ...((await getOmokRules()) ?? {}), daily, reward_daily: rewardDaily });
+    await saveOmokRules({ xp: 2, ...((await getOmokRules()) ?? {}), daily, reward_daily: rewardDaily });
     await refreshOmokRules();
     toast(`하루 ${daily}판, 보상 ${rewardDaily}번으로 바꿨어요`, 'ok');
   } catch (err) {

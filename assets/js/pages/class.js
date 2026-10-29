@@ -3,7 +3,7 @@
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
 import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onWsAi, onQuizShow,
-  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
+  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials, moonRpgState, moonRpgFinish } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 import { renderPage, markFields, closeSims, showSide, wakeSims } from '../worksheet.js';
@@ -1192,3 +1192,57 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('online', () => { load(); saveSheet(); });
 addEventListener('offline', () => setNetDown(true));
+
+/* ---------- 712 달 자원 RPG 시뮬레이션 iframe 브리지 ----------
+   #ws-side / .ws-sim iframe은 sandbox="allow-scripts"라 localStorage를 직접 읽지 못하므로
+   postMessage로 학생 닉네임·은화 보상 지급을 연결한다.
+   진행 상태도 iframe 대신 이 창이 localStorage에 맡아 둔다(moon-rpg:save / moon-rpg:load).
+   화면이 숨겨지면 iframe을 새로 만들기 때문에(closeSims → wakeSims) 엔딩 정리 카드가 사라지지 않게 하려는 것. */
+const moonRpgSaveKey = () => `rpg-moon-save-${classId}-${login?.number ?? 'guest'}`;
+const fromSimFrame = (src) =>
+  [...document.querySelectorAll('iframe.ws-sim-frame')].some((f) => f.contentWindow === src);
+addEventListener('message', async (e) => {
+  const msg = e.data;
+  if (!msg || typeof msg !== 'object' || !e.source) return;
+  if (typeof msg.type !== 'string' || !msg.type.startsWith('moon-rpg:')) return;
+  if (!fromSimFrame(e.source)) return; // 학습지 시뮬레이션 칸에서 온 메시지만 받음
+  if (msg.type === 'moon-rpg:save') {
+    try {
+      const raw = JSON.stringify(msg.data ?? null);
+      if (raw.length < 20000) localStorage.setItem(moonRpgSaveKey(), raw);
+    } catch {}
+    return;
+  }
+  if (msg.type === 'moon-rpg:load') {
+    let data = null;
+    try { data = JSON.parse(localStorage.getItem(moonRpgSaveKey()) || 'null'); } catch {}
+    e.source.postMessage({ type: 'moon-rpg:load-res', data }, '*');
+    return;
+  }
+  if (msg.type === 'moon-rpg:init') {
+    if (!login?.token) {
+      e.source.postMessage({ type: 'moon-rpg:state', data: { ok: false, error: 'NO_SESSION' } }, '*');
+      return;
+    }
+    try {
+      const res = await moonRpgState(login.token);
+      e.source.postMessage({ type: 'moon-rpg:state', data: res }, '*');
+    } catch {
+      e.source.postMessage({ type: 'moon-rpg:state', data: { ok: false, error: 'NET' } }, '*');
+    }
+  } else if (msg.type === 'moon-rpg:finish') {
+    if (!login?.token) {
+      e.source.postMessage({ type: 'moon-rpg:finish-res', data: { ok: false, error: 'NO_SESSION' } }, '*');
+      return;
+    }
+    try {
+      const res = await moonRpgFinish(login.token, msg.ending, msg.stats, msg.choices);
+      e.source.postMessage({ type: 'moon-rpg:finish-res', data: res }, '*');
+      if (res?.ok && res.rewarded && (res.silver ?? 0) > 0) {
+        toast(`달 자원 RPG 완료! +${res.silver}은화`, 'ok');
+      }
+    } catch {
+      e.source.postMessage({ type: 'moon-rpg:finish-res', data: { ok: false, error: 'NET' } }, '*');
+    }
+  }
+});

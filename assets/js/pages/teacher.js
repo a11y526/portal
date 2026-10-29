@@ -9,12 +9,13 @@ import {
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock, setOmokOpen,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getOthelloRules, saveOthelloRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants, getCoinStatus,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getOthelloRules, saveOthelloRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getMoonRpgRules, saveMoonRpgRules, getMoonRpgClass, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants, getCoinStatus,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
   getAwayStats,
 } from '../db.js';
+import { EVENTS as MR_EVENTS, ENDINGS as MR_ENDINGS } from '../rpg-moon-data.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
 import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../worksheet.js';
@@ -1009,6 +1010,7 @@ async function refreshPoints() {
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   otRules = { ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}) };
+  const mrRules = (await getMoonRpgRules()) ?? { silver: 5 };
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -1028,6 +1030,7 @@ async function refreshPoints() {
   f.rk_silver.value = rkRules.silver ?? 0;
   f.qd_silver.value = qdRules.silver ?? 0;
   f.ot_silver.value = otRules.silver ?? 0;
+  f.mr_silver.value = mrRules.silver ?? 5;
   const qs = (await getQuizShowRules()) ?? {};
   [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
   renderPointsSum();
@@ -1062,6 +1065,7 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: 0, silver: q('rk_silver') });
     await saveQuoridorRules({ ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}), xp: 0, silver: q('qd_silver') });
     await saveOthelloRules({ ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}), xp: 0, silver: q('ot_silver') });
+    await saveMoonRpgRules({ silver: q('mr_silver') });
     await saveQuizShowRules({ xp: [0, 1, 2].map((i) => q('qs_xp' + i)), coins: [0, 1, 2].map((i) => q('qs_coins' + i)) });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
@@ -1111,6 +1115,7 @@ function eventKind(e) {
   if (e.reason === '루미큐브 승리') return '루미큐브';
   if (e.reason === '쿼리도 승리') return '쿼리도';
   if (e.reason === '오델로 승리') return '오델로';
+  if (e.reason === '달 자원 RPG 완료') return 'RPG';
   if (e.reason === '게임 XP 회수') return '게임 XP 회수';
   return '직접 줌';
 }
@@ -1752,6 +1757,89 @@ $('omok-all').addEventListener('click', async (e) => {
   btn.disabled = false;
 });
 
+/* ---------- 달 자원 RPG 결과 (712, 반별 엔딩 4종 막대 + 이벤트 7개 선택 비율) ---------- */
+let mrClass = 0;
+try { const v = localStorage.getItem('mrClass'); if (v !== null) mrClass = Number(v); } catch {}
+if (mrClass !== 0 && !CLASSES.includes(mrClass)) mrClass = 0;
+
+if ($('mr-class')) {
+  $('mr-class').innerHTML = '<option value="0">모든 반</option>' + CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+  $('mr-class').value = String(mrClass);
+  $('mr-class').addEventListener('change', () => {
+    mrClass = Number($('mr-class').value);
+    try { localStorage.setItem('mrClass', String(mrClass)); } catch {}
+    refreshMoonRpg().catch((err) => toast(errMsg(err), 'error'));
+  });
+}
+if ($('mr-refresh')) {
+  $('mr-refresh').addEventListener('click', () => refreshMoonRpg().catch((err) => toast(errMsg(err), 'error')));
+}
+
+async function refreshMoonRpg() {
+  const cls = mrClass;
+  const res = await getMoonRpgClass(cls || null);
+  if (cls !== mrClass) return;
+  const studentsCnt = res?.students ?? 0;
+  const runsCnt = res?.runs ?? 0;
+  $('mr-sum').textContent = studentsCnt ? `완료 ${studentsCnt}명 · ${runsCnt}판` : '완료 기록 없음';
+  const ends = res?.endings ?? { peace: 0, balance: 0, monopoly: 0, conflict: 0 };
+  const evStats = new Map((res?.events ?? []).map((e) => [Number(e.event), e]));
+
+  const pct = (n, tot) => (tot > 0 ? Math.round((n / tot) * 100) : 0);
+
+  const END_COLOR = { peace: '#10b981', balance: '#3b82f6', monopoly: '#f59e0b', conflict: '#ef4444' };
+  const endRows = MR_ENDINGS.map((ed) => {
+    const cnt = Number(ends[ed.id] ?? 0);
+    const p = pct(cnt, studentsCnt);
+    const col = END_COLOR[ed.id] || '#64748b';
+    return `
+      <div style="display:grid;grid-template-columns:110px 1fr 78px;align-items:center;gap:10px;font-size:14px">
+        <b style="color:${col}">${esc(ed.name)}</b>
+        <div style="height:12px;border-radius:999px;background:rgba(15,23,42,.08);overflow:hidden">
+          <div style="height:100%;width:${p}%;background:${col};border-radius:999px;transition:width .25s"></div>
+        </div>
+        <span class="num" style="text-align:right">${cnt}명 (${p}%)</span>
+      </div>`;
+  }).join('');
+
+  const evCards = MR_EVENTS.map((ev) => {
+    const st = evStats.get(ev.id) ?? { total: 0, picks: [0, 0, 0] };
+    const tot = Number(st.total || 0);
+    const picks = Array.isArray(st.picks) ? st.picks : [0, 0, 0];
+    return `
+      <div style="padding:14px 16px;border-radius:14px;background:rgba(15,23,42,.035);display:flex;flex-direction:column;gap:8px">
+        <div style="display:flex;justify-content:space-between;align-items:baseline;gap:8px;flex-wrap:wrap">
+          <b>${ev.id}. ${esc(ev.title)} <span class="muted" style="font-weight:400;font-size:13px">(${esc(ev.conflict)})</span></b>
+          <span class="num" style="font-size:13px;font-weight:700">n = ${tot}명</span>
+        </div>
+        ${ev.choices.map((opt, idx) => {
+          const c = Number(picks[idx] ?? 0);
+          const p = pct(c, tot);
+          const barColor = opt.solution ? '#10b981' : '#3b82f6';
+          return `
+            <div style="display:grid;grid-template-columns:minmax(180px,1.3fr) 1fr 78px;align-items:center;gap:10px;font-size:13px">
+              <span>${['①', '②', '③'][idx]} ${esc(opt.text)}</span>
+              <div style="height:10px;border-radius:999px;background:rgba(15,23,42,.08);overflow:hidden">
+                <div style="height:100%;width:${p}%;background:${barColor};border-radius:999px;transition:width .25s"></div>
+              </div>
+              <span class="num" style="text-align:right">${c}명 (${p}%)</span>
+            </div>`;
+        }).join('')}
+      </div>`;
+  }).join('');
+
+  $('mr-body').innerHTML = `
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <h3 style="margin:0;font-size:16px">엔딩 분포</h3>
+      ${endRows}
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px">
+      <h3 style="margin:0;font-size:16px">이벤트별 선택 비율</h3>
+      <p class="muted" style="margin:0;font-size:13px">지점 3곳만 둘러봐도 마지막 회의가 열려서 이벤트마다 응답 수(n)가 다릅니다. 비율은 그 이벤트에 응답한 학생 수(n)를 기준으로 냅니다.</p>
+      ${evCards}
+    </div>`;
+}
+
 /* ---------- 첫 화면 항목 ---------- */
 function updateHub() {
   const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
@@ -1807,6 +1895,7 @@ function loadPanel(key) {
   if (key === 'mats') refreshMats().catch(() => {});
   if (key === 'progress') refreshProgress().catch(() => {});
   if (key === 'ai') refreshAi().catch(() => {});
+  if (key === 'moon-rpg') refreshMoonRpg().catch(() => {});
 }
 initSide();
 addEventListener('hashchange', route);

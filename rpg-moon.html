@@ -1,0 +1,852 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>다누리 탐사대장 — 달 자원 RPG</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+<style>
+  :root {
+    --rpg-accent: #2457E6;
+    --rpg-ink: #0B1220;
+    --rpg-sub: #4E5868;
+  }
+  .rpg-shell {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 18px 16px 40px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rpg-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    flex-wrap: wrap;
+  }
+  .rpg-tabs {
+    display: inline-flex;
+    padding: 4px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.82);
+    border: 1px solid rgba(78, 88, 104, 0.16);
+    gap: 4px;
+  }
+  .rpg-tab {
+    border: 0;
+    background: transparent;
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    color: var(--rpg-sub);
+    padding: 7px 18px;
+    min-height: 38px;
+    border-radius: 999px;
+    cursor: pointer;
+  }
+  .rpg-tab.on {
+    background: var(--rpg-accent);
+    color: #fff;
+  }
+  .rpg-user-bar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex-wrap: wrap;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--rpg-sub);
+  }
+  .rpg-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 12px;
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.85);
+    border: 1px solid rgba(78, 88, 104, 0.16);
+    color: var(--rpg-ink);
+    font-size: 12.5px;
+    font-weight: 800;
+  }
+  .rpg-chip.is-accent {
+    background: rgba(36, 87, 230, 0.12);
+    color: var(--rpg-accent);
+    border-color: rgba(36, 87, 230, 0.28);
+  }
+  .rpg-start-card {
+    position: relative;
+    border-radius: 24px;
+    overflow: hidden;
+    background: #0B1220;
+    color: #fff;
+    min-height: 460px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    padding: 24px 22px 20px;
+    box-shadow: 0 14px 34px rgba(11, 18, 32, 0.16);
+  }
+  .rpg-start-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.36;
+    pointer-events: none;
+  }
+  .rpg-start-grad {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(11, 18, 32, 0.55) 0%, rgba(11, 18, 32, 0.92) 100%);
+    pointer-events: none;
+  }
+  .rpg-start-content {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    gap: 14px;
+    margin: auto 0;
+  }
+  .rpg-title-badge {
+    display: inline-block;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: rgba(56, 189, 248, 0.2);
+    border: 1px solid rgba(56, 189, 248, 0.45);
+    color: #7DD3FC;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .rpg-title {
+    margin: 0;
+    font-size: 32px;
+    font-weight: 900;
+    letter-spacing: -0.02em;
+  }
+  .rpg-subtitle {
+    margin: -6px 0 4px;
+    font-size: 16px;
+    color: #CBD5E1;
+    font-weight: 500;
+  }
+  .rpg-hero-pick {
+    display: flex;
+    gap: 14px;
+    justify-content: center;
+    flex-wrap: wrap;
+    margin: 6px 0;
+  }
+  .rpg-hero-btn {
+    width: 148px;
+    padding: 12px 10px;
+    border-radius: 20px;
+    border: 2px solid rgba(255, 255, 255, 0.22);
+    background: rgba(15, 23, 42, 0.72);
+    color: #fff;
+    cursor: pointer;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    font: inherit;
+    transition: transform 0.15s, border-color 0.15s, background 0.15s;
+  }
+  .rpg-hero-btn.is-picked {
+    border-color: #38BDF8;
+    background: rgba(36, 87, 230, 0.42);
+    box-shadow: 0 0 0 3px rgba(56, 189, 248, 0.28);
+  }
+  .rpg-hero-btn canvas {
+    width: 96px;
+    height: 96px;
+    image-rendering: pixelated;
+  }
+  .rpg-hero-btn b {
+    font-size: 15px;
+    font-weight: 800;
+  }
+  .rpg-btn-primary {
+    border: 0;
+    border-radius: 999px;
+    background: var(--rpg-accent);
+    color: #fff;
+    font: inherit;
+    font-size: 17px;
+    font-weight: 800;
+    padding: 12px 32px;
+    min-height: 48px;
+    cursor: pointer;
+    box-shadow: 0 8px 20px rgba(36, 87, 230, 0.38);
+  }
+  .rpg-btn-line {
+    border: 1.5px solid rgba(78, 88, 104, 0.28);
+    border-radius: 999px;
+    background: rgba(255, 255, 255, 0.9);
+    color: var(--rpg-ink);
+    font: inherit;
+    font-size: 14px;
+    font-weight: 800;
+    padding: 8px 18px;
+    min-height: 44px;
+    cursor: pointer;
+  }
+  .rpg-start-foot {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-top: 12px;
+    font-size: 12px;
+    color: #94A3B8;
+  }
+  .rpg-link-btn {
+    border: 1px solid rgba(255, 255, 255, 0.25);
+    background: rgba(255, 255, 255, 0.1);
+    color: #E2E8F0;
+    border-radius: 999px;
+    padding: 6px 14px;
+    min-height: 36px;
+    font: inherit;
+    font-size: 12.5px;
+    font-weight: 700;
+    cursor: pointer;
+  }
+  .rpg-hud {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr)) auto;
+    gap: 8px;
+    align-items: center;
+    padding: 10px 12px;
+    border-radius: 18px;
+    background: rgba(255, 255, 255, 0.92);
+    border: 1px solid rgba(78, 88, 104, 0.16);
+  }
+  .rpg-stat {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    min-width: 0;
+  }
+  .rpg-stat-top {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-size: 13px;
+    font-weight: 800;
+  }
+  .rpg-stat-top b {
+    margin-left: auto;
+    font-variant-numeric: tabular-nums;
+  }
+  .rpg-stat-track {
+    height: 8px;
+    border-radius: 999px;
+    background: rgba(78, 88, 104, 0.14);
+    overflow: hidden;
+  }
+  .rpg-stat-fill {
+    height: 100%;
+    width: 100%;
+    transform-origin: left center;
+    transform: scaleX(0.5);
+    transition: transform 0.3s ease;
+  }
+  .rpg-stat-fill.is-res { background: #F59E0B; }
+  .rpg-stat-fill.is-trust { background: #2457E6; }
+  .rpg-stat-fill.is-peace { background: #16A36A; }
+  .rpg-delta {
+    font-size: 12px;
+    font-weight: 900;
+    opacity: 0;
+    margin-left: 3px;
+    transition: opacity 0.25s;
+  }
+  .rpg-delta.is-show {
+    opacity: 1;
+    animation: deltaFade 1.8s ease forwards;
+  }
+  .rpg-delta.is-up { color: #0B6B47; }
+  .rpg-delta.is-down { color: #C2410C; }
+  @keyframes deltaFade {
+    0%, 65% { opacity: 1; }
+    100% { opacity: 0; }
+  }
+  .rpg-prog-box {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 3px;
+    padding-left: 6px;
+    font-size: 12px;
+    font-weight: 800;
+    color: var(--rpg-sub);
+  }
+  .rpg-hq-ready {
+    background: #16A36A;
+    color: #fff;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 800;
+  }
+  .rpg-stage {
+    position: relative;
+    border-radius: 22px;
+    overflow: hidden;
+    background: #0B1220;
+    border: 1.5px solid rgba(78, 88, 104, 0.22);
+    box-shadow: 0 12px 28px rgba(11, 18, 32, 0.12);
+  }
+  #rpg-canvas {
+    display: block;
+    width: 100%;
+    height: auto;
+    aspect-ratio: 800 / 480;
+    image-rendering: pixelated;
+    cursor: pointer;
+    touch-action: manipulation;
+  }
+  .rpg-interact-btn {
+    position: absolute;
+    left: 50%;
+    bottom: 14px;
+    transform: translateX(-50%);
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 22px;
+    min-height: 46px;
+    border-radius: 999px;
+    border: 2px solid #fff;
+    background: var(--rpg-accent);
+    color: #fff;
+    font: inherit;
+    font-size: 15px;
+    font-weight: 800;
+    cursor: pointer;
+    box-shadow: 0 8px 22px rgba(11, 18, 32, 0.35);
+    z-index: 3;
+  }
+  .rpg-interact-btn:disabled {
+    background: rgba(51, 65, 85, 0.92);
+    border-color: rgba(255, 255, 255, 0.4);
+    cursor: default;
+  }
+  .rpg-modal-backdrop {
+    position: absolute;
+    inset: 0;
+    background: rgba(11, 18, 32, 0.68);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 12px;
+    z-index: 10;
+  }
+  .rpg-event-card {
+    width: 100%;
+    max-width: 580px;
+    max-height: 100%;
+    overflow-y: auto;
+    border-radius: 22px;
+    background: #FFFFFF;
+    color: var(--rpg-ink);
+    padding: 18px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: 0 20px 44px rgba(11, 18, 32, 0.38);
+  }
+  .rpg-ev-head {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .rpg-ev-portrait-wrap {
+    flex: none;
+    width: 68px;
+    height: 68px;
+    border-radius: 16px;
+    background: #F1F5F9;
+    border: 1.5px solid #CBD5E1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+  }
+  .rpg-ev-portrait-wrap canvas {
+    width: 64px;
+    height: 64px;
+    image-rendering: pixelated;
+  }
+  .rpg-ev-meta {
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+    min-width: 0;
+  }
+  .rpg-ev-speaker {
+    font-size: 12.5px;
+    font-weight: 800;
+    color: var(--rpg-accent);
+  }
+  .rpg-ev-title {
+    margin: 0;
+    font-size: 18px;
+    font-weight: 900;
+  }
+  .rpg-ev-conflict {
+    font-size: 12px;
+    font-weight: 700;
+    color: #8A5300;
+    background: rgba(255, 196, 77, 0.24);
+    padding: 2px 9px;
+    border-radius: 999px;
+    align-self: flex-start;
+  }
+  .rpg-ev-body {
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 14px;
+    padding: 12px 14px;
+    font-size: 15px;
+    line-height: 1.6;
+  }
+  .rpg-ev-body p { margin: 0 0 6px; }
+  .rpg-ev-body p:last-child { margin-bottom: 0; }
+  .rpg-choices {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rpg-choice-btn {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 14px;
+    border-radius: 14px;
+    border: 1.5px solid #CBD5E1;
+    background: #FFFFFF;
+    color: var(--rpg-ink);
+    font: inherit;
+    font-size: 14.5px;
+    font-weight: 700;
+    text-align: left;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .rpg-choice-btn:hover, .rpg-choice-btn:focus-visible {
+    border-color: var(--rpg-accent);
+    background: rgba(36, 87, 230, 0.06);
+    outline: none;
+  }
+  .rpg-choice-num {
+    flex: none;
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    background: var(--rpg-accent);
+    color: #fff;
+    font-size: 13px;
+    font-weight: 900;
+    display: grid;
+    place-items: center;
+  }
+  .rpg-ev-result {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    background: #F0FDF4;
+    border: 1.5px solid #86EFAC;
+    border-radius: 14px;
+    padding: 12px 14px;
+  }
+  .rpg-res-deltas {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+  }
+  .rpg-res-pill {
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 12.5px;
+    font-weight: 800;
+  }
+  .rpg-res-pill.is-up { background: rgba(34, 197, 130, 0.2); color: #0B6B47; }
+  .rpg-res-pill.is-down { background: rgba(255, 122, 69, 0.2); color: #A23B0B; }
+  .rpg-res-text { margin: 0; font-size: 14.5px; font-weight: 700; line-height: 1.55; }
+  .rpg-end-wrap { display: flex; flex-direction: column; gap: 12px; }
+  .rpg-end-hero {
+    position: relative;
+    border-radius: 22px;
+    overflow: hidden;
+    background: #0B1220;
+    color: #fff;
+    padding: 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    flex-wrap: wrap;
+  }
+  .rpg-end-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    opacity: 0.35;
+    pointer-events: none;
+  }
+  .rpg-end-hero-char {
+    position: relative;
+    z-index: 1;
+    width: 84px;
+    height: 84px;
+    border-radius: 18px;
+    background: rgba(15, 23, 42, 0.75);
+    border: 1.5px solid rgba(255, 255, 255, 0.28);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .rpg-end-hero-char canvas {
+    width: 76px;
+    height: 76px;
+    image-rendering: pixelated;
+  }
+  .rpg-end-main { position: relative; z-index: 1; flex: 1; min-width: 200px; }
+  .rpg-end-name { margin: 4px 0; font-size: 26px; font-weight: 900; }
+  .rpg-end-summary { margin: 0 0 4px; font-size: 15.5px; font-weight: 700; color: #BAE6FD; }
+  .rpg-end-detail { margin: 0; font-size: 13.5px; color: #E2E8F0; line-height: 1.5; }
+  .rpg-end-stats {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    gap: 8px;
+    width: 100%;
+    padding-top: 8px;
+    border-top: 1px solid rgba(255, 255, 255, 0.18);
+    font-size: 13px;
+    font-weight: 800;
+    flex-wrap: wrap;
+  }
+  .rpg-end-stat-pill { background: rgba(15, 23, 42, 0.75); padding: 4px 12px; border-radius: 999px; }
+  .rpg-end-reward { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; color: #FDE047; }
+  .rpg-ws-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .rpg-ws-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1.5px solid rgba(36, 87, 230, 0.22);
+    border-radius: 18px;
+    padding: 14px 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .rpg-ws-card h3 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 900;
+    color: var(--rpg-accent);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .rpg-ws-card ul {
+    margin: 0;
+    padding-left: 18px;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1.5;
+  }
+  .rpg-ws-note { margin: 0; font-size: 12.5px; color: var(--rpg-sub); font-weight: 600; }
+  .rpg-end-actions { display: flex; justify-content: center; gap: 10px; flex-wrap: wrap; }
+  .rpg-rules-card {
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid rgba(78, 88, 104, 0.16);
+    border-radius: 22px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .rpg-rules-card h2 { margin: 0; font-size: 20px; font-weight: 900; }
+  .rpg-rule-box { background: #F8FAFC; border: 1px solid #E2E8F0; border-radius: 14px; padding: 12px 14px; }
+  .rpg-rule-box h3 { margin: 0 0 6px; font-size: 15px; font-weight: 800; color: var(--rpg-accent); }
+  .rpg-rule-box ul { margin: 0; padding-left: 18px; font-size: 14px; line-height: 1.65; font-weight: 600; }
+  .rpg-credits-modal {
+    position: fixed;
+    inset: 0;
+    background: rgba(11, 18, 32, 0.65);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 30;
+  }
+  .rpg-credits-box {
+    max-width: 520px;
+    width: 100%;
+    background: #fff;
+    border-radius: 20px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+  .rpg-credits-box h3 { margin: 0; font-size: 18px; font-weight: 900; }
+  .rpg-credits-pre {
+    margin: 0;
+    white-space: pre-wrap;
+    word-break: break-word;
+    font-family: inherit;
+    font-size: 13px;
+    line-height: 1.6;
+    background: #F8FAFC;
+    border: 1px solid #E2E8F0;
+    border-radius: 12px;
+    padding: 12px;
+    color: var(--rpg-sub);
+  }
+  @media (max-width: 620px) {
+    .rpg-hud { grid-template-columns: repeat(3, 1fr); }
+    .rpg-prog-box {
+      grid-column: 1 / -1;
+      flex-direction: row;
+      justify-content: space-between;
+      align-items: center;
+      padding-left: 0;
+    }
+    .rpg-ws-grid { grid-template-columns: 1fr; }
+    .rpg-title { font-size: 26px; }
+  }
+</style>
+</head>
+<body>
+<main class="rpg-shell">
+  <div class="page-top">
+    <a href="index.html" class="icon-btn glass lift" aria-label="포털 처음으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <header class="rpg-topbar">
+    <nav class="rpg-tabs" aria-label="다누리 탐사대장">
+      <button type="button" class="rpg-tab on" data-tab="game" aria-current="page">게임</button>
+      <button type="button" class="rpg-tab" data-tab="rules">규칙</button>
+    </nav>
+    <div class="rpg-user-bar">
+      <span class="rpg-chip" id="user-nick">탐사대장</span>
+      <span class="rpg-chip is-accent" id="reward-status">첫 완료 보상 +5은화</span>
+    </div>
+  </header>
+
+  <section id="v-game">
+    <div class="rpg-start-card" id="scr-start">
+      <div class="rpg-start-bg" id="start-bg"></div>
+      <div class="rpg-start-grad"></div>
+
+      <div class="rpg-start-content">
+        <span class="rpg-title-badge">712 행성의 분류 · 활동 3</span>
+        <h1 class="rpg-title">다누리 탐사대장</h1>
+        <p class="rpg-subtitle">달의 자원은 누구의 것일까?</p>
+
+        <div class="rpg-hero-pick" role="group" aria-label="탐사대장 캐릭터 선택">
+          <button type="button" class="rpg-hero-btn is-picked" data-hero="boy" aria-pressed="true">
+            <canvas id="prev-boy" width="128" height="128"></canvas>
+            <b>남학생 대장</b>
+          </button>
+          <button type="button" class="rpg-hero-btn" data-hero="girl" aria-pressed="false">
+            <canvas id="prev-girl" width="128" height="128"></canvas>
+            <b>여학생 대장</b>
+          </button>
+        </div>
+
+        <button type="button" class="rpg-btn-primary press" id="btn-start">탐사 출발</button>
+      </div>
+
+      <div class="rpg-start-foot">
+        <span>2022년 8월 대한민국 최초의 달 궤도선 다누리 발사</span>
+        <button type="button" class="rpg-link-btn" id="btn-credits">만든 이</button>
+      </div>
+    </div>
+
+    <div class="hidden" id="scr-map" style="display:flex;flex-direction:column;gap:8px">
+      <div class="rpg-hud" aria-label="탐사 상태">
+        <div class="rpg-stat">
+          <div class="rpg-stat-top">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#D97706" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 21 8.5 17.5 21 6.5 21 3 8.5 12 2"/><path d="M3 8.5h18"/></svg>
+            <span>자원</span>
+            <span class="rpg-delta" id="stat-delta-res"></span>
+            <b id="stat-val-res">30</b>
+          </div>
+          <div class="rpg-stat-track"><div class="rpg-stat-fill is-res" id="stat-bar-res"></div></div>
+        </div>
+
+        <div class="rpg-stat">
+          <div class="rpg-stat-top">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#2457E6" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M3.6 9h16.8"/><path d="M3.6 15h16.8"/><path d="M12 3a16 16 0 0 0 0 18"/></svg>
+            <span>국제 신뢰</span>
+            <span class="rpg-delta" id="stat-delta-trust"></span>
+            <b id="stat-val-trust">50</b>
+          </div>
+          <div class="rpg-stat-track"><div class="rpg-stat-fill is-trust" id="stat-bar-trust"></div></div>
+        </div>
+
+        <div class="rpg-stat">
+          <div class="rpg-stat-top">
+            <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="#16A36A" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span>평화</span>
+            <span class="rpg-delta" id="stat-delta-peace"></span>
+            <b id="stat-val-peace">50</b>
+          </div>
+          <div class="rpg-stat-track"><div class="rpg-stat-fill is-peace" id="stat-bar-peace"></div></div>
+        </div>
+
+        <div class="rpg-prog-box">
+          <span>탐사 <b id="stat-prog">0 / 6</b></span>
+          <span class="rpg-hq-ready hidden" id="hq-ready-chip">협의회 본부 열림!</span>
+          <button type="button" class="rpg-btn-line" id="btn-restart" style="min-height:32px;padding:4px 10px;font-size:12px">처음부터</button>
+        </div>
+      </div>
+
+      <div class="rpg-stage">
+        <canvas id="rpg-canvas" width="800" height="480" aria-label="달 표면 탐사 지도"></canvas>
+        <button type="button" class="rpg-interact-btn hidden" id="btn-interact"></button>
+
+        <div class="rpg-modal-backdrop hidden" id="dlg-event" role="dialog" aria-modal="true" aria-labelledby="ev-title">
+          <div class="rpg-event-card">
+            <div class="rpg-ev-head">
+              <div class="rpg-ev-portrait-wrap">
+                <canvas id="ev-portrait" width="128" height="128"></canvas>
+              </div>
+              <div class="rpg-ev-meta">
+                <span class="rpg-ev-speaker" id="ev-speaker"></span>
+                <h2 class="rpg-ev-title" id="ev-title"></h2>
+              </div>
+            </div>
+
+            <div class="rpg-ev-body" id="ev-body"></div>
+            <div class="rpg-choices" id="ev-choices"></div>
+
+            <div class="rpg-ev-result hidden" id="ev-result-box">
+              <div class="rpg-res-deltas" id="ev-res-deltas"></div>
+              <p class="rpg-res-text" id="ev-res-text"></p>
+              <span class="rpg-ev-conflict" id="ev-conflict"></span>
+              <button type="button" class="rpg-btn-primary press" id="ev-next-btn" style="align-self:flex-end">계속 탐사하기</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="rpg-end-wrap hidden" id="scr-end">
+      <div class="rpg-end-hero">
+        <div class="rpg-end-bg" id="end-bg"></div>
+        <div class="rpg-end-hero-char">
+          <canvas id="end-hero-canvas" width="128" height="128"></canvas>
+        </div>
+        <div class="rpg-end-main">
+          <span class="rpg-title-badge" id="end-badge">엔딩</span>
+          <h2 class="rpg-end-name" id="end-name"></h2>
+          <p class="rpg-end-summary" id="end-summary"></p>
+          <p class="rpg-end-detail" id="end-detail"></p>
+        </div>
+        <div class="rpg-end-stats">
+          <span class="rpg-end-stat-pill">자원 <b id="end-stat-res">0</b></span>
+          <span class="rpg-end-stat-pill">국제 신뢰 <b id="end-stat-trust">0</b></span>
+          <span class="rpg-end-stat-pill">평화 <b id="end-stat-peace">0</b></span>
+          <span class="rpg-end-reward" id="end-reward-msg"></span>
+          <button type="button" class="rpg-btn-line hidden" id="btn-retry-send" style="min-height:32px;padding:4px 12px;font-size:12px">다시 보내기</button>
+        </div>
+      </div>
+
+      <div class="rpg-ws-grid">
+        <div class="rpg-ws-card">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+            <span>학습지 질문 1 · 내가 겪은 갈등</span>
+          </h3>
+          <ul id="end-conflicts"></ul>
+        </div>
+
+        <div class="rpg-ws-card">
+          <h3>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/><path d="M9 12l2 2 4-4"/></svg>
+            <span>학습지 질문 2 · 내가 고른 평화적 해결 방법</span>
+          </h3>
+          <p class="rpg-ws-note hidden" id="end-sol-note"></p>
+          <ul id="end-solutions"></ul>
+        </div>
+      </div>
+
+      <div class="rpg-end-actions">
+        <button type="button" class="rpg-btn-primary press" id="btn-again">다시 하기</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="rpg-rules-card hidden" id="v-rules" aria-labelledby="rules-h">
+    <h2 id="rules-h">다누리 탐사대장 규칙</h2>
+
+    <div class="rpg-rule-box">
+      <h3>조작 방법</h3>
+      <ul>
+        <li><b>마우스 · 터치</b>: 달 표면이나 지점 이름표를 누르면 그곳으로 걸어가고 대화가 열려요.</li>
+        <li><b>키보드</b>: 방향키 또는 <b>WASD</b>로 이동, <b>Space · Enter</b>로 조사, 숫자키 <b>1 · 2 · 3</b>으로 선택지를 골라요.</li>
+      </ul>
+    </div>
+
+    <div class="rpg-rule-box">
+      <h3>스탯 3가지 (0 ~ 100)</h3>
+      <ul>
+        <li><b>자원</b> (시작 30): 우리 기지가 확보한 백금·희토류·헬륨-3·얼음 등의 자원</li>
+        <li><b>국제 신뢰</b> (시작 50): 다른 나라와 국제 사회가 우리 탐사대를 믿는 정도</li>
+        <li><b>평화</b> (시작 50): 달 전체가 분쟁 없이 평화롭게 유지되는 정도</li>
+      </ul>
+    </div>
+
+    <div class="rpg-rule-box">
+      <h3>마지막 회의와 보상</h3>
+      <ul>
+        <li>달 표면의 지점을 <b>3곳 이상</b> 조사하면 가운데 <b>국제 달 협의회 본부</b>가 열려요. 더 둘러본 뒤 회의에 가도 돼요.</li>
+        <li>진행 상황과 엔딩 정리는 이 기기에 저장돼서, 다른 쪽에 다녀와도 이어서 볼 수 있어요.</li>
+        <li>마지막 회의를 마치면 스탯에 따라 4가지 엔딩 중 하나가 결정되고, <b>학습지 16쪽 질문 1·2번에 적을 갈등과 해결 방법</b>이 정리돼요.</li>
+        <li>처음 끝까지 완료하면 <b id="help-reward">5은화</b>를 한 번 받아요.</li>
+      </ul>
+    </div>
+
+    <button type="button" class="rpg-btn-primary press" id="rules-go" style="align-self:center">게임으로</button>
+  </section>
+
+  <div class="rpg-credits-modal hidden" id="dlg-credits" role="dialog" aria-modal="true" aria-labelledby="credits-h">
+    <div class="rpg-credits-box">
+      <h3 id="credits-h">만든 이 · 캐릭터 출처</h3>
+      <pre class="rpg-credits-pre" id="credits-txt"></pre>
+      <button type="button" class="rpg-btn-line" id="btn-credits-close" style="align-self:flex-end">닫기</button>
+    </div>
+  </div>
+</main>
+
+<script type="module">
+  import { initUI } from './assets/js/ui.js';
+  import { initMoonRpg } from './assets/js/rpg-moon.js';
+  initUI();
+  initMoonRpg();
+</script>
+</body>
+</html>

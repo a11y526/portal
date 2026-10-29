@@ -7893,3 +7893,239 @@ end;
 $$;
 revoke all on function public.ot_play(text, uuid, int) from public;
 grant execute on function public.ot_play(text, uuid, int) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 712 달 자원 RPG (2026-10-29): 「다누리 탐사대장」
+-- 오목 스위치와 상관없이 열리고, 처음 끝까지 했을 때 한 번만 settings.moon_rpg.silver 은화 지급(XP·금화 없음).
+-- ---------------------------------------------------------
+create or replace function public._moon_rpg_settings()
+returns jsonb
+language sql
+stable
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'silver', greatest(coalesce((v ->> 'silver')::int, 5), 0))
+  from (select (select value from public.settings where key = 'moon_rpg') as v) x;
+$$;
+revoke all on function public._moon_rpg_settings() from public, anon, authenticated;
+
+-- 학생 상태 조회: {ok: true, nickname, silver, rewarded} 또는 {ok: false, error: 'NO_SESSION'}
+create or replace function public.moon_rpg_state(p_token text)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_sid      uuid;
+  s          public.students;
+  v_silver   int := (public._moon_rpg_settings() ->> 'silver')::int;
+  v_rewarded boolean;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  select * into s from public.students where id = v_sid;
+  v_rewarded := exists (
+    select 1 from public.point_events
+    where student_id = v_sid and reason = '달 자원 RPG 완료'
+  );
+  return jsonb_build_object(
+    'ok',       true,
+    'nickname', coalesce(nullif(s.nickname, ''), '닉네임 미정'),
+    'silver',   v_silver,
+    'rewarded', v_rewarded
+  );
+end;
+$$;
+revoke all on function public.moon_rpg_state(text) from public;
+grant execute on function public.moon_rpg_state(text) to anon, authenticated;
+
+-- 완료 기록 저장 + 첫 완료 시 은화 보상 지급: {ok: true, rewarded, silver} 또는 {ok: false, error: 'NO_SESSION' | 'BAD_RUN'}
+create or replace function public.moon_rpg_finish(
+  p_token   text,
+  p_ending  text,
+  p_stats   jsonb,
+  p_choices jsonb
+)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_sid      uuid;
+  s          public.students;
+  v_res      int;
+  v_trust    int;
+  v_peace    int;
+  v_expect   text;
+  v_silver   int := (public._moon_rpg_settings() ->> 'silver')::int;
+  v_already  boolean;
+  v_rewarded boolean := false;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+
+  select * into s from public.students where id = v_sid for update;
+  if s.id is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+
+  if p_stats is null or jsonb_typeof(p_stats) <> 'object'
+     or p_choices is null or jsonb_typeof(p_choices) <> 'array'
+     or jsonb_array_length(p_choices) < 1 or jsonb_array_length(p_choices) > 20 then
+    return jsonb_build_object('ok', false, 'error', 'BAD_RUN');
+  end if;
+
+  begin
+    v_res   := (p_stats ->> 'res')::int;
+    v_trust := (p_stats ->> 'trust')::int;
+    v_peace := (p_stats ->> 'peace')::int;
+  exception when others then
+    return jsonb_build_object('ok', false, 'error', 'BAD_RUN');
+  end;
+
+  if v_res is null or v_trust is null or v_peace is null
+     or v_res < 0 or v_res > 100
+     or v_trust < 0 or v_trust > 100
+     or v_peace < 0 or v_peace > 100 then
+    return jsonb_build_object('ok', false, 'error', 'BAD_RUN');
+  end if;
+
+  -- 평화의 달은 마지막 회의(7번)에서 국제법·국제기구(②)를 고른 경우에만 (rpg-moon-data.js ENDINGS와 같게)
+  v_expect := case
+    when v_peace >= 70 and v_trust >= 60
+         and exists (
+           select 1 from jsonb_array_elements(p_choices) c
+           where c ->> 'event' = '7' and c ->> 'pick' = '2'
+         ) then 'peace'
+    when v_peace >= 50 then 'balance'
+    when v_res >= 70 and v_peace < 50 then 'monopoly'
+    else 'conflict'
+  end;
+
+  if p_ending is distinct from v_expect then
+    return jsonb_build_object('ok', false, 'error', 'BAD_RUN');
+  end if;
+
+  insert into public.moon_rpg_runs (student_id, ending, stats, choices)
+  values (
+    v_sid,
+    p_ending,
+    jsonb_build_object('res', v_res, 'trust', v_trust, 'peace', v_peace),
+    p_choices
+  );
+
+  v_already := exists (
+    select 1 from public.point_events
+    where student_id = v_sid and reason = '달 자원 RPG 완료'
+  );
+
+  if not v_already and v_silver > 0 then
+    insert into public.point_events (student_id, xp, coins, silver, reason)
+    values (v_sid, 0, 0, v_silver, '달 자원 RPG 완료');
+    v_rewarded := true;
+  end if;
+
+  return jsonb_build_object(
+    'ok',       true,
+    'rewarded', v_rewarded,
+    'silver',   case when v_rewarded then v_silver else 0 end
+  );
+end;
+$$;
+revoke all on function public.moon_rpg_finish(text, text, jsonb, jsonb) from public;
+grant execute on function public.moon_rpg_finish(text, text, jsonb, jsonb) to anon, authenticated;
+
+-- 교사 통계 조회: 반별 엔딩 개수, 이벤트별 선택 비율 (0번 제외, 학생별 최근 완료 판 기준)
+create or replace function public.get_moon_rpg_class(p_class_id int default null)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  v_runs     int;
+  v_students int;
+  v_endings  jsonb;
+  v_events   jsonb;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+
+  select count(*)::int, count(distinct r.student_id)::int
+  into v_runs, v_students
+  from public.moon_rpg_runs r
+  join public.students s on s.id = r.student_id
+  where s.number > 0
+    and (p_class_id is null or p_class_id = 0 or s.class_id = p_class_id);
+
+  with latest as (
+    select distinct on (r.student_id) r.ending, r.choices
+    from public.moon_rpg_runs r
+    join public.students s on s.id = r.student_id
+    where s.number > 0
+      and (p_class_id is null or p_class_id = 0 or s.class_id = p_class_id)
+    order by r.student_id, r.created_at desc, r.id desc
+  )
+  select jsonb_build_object(
+    'peace',    count(*) filter (where ending = 'peace'),
+    'balance',  count(*) filter (where ending = 'balance'),
+    'monopoly', count(*) filter (where ending = 'monopoly'),
+    'conflict', count(*) filter (where ending = 'conflict')
+  ) into v_endings
+  from latest;
+
+  with latest as (
+    select distinct on (r.student_id) r.choices
+    from public.moon_rpg_runs r
+    join public.students s on s.id = r.student_id
+    where s.number > 0
+      and (p_class_id is null or p_class_id = 0 or s.class_id = p_class_id)
+    order by r.student_id, r.created_at desc, r.id desc
+  ),
+  picked as (
+    select
+      (c ->> 'event')::int as ev,
+      (c ->> 'pick')::int  as pk
+    from latest,
+    lateral jsonb_array_elements(latest.choices) as c
+    where (c ->> 'event') ~ '^[1-7]$' and (c ->> 'pick') ~ '^[1-3]$'
+  )
+  select jsonb_agg(
+    jsonb_build_object(
+      'event', e.ev,
+      'total', coalesce(t.cnt, 0),
+      'picks', jsonb_build_array(coalesce(t.p1, 0), coalesce(t.p2, 0), coalesce(t.p3, 0))
+    ) order by e.ev
+  ) into v_events
+  from generate_series(1, 7) as e(ev)
+  left join (
+    select ev,
+      count(*)::int as cnt,
+      count(*) filter (where pk = 1)::int as p1,
+      count(*) filter (where pk = 2)::int as p2,
+      count(*) filter (where pk = 3)::int as p3
+    from picked
+    group by ev
+  ) t on t.ev = e.ev;
+
+  return jsonb_build_object(
+    'runs',     coalesce(v_runs, 0),
+    'students', coalesce(v_students, 0),
+    'endings',  coalesce(v_endings, '{"peace":0,"balance":0,"monopoly":0,"conflict":0}'::jsonb),
+    'events',   coalesce(v_events, '[]'::jsonb)
+  );
+end;
+$$;
+revoke all on function public.get_moon_rpg_class(int) from public, anon;
+grant execute on function public.get_moon_rpg_class(int) to authenticated;

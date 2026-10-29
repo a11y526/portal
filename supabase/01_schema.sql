@@ -901,6 +901,20 @@ alter table public.ot_games add column if not exists paid boolean not null defau
 -- 닉네임 바꾸기 신청 은화 (2026-10-29): 신청할 때 낸 은화. 거절되면 돌려주고 0으로
 alter table public.students add column if not exists nickname_cost int not null default 0;
 
+-- ---------------------------------------------------------
+-- 712 달 자원 RPG (2026-10-29): 「다누리 탐사대장」 완료 기록.
+-- 처음 끝까지 했을 때 한 번만 settings.moon_rpg.silver 은화 지급(XP·금화 없음).
+-- ---------------------------------------------------------
+create table if not exists public.moon_rpg_runs (
+  id         bigint generated always as identity primary key,
+  student_id uuid not null references public.students(id) on delete cascade,
+  ending     text not null check (ending in ('peace', 'balance', 'monopoly', 'conflict')),
+  stats      jsonb not null,     -- {"res":..,"trust":..,"peace":..}
+  choices    jsonb not null,     -- [{"event":1,"pick":2}, ...]
+  created_at timestamptz not null default now()
+);
+create index if not exists moon_rpg_runs_student_idx on public.moon_rpg_runs (student_id, created_at desc);
+
 -- 2026-10-29 꾸미기 칸 3개 추가: 모자(hat)·펫(pet)·오라(aura). 이미 있는 표의 칸 검사를 바꾼다
 alter table public.avatar_items drop constraint if exists avatar_items_slot_check;
 alter table public.avatar_items add constraint avatar_items_slot_check

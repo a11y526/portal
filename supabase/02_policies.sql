@@ -411,3 +411,14 @@ drop policy if exists ot_players_teacher_all on public.ot_players;
 create policy ot_players_teacher_all on public.ot_players
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 712 달 자원 RPG (2026-10-29): 학생은 moon_rpg_* 함수로만, 직접 조회는 교사만
+-- ---------------------------------------------------------
+alter table public.moon_rpg_runs enable row level security;
+revoke all on public.moon_rpg_runs from anon;
+
+drop policy if exists moon_rpg_runs_teacher_all on public.moon_rpg_runs;
+create policy moon_rpg_runs_teacher_all on public.moon_rpg_runs
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

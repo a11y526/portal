@@ -258,6 +258,10 @@ $$;
 insert into public.settings (key, value) values ('nickname', '{"silver": 5}'::jsonb)
 on conflict (key) do nothing;
 
+-- 712 달 자원 RPG (2026-10-29): 처음 끝까지 했을 때 한 번 주는 은화 (XP·금화 없음)
+insert into public.settings (key, value) values ('moon_rpg', '{"silver": 5}'::jsonb)
+on conflict (key) do nothing;
+
 -- 2026-10-29 꾸미기 가격 다듬기: 모양에 비해 비싼 것 내림, 왕관(태양신 황금 관과 통합)이 가장 비싸게.
 --   한 번만(settings.price_fix_1029가 있으면 건너뜀) — 관리 화면에서 바꾼 가격을 다시 덮지 않게
 do $$

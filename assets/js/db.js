@@ -310,6 +310,22 @@ export async function otPlay(token, gameId, cell) {
   return unwrap(await need().rpc('ot_play', { p_token: token, p_game_id: gameId, p_cell: cell }));
 }
 
+// 712 달 자원 RPG (학생). 오목 스위치와 상관없이 열리고, 처음 끝까지 했을 때 한 번만 은화 지급
+// 결과: { ok: true, nickname, silver, rewarded } 또는 { ok: false, error: 'NO_SESSION' }
+export async function moonRpgState(token) {
+  return unwrap(await need().rpc('moon_rpg_state', { p_token: token }));
+}
+
+// 완료 기록 저장 + 첫 완료 시 은화 지급: { ok: true, rewarded, silver } 또는 { ok: false, error: 'NO_SESSION' | 'BAD_RUN' }
+export async function moonRpgFinish(token, ending, stats, choices) {
+  return unwrap(await need().rpc('moon_rpg_finish', {
+    p_token: token,
+    p_ending: ending,
+    p_stats: stats,
+    p_choices: choices,
+  }));
+}
+
 /* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>, 오델로 ot-<판>) ---------- */
 let gameChannel = null;
 let gameChannelId = null;
@@ -625,7 +641,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","게임 XP 회수")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","달 자원 RPG 완료","게임 XP 회수")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -990,6 +1006,21 @@ export async function getOthelloRules() {
 
 export async function saveOthelloRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'othello', value }, { onConflict: 'key' }));
+}
+
+// 달 자원 RPG { silver(완료 은화) }
+export async function getMoonRpgRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'moon_rpg'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveMoonRpgRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'moon_rpg', value }, { onConflict: 'key' }));
+}
+
+// 교사: 반별 달 자원 RPG 결과 { runs, students, endings: { peace, balance, monopoly, conflict }, events: [{ event, total, picks: [c1, c2, c3] }] }
+export async function getMoonRpgClass(classId = null) {
+  return unwrap(await need().rpc('get_moon_rpg_class', { p_class_id: classId }));
 }
 
 

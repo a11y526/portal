@@ -247,17 +247,6 @@ svg text{font-family:var(--font)}
   </div>
 </section>
 
-<section class="slide has-ws" data-title="세로축 한 칸 값 정하기">
-<button class="reveal">답 보기</button><div class="top"><span class="chapter">활동 2 · 그래프 그리기</span><span class="ws">학습지 구역 3</span></div><h1>세로축 한 칸 값 정하기</h1><p class="sub">(가장 큰 값) ÷ (칸 수)보다 크면서 딱 떨어지는 수를 한 칸 값으로 정한다.</p>
-  <div class="body" style="gap:12px">
-    <div class="motion" id="m8" style="flex:none"></div>
-    <div class="cols" style="flex:none;gap:16px;margin-top:auto">
-      <div class="fact" style="font-size:21px;padding:10px 16px"><i>1</i><div>반지름: 가장 큰 값 11.2 ÷ 6칸 ≈ 1.87 → 한 칸 <span class="bl s">2</span></div></div>
-      <div class="fact" style="font-size:21px;padding:10px 16px"><i>2</i><div>질량: 가장 큰 값 318 ÷ 7칸 ≈ 45.4 → 한 칸 <span class="bl s">50</span></div></div>
-    </div>
-  </div>
-</section>
-
 <section class="slide has-ws simpage" data-title="반지름 그래프 그리기">
 <button class="reveal">답 보기</button><div class="top"><span class="chapter">활동 2 · 그래프 그리기</span><span class="ws">학습지 구역 3</span></div><h1>행성의 반지름 그래프</h1><p class="sub">막대가 자라는 모습을 보며 두 무리를 찾아보자.</p>
   <div class="wide-sim" style="grid-template-columns:minmax(0,1fr) 290px">
@@ -518,39 +507,7 @@ makeMotion('m5','0 0 600 330',[1600,2400,3600],svg=>{
     rj.setAttribute('opacity',seg(c,.9,1));};
 });
 
-/* ---------- 8쪽: 눈금 비교 ---------- */
-makeMotion('m8','0 0 1164 236',[3200,2600,2400],svg=>{
-  const vals=[['수성',.38],['화성',.53],['지구',1],['목성',11.2]];
-  el('rect',{x:0,y:0,width:570,height:236,rx:14,fill:'#F5F5F7'},svg);el('rect',{x:594,y:0,width:570,height:236,rx:14,fill:'#F5F5F7'},svg);
-  T(svg,20,30,'측정값을 눈금에 그대로 적기',{'font-size':20,'font-weight':600});T(svg,614,30,'한 칸 값을 일정하게 정하기',{'font-size':20,'font-weight':600});
-  // 왼쪽
-  const L={x0:90,base:206,step:36};
-  el('line',{x1:L.x0,x2:540,y1:L.base,y2:L.base,stroke:'#1D1D1F'},svg);el('line',{x1:L.x0,x2:L.x0,y1:50,y2:L.base,stroke:'#1D1D1F'},svg);
-  T(svg,L.x0-10,L.base+6,'0',{'text-anchor':'end','font-size':16,fill:'#7A7A7A'});
-  const lt=[],lb=[],ln=[];
-  vals.forEach(([n,v],k)=>{const y=L.base-(k+1)*L.step;lt.push([el('line',{x1:L.x0,x2:540,y1:y,y2:y,stroke:'#D1D1D6'},svg),T(svg,L.x0-10,y+6,String(v),{'text-anchor':'end','font-size':16,fill:'#1D1D1F'})]);
-    const cx=L.x0+60+k*110;lb.push(el('rect',{x:cx-20,width:40,fill:'#8E8E93'},svg));ln.push(T(svg,cx,L.base+22,n,{'text-anchor':'middle','font-size':16}));});
-  const br=el('g',{},svg);
-  el('path',{d:`M${L.x0+60+2*110+30},${L.base-3*L.step} h20 M${L.x0+60+3*110-30},${L.base-4*L.step} h-20`,stroke:'#1D1D1F','stroke-width':2},br);
-  el('line',{x1:L.x0+60+2*110+50,x2:L.x0+60+2*110+50,y1:L.base-3*L.step,y2:L.base-4*L.step,stroke:'#1D1D1F','stroke-width':2},br);
-  T(br,L.x0+60+2*110+18,L.base-3.55*L.step+6,'1 → 11.2도 한 칸',{'font-size':16,'text-anchor':'end'});
-  const xm=T(svg,540,34,'✕',{'text-anchor':'end','font-size':30,'font-weight':600,fill:'#1D1D1F'});
-  // 오른쪽
-  const R={x0:684,base:206,h:150};
-  el('line',{x1:R.x0,x2:1134,y1:R.base,y2:R.base,stroke:'#1D1D1F'},svg);el('line',{x1:R.x0,x2:R.x0,y1:50,y2:R.base,stroke:'#1D1D1F'},svg);
-  const fm=T(svg,1134,30,'11.2 ÷ 6칸 ≈ 1.87 → 한 칸 2',{'text-anchor':'end','font-size':18,'font-weight':600,fill:'#0066CC'});
-  const rt=[];for(let k=0;k<=6;k++){const y=R.base-k*R.h/6;rt.push([k?el('line',{x1:R.x0,x2:1134,y1:y,y2:y,stroke:'#D1D1D6'},svg):null,T(svg,R.x0-10,y+6,String(k*2),{'text-anchor':'end','font-size':16})]);}
-  const rb=[],rv=[];vals.forEach(([n,v],k)=>{const cx=R.x0+60+k*110;rb.push(el('rect',{x:cx-20,width:40,fill:'#0066CC'},svg));rv.push(T(svg,cx,0,String(v),{'text-anchor':'middle','font-size':15,'font-weight':600}));T(svg,cx,R.base+22,n,{'text-anchor':'middle','font-size':16});});
-  const om=T(svg,1134,64,'○',{'text-anchor':'end','font-size':30,'font-weight':600,fill:'#0066CC'});
-  return p=>{const a=cl(p),b=cl(p-1),c=cl(p-2);
-    vals.forEach((_,k)=>{const t=seg(a,k*.18,k*.18+.16);lt[k].forEach(e=>e.setAttribute('opacity',t));const h=(k+1)*L.step*t;lb[k].setAttribute('y',L.base-h);lb[k].setAttribute('height',h);});
-    br.setAttribute('opacity',seg(a,.78,.9));xm.setAttribute('opacity',seg(a,.9,1));
-    fm.setAttribute('opacity',seg(b,0,.3));rt.forEach(([l,t],k)=>{const o=seg(b,.3+k*.1,.38+k*.1);if(l)l.setAttribute('opacity',o);t.setAttribute('opacity',o);});
-    vals.forEach(([n,v],k)=>{const t=seg(c,k*.15,k*.15+.35);const h=v/12*R.h*t;rb[k].setAttribute('y',R.base-h);rb[k].setAttribute('height',h);rv[k].setAttribute('y',R.base-h-6);rv[k].setAttribute('opacity',seg(c,k*.15+.3,k*.15+.4));});
-    om.setAttribute('opacity',seg(c,.85,1));};
-});
-
-/* ---------- 11쪽: 두 집단 ---------- */
+/* ---------- 10쪽: 두 집단 ---------- */
 const PL=[['수성',.38,.06,0],['금성',.95,.82,0],['지구',1,1,1],['화성',.53,.11,2],['목성',11.2,318,95],['토성',9.4,95,146],['천왕성',4,14.5,27],['해왕성',3.9,17,14]];
 makeMotion('m11','0 0 520 470',[2400,3600],svg=>{
   const cx=i=>i<4?96+i*50:316+(i-4)*50;

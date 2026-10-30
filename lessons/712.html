@@ -123,6 +123,7 @@ table.mini .bl{min-width:52px;margin:0 2px}
 .mc{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
 .sl-btn{font:700 16px var(--font);color:#0066CC;background:#fff;border:1.5px solid #0066CC;border-radius:999px;padding:6px 14px;cursor:pointer;min-height:40px;touch-action:manipulation}
 .sl-btn:active{background:#E8F1FB}
+.sl-btn:disabled{opacity:.35;cursor:not-allowed;background:#fff}
 .sl-seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden;background:#fff}
 .sl-seg .sl-btn{border:0;border-radius:0;color:#515154;padding:6px 13px}
 .sl-seg .sl-btn.on{background:#0066CC;color:#fff}
@@ -438,10 +439,12 @@ function makeMotion(id,vb,steps,build){
     ({prev:()=>prev(m),next:()=>next(m),play:()=>toggle(m),reset:()=>{m.playing=false;m.p=m.target=0;draw(m);}})[b.dataset.a]();});
   motions[id]=m;draw(m);return m;}
 function draw(m){m.render(m.p);m.bar.querySelector('.st').textContent=`${Math.min(m.N,Math.floor(m.p+1e-6))} / ${m.N}단계`;
-  m.bar.querySelector('[data-a="play"]').textContent=m.playing?'일시정지':(m.p>=m.N?'다시 재생':'재생');}
+  m.bar.querySelector('[data-a="play"]').textContent=m.playing?'일시정지':(m.p>=m.N?'다시 재생':'재생');
+  m.bar.querySelector('[data-a="prev"]').disabled=m.playing||m.p<=0;m.bar.querySelector('[data-a="next"]').disabled=m.playing||m.p>=m.N;}
 function play(m){m.playing=true;if(RED){m.p=m.target;m.playing=false;draw(m);return;}if(!raf){last=0;raf=requestAnimationFrame(loop);}draw(m);}
-function next(m){if(m.p<m.target){m.p=m.target;m.playing=false;draw(m);return;}if(m.p<m.N){m.target=Math.floor(m.p+1e-6)+1;play(m);}}
-function prev(m){m.playing=false;m.p=m.target=Math.max(0,Math.ceil(m.p-1e-6)-1);draw(m);}
+/* 재생 중에는 단계를 넘기거나 건너뛸 수 없다 — 멈춘 단계는 이어서 재생 */
+function next(m){if(m.playing)return;if(m.p<m.target){play(m);return;}if(m.p<m.N){m.target=Math.floor(m.p+1e-6)+1;play(m);}}
+function prev(m){if(m.playing)return;m.p=m.target=Math.max(0,Math.ceil(m.p-1e-6)-1);draw(m);}
 function toggle(m){if(m.playing){m.playing=false;draw(m);return;}if(m.p>=m.N){m.p=0;}m.target=m.N;play(m);}
 function curMotion(){const b=slides[cur].querySelector('.motion');return b?motions[b.id]:null;}
 function loop(now){const m=curMotion();if(!m||!m.playing){raf=0;return;}
@@ -547,8 +550,8 @@ slides.forEach((s,i)=>{const b=document.createElement('button');b.innerHTML='<sm
   b.onclick=()=>{ov.classList.remove('on');show(i);};ovg.appendChild(b);});
 function toggleOverview(){ov.classList.toggle('on');[...ovg.children].forEach((b,i)=>b.classList.toggle('cur',i===cur));}
 function key(e){const k=e.key,m=curMotion();
-  if(['ArrowRight','PageDown',' '].includes(k)){e.preventDefault();if(m&&(m.p<m.N||m.p<m.target))next(m);else show(cur+1);}
-  else if(['ArrowLeft','PageUp'].includes(k)){e.preventDefault();if(m&&m.p>0)prev(m);else show(cur-1);}
+  if(['ArrowRight','PageDown',' '].includes(k)){e.preventDefault();if(m&&m.playing)return;if(m&&(m.p<m.N||m.p<m.target))next(m);else show(cur+1);}
+  else if(['ArrowLeft','PageUp'].includes(k)){e.preventDefault();if(m&&m.playing)return;if(m&&m.p>0)prev(m);else show(cur-1);}
   else if(k==='Home')show(0);else if(k==='End')show(total-1);
   else if(k==='Escape')toggleOverview();
   else if(k==='f'||k==='F'){const d=document.documentElement;if(!document.fullscreenElement){if(d.requestFullscreen)d.requestFullscreen().catch(()=>{});}else if(document.exitFullscreen)document.exitFullscreen();}

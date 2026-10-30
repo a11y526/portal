@@ -110,6 +110,14 @@ begin
     return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
 
+  -- 712 수업 중(그 반 오늘 보드가 712)일 때만 기록·보상
+  if not exists (
+    select 1 from public.classes c join public.boards b on b.id = c.today_board_id
+    where c.id = s.class_id and b.lesson_code = '712'
+  ) then
+    return jsonb_build_object('ok', false, 'error', 'NOT_712');
+  end if;
+
   if p_stats is null or jsonb_typeof(p_stats) <> 'object'
      or p_choices is null or jsonb_typeof(p_choices) <> 'array'
      or jsonb_array_length(p_choices) < 1 or jsonb_array_length(p_choices) > 20 then

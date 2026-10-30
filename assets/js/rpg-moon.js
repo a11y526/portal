@@ -737,6 +737,12 @@ export function initMoonRpg() {
         saveProgress();
         return;
       }
+      if (res?.error === 'NOT_712') {
+        box.textContent = '712 수업 시간에만 기록과 보상이 남아요';
+        finishSent = true;
+        saveProgress();
+        return;
+      }
       box.textContent = '전송하지 못했어요. 다시 보내기를 눌러 주세요';
       retryBtn.classList.remove('hidden');
       return;

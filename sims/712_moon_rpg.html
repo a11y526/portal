@@ -967,8 +967,13 @@
 </main>
 
 <script type="module">
-  import { initMoonRpg } from '../assets/js/rpg-moon.js';
-  initMoonRpg();
+  // 712 학습지 칸(iframe) 안에서만 연다. 주소로 바로 들어오면 막는다.
+  if (window.parent === window) {
+    document.body.innerHTML = '<p style="font:600 16px/1.6 \'Noto Sans KR\',sans-serif;text-align:center;padding:64px 16px;color:#4E5868">712 개인 학습지 16쪽에서 열 수 있어요</p>';
+  } else {
+    const { initMoonRpg } = await import('../assets/js/rpg-moon.js');
+    initMoonRpg();
+  }
 </script>
 </body>
 </html>

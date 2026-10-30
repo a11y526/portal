@@ -7910,6 +7910,20 @@ as $$
 $$;
 revoke all on function public._moon_rpg_settings() from public, anon, authenticated;
 
+-- 보상을 이미 받았는지: 지급 수가 회수 수보다 많으면 받은 것 (2026-10-30 712 밖에서 받은 은화를 회수함)
+create or replace function public._moon_rpg_paid(p_sid uuid)
+returns boolean
+language sql
+stable
+set search_path = public
+as $$
+  select count(*) filter (where reason = '달 자원 RPG 완료')
+       > count(*) filter (where reason = '달 자원 RPG 은화 회수')
+  from public.point_events
+  where student_id = p_sid and reason in ('달 자원 RPG 완료', '달 자원 RPG 은화 회수');
+$$;
+revoke all on function public._moon_rpg_paid(uuid) from public, anon, authenticated;
+
 -- 학생 상태 조회: {ok: true, nickname, silver, rewarded} 또는 {ok: false, error: 'NO_SESSION'}
 create or replace function public.moon_rpg_state(p_token text)
 returns jsonb
@@ -7929,10 +7943,7 @@ begin
     return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
   end if;
   select * into s from public.students where id = v_sid;
-  v_rewarded := exists (
-    select 1 from public.point_events
-    where student_id = v_sid and reason = '달 자원 RPG 완료'
-  );
+  v_rewarded := public._moon_rpg_paid(v_sid);
   return jsonb_build_object(
     'ok',       true,
     'nickname', coalesce(nullif(s.nickname, ''), '닉네임 미정'),
@@ -8031,10 +8042,7 @@ begin
     p_choices
   );
 
-  v_already := exists (
-    select 1 from public.point_events
-    where student_id = v_sid and reason = '달 자원 RPG 완료'
-  );
+  v_already := public._moon_rpg_paid(v_sid);
 
   if not v_already and v_silver > 0 then
     insert into public.point_events (student_id, xp, coins, silver, reason)

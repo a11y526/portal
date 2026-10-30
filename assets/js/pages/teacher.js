@@ -1115,7 +1115,7 @@ function eventKind(e) {
   if (e.reason === '루미큐브 승리') return '루미큐브';
   if (e.reason === '쿼리도 승리') return '쿼리도';
   if (e.reason === '오델로 승리') return '오델로';
-  if (e.reason === '달 자원 RPG 완료') return 'RPG';
+  if ((e.reason || '').startsWith('달 자원 RPG')) return 'RPG'; // 완료 · 은화 회수
   if (e.reason === '게임 XP 회수') return '게임 XP 회수';
   return '직접 줌';
 }

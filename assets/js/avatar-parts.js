@@ -173,7 +173,7 @@ export const PARTS = {
     },
     /* 2026-10-29 추가 */
     hair_flame: {
-      name: '플라즈마 불꽃 머리',
+      name: '불꽃 머리',
       front: (k) =>
         `<g class="fx-flame">` +
         shape(k, 'M34 55 C30 41 33 29 39 23 L35 13 L46 18 L51 6 L59 15 L65 4 L71 16 L82 10 L79 22 C86 28 89 40 86 55 C83 46 79 41 74 39 C68 42 63 41 60 37 C56 41 50 42 45 39 C40 41 37 46 34 55 Z', k.D) +
@@ -185,7 +185,7 @@ export const PARTS = {
     },
 
     hair_zero_g: {
-      name: '무중력 우주 머리',
+      name: '무중력 머리',
       ears: false,
       back: (k) =>
         `<g class="fx-float">` +
@@ -199,7 +199,7 @@ export const PARTS = {
     },
 
     hair_neon: {
-      name: '사이버 네온 브릿지',
+      name: '브릿지 머리',
       front: (k) =>
         shape(k, 'M34 56 C31 36 42 21 60 21 C78 21 89 36 86 56 C84 48 81 42 76 39 L71 45 L67 38 L56 46 L53 38 C45 40 38 46 34 56 Z', k.D) +
         `<g class="fx-twinkle">` +
@@ -209,7 +209,7 @@ export const PARTS = {
     },
 
     hair_cloud: {
-      name: '구름 솜사탕 머리',
+      name: '솜사탕 머리',
       ears: false,
       front: (k) =>
         blob(k, [
@@ -222,7 +222,7 @@ export const PARTS = {
     },
 
     hair_volt: {
-      name: '번개 삐죽 머리',
+      name: '번개 머리',
       front: (k) =>
         shape(k, 'M34 55 C32 43 34 35 38 30 L28 24 L41 23 L38 12 L51 19 L57 7 L63 18 L73 8 L73 20 L86 14 L81 25 L92 27 L82 33 C86 39 87 46 86 55 C83 47 79 42 74 40 L68 44 L63 39 L55 44 L50 39 C43 41 37 46 34 55 Z', k.M) +
         shape(k, 'M45 27 L55 15 L54 24 L64 14 L62 24 L74 17 L68 29 Z', k.gold, 0.7) +
@@ -286,7 +286,7 @@ export const PARTS = {
     },
     /* 2026-10-29 추가 */
     eyes_cyber: {
-      name: '사이보그 스캐너 눈',
+      name: '스캐너 눈',
       draw: (k) => [50, 70].map((x) =>
         `<ellipse cx="${x}" cy="55" rx="5.8" ry="6.6" fill="${k.ink}"/>` +
         `<g class="fx-spin" style="transform-box:view-box;transform-origin:${x}px 55px">` +
@@ -297,7 +297,7 @@ export const PARTS = {
     },
 
     eyes_fire: {
-      name: '타오르는 열정 눈',
+      name: '불꽃 눈',
       draw: (k) => [50, 70].map((x, i) =>
         `<ellipse cx="${x}" cy="55" rx="5.6" ry="6.5" fill="${k.ink}"/>` +
         `<g class="fx-flame" style="--d:${i * 0.25}s">` +
@@ -308,7 +308,7 @@ export const PARTS = {
     },
 
     eyes_galaxy: {
-      name: '은하수 오드아이',
+      name: '오드아이',
       draw: (k) =>
         [[50, k.sky, 'fx-spin'], [70, k.goldL, 'fx-spin-rev']].map(([x, col, cls]) =>
           `<ellipse cx="${x}" cy="55" rx="6" ry="7" fill="${k.ink}"/>` +
@@ -322,7 +322,7 @@ export const PARTS = {
     },
 
     eyes_pulse: {
-      name: '네온 하트비트 눈',
+      name: '심박 눈',
       draw: (k) => [50, 70].map((x, i) =>
         `<ellipse cx="${x}" cy="55" rx="5.8" ry="6.6" fill="${k.ink}"/>` +
         `<g class="fx-pulse" style="transform-box:view-box;transform-origin:${x}px 55px;--d:${i * 0.2}s">` +
@@ -332,7 +332,7 @@ export const PARTS = {
     },
 
     eyes_swirl: {
-      name: '빙글빙글 최면 눈',
+      name: '소용돌이 눈',
       draw: (k) => [50, 70].map((x) =>
         `<circle cx="${x}" cy="55" r="6" fill="${k.paper}" ${sw(k, 0.9)}/>` +
         `<g class="fx-spin" style="transform-box:view-box;transform-origin:${x}px 55px">` +
@@ -399,7 +399,7 @@ export const PARTS = {
     },
 
     mouth_meat: {
-      name: '만화 고기 먹방',
+      name: '고기',
       draw: (k) =>
         line(k, 'M54 66.5 Q60 71 66 66.5', 1) +
         `<g class="fx-wobble" style="transform-box:view-box;transform-origin:64px 68px">` +
@@ -412,7 +412,7 @@ export const PARTS = {
     },
 
     mouth_beam: {
-      name: '무지개 빔 발사',
+      name: '무지개 빔',
       draw: (k) =>
         `<ellipse cx="60" cy="68.5" rx="4.2" ry="5" fill="${k.ink}"/>` +
         `<circle cx="60" cy="68.5" r="2.4" fill="${k.sky}"/>` +
@@ -425,7 +425,7 @@ export const PARTS = {
     },
 
     mouth_fang: {
-      name: '뱀파이어 송곳니',
+      name: '송곳니',
       draw: (k) =>
         line(k, 'M52.5 66 Q60 70.5 67.5 66', 1) +
         shape(k, 'M54.2 66.8 L56 71.8 L57.8 67.3 Z M62.2 67.3 L64 71.8 L65.8 66.8 Z', k.paper, 0.7) +
@@ -433,7 +433,7 @@ export const PARTS = {
     },
 
     mouth_whistle: {
-      name: '휘파람 음표',
+      name: '휘파람',
       draw: (k) =>
         `<circle cx="61" cy="68" r="2.6" fill="${k.ink}"/>` +
         `<g class="fx-float" style="--d:0s">` +
@@ -541,7 +541,7 @@ export const PARTS = {
     },
     /* 2026-10-29 추가 */
     outfit_core: {
-      name: '핵융합 코어 슈트',
+      name: '코어 슈트',
       draw: (k) =>
         shape(k, 'M16 124 C16 100 28 90 45 87.5 H75 C92 90 104 100 104 124 Z', k.D) +
         shape(k, 'M30 93 L46 88 L52 104 L34 110 Z M90 93 L74 88 L68 104 L86 110 Z', k.M, 0.85) +
@@ -553,7 +553,7 @@ export const PARTS = {
     },
 
     outfit_wizard: {
-      name: '대마법사 망토',
+      name: '마법사 망토',
       behind: (k) =>
         shape(k, 'M34 92 L29 74 L46 80 L60 73 L74 80 L91 74 L86 92 Z', k.D),
       draw: (k) =>
@@ -565,7 +565,7 @@ export const PARTS = {
     },
 
     outfit_gamer: {
-      name: '네온 게이밍 후드',
+      name: '게이밍 후드',
       behind: (k) =>
         shape(k, 'M38 92 C35 80 45 74.5 60 74.5 C75 74.5 85 80 82 92 Z', k.D),
       draw: (k) =>
@@ -577,7 +577,7 @@ export const PARTS = {
     },
 
     outfit_chem: {
-      name: '화학 마스터 앞치마',
+      name: '실험 앞치마',
       draw: (k) =>
         shape(k, TEE, k.L) +
         shape(k, 'M38 90 H82 L85 124 H35 Z', k.M, 0.85) +
@@ -590,7 +590,7 @@ export const PARTS = {
     },
 
     outfit_champ: {
-      name: '챔피언 황금 망토',
+      name: '황금 망토',
       behind: (k) =>
         shape(k, 'M22 95 C26 80 42 76 60 76 C78 76 94 80 98 95 L106 124 H14 Z', k.coral),
       draw: (k) =>
@@ -693,7 +693,7 @@ export const PARTS = {
         `</g>`,
     },
     acc_holo: {
-      name: '홀로그램 측정기',
+      name: '측정기',
       draw: (k) =>
         shape(k, 'M31 50 H38 V60 H31 Z', k.D, 0.8) +
         `<rect x="37" y="47.5" width="22" height="15" rx="4" fill="${k.sky}" fill-opacity=".42" stroke="${k.accent}" stroke-width="${(k.sw * 0.95).toFixed(2)}"/>` +
@@ -703,7 +703,7 @@ export const PARTS = {
     },
 
     acc_cyber_shades: {
-      name: '사이버 네온 선글라스',
+      name: '선글라스',
       draw: (k) =>
         shape(k, 'M35 49 H85 L82 61 L63 59 L60 55 L57 59 L38 61 Z', k.D) +
         `<path class="fx-twinkle" d="M40 51.5 H56 L53 58 H42 Z" fill="${k.mintL}"/>` +
@@ -711,7 +711,7 @@ export const PARTS = {
     },
 
     acc_tesla: {
-      name: '번개 마법봉',
+      name: '번개 막대',
       layer: 'body',
       draw: (k) =>
         `<g style="${FLAT}" transform="translate(-4 -8)">` +
@@ -725,7 +725,7 @@ export const PARTS = {
     },
 
     acc_wings: {
-      name: '사이버 발키리 날개',
+      name: '날개',
       layer: 'body',
       draw: (k) =>
         `<g class="fx-flame">` +
@@ -736,7 +736,7 @@ export const PARTS = {
     },
 
     acc_flask: {
-      name: '빛나는 플라스크',
+      name: '플라스크',
       layer: 'body',
       draw: (k) =>
         `<g style="${FLAT}" transform="translate(-5 -11)">` +
@@ -829,7 +829,7 @@ export const PARTS = {
         spark(60, 2, k.detail ? 4.5 : 5.5, k.gold, 'fx-twinkle', 0.1),
     },
     hat_astro: {
-      name: '우주 비행사 헬멧',
+      name: '우주 헬멧',
       draw: (k) =>
         `<line x1="60" y1="12" x2="60" y2="4" ${sw(k, 1.1)}/>` +
         `<circle class="fx-pulse" cx="60" cy="3.5" r="3.2" fill="${k.gold}" ${sw(k, 0.7)}/>` +
@@ -841,7 +841,7 @@ export const PARTS = {
     },
 
     hat_wizard: {
-      name: '별빛 마법사 모자',
+      name: '마법사 모자',
       draw: (k) =>
         shape(k, 'M34 39 L47 11 C51 4 59 3 67 6 L83 13 L73 19 L84 39 Z', k.D) +
         shape(k, 'M33 34 C48 30 72 30 87 34 L88 40 C72 36 48 36 32 40 Z', k.violet, 0.85) +
@@ -854,7 +854,7 @@ export const PARTS = {
     },
 
     hat_alchem: {
-      name: '연금술사 고글 모자',
+      name: '고글 모자',
       draw: (k) =>
         shape(k, 'M32 43 C31 24 43 14 60 14 C77 14 89 24 88 43 Z', k.M) +
         shape(k, 'M30 41 C46 37 74 37 90 41 L90 46 C74 42 46 42 30 46 Z', k.D, 0.9) +
@@ -871,7 +871,7 @@ export const PARTS = {
   pet: {
     pet_none: { name: '없음' },
     pet_drone: {
-      name: '미니 과학 드론',
+      name: '드론',
       draw: (k) =>
         `<g class="fx-float">` +
         `<line x1="93" y1="26" x2="109" y2="26" ${sw(k, 0.9)}/>` +
@@ -884,7 +884,7 @@ export const PARTS = {
     },
 
     pet_slime: {
-      name: '플라즈마 슬라임',
+      name: '슬라임',
       draw: (k) =>
         `<g class="fx-pulse" style="transform-box:view-box;transform-origin:101px 36px">` +
         shape(k, 'M92 38 C92 29 96 25 101 25 C106 25 110 29 110 38 C110 42 106 43 101 43 C96 43 92 42 92 38 Z', k.mintL, 0.85) +
@@ -894,7 +894,7 @@ export const PARTS = {
     },
 
     pet_star: {
-      name: '아기 별 정령',
+      name: '별',
       draw: (k) =>
         `<g class="fx-float">` +
         `<path d="${star5(101, 32, 10, 4.8)}" fill="${k.goldL}" ${sw(k, 0.85)}/>` +
@@ -904,7 +904,7 @@ export const PARTS = {
     },
 
     pet_atom: {
-      name: '꼬마 원자 요정',
+      name: '원자',
       draw: (k) =>
         `<g class="fx-float">` +
         `<g class="fx-spin" style="transform-box:view-box;transform-origin:101px 32px">` +
@@ -917,7 +917,7 @@ export const PARTS = {
     },
 
     pet_dragon: {
-      name: '아기 드래곤',
+      name: '드래곤',
       draw: (k) =>
         `<g class="fx-float">` +
         shape(k, 'M105 28 L113 22 L111 30 L115 33 L106 34 Z', k.gold, 0.75) +
@@ -932,7 +932,7 @@ export const PARTS = {
   aura: {
     aura_none: { name: '없음' },
     aura_thunder: {
-      name: '초전도 번개 스파크',
+      name: '번개 오라',
       draw: (k) =>
         `<g class="fx-twinkle" style="--d:0s">` +
         shape(k, 'M16 48 L25 40 L22 49 L29 47 L17 59 L20 50 Z', k.gold, 0.75) +
@@ -946,7 +946,7 @@ export const PARTS = {
     },
 
     aura_orbit: {
-      name: '회전하는 전자 궤도',
+      name: '궤도 오라',
       draw: (k) =>
         `<g class="fx-spin" style="transform-box:view-box;transform-origin:60px 62px">` +
         `<ellipse cx="60" cy="62" rx="52" ry="18" transform="rotate(-22 60 62)" fill="none" stroke="${k.accent}" stroke-width="${(k.sw * 0.9).toFixed(2)}" stroke-dasharray="6 4"/>` +
@@ -956,7 +956,7 @@ export const PARTS = {
     },
 
     aura_fire: {
-      name: '타오르는 불꽃 오라',
+      name: '불꽃 오라',
       draw: (k) =>
         `<g class="fx-flame">` +
         shape(k, 'M16 92 C10 78 15 64 22 58 C19 67 22 72 26 76 C24 83 20 88 16 92 Z', k.coralL, 0.75) +
@@ -967,7 +967,7 @@ export const PARTS = {
     },
 
     aura_music: {
-      name: '네온 비트 파동',
+      name: '음파 오라',
       draw: (k) =>
         `<g class="fx-float" style="--d:0s">` +
         `<circle cx="18" cy="54" r="3.2" fill="${k.mintL}" ${sw(k, 0.65)}/>` +
@@ -982,7 +982,7 @@ export const PARTS = {
     },
 
     aura_starlight: {
-      name: '은하수 별빛 세례',
+      name: '별빛 오라',
       draw: (k) =>
         `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 60px">` +
         `<circle cx="60" cy="60" r="52" fill="none" stroke="${k.gold}" stroke-width="${(k.sw * 0.8).toFixed(2)}" stroke-dasharray="2 8"/>` +
@@ -1104,7 +1104,7 @@ export const PARTS = {
     },
     /* 2026-10-29 추가 */
     bg_blackhole: {
-      name: '블랙홀 사건의 지평선',
+      name: '블랙홀',
       draw: (k) =>
         `<circle cx="60" cy="60" r="58" fill="${k.D}" opacity=".75"/>` +
         `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 60px">` +
@@ -1116,7 +1116,7 @@ export const PARTS = {
     },
 
     bg_meteor: {
-      name: '별똥별 유성우',
+      name: '유성우',
       draw: (k) =>
         `<circle cx="60" cy="60" r="58" fill="${k.M}" opacity=".6"/>` +
         [[26, 22, k.gold, 0], [98, 26, k.sky, 0.7], [18, 66, k.sky, 1.3], [104, 64, k.gold, 1.9]].map(([x, y, c, d]) =>
@@ -1128,7 +1128,7 @@ export const PARTS = {
     },
 
     bg_circuit: {
-      name: '사이버 매트릭스 회로',
+      name: '회로',
       draw: (k) =>
         BG_BASE(k) +
         `<g fill="none" stroke="${k.ink}" stroke-width="${(k.sw * 0.75).toFixed(2)}">` +
@@ -1140,7 +1140,7 @@ export const PARTS = {
     },
 
     bg_bubbles: {
-      name: '보글보글 플라스크',
+      name: '거품',
       draw: (k) =>
         BG_BASE(k) +
         [[18, 34, 5, k.mintL, 0], [100, 30, 6, k.sky, 0.5], [14, 70, 4.5, k.sky, 1.0], [104, 68, 5.5, k.mintL, 1.5], [30, 16, 3.5, k.paper, 0.8], [90, 16, 4, k.paper, 1.2]]
@@ -1150,7 +1150,7 @@ export const PARTS = {
     },
 
     bg_sunburst: {
-      name: '황금 태양광',
+      name: '햇살',
       draw: (k) =>
         `<clipPath id="${k.id}-sun"><circle cx="60" cy="60" r="58"/></clipPath>` +
         `<circle cx="60" cy="60" r="58" fill="${k.L}" opacity=".65"/>` +

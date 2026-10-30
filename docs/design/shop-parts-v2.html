@@ -276,7 +276,7 @@
   const NEW_PARTS = {
     hair: {
       hair_flame: {
-        name: '플라즈마 불꽃 머리', tier: 'legend', price: 300, lv: 5,
+        name: '불꽃 머리', tier: 'legend', price: 300, lv: 5,
         desc: '하프톤 불꽃 헤어 안쪽에 코랄·금빛 플라즈마 코어가 일렁입니다',
         front: (k) =>
           `<g class="fx-flame">` +
@@ -288,7 +288,7 @@
           spark(86, 16, k.detail ? 3.5 : 4.5, k.coralL, 'fx-twinkle', 0.5),
       },
       hair_zero_g: {
-        name: '무중력 우주 머리', tier: 'rare', price: 90, lv: 1,
+        name: '무중력 머리', tier: 'rare', price: 90, lv: 1,
         desc: '무중력 공간처럼 둥실 떠오르는 머리결과 파란 별빛 입자',
         ears: false,
         back: (k) =>
@@ -302,7 +302,7 @@
           spark(60, 16, k.detail ? 4 : 5, k.accent, 'fx-twinkle', 0.3),
       },
       hair_neon: {
-        name: '사이버 네온 브릿지', tier: 'rare', price: 100, lv: 1,
+        name: '브릿지 머리', tier: 'rare', price: 100, lv: 1,
         desc: '샤프한 비대칭 컷 사이로 민트·블루 네온 브릿지가 빛납니다',
         front: (k) =>
           shape(k, 'M34 56 C31 36 42 21 60 21 C78 21 89 36 86 56 C84 48 81 42 76 39 L71 45 L67 38 L56 46 L53 38 C45 40 38 46 34 56 Z', k.D) +
@@ -312,7 +312,7 @@
           `</g>`,
       },
       hair_cloud: {
-        name: '구름 솜사탕 머리', tier: 'rare', price: 110, lv: 1,
+        name: '솜사탕 머리', tier: 'rare', price: 110, lv: 1,
         desc: '몽글몽글한 밝은 망점 구름 헤어를 따라 별사탕 방울이 통통 튑니다',
         ears: false,
         front: (k) =>
@@ -325,7 +325,7 @@
           `<g class="fx-float" style="--d:1s"><circle cx="60" cy="12" r="3" fill="${k.sky}" ${sw(k, 0.7)}/></g>`,
       },
       hair_volt: {
-        name: '번개 삐죽 머리', tier: 'legend', price: 270, lv: 4,
+        name: '번개 머리', tier: 'legend', price: 270, lv: 4,
         desc: '초전도 에너지로 솟은 머리카락 주위에 황금 스파크가 찌릿거립니다',
         front: (k) =>
           shape(k, 'M34 55 C32 43 34 35 38 30 L28 24 L41 23 L38 12 L51 19 L57 7 L63 18 L73 8 L73 20 L86 14 L81 25 L92 27 L82 33 C86 39 87 46 86 55 C83 47 79 42 74 40 L68 44 L63 39 L55 44 L50 39 C43 41 37 46 34 55 Z', k.M) +
@@ -338,7 +338,7 @@
     hat: {
       hat_none: { name: '없음', tier: 'common', price: 0, lv: 1, desc: '모자 없음' },
       hat_astro: {
-        name: '우주 비행사 헬멧', tier: 'legend', price: 300, lv: 5,
+        name: '우주 헬멧', tier: 'legend', price: 300, lv: 5,
         desc: '반투명 블루 바이저와 전파를 쏘는 우주 통신 안테나 헬멧',
         draw: (k) =>
           `<line x1="60" y1="12" x2="60" y2="4" ${sw(k, 1.1)}/>` +
@@ -350,7 +350,7 @@
           spark(73, 26, k.detail ? 3.2 : 4, k.paper, 'fx-twinkle', 0.2),
       },
       hat_wizard: {
-        name: '별빛 마법사 모자', tier: 'rare', price: 130, lv: 1,
+        name: '마법사 모자', tier: 'rare', price: 130, lv: 1,
         desc: '보라빛 마법 리본과 모자 끝에서 흔들리는 황금 별 방울',
         draw: (k) =>
           shape(k, 'M34 39 L47 11 C51 4 59 3 67 6 L83 13 L73 19 L84 39 Z', k.D) +
@@ -363,7 +363,7 @@
           spark(54, 22, k.detail ? 3.5 : 4.5, k.goldL, 'fx-twinkle', 0.3),
       },
       hat_alchem: {
-        name: '연금술사 고글 모자', tier: 'rare', price: 110, lv: 1,
+        name: '고글 모자', tier: 'rare', price: 110, lv: 1,
         desc: '민트·골드 연금술 루페와 회전하는 태엽 기어가 달린 모자',
         draw: (k) =>
           shape(k, 'M32 43 C31 24 43 14 60 14 C77 14 89 24 88 43 Z', k.M) +
@@ -380,7 +380,7 @@
 
     eyes: {
       eyes_cyber: {
-        name: '사이보그 스캐너 눈', tier: 'rare', price: 110, lv: 1,
+        name: '스캐너 눈', tier: 'rare', price: 110, lv: 1,
         desc: '눈동자 속 파란 디지털 타깃 링이 정밀하게 회전합니다',
         draw: (k) => [50, 70].map((x) =>
           `<ellipse cx="${x}" cy="55" rx="5.8" ry="6.6" fill="${k.ink}"/>` +
@@ -391,7 +391,7 @@
         ).join(''),
       },
       eyes_fire: {
-        name: '타오르는 열정 눈', tier: 'rare', price: 100, lv: 1,
+        name: '불꽃 눈', tier: 'rare', price: 100, lv: 1,
         desc: '눈동자 속에서 코랄과 황금 불꽃이 이글거리며 타오릅니다',
         draw: (k) => [50, 70].map((x, i) =>
           `<ellipse cx="${x}" cy="55" rx="5.6" ry="6.5" fill="${k.ink}"/>` +
@@ -402,7 +402,7 @@
         ).join(''),
       },
       eyes_galaxy: {
-        name: '은하수 오드아이', tier: 'legend', price: 260, lv: 4,
+        name: '오드아이', tier: 'legend', price: 260, lv: 4,
         desc: '푸른 별과 황금 별이 양쪽 눈에서 서로 반대로 회전하는 신비한 눈',
         draw: (k) =>
           [[50, k.sky, 'fx-spin'], [70, k.goldL, 'fx-spin-rev']].map(([x, col, cls]) =>
@@ -416,7 +416,7 @@
           spark(81, 49, k.detail ? 3.2 : 4, k.gold, 'fx-twinkle', 0.5),
       },
       eyes_pulse: {
-        name: '네온 하트비트 눈', tier: 'rare', price: 90, lv: 1,
+        name: '심박 눈', tier: 'rare', price: 90, lv: 1,
         desc: '심장 박동 리듬에 맞춰 두근두근 튀어 오르는 네온 하트 눈',
         draw: (k) => [50, 70].map((x, i) =>
           `<ellipse cx="${x}" cy="55" rx="5.8" ry="6.6" fill="${k.ink}"/>` +
@@ -426,7 +426,7 @@
         ).join(''),
       },
       eyes_swirl: {
-        name: '빙글빙글 최면 눈', tier: 'rare', price: 75, lv: 1,
+        name: '소용돌이 눈', tier: 'rare', price: 75, lv: 1,
         desc: '파란 나선 소용돌이가 빙글빙글 돌아가는 코믹한 최면 눈',
         draw: (k) => [50, 70].map((x) =>
           `<circle cx="${x}" cy="55" r="6" fill="${k.paper}" ${sw(k, 0.9)}/>` +
@@ -449,7 +449,7 @@
           `</g>`,
       },
       mouth_meat: {
-        name: '만화 고기 먹방', tier: 'common', price: 45, lv: 1,
+        name: '고기', tier: 'common', price: 45, lv: 1,
         desc: '뼈다귀가 달린 만화 고기를 앙 물고 신나게 오물거립니다',
         draw: (k) =>
           line(k, 'M54 66.5 Q60 71 66 66.5', 1) +
@@ -462,7 +462,7 @@
           `</g>`,
       },
       mouth_beam: {
-        name: '무지개 빔 발사', tier: 'rare', price: 90, lv: 1,
+        name: '무지개 빔', tier: 'rare', price: 90, lv: 1,
         desc: '입에서 3색 에너지 파동과 별빛이 뿜어져 나오는 코믹 이펙트',
         draw: (k) =>
           `<ellipse cx="60" cy="68.5" rx="4.2" ry="5" fill="${k.ink}"/>` +
@@ -475,7 +475,7 @@
           spark(70, 72, k.detail ? 3 : 3.8, k.gold, 'fx-twinkle', 0.6),
       },
       mouth_fang: {
-        name: '뱀파이어 송곳니', tier: 'rare', price: 75, lv: 1,
+        name: '송곳니', tier: 'rare', price: 75, lv: 1,
         desc: '씩 웃는 입가의 뾰족한 송곳니 끝에서 황금빛이 반짝입니다',
         draw: (k) =>
           line(k, 'M52.5 66 Q60 70.5 67.5 66', 1) +
@@ -483,7 +483,7 @@
           spark(66.5, 72.5, k.detail ? 3.2 : 4, k.gold, 'fx-twinkle', 0.2),
       },
       mouth_whistle: {
-        name: '휘파람 음표', tier: 'rare', price: 70, lv: 1,
+        name: '휘파람', tier: 'rare', price: 70, lv: 1,
         desc: '휘파람을 부는 입 옆으로 파랑·금색 음표가 둥실 떠오릅니다',
         draw: (k) =>
           `<circle cx="61" cy="68" r="2.6" fill="${k.ink}"/>` +
@@ -497,7 +497,7 @@
 
     outfit: {
       outfit_core: {
-        name: '핵융합 코어 슈트', tier: 'legend', price: 300, lv: 6,
+        name: '코어 슈트', tier: 'legend', price: 300, lv: 6,
         desc: '가슴 중앙의 핵융합 코어가 회전하며 푸른 빛을 내는 슈트',
         draw: (k) =>
           shape(k, 'M16 124 C16 100 28 90 45 87.5 H75 C92 90 104 100 104 124 Z', k.D) +
@@ -509,7 +509,7 @@
           `<circle cx="60" cy="105" r="3" fill="${k.paper}"/>`,
       },
       outfit_wizard: {
-        name: '대마법사 망토', tier: 'rare', price: 130, lv: 1,
+        name: '마법사 망토', tier: 'rare', price: 130, lv: 1,
         desc: '높은 마법사 깃과 보라빛 마법 결정·황금 별 브로치가 빛나는 망토',
         behind: (k) =>
           shape(k, 'M34 92 L29 74 L46 80 L60 73 L74 80 L91 74 L86 92 Z', k.D),
@@ -521,7 +521,7 @@
           spark(72, 106, k.detail ? 3.2 : 4, k.violetL, 'fx-twinkle', 0.7),
       },
       outfit_gamer: {
-        name: '네온 게이밍 후드', tier: 'rare', price: 100, lv: 1,
+        name: '게이밍 후드', tier: 'rare', price: 100, lv: 1,
         desc: '민트·블루 네온 라인과 번개 엠블럼이 점멸하는 게이머 후드',
         behind: (k) =>
           shape(k, 'M38 92 C35 80 45 74.5 60 74.5 C75 74.5 85 80 82 92 Z', k.D),
@@ -533,7 +533,7 @@
           `</g>`,
       },
       outfit_chem: {
-        name: '화학 마스터 앞치마', tier: 'rare', price: 110, lv: 1,
+        name: '실험 앞치마', tier: 'rare', price: 110, lv: 1,
         desc: '3색 용액 시험관이 꽂힌 실험 앞치마에서 기포가 보글보글 올라옵니다',
         draw: (k) =>
           shape(k, TEE, k.L) +
@@ -546,7 +546,7 @@
           `<circle class="fx-rise" style="--d:.8s" cx="67" cy="98" r="2" fill="${k.coralL}"/>`,
       },
       outfit_champ: {
-        name: '챔피언 황금 망토', tier: 'legend', price: 320, lv: 7,
+        name: '황금 망토', tier: 'legend', price: 320, lv: 7,
         desc: '황금 견장과 빛나는 챔피언 메달이 달린 위엄 있는 제복 망토',
         behind: (k) =>
           shape(k, 'M22 95 C26 80 42 76 60 76 C78 76 94 80 98 95 L106 124 H14 Z', k.coral),
@@ -561,7 +561,7 @@
 
     acc: {
       acc_holo: {
-        name: '홀로그램 측정기', tier: 'rare', price: 100, lv: 1,
+        name: '측정기', tier: 'rare', price: 100, lv: 1,
         desc: '한쪽 눈 위에서 데이터 스캔 라인이 위아래로 움직이는 홀로그램 기기',
         draw: (k) =>
           shape(k, 'M31 50 H38 V60 H31 Z', k.D, 0.8) +
@@ -571,7 +571,7 @@
           `</g>`,
       },
       acc_cyber_shades: {
-        name: '사이버 네온 선글라스', tier: 'rare', price: 130, lv: 1,
+        name: '선글라스', tier: 'rare', price: 130, lv: 1,
         desc: '미래형 일자 바이저 위로 민트·골드 네온 광택이 흐르는 선글라스',
         draw: (k) =>
           shape(k, 'M35 49 H85 L82 61 L63 59 L60 55 L57 59 L38 61 Z', k.D) +
@@ -579,7 +579,7 @@
           `<path class="fx-twinkle" style="--d:.4s" d="M64 51.5 H79 L76 58 H66 Z" fill="${k.goldL}"/>`,
       },
       acc_tesla: {
-        name: '번개 마법봉', tier: 'rare', price: 90, lv: 1,
+        name: '번개 막대', tier: 'rare', price: 90, lv: 1,
         layer: 'body',
         desc: '코일 스태프 꼭대기 구슬에서 파랑·금색 고전압 스파크가 방전됩니다',
         draw: (k) =>
@@ -593,7 +593,7 @@
           `</g>`,
       },
       acc_wings: {
-        name: '사이버 발키리 날개', tier: 'legend', price: 300, lv: 6,
+        name: '날개', tier: 'legend', price: 300, lv: 6,
         layer: 'body',
         desc: '어깨 양옆으로 펼쳐진 하프톤·네온 에너지 날개가 힘차게 날개짓합니다',
         draw: (k) =>
@@ -604,7 +604,7 @@
           `</g>`,
       },
       acc_flask: {
-        name: '빛나는 플라스크', tier: 'rare', price: 100, lv: 1, merged: '기존 빛나는 플라스크 + 별빛 물약 플라스크',
+        name: '플라스크', tier: 'rare', price: 100, lv: 1, merged: '기존 빛나는 플라스크 + 별빛 물약 플라스크',
         layer: 'body',
         desc: '보라빛 은하수 용액이 담긴 둥근 마법 물약에서 황금 별 기포가 솟아오릅니다',
         draw: (k) =>
@@ -635,7 +635,7 @@
     pet: {
       pet_none: { name: '없음', tier: 'common', price: 0, lv: 1, desc: '짝꿍 펫 없음' },
       pet_drone: {
-        name: '미니 과학 드론', tier: 'legend', price: 240, lv: 4,
+        name: '드론', tier: 'legend', price: 240, lv: 4,
         desc: '캐릭터 옆 공중에서 프로펠러를 돌리며 호버링하는 귀여운 AI 과학 드론',
         draw: (k) =>
           `<g class="fx-float">` +
@@ -648,7 +648,7 @@
           `</g>`,
       },
       pet_slime: {
-        name: '플라즈마 슬라임', tier: 'rare', price: 100, lv: 1,
+        name: '슬라임', tier: 'rare', price: 100, lv: 1,
         desc: '민트빛 에너지 코어를 품고 말랑말랑 통통 튀어 오르는 실험실 슬라임',
         draw: (k) =>
           `<g class="fx-pulse" style="transform-box:view-box;transform-origin:101px 36px">` +
@@ -658,7 +658,7 @@
           `</g>`,
       },
       pet_star: {
-        name: '아기 별 정령', tier: 'rare', price: 110, lv: 1,
+        name: '별', tier: 'rare', price: 110, lv: 1,
         desc: '반짝이는 별가루를 흘리며 둥실둥실 따라다니는 황금 아기 별',
         draw: (k) =>
           `<g class="fx-float">` +
@@ -668,7 +668,7 @@
           `</g>`,
       },
       pet_atom: {
-        name: '꼬마 원자 요정', tier: 'rare', price: 130, lv: 1,
+        name: '원자', tier: 'rare', price: 130, lv: 1,
         desc: '파란 원자핵 요정 주위로 황금 전자가 빙글빙글 공전합니다',
         draw: (k) =>
           `<g class="fx-float">` +
@@ -681,7 +681,7 @@
           `</g>`,
       },
       pet_dragon: {
-        name: '아기 드래곤', tier: 'legend', price: 300, lv: 6,
+        name: '드래곤', tier: 'legend', price: 300, lv: 6,
         desc: '작은 날개를 파닥이며 코랄빛 불꽃을 뿜는 아기 드래곤',
         draw: (k) =>
           `<g class="fx-float">` +
@@ -697,7 +697,7 @@
     aura: {
       aura_none: { name: '없음', tier: 'common', price: 0, lv: 1, desc: '오라 없음' },
       aura_thunder: {
-        name: '초전도 번개 스파크', tier: 'rare', price: 150, lv: 1,
+        name: '번개 오라', tier: 'rare', price: 150, lv: 1,
         desc: '캐릭터 전신 주변에 황금빛과 푸른빛 고전압 번개 스파크가 번쩍입니다',
         draw: (k) =>
           `<g class="fx-twinkle" style="--d:0s">` +
@@ -711,7 +711,7 @@
           spark(24, 22, k.detail ? 4.5 : 5.5, k.gold, 'fx-twinkle', 0.25),
       },
       aura_orbit: {
-        name: '회전하는 전자 궤도', tier: 'legend', price: 260, lv: 4,
+        name: '궤도 오라', tier: 'legend', price: 260, lv: 4,
         desc: '캐릭터를 감싸는 이중 원자 궤도를 따라 전자 구슬들이 회전합니다',
         draw: (k) =>
           `<g class="fx-spin" style="transform-box:view-box;transform-origin:60px 62px">` +
@@ -721,7 +721,7 @@
           `</g>`,
       },
       aura_fire: {
-        name: '타오르는 불꽃 오라', tier: 'legend', price: 300, lv: 5,
+        name: '불꽃 오라', tier: 'legend', price: 300, lv: 5,
         desc: '몸 양옆에서 코랄·골드 플라즈마 화염 기운이 솟구쳐 오릅니다',
         draw: (k) =>
           `<g class="fx-flame">` +
@@ -732,7 +732,7 @@
           `</g>`,
       },
       aura_music: {
-        name: '네온 비트 파동', tier: 'rare', price: 110, lv: 1,
+        name: '음파 오라', tier: 'rare', price: 110, lv: 1,
         desc: '민트·바이올렛 네온 음표와 사운드 비트가 리듬에 맞춰 떠오릅니다',
         draw: (k) =>
           `<g class="fx-float" style="--d:0s">` +
@@ -747,7 +747,7 @@
           spark(96, 36, k.detail ? 4 : 5, k.gold, 'fx-twinkle', 0.8),
       },
       aura_starlight: {
-        name: '은하수 별빛 세례', tier: 'rare', price: 140, lv: 1,
+        name: '별빛 오라', tier: 'rare', price: 140, lv: 1,
         desc: '360도 회전하는 황금 성운 고리와 다이아몬드 별빛이 캐릭터를 감쌉니다',
         draw: (k) =>
           `<g class="fx-spin-slow" style="transform-box:view-box;transform-origin:60px 60px">` +
@@ -760,7 +760,7 @@
 
     bg: {
       bg_blackhole: {
-        name: '블랙홀 사건의 지평선', tier: 'legend', price: 320, lv: 6,
+        name: '블랙홀', tier: 'legend', price: 320, lv: 6,
         desc: '어두운 중력장 배경 위로 황금·파란 강착원반 고리가 신비롭게 회전합니다',
         draw: (k) =>
           `<circle cx="60" cy="60" r="58" fill="${k.D}" opacity=".75"/>` +
@@ -772,7 +772,7 @@
           spark(100, 28, k.detail ? 4.5 : 5.5, k.sky, 'fx-twinkle', 0.7),
       },
       bg_meteor: {
-        name: '별똥별 유성우', tier: 'rare', price: 130, lv: 1,
+        name: '유성우', tier: 'rare', price: 130, lv: 1,
         desc: '밤하늘 배경 위로 파란·황금 꼬리를 남기며 별똥별이 쏟아집니다',
         draw: (k) =>
           `<circle cx="60" cy="60" r="58" fill="${k.M}" opacity=".6"/>` +
@@ -784,7 +784,7 @@
           ).join(''),
       },
       bg_circuit: {
-        name: '사이버 매트릭스 회로', tier: 'rare', price: 110, lv: 1,
+        name: '회로', tier: 'rare', price: 110, lv: 1,
         desc: '디지털 기판 회로 선을 따라 민트·블루 데이터 노드가 반짝입니다',
         draw: (k) =>
           BG_BASE(k) +
@@ -796,7 +796,7 @@
           ).join(''),
       },
       bg_bubbles: {
-        name: '보글보글 플라스크', tier: 'rare', price: 100, lv: 1,
+        name: '거품', tier: 'rare', price: 100, lv: 1,
         desc: '배경 아래에서 민트·블루 실험실 기포 방울들이 끊임없이 떠오릅니다',
         draw: (k) =>
           BG_BASE(k) +
@@ -806,7 +806,7 @@
             ).join(''),
       },
       bg_sunburst: {
-        name: '황금 태양광', tier: 'legend', price: 300, lv: 5,
+        name: '햇살', tier: 'legend', price: 300, lv: 5,
         desc: '중심에서 뻗어 나오는 황금 광선이 천천히 회전하는 챔피언 배경',
         draw: (k) =>
           `<clipPath id="${k.id}-sun"><circle cx="60" cy="60" r="58"/></clipPath>` +

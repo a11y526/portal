@@ -255,7 +255,7 @@ delete from public.settings where key = 'quiz';
 
 -- 차시별 학습지 (반과 상관없이 차시마다 1개). 관리 화면에서 웹판 HTML을 올리면 브라우저가 읽어 저장한다
 -- pages: [{slide, title, html(정답을 뺀 화면용, 칸 자리는 <span data-ws="f1"></span>), fields: [{key, type, options}]}]
--- key:   {f1: {type: 'blank'|'choice'|'sym'|'text', answers: [정답, 허용 답…], options}}  ← 학생 쪽에 내보내지 않는다
+-- key:   {f1: {type: 'blank'|'choice'|'multi'|'sym'|'text'|'plot', answers: [정답, 허용 답…], options}}  ← 학생 쪽에 내보내지 않는다
 create table if not exists public.worksheets (
   lesson_code text primary key,
   title       text not null default '',

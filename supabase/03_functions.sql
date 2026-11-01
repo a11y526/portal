@@ -337,6 +337,7 @@ $$;
 -- 채점: {empty: [빈 칸], wrong: [틀린 칸], checking: [AI 판정을 기다리는 칸]} (칸 이름만. 정답은 돌려주지 않는다)
 --   blank  정답·허용 답 중 하나와 같으면 (띄어쓰기·영문 대소문자 무시). 정답이 비어 있으면 채우기만 하면 됨
 --   choice 정답(ok)을 골라야. 정답이 없는 고르기(예측)는 보기 중 하나를 고르면 됨
+--   multi  여러 개 고르기(2026-11-01): 학생 답 "보기|보기"의 모음이 정답(ok) 모음과 꼭 같아야 함. 정답이 없으면 하나라도 고르면 됨
 --   sym    맞는 부등호. text(서술)는 채우기만 하면 됨
 --   plot   _ws_plot (정답 점을 모두, 틀린 점 없이)
 --   p_lesson을 주면 AI 채점(2026-10-24): 등록 답과 다른 빈칸 답·예시와 다른 서술 답은 답 기억표(ws_ai_cache)로.
@@ -383,6 +384,10 @@ begin
     ok := case
       when e.t = 'text' then true
       when e.t = 'plot' then coalesce((public._ws_plot(e.spec, v) ->> 'ok')::boolean, false)
+      when e.t = 'multi' and jsonb_array_length(e.ans) = 0 then true
+      when e.t = 'multi' then
+        (select coalesce(array_agg(distinct btrim(z) order by btrim(z)), '{}') from regexp_split_to_table(v, '\|') as z where btrim(z) <> '')
+        = (select coalesce(array_agg(distinct btrim(a) order by btrim(a)), '{}') from jsonb_array_elements_text(e.ans) as a)
       when e.t in ('choice', 'sym') and jsonb_array_length(e.ans) = 0 then
         exists (select 1 from jsonb_array_elements_text(e.opts) as z(t) where z.t = v)
       when e.t in ('choice', 'sym') then

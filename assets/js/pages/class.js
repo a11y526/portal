@@ -664,8 +664,15 @@ $('ws-page').addEventListener('click', (e) => {
   const b = e.target.closest('.ws-opt');
   if (!b || b.disabled || locked()) return;
   const k = b.dataset.k;
+  const opts = [...b.parentElement.querySelectorAll('.ws-opt')];
+  if (b.parentElement.classList.contains('ws-multi')) {
+    // 여러 개 고르기: 누를 때마다 넣고 빼기, 답은 보기 순서대로 '|'로 잇는다
+    b.setAttribute('aria-pressed', String(b.getAttribute('aria-pressed') !== 'true'));
+    setAnswer(k, opts.filter((x) => x.getAttribute('aria-pressed') === 'true').map((x) => x.dataset.v).join('|'));
+    return;
+  }
   const v = ws.answers[k] === b.dataset.v ? '' : b.dataset.v;
-  b.parentElement.querySelectorAll('.ws-opt').forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === v)));
+  opts.forEach((x) => x.setAttribute('aria-pressed', String(x.dataset.v === v)));
   setAnswer(k, v);
 });
 

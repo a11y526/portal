@@ -5,11 +5,13 @@
 // 반 페이지에서 [시뮬레이션 열기]를 누를 때 sandbox iframe으로 연다(학습지 안의 script·iframe은 계속 지운다)
 // 점 찍기 칸 <div class="plot" data-x… data-points="x,y|x,y">: 축 정보는 fields에, 정답 점·허용 오차는 key에만.
 // 학생 답은 "x,y|x,y"(x 오름차순) 문자열. 채점은 서버(_ws_plot)가 정답 점마다 오차 안의 학생 점을 하나씩 짝짓는다
+// 여러 개 고르기 <span class="ox multi"><i class="ok">…</i>…</span>(2026-11-01): 학생 답은 고른 보기를 보기 순서대로 "|"로 이은 글.
+// 고른 것이 정답(ok)과 꼭 같아야 맞음(_ws_check)
 
 const FIELD = '.bl, .ox, .ineq .box, .fill, .plot';
 const SYMS = { '<': '<', '＜': '<', '〈': '<', '=': '=', '＝': '=', '>': '>', '＞': '>', '〉': '>' };
 export const SYM_OPTIONS = ['<', '=', '>'];
-export const TYPE_NAME = { blank: '빈칸', choice: '고르기', sym: '부등호', text: '서술', plot: '점 찍기' };
+export const TYPE_NAME = { blank: '빈칸', choice: '고르기', multi: '여러 개 고르기', sym: '부등호', text: '서술', plot: '점 찍기' };
 const PLOT_MAX = 300; // 서버가 한 칸 답을 300자까지 저장한다(_ws_clean)
 
 // 화면에 남길 태그 (그 밖의 태그는 글자만 남기고, 아래 태그는 통째로 뺀다)
@@ -108,7 +110,7 @@ export function parseWorksheet(text) {
     });
 
     const fields = [];
-    const count = { blank: 0, choice: 0, sym: 0, text: 0, plot: 0 };
+    const count = { blank: 0, choice: 0, multi: 0, sym: 0, text: 0, plot: 0 };
     let missing = 0;
     let plotPoints = 0;
     [...sec.querySelectorAll(FIELD)]
@@ -130,8 +132,11 @@ export function parseWorksheet(text) {
         } else if (el.matches('.ox')) {
           const opts = [...el.querySelectorAll('i')];
           const options = opts.map((i) => squash(i.textContent)).filter(Boolean);
-          spec = { type: 'choice', options, answers: opts.filter((i) => i.classList.contains('ok')).map((i) => squash(i.textContent)).filter(Boolean) };
+          const multi = el.classList.contains('multi');
+          spec = { type: multi ? 'multi' : 'choice', options, answers: opts.filter((i) => i.classList.contains('ok')).map((i) => squash(i.textContent)).filter(Boolean) };
           if (options.length < 2) warn.push(`보기가 ${options.length}개인 고르기가 있어요`);
+          if (multi && !spec.answers.length) missing++;
+          if (multi && options.some((o) => o.includes('|'))) warn.push('여러 개 고르기 보기에 | 글자는 쓸 수 없어요');
         } else if (el.matches('.fill')) {
           spec = { type: 'text', answers: [squash(el.textContent)].filter(Boolean) };
         } else if (el.matches('.plot')) {
@@ -236,9 +241,10 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
     no++;
     const v = answers?.[f.key] ?? '';
     let el;
-    if (f.type === 'choice' || f.type === 'sym') {
+    if (f.type === 'choice' || f.type === 'sym' || f.type === 'multi') {
+      const picked = f.type === 'multi' ? new Set(String(v).split('|')) : null;
       el = document.createElement('span');
-      el.className = `ws-ox${f.type === 'sym' ? ' ws-sym' : ''}`;
+      el.className = `ws-ox${f.type === 'sym' ? ' ws-sym' : ''}${picked ? ' ws-multi' : ''}`;
       el.setAttribute('role', 'group');
       el.setAttribute('aria-label', `${no}번 칸`);
       (f.options ?? []).forEach((o) => {
@@ -248,7 +254,7 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
         b.dataset.k = f.key;
         b.dataset.v = o;
         b.textContent = o;
-        b.setAttribute('aria-pressed', String(v === o));
+        b.setAttribute('aria-pressed', String(picked ? picked.has(o) : v === o));
         b.disabled = locked;
         el.append(b);
       });

@@ -6,7 +6,7 @@ import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, subm
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials, moonRpgState, moonRpgFinish } from '../db.js';
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
-import { renderPage, markFields, closeSims, showSide, wakeSims } from '../worksheet.js';
+import { renderPage, markFields, closeSims, showSide, wakeSims, pageSims } from '../worksheet.js';
 import { boardHTML, shrinkPhoto } from '../posts.js';
 import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
 
@@ -377,6 +377,9 @@ const WS_ERR = {
 };
 
 const ws = {
+  preAnswered: new Set(), // 시뮬레이션 잠금이 생기기 전에 답을 써 둔 쪽(쪽 번호)
+  simProg: new Map(), // '쪽|주소' → { n, total } 시뮬레이션이 알려 준 진행(잠긴 쪽 안내 띠에 표시)
+  unlocked: null,     // 방금 시뮬레이션을 끝내 칸이 열린 쪽(안내 띠를 '완료'로 한 번 보여 줌)
   meta: null,       // get_class_page의 worksheet
   boardId: null,
   ver: null,        // 받아 둔 본문의 '보드|버전'
@@ -409,6 +412,49 @@ const isClosed = (p) => !!p?.locked; // 아직 수업에서 안 나간 쪽(본�
 const pageDone = (p) => ws.done || (hasFields(p) && p.fields.every((f) => ws.passed.has(f.key)));
 const isShut = (p, i) => hasFields(p) && !ws.opened.has(i); // 선생님이 아직 안 열었거나 잠근 쪽
 const locked = () => !login || ws.done || pageDone(pages()[ws.idx]) || isShut(pages()[ws.idx], ws.idx);
+
+/* ---------- 시뮬레이션을 끝까지 해야 쓰기 (2026-11-02) ----------
+   시뮬레이션이 있는 쪽은 그 쪽 시뮬레이션이 모두 {type:'sim:done'}을 보낼 때까지 칸을 잠근다.
+   끝낸 시뮬레이션은 '쪽|주소'로 기기에 기억한다(화면이 숨겨져 iframe을 새로 만들어도 그대로).
+   sim:gate를 보내지 않는 옛 시뮬레이션은 다 불러온 뒤 3초 지나면 끝낸 것으로 친다.
+   {type:'sim:part', label}: 끝나기 전이라도 첫 칸이 label인 표 줄의 칸은 연다(712 6·7쪽: 본 행성 줄부터 쓰기).
+   이 기능이 생기기 전에 답을 써 둔 쪽은 잠그지 않는다(처음 학습지를 받을 때 답이 있던 쪽을 기기에 적어 둠) */
+const SIM_OLD_MS = 3000;
+const simKey = (pg, src) => `${pg}|${src}`;
+const simDoneKey = () => (login ? `wssim-${ws.boardId}-${login.number}` : null);
+const simDone = () => new Set(store.get(simDoneKey()) ?? []);
+function simLeft(p) {
+  if (!p || !hasFields(p)) return [];
+  const done = simDone();
+  return [...new Set(pageSims(p))].filter((src) => !done.has(simKey(p.slide, src)));
+}
+const gated = (p = pages()[ws.idx], i = ws.idx) => !!login && !ws.done && !pageDone(p) && !isShut(p, i) && simLeft(p).length > 0
+  && !ws.preAnswered.has(String(p.slide));
+const partKey = (pg, label) => `${pg}|part|${label}`;
+const isPartPage = (pg) => simDone().has(`${pg}|parts`); // 줄마다 여는 시뮬레이션이 있는 쪽(sim:gate parts를 받은 적 있음)
+const partsSeen = (p) => {
+  const pre = `${p.slide}|part|`;
+  return new Set([...simDone()].filter((k) => k.startsWith(pre)).map((k) => k.slice(pre.length)));
+};
+function notePreAnswered() {
+  const k = login ? `wsgate-pre-${ws.boardId}-${login.number}` : null;
+  let v = k ? store.get(k) : [];
+  if (!Array.isArray(v)) {
+    v = pages().filter((p) => p.fields?.some((f) => (ws.answers[f.key] ?? '') !== '')).map((p) => String(p.slide));
+    store.set(k, v);
+  }
+  ws.preAnswered = new Set(v);
+}
+// 잠긴 쪽에서 시뮬레이션이 알려 준 줄(첫 칸 글자 = label)의 칸만 연다
+function openParts(page) {
+  const seen = partsSeen(page);
+  if (!seen.size) return;
+  $('ws-page').querySelectorAll('tr').forEach((tr) => {
+    if (!seen.has((tr.cells[0]?.textContent ?? '').trim())) return;
+    tr.querySelectorAll('[data-k]').forEach((el) => { el.disabled = false; el.classList.add('ws-part-open'); });
+  });
+}
+const partOpen = (el) => !!el?.closest('.ws-part-open, tr:has(.ws-part-open)');
 const wsMarks = () => ({ points: ws.badPts, passed: ws.done ? new Set(Object.keys(ws.answers)) : ws.passed });
 // 제출할 쪽(칸이 있는 쪽) 수와 제출한 쪽 수
 function progress() {
@@ -506,6 +552,7 @@ async function fetchSheet() {
     ws.answers = local?.dirty && !ws.done ? { ...server, ...local.answers } : { ...(local?.answers ?? {}), ...server };
     ws.passed.forEach((k) => { if (k in server) ws.answers[k] = server[k]; else delete ws.answers[k]; });
     ws.dirty = !!local?.dirty && !ws.done && !!login;
+    notePreAnswered();
     if (fresh) {
       const saved = Number(store.get(pageKey()));
       ws.idx = Number.isInteger(saved) && saved >= 0 && saved < pages().length ? saved : 0;
@@ -545,8 +592,9 @@ function renderWsPage() {
   // 넓은 화면이면 그 쪽의 시뮬레이션을 오른쪽 칸에 바로 띄운다(좁으면 쪽 안 카드 + [시뮬레이션 열기])
   const side = wideSheet.matches && !isClosed(page) ? $('ws-side') : null;
   if (isClosed(page)) $('ws-page').innerHTML = `<div class="empty ws-closed">${LOCK_SVG}<strong>아직 수업에서 안 나간 쪽이에요</strong></div>`;
-  else renderPage($('ws-page'), page, ws.answers, { locked: locked(), side });
+  else renderPage($('ws-page'), page, ws.answers, { locked: locked() || gated(), side });
   if (!side) showSide($('ws-side'), []);
+  if (!isClosed(page)) { if (gated(page)) openParts(page); renderGate(page, !!side); }
   const hasSide = !!$('ws-side').dataset.id;
   $('ws-side').classList.toggle('hidden', !hasSide);
   $('sheet').classList.toggle('has-side', hasSide);
@@ -608,12 +656,84 @@ function renderWsFoot() {
     foot.innerHTML = `${status}${prog}<span class="ws-wait-open">${LOCK_SVG}선생님이 열면 쓸 수 있어요</span>`;
     return;
   }
+  if (gated(page)) {
+    foot.innerHTML = `${status}${prog}<span class="ws-wait-open">${PLAY_SVG}시뮬레이션을 끝까지 하면 쓸 수 있어요</span>`;
+    return;
+  }
   const nBad = page.fields.filter((f) => ws.bad[f.key] && ws.bad[f.key] !== 'checking').length;
   const nChk = page.fields.filter((f) => ws.bad[f.key] === 'checking').length;
   foot.innerHTML = `${status}${prog}
     ${nChk ? `<span class="ws-chkn" role="status"><i class="ws-chk-sand" aria-hidden="true"></i>확인 중 ${nChk}칸</span>` : ''}
     ${nBad ? `<span class="ws-badn">고칠 칸 ${nBad}개</span>` : ''}
     <button type="button" class="btn btn-primary btn-big press" id="ws-submit">${nBad ? '고쳐서 다시 제출' : '이 쪽 제출'}</button>`;
+}
+
+// 칸 위 안내 띠: 잠겼으면 무엇을 해야 하는지, 방금 풀렸으면 풀렸다고(그 쪽을 떠나면 사라짐)
+const PLAY_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
+function renderGate(page, wide) {
+  const box = $('ws-page');
+  const on = gated(page);
+  box.classList.toggle('is-gated', on);
+  $('ws-side').classList.toggle('is-need', on);
+  box.querySelectorAll('.ws-sim').forEach((c) => c.classList.toggle('is-need', on));
+  if (!on && ws.unlocked !== page.slide) return;
+  const n = new Set(pageSims(page)).size;
+  const left = simLeft(page).length;
+  const prog = on ? [...ws.simProg.entries()].find(([k]) => k.startsWith(`${page.slide}|`) && simLeft(page).includes(k.slice(k.indexOf('|') + 1)))?.[1] : null;
+  const el = document.createElement('div');
+  el.className = `ws-gate${on ? '' : ' is-open'}`;
+  el.setAttribute('role', 'status');
+  el.innerHTML = on
+    ? `<span class="ws-gate-ic">${PLAY_SVG}</span>
+       <span class="ws-gate-txt">${isPartPage(page.slide)
+         ? `<b>시뮬레이션에서 본 행성부터 쓸 수 있어요</b><small>${wide ? '오른쪽' : '아래'} 시뮬레이션에서 행성 카드를 보면 그 행성 칸이 열려요</small>`
+         : `<b>시뮬레이션을 끝까지 해야 답을 쓸 수 있어요</b><small>${wide ? '오른쪽' : '아래'} 시뮬레이션을 끝까지 재생하면 칸이 열려요${n > 1 ? ` · 남은 시뮬레이션 ${left}개` : ''}</small>`}</span>
+       ${prog ? `<span class="ws-gate-prog num">${prog.n} / ${prog.total}</span>` : ''}
+       ${wide ? '' : '<button type="button" class="btn btn-primary press ws-gate-go">시뮬레이션 열기</button>'}`
+    : `<span class="ws-gate-ic">${CHECK_SVG(22, '0s')}</span><span class="ws-gate-txt"><b>시뮬레이션 완료 · 이제 답을 쓸 수 있어요</b></span>`;
+  box.prepend(el);
+}
+
+// 잠긴 칸을 누르면: 알림 + 시뮬레이션 칸을 흔들어 보여 준다
+function nudgeSim() {
+  toast(isPartPage(pages()[ws.idx]?.slide) ? '시뮬레이션에서 그 행성 카드를 먼저 보세요' : '시뮬레이션을 끝까지 재생해야 답을 쓸 수 있어요', 'error');
+  const target = $('ws-side').classList.contains('hidden') ? $('ws-page').querySelector('.ws-sim') : $('ws-side');
+  if (!target) return;
+  if (!target.classList.contains('is-open') && target.classList.contains('ws-sim')) target.querySelector('[data-sim-act="open"]')?.click();
+  target.scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+  target.classList.remove('ws-pulse');
+  void target.offsetWidth;
+  target.classList.add('ws-pulse');
+}
+
+// 시뮬레이션에서 본 줄: 기기에 적어 두고, 지금 보는 쪽이면 그 줄 칸을 바로 연다(쓰던 칸은 그대로)
+function markPart(pg, label) {
+  const k = partKey(pg, label);
+  const done = simDone();
+  if (!simDoneKey() || !label || done.has(k)) return;
+  done.add(k);
+  store.set(simDoneKey(), [...done]);
+  const page = pages()[ws.idx];
+  if (!page || String(page.slide) !== String(pg) || !gated(page)) return;
+  openParts(page);
+  toast(`${label} 칸을 쓸 수 있어요`, 'ok');
+}
+
+function markSimDone(pg, src) {
+  const k = simKey(pg, src);
+  const done = simDone();
+  if (!simDoneKey() || done.has(k)) return;
+  const i = ws.idx;
+  const page = pages()[i];
+  const was = page && String(page.slide) === String(pg) && gated(page, i);
+  done.add(k);
+  store.set(simDoneKey(), [...done]);
+  ws.simProg.delete(k);
+  if (!was || gated(page, i)) { if (was) renderWsPage(); return; }
+  ws.unlocked = page.slide;
+  toast('시뮬레이션 완료! 이제 답을 쓸 수 있어요', 'ok');
+  renderWsPage();
+  renderWsFoot();
 }
 
 function setStatus(text) {
@@ -625,6 +745,7 @@ function setStatus(text) {
 function goPage(i) {
   if (i < 0 || i >= pages().length || i === ws.idx) return;
   ws.idx = i;
+  ws.unlocked = null;
   store.set(pageKey(), i);
   renderWsPage();
   renderWsFoot();
@@ -656,11 +777,16 @@ function setAnswer(k, v) {
 
 $('ws-page').addEventListener('input', (e) => {
   const el = e.target.closest('.ws-in');
-  if (!el || locked()) return;
+  if (!el || locked() || (gated() && !partOpen(el))) return;
   setAnswer(el.dataset.k, el.value.trim() ? el.value : '');
 });
 
 $('ws-page').addEventListener('click', (e) => {
+  if (gated() && !partOpen(e.target)) {
+    if (e.target.closest('.ws-gate-go')) { nudgeSim(); return; }
+    if (!e.target.closest('.ws-sim, .ws-gate') && e.target.closest('.w-q, table, .w-fill, .ws-in, .ws-ox')) nudgeSim();
+    return;
+  }
   const b = e.target.closest('.ws-opt');
   if (!b || b.disabled || locked()) return;
   const k = b.dataset.k;
@@ -1199,6 +1325,38 @@ document.addEventListener('visibilitychange', () => {
 });
 addEventListener('online', () => { load(); saveSheet(); });
 addEventListener('offline', () => setNetDown(true));
+
+/* ---------- 시뮬레이션 끝 신호 (sim:gate / sim:progress / sim:done) ---------- */
+const simFrameOf = (src) => [...document.querySelectorAll('iframe.ws-sim-frame')].find((f) => f.contentWindow === src);
+addEventListener('message', (e) => {
+  const msg = e.data;
+  if (!msg || typeof msg !== 'object' || typeof msg.type !== 'string' || !msg.type.startsWith('sim:')) return;
+  const f = e.source && simFrameOf(e.source);
+  if (!f) return;
+  const { sim, pg } = f.dataset;
+  if (msg.type === 'sim:gate') {
+    f.dataset.gate = '1';
+    if (msg.parts && simDoneKey() && !isPartPage(pg)) {
+      store.set(simDoneKey(), [...simDone(), `${pg}|parts`]);
+      if (String(pages()[ws.idx]?.slide) === pg && gated()) renderWsPage();
+    }
+  } else if (msg.type === 'sim:part' && typeof msg.label === 'string') markPart(pg, msg.label.trim().slice(0, 40));
+  else if (msg.type === 'sim:done') markSimDone(pg, sim);
+  else if (msg.type === 'sim:progress') {
+    const n = Math.max(0, Math.floor(Number(msg.n) || 0));
+    const total = Math.max(1, Math.floor(Number(msg.total) || 1));
+    f.dataset.gate = '1';
+    ws.simProg.set(simKey(pg, sim), { n: Math.min(n, total), total });
+    const tag = $('ws-page').querySelector('.ws-gate-prog');
+    if (tag && String(pages()[ws.idx]?.slide) === pg) tag.textContent = `${Math.min(n, total)} / ${total}`;
+    else if (String(pages()[ws.idx]?.slide) === pg && gated()) renderWsPage();
+  }
+});
+// sim:gate를 보내지 않는 옛 시뮬레이션: 다 불러오고 3초 뒤에도 소식이 없으면 끝낸 것으로
+document.addEventListener('ws-sim-load', (e) => {
+  const f = e.target;
+  setTimeout(() => { if (f.isConnected && !f.dataset.gate) markSimDone(f.dataset.pg, f.dataset.sim); }, SIM_OLD_MS);
+});
 
 /* ---------- 712 달 자원 RPG 시뮬레이션 iframe 브리지 ----------
    #ws-side / .ws-sim iframe은 sandbox="allow-scripts"라 localStorage를 직접 읽지 못하므로

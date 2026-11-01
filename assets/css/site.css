@@ -1197,6 +1197,27 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-side { position: sticky; top: 16px; height: calc(100vh - 32px); min-height: 480px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .ws-side .ws-sim-frame { flex: 1; min-height: 0; aspect-ratio: auto; margin-top: 0; border: 1.5px solid rgba(78,88,104,.22); }
 .ws-side-nums { display: flex; gap: 6px; }
+.ws-gate { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; padding: 12px 16px; border-radius: 16px;
+  background: var(--accent-tint); border: 1.5px solid var(--accent); color: var(--accent); }
+.ws-gate.is-open { background: var(--passed-bg); border-color: var(--passed-solid); color: var(--passed-fg); animation: ws-gate-in .4s var(--ease); }
+.ws-gate-ic { flex: none; width: 38px; height: 38px; border-radius: 50%; display: grid; place-items: center; background: currentColor; }
+.ws-gate-ic svg { color: #fff; }
+.ws-gate-txt { flex: 1; min-width: 180px; display: flex; flex-direction: column; gap: 2px; }
+.ws-gate-txt b { font-size: 17px; font-weight: 900; }
+.ws-gate-txt small { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.ws-gate-prog { flex: none; padding: 4px 12px; border-radius: var(--r-pill); background: #fff; font-weight: 900; font-size: 16px; }
+.ws-gate-go { min-height: 44px; }
+@keyframes ws-gate-in { from { opacity: 0; transform: translateY(-6px); } }
+/* 잠긴 칸: 눌러도 칸 대신 문항이 눌리게(눌렀을 때 알림을 띄우려고) */
+.ws-page.is-gated .ws-in, .ws-page.is-gated .ws-opt { pointer-events: none; opacity: .55; }
+.ws-page.is-gated .w-q, .ws-page.is-gated table { cursor: not-allowed; }
+.ws-page.is-gated .ws-in.ws-part-open, .ws-page.is-gated .ws-part-open .ws-opt { pointer-events: auto; opacity: 1; }
+.ws-page.is-gated tr:has(.ws-part-open) { cursor: auto; }
+.ws-side.is-need .ws-sim-frame, .ws-sim.is-need { border-color: var(--accent); }
+.ws-sim.is-need { border-width: 2px; }
+.ws-pulse { animation: ws-pulse .9s var(--ease) 2; }
+@keyframes ws-pulse { 50% { box-shadow: 0 0 0 6px var(--accent-tint); transform: scale(1.01); } }
+@media (prefers-reduced-motion: reduce) { .ws-pulse, .ws-gate.is-open { animation: none; } }
 .ws-in { font-weight: 700; }
 .ws-bl { display: inline-block; vertical-align: middle; width: 8em; height: 42px; margin: 2px 4px; padding: 0 8px; text-align: center; border-radius: 12px; font-size: 17px; }
 .ws-bl.ws-s { width: 5em; }

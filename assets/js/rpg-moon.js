@@ -455,6 +455,7 @@ export function initMoonRpg() {
     pickedChoice = null;
     $('dlg-event').classList.add('hidden');
 
+    if (inFrame()) window.parent.postMessage({ type: 'sim:progress', n: choices.length, total: 7 }, '*');
     if (finishedId === 7) {
       finishSent = false;
       showEndingScreen();
@@ -478,6 +479,8 @@ export function initMoonRpg() {
     const ending = ENDINGS.find((e) => e.match(stats, picks)) || ENDINGS[ENDINGS.length - 1];
     endingId = ending.id;
     showScreen('ending');
+    // 포털 학습지 칸 잠금: 엔딩까지 오면 13쪽 칸이 열린다
+    if (inFrame()) window.parent.postMessage({ type: 'sim:done' }, '*');
 
     drawSpriteFrame($('end-hero-canvas'), heroId, 2);
     $('end-badge').textContent = ending.badge;
@@ -628,6 +631,7 @@ export function initMoonRpg() {
           restoreProgress(msg.data);
         }
       });
+      window.parent.postMessage({ type: 'sim:gate' }, '*');
       window.parent.postMessage({ type: 'moon-rpg:init' }, '*');
       window.parent.postMessage({ type: 'moon-rpg:load' }, '*');
       return;

@@ -106,6 +106,20 @@ const P=[
 const RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const init=Object.assign({tab:1,metric:'radius',planet:'mercury'},window.SIM_INIT||{});
 (location.hash||'').replace('#','').split('&').forEach(s=>{const [a,b]=s.split('=');if(a&&b)init[a]=a==='tab'?+b:b;});
+/* 포털 학습지 칸 잠금: 학습지 안(iframe)이면 주소의 #ws=쪽번호로 그 쪽에서 할 일을 정하고, 다 하면 {type:'sim:done'}을 알린다.
+   6·7쪽: 빈칸이 있는 행성 카드 보기(본 행성마다 {type:'sim:part',label:'수성'}을 보내 그 줄 칸부터 열림) / 8쪽: 반지름 그래프 끝까지 재생 / 9쪽: 질량 그래프 끝까지 재생 */
+const inFrame=window.parent!==window;
+const tell=d=>{if(inFrame)window.parent.postMessage(d,'*');};
+const GOAL=inFrame?({'6':{cards:['mercury','mars']},'7':{cards:['jupiter','uranus']},
+  '8':{graph:'radius'},'9':{graph:'mass'}})[String(init.ws||'')]||null:null;
+if(GOAL&&GOAL.cards){init.tab=1;init.planet=GOAL.cards[0];}
+if(GOAL&&GOAL.graph){init.tab=2;init.metric=GOAL.graph;init.noplay=1;}
+const seen=new Set();let goalSent=false;
+function goalTell(n){if(!GOAL||goalSent)return;const total=GOAL.cards?GOAL.cards.length:8;
+  tell({type:'sim:progress',n:Math.min(n,total),total});if(n>=total){goalSent=true;tell({type:'sim:done'});}}
+function sawCard(k){if(!GOAL||!GOAL.cards||!GOAL.cards.includes(k))return;
+  if(!seen.has(k))tell({type:'sim:part',label:P.find(x=>x.k===k).n});seen.add(k);goalTell(seen.size);}
+function graphStep(m,n){if(GOAL&&GOAL.graph===m)goalTell(n);}
 let speed=0.5,active=true;
 const KEY='sim712_v1';
 let st={radius:{},mass:{},groups:{}};
@@ -178,7 +192,7 @@ function pick(k){
   card.classList.add('fade');fillCard(p);
   if(a1)anims.delete(a1);
   a1=anim(1400,t=>{curR=from+(p.r-from)*t;const R=Math.max(curR*U,0.01);g.setAttribute('transform',`translate(360,190) scale(${R/100})`);},
-    ()=>{lblR.textContent='반지름: 지구의 약 '+fmt(p.r)+'배';card.classList.remove('fade');});
+    ()=>{lblR.textContent='반지름: 지구의 약 '+fmt(p.r)+'배';card.classList.remove('fade');sawCard(p.k);});
 }
 function fillCard(p){
   const ic=`<svg viewBox="-230 -110 460 220"><g id="ic"></g></svg>`;
@@ -242,7 +256,7 @@ const pauseB=document.getElementById('pause');
 document.getElementById('replay').onclick=()=>{
   if(playAll)playAll.forEach(a=>anims.delete(a));Object.values(barAnim).forEach(a=>anims.delete(a));
   const m=metric;P.forEach(p=>shown[m][p.k]=0);drawChart();playAll=[];pauseB.textContent='일시정지';
-  let i=0;const next=()=>{if(i>=P.length){playAll=null;return;}const p=P[i++];const tv=val(p);
+  let i=0;const next=()=>{graphStep(m,i);if(i>=P.length){playAll=null;return;}const p=P[i++];const tv=val(p);
     const a=anim(700,t=>{shown[m][p.k]=tv*t;if(m===metric)drawChart();},next);playAll.push(a);};next();};
 pauseB.onclick=()=>{const live=[...anims];const paused=live.some(a=>a.paused);
   if(!live.length)return;live.forEach(a=>a.paused=!paused);pauseB.textContent=paused?'일시정지':'다시 재생';if(paused)run();};
@@ -259,7 +273,9 @@ if(window.parent!==window)document.addEventListener('keydown',e=>{if(/INPUT|TEXT
   if(['ArrowLeft','ArrowRight','PageUp','PageDown',' ','Home','End','a','A','g','G','f','F'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
 setTab(init.tab===2?2:1);buildGroups();setMetric(metric);
 document.querySelector('[data-tab="2"]').addEventListener('click',()=>document.getElementById('replay').click());
-if(init.tab===2)document.getElementById('replay').click();
+if(init.tab===2&&!init.noplay)document.getElementById('replay').click();
+if(init.noplay){P.forEach(p=>shown[metric][p.k]=0);drawChart();} /* 잠긴 그래프 쪽: 빈 막대에서 [다시 재생]을 눌러 시작 */
+if(inFrame){tell({type:'sim:gate',parts:!!(GOAL&&GOAL.cards)});if(GOAL)goalTell(0);else tell({type:'sim:done'});}
 curR=0;pick(init.planet||'mercury');
 })();
 </script>

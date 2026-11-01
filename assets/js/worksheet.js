@@ -3,6 +3,8 @@
 // 정답은 key에만 담아 서버에 저장하고, 화면용 html에서는 칸 자리를 <span data-ws="f1"></span>으로 바꿔 정답을 뺀다
 // 시뮬레이션 칸 <div class="sim" data-src="sims/…html">은 칸(field)이 아니다. <div class="w-sim" data-sim="sims/…">으로만 남기고,
 // 반 페이지에서 [시뮬레이션 열기]를 누를 때 sandbox iframe으로 연다(학습지 안의 script·iframe은 계속 지운다)
+// iframe 주소 끝에 #ws=쪽번호를 붙인다(같은 시뮬레이션을 여러 쪽에서 쓸 때 시뮬레이션이 그 쪽에서 할 일을 고른다).
+// 시뮬레이션은 열리면 {type:'sim:gate'}, 할 일을 다 하면 {type:'sim:done'}을 부모 창에 보낸다(반 페이지가 그 쪽 칸을 연다)
 // 점 찍기 칸 <div class="plot" data-x… data-points="x,y|x,y">: 축 정보는 fields에, 정답 점·허용 오차는 key에만.
 // 학생 답은 "x,y|x,y"(x 오름차순) 문자열. 채점은 서버(_ws_plot)가 정답 점마다 오차 안의 학생 점을 하나씩 짝짓는다
 // 여러 개 고르기 <span class="ox multi"><i class="ok">…</i>…</span>(2026-11-01): 학생 답은 고른 보기를 보기 순서대로 "|"로 이은 글.
@@ -293,6 +295,7 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
     card.className = 'ws-sim';
     card.dataset.sim = el.dataset.sim;
     card.dataset.id = `${pg}-${i}`;
+    card.dataset.pg = pg;
     card.innerHTML = SIM_BAR;
     el.replaceWith(card);
   });
@@ -452,6 +455,7 @@ export function showSide(side, srcs, pg = '') {
   const id = srcs.length ? `${pg}|${srcs.join(',')}` : '';
   if (id && side.dataset.id === id && side.querySelector('iframe')) return;
   side.dataset.id = id;
+  side.dataset.pg = pg;
   side.dataset.srcs = JSON.stringify(srcs);
   side.dataset.at = '0';
   if (!id) { side.replaceChildren(); return; }
@@ -474,7 +478,7 @@ function drawSide(side) {
     ? srcs.map((_, i) => `<button type="button" class="btn ${i === at ? 'btn-primary' : 'btn-line'} press ws-sim-btn" data-side-at="${i}" aria-pressed="${i === at}">${i + 1}</button>`).join('')
     : '';
   side.innerHTML = `<div class="ws-sim-bar"><span class="ws-sim-t">시뮬레이션</span>${nums ? `<span class="ws-side-nums">${nums}</span>` : ''}</div>`;
-  side.append(simFrame(srcs[at]));
+  side.append(simFrame(srcs[at], side.dataset.pg));
 }
 
 // 숨겨졌다가(closeSims) 다시 보일 때 오른쪽 칸을 다시 띄운다
@@ -482,20 +486,27 @@ export function wakeSims(root = document) {
   root.querySelectorAll('.ws-side').forEach((side) => { if (side.dataset.id && !side.querySelector('iframe')) drawSide(side); });
 }
 
-// allow-same-origin을 주지 않아 포털의 출입증·저장소에 손대지 못한다
-function simFrame(src) {
+// 학습지 쪽 html 안의 시뮬레이션 주소들
+export const pageSims = (page) => [...String(page?.html || '').matchAll(/data-sim="([^"]+)"/g)].map((m) => m[1]).filter((s) => SIM_SRC.test(s));
+
+// allow-same-origin을 주지 않아 포털의 출입증·저장소에 손대지 못한다.
+// 다 불러오면 'ws-sim-load'를 낸다(sim:gate를 보내지 않는 옛 시뮬레이션을 반 페이지가 가려낸다)
+function simFrame(src, pg = '') {
   const frame = document.createElement('iframe');
   frame.className = 'ws-sim-frame';
   frame.setAttribute('sandbox', 'allow-scripts');
   frame.setAttribute('title', '시뮬레이션');
-  frame.src = simHref(src);
+  frame.dataset.sim = src;
+  frame.dataset.pg = pg;
+  frame.addEventListener('load', () => frame.dispatchEvent(new Event('ws-sim-load', { bubbles: true })));
+  frame.src = simHref(src) + (pg ? `#ws=${encodeURIComponent(pg)}` : '');
   return frame;
 }
 
 // 한 번에 하나만: 다른 데 열린 것은 닫고 연다
 function openSim(card) {
   closeSims(document);
-  const frame = simFrame(card.dataset.sim);
+  const frame = simFrame(card.dataset.sim, card.dataset.pg);
   card.classList.add('is-open');
   card.innerHTML = `
     <div class="ws-sim-bar">

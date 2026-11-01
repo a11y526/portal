@@ -428,7 +428,8 @@ function simLeft(p) {
   const done = simDone();
   return [...new Set(pageSims(p))].filter((src) => !done.has(simKey(p.slide, src)));
 }
-const gated = (p = pages()[ws.idx], i = ws.idx) => !!login && !ws.done && !pageDone(p) && !isShut(p, i) && simLeft(p).length > 0
+// 선생님이 [제출 시작](S)을 누르기 전에도 띠를 보여 시뮬레이션을 먼저 끝내 둘 수 있게 한다(칸은 S 전까지 locked로 잠김)
+const gated = (p = pages()[ws.idx]) => !!login && !ws.done && !pageDone(p) && simLeft(p).length > 0
   && !ws.preAnswered.has(String(p.slide));
 const partKey = (pg, label) => `${pg}|part|${label}`;
 const isPartPage = (pg) => simDone().has(`${pg}|parts`); // 줄마다 여는 시뮬레이션이 있는 쪽(sim:gate parts를 받은 적 있음)
@@ -447,6 +448,7 @@ function notePreAnswered() {
 }
 // 잠긴 쪽에서 시뮬레이션이 알려 준 줄(첫 칸 글자 = label)의 칸만 연다
 function openParts(page) {
+  if (locked()) return; // S 전에는 본 줄도 잠근 채(S를 누르면 다시 그릴 때 열림)
   const seen = partsSeen(page);
   if (!seen.size) return;
   $('ws-page').querySelectorAll('tr').forEach((tr) => {
@@ -688,9 +690,8 @@ function renderGate(page, wide) {
        <span class="ws-gate-txt">${isPartPage(page.slide)
          ? `<b>시뮬레이션에서 본 행성부터 쓸 수 있어요</b><small>${wide ? '오른쪽' : '아래'} 시뮬레이션에서 행성 카드를 보면 그 행성 칸이 열려요</small>`
          : `<b>시뮬레이션을 끝까지 해야 답을 쓸 수 있어요</b><small>${wide ? '오른쪽' : '아래'} 시뮬레이션을 끝까지 재생하면 칸이 열려요${n > 1 ? ` · 남은 시뮬레이션 ${left}개` : ''}</small>`}</span>
-       ${prog ? `<span class="ws-gate-prog num">${prog.n} / ${prog.total}</span>` : ''}
-       ${wide ? '' : '<button type="button" class="btn btn-primary press ws-gate-go">시뮬레이션 열기</button>'}`
-    : `<span class="ws-gate-ic">${CHECK_SVG(22, '0s')}</span><span class="ws-gate-txt"><b>시뮬레이션 완료 · 이제 답을 쓸 수 있어요</b></span>`;
+       ${prog ? `<span class="ws-gate-prog num">진행 ${prog.n} / ${prog.total}</span>` : ''}`
+    : `<span class="ws-gate-ic">${CHECK_SVG(22, '0s')}</span><span class="ws-gate-txt"><b>시뮬레이션 완료 · ${isShut(page, ws.idx) ? '선생님이 열면 쓸 수 있어요' : '이제 답을 쓸 수 있어요'}</b></span>`;
   box.prepend(el);
 }
 
@@ -731,7 +732,7 @@ function markSimDone(pg, src) {
   ws.simProg.delete(k);
   if (!was || gated(page, i)) { if (was) renderWsPage(); return; }
   ws.unlocked = page.slide;
-  toast('시뮬레이션 완료! 이제 답을 쓸 수 있어요', 'ok');
+  toast(isShut(page, i) ? '시뮬레이션 완료! 선생님이 열면 쓸 수 있어요' : '시뮬레이션 완료! 이제 답을 쓸 수 있어요', 'ok');
   renderWsPage();
   renderWsFoot();
 }
@@ -783,7 +784,6 @@ $('ws-page').addEventListener('input', (e) => {
 
 $('ws-page').addEventListener('click', (e) => {
   if (gated() && !partOpen(e.target)) {
-    if (e.target.closest('.ws-gate-go')) { nudgeSim(); return; }
     if (!e.target.closest('.ws-sim, .ws-gate') && e.target.closest('.w-q, table, .w-fill, .ws-in, .ws-ox')) nudgeSim();
     return;
   }
@@ -1348,7 +1348,7 @@ addEventListener('message', (e) => {
     f.dataset.gate = '1';
     ws.simProg.set(simKey(pg, sim), { n: Math.min(n, total), total });
     const tag = $('ws-page').querySelector('.ws-gate-prog');
-    if (tag && String(pages()[ws.idx]?.slide) === pg) tag.textContent = `${Math.min(n, total)} / ${total}`;
+    if (tag && String(pages()[ws.idx]?.slide) === pg) tag.textContent = `진행 ${Math.min(n, total)} / ${total}`;
     else if (String(pages()[ws.idx]?.slide) === pg && gated()) renderWsPage();
   }
 });

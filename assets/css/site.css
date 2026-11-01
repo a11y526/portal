@@ -1206,7 +1206,6 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-gate-txt b { font-size: 17px; font-weight: 900; }
 .ws-gate-txt small { font-size: 14px; font-weight: 700; color: var(--ink-2); }
 .ws-gate-prog { flex: none; padding: 4px 12px; border-radius: var(--r-pill); background: #fff; font-weight: 900; font-size: 16px; }
-.ws-gate-go { min-height: 44px; }
 @keyframes ws-gate-in { from { opacity: 0; transform: translateY(-6px); } }
 /* 잠긴 칸: 눌러도 칸 대신 문항이 눌리게(눌렀을 때 알림을 띄우려고) */
 .ws-page.is-gated .ws-in, .ws-page.is-gated .ws-opt { pointer-events: none; opacity: .55; }

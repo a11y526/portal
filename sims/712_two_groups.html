@@ -1,0 +1,110 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>반지름과 질량으로 두 집단 나누기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--font:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;font-family:var(--font);color:#1D1D1F;word-break:keep-all}
+.motion{height:100%;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.motion svg{display:block;flex:1;width:100%;min-height:0;border-radius:16px}
+.mc{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
+.sl-btn{font:700 16px var(--font);color:#0066CC;background:#fff;border:1.5px solid #0066CC;border-radius:999px;padding:6px 14px;cursor:pointer;min-height:44px;touch-action:manipulation}
+.sl-btn:active{background:#E8F1FB}
+.sl-btn:disabled{opacity:.35;cursor:not-allowed;background:#fff}
+.sl-seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden;background:#fff}
+.sl-seg .sl-btn{border:0;border-radius:0;color:#515154;padding:6px 13px}
+.sl-seg .sl-btn.on{background:#0066CC;color:#fff}
+.mc .st{margin-left:auto;font-size:15px;font-weight:700;color:#6E6E73}
+svg text{font-family:var(--font)}
+</style>
+</head>
+<body>
+<div class="motion" id="m11"></div>
+<script>
+/* 수업자료 lessons/712.html의 움직임과 같은 코드 — 재생 중에는 다음 단계로 넘어가지 않는다 */
+(function(){
+'use strict';
+const NS='http://www.w3.org/2000/svg';
+const ID='m11';
+const RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+const motions={};let raf=0,last=0;
+const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
+const cl=t=>t<0?0:t>1?1:t;
+const seg=(t,a,b)=>ease(cl((t-a)/(b-a)));
+const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
+function T(p,x,y,str,a){const e=el('text',Object.assign({x,y,'font-size':18,fill:'#1D1D1F','font-weight':700},a||{}),p);e.textContent=str;return e;}
+function makeMotion(id,vb,steps,build){
+  const box=document.getElementById(id);
+  const svg=el('svg',{viewBox:vb,role:'img'},box);
+  const bar=document.createElement('div');bar.className='mc';
+  bar.innerHTML=`<span class="sl-seg"><button class="sl-btn on" data-s="0.6">느리게</button><button class="sl-btn" data-s="1">보통</button><button class="sl-btn" data-s="1.8">빠르게</button></span>
+   <button class="sl-btn" data-a="prev">◀</button><button class="sl-btn" data-a="play">재생</button><button class="sl-btn" data-a="next">▶</button><button class="sl-btn" data-a="reset">처음부터</button><span class="st"></span>`;
+  box.appendChild(bar);
+  const m={p:0,target:0,playing:false,speed:0.6,steps,svg,bar,N:steps.length};
+  m.render=build(svg);
+  bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;b.blur();
+    if(b.dataset.s){m.speed=+b.dataset.s;bar.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x===b));return;}
+    ({prev:()=>prev(m),next:()=>next(m),play:()=>toggle(m),reset:()=>{m.playing=false;m.p=m.target=0;draw(m);}})[b.dataset.a]();});
+  motions[id]=m;draw(m);return m;}
+function draw(m){m.render(m.p);m.bar.querySelector('.st').textContent=`${Math.min(m.N,Math.floor(m.p+1e-6))} / ${m.N}단계`;
+  m.bar.querySelector('[data-a="play"]').textContent=m.playing?'일시정지':(m.p>=m.N?'다시 재생':'재생');
+  m.bar.querySelector('[data-a="prev"]').disabled=m.playing||m.p<=0;m.bar.querySelector('[data-a="next"]').disabled=m.playing||m.p>=m.N;}
+function play(m){m.playing=true;if(RED){m.p=m.target;m.playing=false;draw(m);return;}if(!raf){last=0;raf=requestAnimationFrame(loop);}draw(m);}
+/* 재생 중에는 단계를 넘기거나 건너뛸 수 없다 — 멈춘 단계는 이어서 재생 */
+function next(m){if(m.playing)return;if(m.p<m.target){play(m);return;}if(m.p<m.N){m.target=Math.floor(m.p+1e-6)+1;play(m);}}
+function prev(m){if(m.playing)return;m.p=m.target=Math.max(0,Math.ceil(m.p-1e-6)-1);draw(m);}
+function toggle(m){if(m.playing){m.playing=false;draw(m);return;}if(m.p>=m.N){m.p=0;}m.target=m.N;play(m);}
+function curMotion(){return motions[ID]||null;}
+function loop(now){const m=curMotion();if(!m||!m.playing){raf=0;return;}
+  const dt=last?Math.min(50,now-last):16;last=now;
+  const i=Math.min(Math.floor(m.p),m.N-1);m.p+=dt*m.speed/m.steps[i];
+  if(m.p>=m.target){m.p=m.target;m.playing=false;}
+  draw(m);raf=m.playing?requestAnimationFrame(loop):0;}
+
+/* 탐사선 */
+function probe(p){const g=el('g',{},p);
+  el('rect',{x:-26,y:-6,width:12,height:5,fill:'#5B8FD6'},g);el('rect',{x:14,y:-6,width:12,height:5,fill:'#5B8FD6'},g);
+  el('path',{d:'M-14,8 L-22,24 M14,8 L22,24 M-26,24 h8 M18,24 h8',stroke:'#E6E6EA','stroke-width':3,fill:'none'},g);
+  el('rect',{x:-14,y:-12,width:28,height:22,rx:5,fill:'#E6E6EA'},g);el('circle',{cx:0,cy:-1,r:6,fill:'#2997FF'},g);return g;}
+
+
+const PL=[['수성',.38,.06,0],['금성',.95,.82,0],['지구',1,1,1],['화성',.53,.11,2],['목성',11.2,318,95],['토성',9.4,95,146],['천왕성',4,14.5,27],['해왕성',3.9,17,14]];
+makeMotion('m11','0 0 520 470',[2400,3600],svg=>{
+  const cx=i=>i<4?96+i*50:316+(i-4)*50;
+  el('rect',{x:0,y:0,width:520,height:470,rx:14,fill:'#F5F5F7'},svg);
+  const ga=el('rect',{x:68,y:30,width:206,height:432,rx:12,fill:'#E6F0FA',stroke:'#0066CC','stroke-width':2,'stroke-dasharray':'7 5'},svg);
+  const gb=el('rect',{x:288,y:30,width:206,height:432,rx:12,fill:'#ECECEE',stroke:'#636366','stroke-width':2,'stroke-dasharray':'7 5'},svg);
+  const la=T(svg,171,22,'(가) 집단',{'text-anchor':'middle','font-size':18,'font-weight':600,fill:'#0066CC'});
+  const lb=T(svg,391,22,'(나) 집단',{'text-anchor':'middle','font-size':18,'font-weight':600,fill:'#636366'});
+  T(svg,8,104,'반지름',{'font-size':16,'font-weight':600});T(svg,8,236,'질량',{'font-size':16,'font-weight':600});
+  const bars=[];
+  [[40,150,12,1],[176,276,350,2]].forEach(([top,base,max,idx])=>{el('line',{x1:68,x2:494,y1:base,y2:base,stroke:'#1D1D1F'},svg);
+    PL.forEach((q,i)=>{const h=Math.max(q[idx]/max*(base-top),1.5);bars.push([el('rect',{x:cx(i)-12,y:base-h,width:24,height:h,fill:'#8E8E93'},svg),i]);});});
+  PL.forEach((q,i)=>T(svg,cx(i),298,q[0],{'text-anchor':'middle','font-size':14}));
+  const rows=[];
+  const r1=el('g',{},svg);T(r1,8,346,'위성 수',{'font-size':16,'font-weight':600});PL.forEach((q,i)=>T(r1,cx(i),346,String(q[3]),{'text-anchor':'middle','font-size':18,'font-weight':600}));rows.push(r1);
+  const r2=el('g',{},svg);T(r2,8,394,'고리',{'font-size':16,'font-weight':600});T(r2,171,394,'없다',{'text-anchor':'middle','font-size':20,'font-weight':600});T(r2,391,394,'있다',{'text-anchor':'middle','font-size':20,'font-weight':600});rows.push(r2);
+  const r3=el('g',{},svg);T(r3,8,442,'표면',{'font-size':16,'font-weight':600});T(r3,171,442,'흙, 암석',{'text-anchor':'middle','font-size':20,'font-weight':600});T(r3,391,442,'기체',{'text-anchor':'middle','font-size':20,'font-weight':600});rows.push(r3);
+  const hl=rows.map((r,k)=>{const h=el('rect',{x:4,y:322+k*48,width:512,height:34,rx:8,fill:'#0066CC',opacity:0},svg);svg.insertBefore(h,r);return h;});
+  return p=>{const a=cl(p),b=cl(p-1);
+    const o1=seg(a,0,.45),o2=seg(a,.45,.9);ga.setAttribute('opacity',o1);la.setAttribute('opacity',o1);gb.setAttribute('opacity',o2);lb.setAttribute('opacity',o2);
+    bars.forEach(([r,i])=>r.setAttribute('fill',i<4?(o1>.5?'#0066CC':'#8E8E93'):(o2>.5?'#3A3A3C':'#8E8E93')));
+    rows.forEach((r,k)=>{const t0=k*.32;r.setAttribute('opacity',seg(b,t0,t0+.14));const f=cl((b-t0)/.3);hl[k].setAttribute('opacity',b>t0?.18*(f<.5?f*2:2-f*2):0);});};
+});
+
+
+
+
+document.addEventListener('keydown',e=>{const m=curMotion();if(!m)return;
+  if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();next(m);}
+  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev(m);}});
+})();
+</script>
+</body>
+</html>

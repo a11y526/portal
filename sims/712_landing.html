@@ -20,12 +20,16 @@ html,body{margin:0;height:100%;background:#fff;font-family:var(--font);color:#1D
 .sl-btn .mk{position:absolute;top:-6px;right:-4px;min-width:20px;height:20px;border-radius:10px;font-size:13px;line-height:20px;color:#fff;padding:0 4px}
 .mk.ok{background:#1E8E3E}.mk.no{background:#C5221F}
 .mc .st{margin-left:auto;font-size:15px;font-weight:700;color:#6E6E73}
+.mc .st.ok{color:#1E8E3E}
+.how{flex:none;margin:0;padding:8px 12px;border-radius:12px;background:#F2F6FC;font-size:16px;line-height:1.5;color:#1D1D1F}
+.how b{color:#0066CC}
 svg text{font-family:var(--font)}
 #probe{cursor:grab}
 </style>
 </head>
 <body>
 <div class="wrap">
+  <p class="how"><b>①</b> 위에서 행성 고르기 → <b>②</b> 탐사선을 마우스로 잡고 아래로 끌었다가 놓기(또는 ↓ 키) → <b>③</b> 다른 행성으로 한 번 더<br>8개 중 <b>2개만</b> 내려 보면 답을 쓸 수 있어요.</p>
   <div class="mc" id="plist"></div>
   <svg id="s" viewBox="0 0 600 330" role="img" aria-label="탐사선 착륙"></svg>
   <div class="mc"><button class="sl-btn" id="again">탐사선 다시 올리기</button><span class="st" id="st"></span></div>
@@ -38,7 +42,7 @@ const NS='http://www.w3.org/2000/svg';
 const RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
 function T(p,x,y,str,a){const e=el('text',Object.assign({x,y,'font-size':18,fill:'#fff','font-weight':700},a||{}),p);e.textContent=str;return e;}
-/* 포털 학습지 칸 잠금: 땅이 있는 행성과 땅이 없는 행성에 한 번씩 내려 보면 끝(sim:done) */
+/* 포털 학습지 칸 잠금: 아무 행성이나 2개 내려 보면 끝(sim:done) */
 const tell=d=>{if(window.parent!==window)window.parent.postMessage(d,'*');};
 const P=[['수성',0,'#A29D97','#7E7974'],['금성',0,'#DDBF86','#BC9A5E'],['지구',0,'#8B6A4F','#6E523C'],['화성',0,'#C4603A','#8F3F24'],
   ['목성',1,'#D6B48E','#A8734D'],['토성',1,'#E1C894','#B89A62'],['천왕성',1,'#A6DCE0','#86C2C8'],['해왕성',1,'#4E7FD0','#3A63AD']];
@@ -56,6 +60,7 @@ el('rect',{x:-40,y:-30,width:80,height:64,fill:'transparent'},pr);
 const front=el('g',{},svg);
 const deep=el('rect',{x:0,y:0,width:600,height:330,rx:14,fill:'#000',opacity:0,'pointer-events':'none'},svg);
 const name=T(svg,16,30,'',{'font-size':20});
+const hint=T(svg,336,66,'↓ 탐사선을 잡고 아래로 끌었다 놓기',{'font-size':17,fill:'#9FC6FF'});
 const msg=el('g',{opacity:0},svg);const msgR=el('rect',{x:150,y:56,width:300,height:44,rx:22,fill:'#fff'},msg);const msgT=T(msg,300,85,'',{'text-anchor':'middle',fill:'#1D1D1F','font-size':18});
 const X=300,Y0=60,GROUND=212;let y=Y0,vy=0,raf=0,drag=null,state='top';
 function pick(i){cur=i;const q=P[i];
@@ -71,13 +76,14 @@ function pick(i){cur=i;const q=P[i];
 function reset(){cancelAnimationFrame(raf);raf=0;y=Y0;vy=0;state='top';msg.setAttribute('opacity',0);draw();}
 function draw(){pr.setAttribute('transform',`translate(${X},${y})`);
   const gas=P[cur][1],d=Math.max(0,y-GROUND);pr.setAttribute('opacity',gas?Math.max(0,1-d/110):1);deep.setAttribute('opacity',gas?Math.min(.45,d/240):0);
-  st.textContent=Object.keys(tried).length?`내려 본 행성 ${Object.keys(tried).length}개`:'';}
+  const n=Object.keys(tried).length;st.textContent=n>=2?`내려 본 행성 ${n}개 · 이제 답을 쓸 수 있어요`:`내려 본 행성 ${n} / 2개`;st.classList.toggle('ok',n>=2);
+  hint.setAttribute('opacity',state==='top'?1:0);}
 function say(s,w){msgT.textContent=s;msgR.setAttribute('width',w);msgR.setAttribute('x',300-w/2);msg.setAttribute('opacity',1);}
 function finish(){const q=P[cur];state='end';tried[cur]=q[1]?'no':'ok';
   q[1]?say('땅이 없어요 — 기체 속으로 가라앉아요',360):say('단단한 땅에 착륙했어요 — 흙, 암석',340);
   const b=plist.children[cur];if(!b.querySelector('.mk')){const m=document.createElement('span');m.className='mk '+tried[cur];m.textContent=q[1]?'✕':'✓';b.appendChild(m);}
-  const kinds=new Set(Object.values(tried));tell({type:'sim:progress',n:kinds.size,total:2});
-  if(kinds.size>=2&&!done){done=true;tell({type:'sim:done'});}draw();}
+  const n=Object.keys(tried).length;tell({type:'sim:progress',n:Math.min(n,2),total:2});
+  if(n>=2&&!done){done=true;tell({type:'sim:done'});}draw();}
 /* 놓으면 떨어진다: 땅이 있으면 GROUND에 멈추고, 기체면 점점 느려지며 끝까지 가라앉는다 */
 function fall(){if(RED){y=P[cur][1]?GROUND+120:GROUND;finish();return;}
   let last=0;const step=now=>{const dt=last?Math.min(40,now-last)/1000:.016;last=now;const gas=P[cur][1];

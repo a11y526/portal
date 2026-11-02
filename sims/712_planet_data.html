@@ -56,6 +56,11 @@ button:focus-visible{outline:2px solid var(--p);outline-offset:2px}
 .groups button.ga{background:var(--tint);border-color:var(--p);color:var(--p)}
 .groups button.gb{background:#ECECEE;border-color:#8E8E93;color:#3A3A3C}
 text{font-family:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+/* 학습지 쪽: 그 쪽 부분만 */
+.page .bar{display:none}
+.page4 #plist{grid-template-columns:repeat(4,1fr)}
+.plain .chartbox>.seg,.plain #groups{display:none}
+.plain .chartbox svg{cursor:default}
 @media (max-width:480px){#plist{grid-template-columns:repeat(4,1fr)}.v1main{flex-direction:column}.card{min-width:0}#v2{flex-direction:column}.tbl{width:auto;flex-direction:row;flex-wrap:wrap}}
 </style>
 </head>
@@ -112,10 +117,13 @@ const init=Object.assign({tab:1,metric:'radius',planet:'mercury'},window.SIM_INI
    8쪽: 반지름 기준선을 1배·3배에 놓기 / 9쪽: 질량 기준선을 1배·14.5배에 놓기 */
 const inFrame=window.parent!==window;
 const tell=d=>{if(inFrame)window.parent.postMessage(d,'*');};
-const GOAL=inFrame?({'6':{cards:['mercury','mars']},'7':{cards:['jupiter','uranus']},
-  '8':{graph:'radius'},'9':{graph:'mass'}})[String(init.ws||'')]||null:null;
-if(GOAL&&GOAL.cards){init.tab=1;init.planet=GOAL.cards[0];}
-if(GOAL&&GOAL.graph){init.tab=2;init.metric=GOAL.graph;}
+const GOAL=inFrame?({'6':{cards:['mercury','mars']},'7':{cards:['jupiter','uranus']}})[String(init.ws||'')]||null:null;
+/* 학습지 쪽에서는 그 쪽 부분만 보인다: 6쪽 수성~화성 카드, 7쪽 목성~해왕성 카드, 8·9쪽 그래프만(기준선·나누기 없이, 칸 잠금 없음) */
+const PAGE=({'6':{cards:['mercury','venus','earth','mars']},'7':{cards:['jupiter','saturn','uranus','neptune']},
+  '8':{graph:'radius'},'9':{graph:'mass'}})[String(init.ws||'')]||null;
+const PLAIN=!!(PAGE&&PAGE.graph);
+if(PAGE){document.body.classList.add('page');if(PAGE.cards){init.tab=1;init.planet=GOAL?GOAL.cards[0]:PAGE.cards[0];document.body.classList.add('page4');}
+  else{init.tab=2;init.metric=PAGE.graph;document.body.classList.add('plain');}}
 const seen=new Set();let goalSent=false;
 function goalTell(n){if(!GOAL||goalSent)return;const total=GOAL.cards?GOAL.cards.length:2;
   tell({type:'sim:progress',n:Math.min(n,total),total});if(n>=total){goalSent=true;tell({type:'sim:done'});}}
@@ -124,7 +132,7 @@ function sawCard(k){if(!GOAL||!GOAL.cards||!GOAL.cards.includes(k))return;
 /* 그래프 쪽: 기준선을 문항의 값에 놓아 본 수 */
 const MARKS={radius:[1,3],mass:[1,14.5]},hit={radius:new Set(),mass:new Set()};
 function lineAt(m,v){if(!MARKS[m].includes(v))return;hit[m].add(v);if(GOAL&&GOAL.graph===m)goalTell(hit[m].size);}
-let speed=0.5,active=true;
+let speed=PAGE?1:0.5,active=true;
 const KEY='sim712_v1';
 let st={radius:{},mass:{},groups:{}};
 function load(){try{const s=JSON.parse(localStorage.getItem(KEY)||'null');if(s)st=Object.assign({radius:{},mass:{},groups:{}},s);}catch(e){}}
@@ -176,7 +184,7 @@ function ringPath(p,back){
 /* ---------- 1. 행성 카드 ---------- */
 const s1=document.getElementById('s1'),card=document.getElementById('card'),plist=document.getElementById('plist');
 const U=150/11.2;let curR=init.planet?null:0,sel=null,showCmp=true,uid=0;
-P.forEach(p=>{const b=document.createElement('button');b.textContent=p.n;b.dataset.k=p.k;b.onclick=()=>pick(p.k);plist.appendChild(b);});
+(PAGE&&PAGE.cards?P.filter(p=>PAGE.cards.includes(p.k)):P).forEach(p=>{const b=document.createElement('button');b.textContent=p.n;b.dataset.k=p.k;b.onclick=()=>pick(p.k);plist.appendChild(b);});
 const sky=el('g',{},s1);for(let i=0;i<60;i++)el('circle',{cx:(i*137)%640,cy:(i*71)%380,r:i%7?0.8:1.4,fill:'#fff',opacity:.5},sky);
 const cmpG=el('g',{},s1);
 el('circle',{cx:40,cy:190,r:U,fill:'#3B78C4',stroke:'#fff','stroke-dasharray':'3 3','stroke-width':1.2},cmpG);
@@ -242,10 +250,11 @@ function drawChart(){
   el('line',{x1:X0,x2:X0,y1:Y1-4,y2:Y0,stroke:'#1D1D1F'},s2);
   const t=el('text',{x:18,y:(Y0+Y1)/2,'text-anchor':'middle','font-size':18,fill:'#1D1D1F',transform:`rotate(-90 18 ${(Y0+Y1)/2})`},s2);t.textContent=ax.name;
   P.forEach((p,i)=>{const cx=X0+i*CW+CW/2;const v=shown[metric][p.k]||0;const y=Y(v);
-    if(v>0)el('rect',{x:cx-BW/2,y:y,width:BW,height:Y0-y,fill:trueV(p)>=th[metric]-1e-9?'#0066CC':'#B8B8BD'},s2);
+    if(v>0)el('rect',{x:cx-BW/2,y:y,width:BW,height:Y0-y,fill:PLAIN||trueV(p)>=th[metric]-1e-9?'#0066CC':'#B8B8BD'},s2);
     if(v>ym){el('path',{d:`M${cx-BW/2-3},${Y1+8} l${BW/3+1},-6 l${BW/3+1},6 l${BW/3+1},-6`,fill:'none',stroke:'#fff','stroke-width':4},s2);}
     const sv=st[metric][p.k];if(v>0&&sv&&Math.abs(v-val(p))<1e-9)el('text',{x:cx,y:Math.max(y-6,Y1+(v>ym?24:4)),'text-anchor':'middle','font-size':19,'font-weight':600,fill:v>ym?'#fff':'#1D1D1F'},s2).textContent=sv;
     el('text',{x:cx,y:Y0+26,'text-anchor':'middle','font-size':19,fill:'#1D1D1F'},s2).textContent=p.n;});
+  if(PLAIN)return;
   const t0=th[metric],ty=Y(t0);
   el('line',{x1:X0,x2:X1,y1:ty,y2:ty,stroke:'#FF9500','stroke-width':3,'stroke-dasharray':'10 6'},s2);
   const tag=el('g',{transform:`translate(${X1-4},${ty})`},s2);el('rect',{x:-118,y:-15,width:118,height:30,rx:15,fill:'#FF9500'},tag);
@@ -260,7 +269,7 @@ function setTh(v,snap){const ax=ymaxCur,st0=thStep();v=Math.max(0,Math.min(ax,v)
   v=best?best.v:Math.round(v/st0)*st0;th[metric]=+v.toFixed(2);lineAt(metric,th[metric]);drawChart();}
 function svgPt(e){const pt=s2.createSVGPoint();pt.x=e.clientX;pt.y=e.clientY;return pt.matrixTransform(s2.getScreenCTM().inverse());}
 let thDrag=false;
-s2.addEventListener('pointerdown',e=>{e.preventDefault();try{s2.setPointerCapture(e.pointerId);}catch(_){}thDrag=true;const q=svgPt(e);setTh((Y0-q.y)/(Y0-Y1)*ymaxCur,true);});
+s2.addEventListener('pointerdown',e=>{if(PLAIN)return;e.preventDefault();try{s2.setPointerCapture(e.pointerId);}catch(_){}thDrag=true;const q=svgPt(e);setTh((Y0-q.y)/(Y0-Y1)*ymaxCur,true);});
 s2.addEventListener('pointermove',e=>{if(!thDrag)return;const q=svgPt(e);setTh((Y0-q.y)/(Y0-Y1)*ymaxCur,true);});
 s2.addEventListener('pointerup',()=>thDrag=false);s2.addEventListener('pointercancel',()=>thDrag=false);
 document.getElementById('thm').onclick=()=>setTh(th[metric]-thStep(),false);
@@ -296,7 +305,7 @@ if(window.parent!==window)document.addEventListener('keydown',e=>{if(/INPUT|TEXT
   if(['ArrowLeft','ArrowRight','PageUp','PageDown',' ','Home','End','a','A','g','G','f','F'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
 setTab(init.tab===2?2:1);buildGroups();setMetric(metric);
 document.querySelector('[data-tab="2"]').addEventListener('click',growAll);
-if(init.tab===2)growAll();
+if(init.tab===2&&!PLAIN)growAll();
 if(inFrame){tell({type:'sim:gate',parts:!!(GOAL&&GOAL.cards)});if(GOAL)goalTell(0);else tell({type:'sim:done'});}
 curR=0;pick(init.planet||'mercury');
 })();

@@ -11,105 +11,85 @@
 :root{--font:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:light}
 *{box-sizing:border-box}
 html,body{margin:0;height:100%;background:#fff;font-family:var(--font);color:#1D1D1F;word-break:keep-all}
-.motion{height:100%;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:0}
-.motion svg{display:block;flex:1;width:100%;min-height:0;border-radius:16px}
-.mc{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
+.wrap{height:100%;padding:10px;display:flex;flex-direction:column;gap:10px;min-height:0}
+.wrap svg{display:block;flex:1;width:100%;min-height:0;border-radius:16px;touch-action:none;user-select:none;-webkit-user-select:none}
+.mc{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:none}
 .sl-btn{font:700 16px var(--font);color:#0066CC;background:#fff;border:1.5px solid #0066CC;border-radius:999px;padding:6px 14px;cursor:pointer;min-height:44px;touch-action:manipulation}
 .sl-btn:active{background:#E8F1FB}
-.sl-btn:disabled{opacity:.35;cursor:not-allowed;background:#fff}
-.sl-seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden;background:#fff}
-.sl-seg .sl-btn{border:0;border-radius:0;color:#515154;padding:6px 13px}
-.sl-seg .sl-btn.on{background:#0066CC;color:#fff}
+.sl-btn.on{background:#0066CC;color:#fff}
+.sl-btn.ok::after{content:" ✓"}
 .mc .st{margin-left:auto;font-size:15px;font-weight:700;color:#6E6E73}
 svg text{font-family:var(--font)}
-/* 학습지에서는 ◀ ▶로만 한 단계씩 */
-.mc [data-a="play"]{display:none}
+#hd{cursor:ew-resize}
 </style>
 </head>
 <body>
-<div class="motion" id="m5"></div>
+<div class="wrap">
+  <div class="mc" id="plist"></div>
+  <svg id="s" viewBox="0 0 600 330" role="img" aria-label="지구 반지름 자로 행성 반지름 재기"></svg>
+  <div class="mc"><button class="sl-btn" id="minus" aria-label="자 줄이기">−</button><button class="sl-btn" id="plus" aria-label="자 늘이기">+</button><span class="st" id="st"></span></div>
+</div>
 <script>
-/* 수업자료 lessons/712.html의 움직임과 같은 코드 — 재생 중에는 다음 단계로 넘어가지 않는다 */
+/* 지구 반지름(=1) 자를 끌어 늘여 행성 반지름 막대 끝에 맞추면 지구의 몇 배인지 나온다 */
 (function(){
 'use strict';
 const NS='http://www.w3.org/2000/svg';
-const ID='m5';
-const RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
-const motions={};let raf=0,last=0;
-const ease=t=>t<.5?4*t*t*t:1-Math.pow(-2*t+2,3)/2;
-const cl=t=>t<0?0:t>1?1:t;
-const seg=(t,a,b)=>ease(cl((t-a)/(b-a)));
 const el=(t,a,p)=>{const e=document.createElementNS(NS,t);for(const k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;};
 function T(p,x,y,str,a){const e=el('text',Object.assign({x,y,'font-size':18,fill:'#1D1D1F','font-weight':700},a||{}),p);e.textContent=str;return e;}
-/* 포털 학습지 칸 잠금: 학습지 안(iframe)이면 시작({type:'sim:gate'})·단계·끝(sim:done)을 부모 창에 알린다 */
+/* 포털 학습지 칸 잠금: 행성 2개를 재면 끝(sim:done) */
 const tell=d=>{if(window.parent!==window)window.parent.postMessage(d,'*');};
-function makeMotion(id,vb,steps,build){
-  const box=document.getElementById(id);
-  const svg=el('svg',{viewBox:vb,role:'img'},box);
-  const bar=document.createElement('div');bar.className='mc';
-  bar.innerHTML=`<span class="sl-seg"><button class="sl-btn" data-s="0.6">느리게</button><button class="sl-btn on" data-s="1">보통</button><button class="sl-btn" data-s="1.8">빠르게</button></span>
-   <button class="sl-btn" data-a="prev">◀</button><button class="sl-btn" data-a="play">재생</button><button class="sl-btn" data-a="next">▶</button><button class="sl-btn" data-a="reset">처음부터</button><span class="st"></span>`;
-  box.appendChild(bar);
-  const m={p:0,target:0,playing:false,speed:1,steps,svg,bar,N:steps.length};
-  m.render=build(svg);
-  bar.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;b.blur();
-    if(b.dataset.s){m.speed=+b.dataset.s;bar.querySelectorAll('[data-s]').forEach(x=>x.classList.toggle('on',x===b));return;}
-    ({prev:()=>prev(m),next:()=>next(m),play:()=>toggle(m),reset:()=>{m.playing=false;m.p=m.target=0;draw(m);}})[b.dataset.a]();});
-  motions[id]=m;tell({type:'sim:gate'});draw(m);return m;}
-function draw(m){m.render(m.p);const n=Math.min(m.N,Math.floor(m.p+1e-6));m.bar.querySelector('.st').textContent=`${n} / ${m.N}단계`;
-  if(n!==m.told){m.told=n;tell({type:'sim:progress',n:m.sent?m.N:n,total:m.N});}
-  if(n>=m.N&&!m.sent){m.sent=true;tell({type:'sim:done'});}
-  m.bar.querySelector('[data-a="play"]').textContent=m.playing?'일시정지':(m.p>=m.N?'다시 재생':'재생');
-  m.bar.querySelector('[data-a="prev"]').disabled=m.playing||m.p<=0;m.bar.querySelector('[data-a="next"]').disabled=m.playing||m.p>=m.N;}
-function play(m){m.playing=true;if(RED){m.p=m.target;m.playing=false;draw(m);return;}if(!raf){last=0;raf=requestAnimationFrame(loop);}draw(m);}
-/* 재생 중에는 단계를 넘기거나 건너뛸 수 없다 — 멈춘 단계는 이어서 재생 */
-function next(m){if(m.playing)return;if(m.p<m.target){play(m);return;}if(m.p<m.N){m.target=Math.floor(m.p+1e-6)+1;play(m);}}
-function prev(m){if(m.playing)return;m.p=m.target=Math.max(0,Math.ceil(m.p-1e-6)-1);draw(m);}
-function toggle(m){if(m.playing){m.playing=false;draw(m);return;}if(m.p>=m.N){m.p=0;}m.target=m.N;play(m);}
-function curMotion(){return motions[ID]||null;}
-function loop(now){const m=curMotion();if(!m||!m.playing){raf=0;return;}
-  const dt=last?Math.min(50,now-last):16;last=now;
-  const i=Math.min(Math.floor(m.p),m.N-1);m.p+=dt*m.speed/m.steps[i];
-  if(m.p>=m.target){m.p=m.target;m.playing=false;}
-  draw(m);raf=m.playing?requestAnimationFrame(loop):0;}
-
-/* 탐사선 */
-function probe(p){const g=el('g',{},p);
-  el('rect',{x:-26,y:-6,width:12,height:5,fill:'#5B8FD6'},g);el('rect',{x:14,y:-6,width:12,height:5,fill:'#5B8FD6'},g);
-  el('path',{d:'M-14,8 L-22,24 M14,8 L22,24 M-26,24 h8 M18,24 h8',stroke:'#E6E6EA','stroke-width':3,fill:'none'},g);
-  el('rect',{x:-14,y:-12,width:28,height:22,rx:5,fill:'#E6E6EA'},g);el('circle',{cx:0,cy:-1,r:6,fill:'#2997FF'},g);return g;}
-
-
-makeMotion('m5','0 0 600 330',[1600,2400,3600],svg=>{
-  const x0=24,U=48,Ye=58,Ym=146,Yj=244,H=24;
-  el('rect',{x:0,y:0,width:600,height:330,rx:14,fill:'#F5F5F7'},svg);
-  T(svg,x0,Ye-10,'지구',{'font-size':18,'font-weight':600});T(svg,x0,Ym-10,'수성',{'font-size':18,'font-weight':600});
-  const jn=T(svg,x0,Yj-10,'목성',{'font-size':18,'font-weight':600});
-  const be=el('rect',{x:x0,y:Ye,height:H,fill:'#0066CC'},svg),bm=el('rect',{x:x0,y:Ym,height:H,fill:'#8E8E93'},svg);
-  const ke=T(svg,x0+U+10,Ye+19,'6371 km',{'font-size':18}),km=T(svg,x0+.38*U+10,Ym+19,'2400 km',{'font-size':18});
-  const one=T(svg,x0+U+10,Ye+19,'= 1 (기준)',{'font-size':19,'font-weight':600,fill:'#0066CC'});
-  const ruler=el('rect',{x:x0,width:U,height:H,fill:'none',stroke:'#0066CC','stroke-width':3,'stroke-dasharray':'5 3'},svg);
-  const rm=T(svg,x0+U+10,Ym+19,'2400 ÷ 6371 ≈ 0.38배',{'font-size':19,'font-weight':600,fill:'#0066CC'});
-  const jo=el('rect',{x:x0,y:Yj,width:11.2*U,height:H,fill:'none',stroke:'#8E8E93','stroke-width':1.5},svg);
-  const units=[];for(let k=0;k<12;k++){const w=k<11?U:.2*U;units.push(el('rect',{x:x0+k*U+1,y:Yj+2,width:w-2,height:H-4,fill:'#0066CC',opacity:0},svg));}
-  const nums=[];for(let k=0;k<11;k++){nums.push(T(svg,x0+k*U+U/2,Yj+H+20,String(k+1),{'text-anchor':'middle','font-size':14,fill:'#7A7A7A',opacity:0}));}
-  const rj=T(svg,x0+11.2*U,Yj+H+46,'지구 반지름 11개와 0.2개 → 지구의 약 11.2배',{'text-anchor':'end','font-size':19,'font-weight':600,fill:'#0066CC'});
-  return p=>{const a=cl(p),b=cl(p-1),c=cl(p-2);
-    be.setAttribute('width',U*seg(a,0,.6));bm.setAttribute('width',.38*U*seg(a,0,.6));
-    ke.setAttribute('opacity',seg(a,.6,1)*(1-seg(b,0,.2)));km.setAttribute('opacity',seg(a,.6,1)*(1-seg(b,.6,.75)));
-    one.setAttribute('opacity',seg(b,0,.25));
-    ruler.setAttribute('opacity',b>0?1:0);ruler.setAttribute('y',Ye+(Ym-Ye)*seg(b,.15,.6));
-    rm.setAttribute('opacity',seg(b,.7,1));
-    jn.setAttribute('opacity',c>0?1:0);jo.setAttribute('opacity',seg(c,0,.08));
-    units.forEach((u,k)=>u.setAttribute('opacity',.85*seg(c,.08+k*.065,.08+k*.065+.05)));
-    nums.forEach((u,k)=>u.setAttribute('opacity',seg(c,.08+k*.065,.08+k*.065+.05)));
-    rj.setAttribute('opacity',seg(c,.9,1));};
-});
-
-
-document.addEventListener('keydown',e=>{const m=curMotion();if(!m)return;
-  if(['ArrowRight','PageDown',' '].includes(e.key)){e.preventDefault();next(m);}
-  else if(['ArrowLeft','PageUp'].includes(e.key)){e.preventDefault();prev(m);}});
+/* [이름, 반지름 km, 지구의 배, 화면에서 지구 1의 길이, 자 한 칸] */
+const P=[['수성',2400,.38,440,.01],['화성',3390,.53,440,.01],['목성',71500,11.2,46,.1]];
+const x0=30,Ye=62,Yp=150,Yr=220,H=26;
+const svg=document.getElementById('s'),plist=document.getElementById('plist'),st=document.getElementById('st');
+const got={};let cur=0,v=1,done=false;
+P.forEach((q,i)=>{const b=document.createElement('button');b.className='sl-btn';b.textContent=q[0];b.onclick=()=>pick(i);plist.appendChild(b);});
+el('rect',{x:0,y:0,width:600,height:330,rx:14,fill:'#F5F5F7'},svg);
+T(svg,x0,Ye-10,'지구 반지름 6371 km = 1 (기준)',{'font-size':17,'font-weight':600,fill:'#0066CC'});
+const be=el('rect',{x:x0,y:Ye,height:H,fill:'#0066CC'},svg);
+const pn=T(svg,x0,Yp-10,'',{'font-size':17,'font-weight':600});
+const bp=el('rect',{x:x0,y:Yp,height:H,fill:'#8E8E93'},svg);
+const pend=el('line',{y1:Yp-6,y2:Yr+H+6,stroke:'#8E8E93','stroke-width':1.5,'stroke-dasharray':'4 4'},svg);
+T(svg,x0,Yr-10,'지구 반지름 자',{'font-size':17,'font-weight':600,fill:'#0066CC'});
+const ruler=el('g',{},svg);
+const hd=el('g',{id:'hd'},svg);el('rect',{x:-14,y:Yr-14,width:28,height:H+28,rx:10,fill:'#0066CC'},hd);
+el('path',{d:`M-4,${Yr+6} l-5,7 l5,7 M4,${Yr+6} l5,7 l-5,7`,stroke:'#fff','stroke-width':2.5,fill:'none'},hd);
+el('rect',{x:-30,y:Yr-24,width:60,height:H+48,fill:'transparent'},hd);
+const rv=T(svg,x0,Yr+H+36,'',{'font-size':20,'font-weight':600,fill:'#0066CC'});
+const res=T(svg,x0,Yr+H+66,'',{'font-size':19,'font-weight':600,fill:'#1E8E3E'});
+function U(){return P[cur][3];}
+function pick(i){cur=i;const q=P[i];plist.querySelectorAll('button').forEach((b,k)=>b.classList.toggle('on',k===i));
+  be.setAttribute('width',U());pn.textContent=`${q[0]} 반지름 ${q[1].toLocaleString('ko-KR')} km`;
+  bp.setAttribute('width',q[2]*U());pend.setAttribute('x1',x0+q[2]*U());pend.setAttribute('x2',x0+q[2]*U());
+  v=got[i]?q[2]:(q[2]<1?.2:3);draw();}
+const r2=x=>Math.round(x*100)/100;
+function draw(){const q=P[cur],u=U(),ok=Math.abs(v-q[2])<1e-9;
+  ruler.innerHTML='';const n=Math.floor(v+1e-9);
+  for(let k=0;k<=n;k++){const w=Math.min(1,v-k)*u;if(w<=0)break;
+    el('rect',{x:x0+k*u,y:Yr,width:w,height:H,fill:k%2?'#5B9BE0':'#0066CC'},ruler);
+    if(w>=u-1e-6&&u>=30)T(ruler,x0+k*u+u/2,Yr+19,String(k+1),{'text-anchor':'middle','font-size':14,fill:'#fff'});}
+  if(u>200)for(let t=1;t<10;t++){const tx=x0+t*u/10;if(tx<x0+v*u)el('line',{x1:tx,x2:tx,y1:Yr+H-7,y2:Yr+H,stroke:'#fff','stroke-width':1.2},ruler);}
+  hd.setAttribute('transform',`translate(${x0+v*u},0)`);
+  const vs=q[4]<.1?v.toFixed(2):v.toFixed(1);
+  rv.textContent=`지구의 ${vs}배 → ${vs} × 6371 ≈ ${Math.round(v*6371).toLocaleString('ko-KR')} km`;
+  res.textContent=ok?`${q[1].toLocaleString('ko-KR')} ÷ 6371 ≈ ${q[2]}배 — ${q[2]<1?'지구보다 작다':'지구보다 크다'}`:'';
+  if(ok&&!got[cur]){got[cur]=1;plist.children[cur].classList.add('ok');const n2=Object.keys(got).length;tell({type:'sim:progress',n:Math.min(n2,2),total:2});
+    if(n2>=2&&!done){done=true;tell({type:'sim:done'});}}
+  st.textContent=`잰 행성 ${Object.keys(got).length} / ${P.length}`;}
+/* 자 길이: 칸 단위로 맞추고, 정답 가까이(지구 1의 3%) 오면 행성 반지름에 붙는다 */
+function setV(nv){const q=P[cur];const max=q[2]<1?1.2:12.5;nv=Math.max(q[4],Math.min(max,Math.round(nv/q[4])*q[4]));
+  if(Math.abs(nv-q[2])<=Math.max(q[4],.03*q[2]))nv=q[2];v=r2(nv);draw();}
+let drag=false;
+function svgX(e){const r=svg.getBoundingClientRect();const s=Math.min(r.width/600,r.height/330);return (e.clientX-r.left-(r.width-600*s)/2)/s;}
+hd.addEventListener('pointerdown',e=>{e.preventDefault();try{hd.setPointerCapture(e.pointerId);}catch(_){}drag=true;});
+hd.addEventListener('pointermove',e=>{if(drag)setV((svgX(e)-x0)/U());});
+const up=()=>{drag=false;};hd.addEventListener('pointerup',up);hd.addEventListener('pointercancel',up);
+svg.addEventListener('pointerdown',e=>{if(e.target.closest('#hd'))return;setV((svgX(e)-x0)/U());});
+document.getElementById('minus').onclick=()=>setV(v-P[cur][4]);
+document.getElementById('plus').onclick=()=>setV(v+P[cur][4]);
+document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();setV(v+P[cur][4]);}else if(e.key==='ArrowLeft'){e.preventDefault();setV(v-P[cur][4]);}});
+tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:2});
+pick(0);
 })();
 </script>
 </body>

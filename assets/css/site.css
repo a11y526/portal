@@ -1197,6 +1197,13 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-side { position: sticky; top: 16px; height: calc(100vh - 32px); min-height: 480px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
 .ws-side .ws-sim-frame { flex: 1; min-height: 0; aspect-ratio: auto; margin-top: 0; border: 1.5px solid rgba(78,88,104,.22); }
 .ws-side-nums { display: flex; gap: 6px; }
+/* 쓸 칸이 없는 쪽: 제목 → 큰 시뮬레이션 → 쪽 번호 순으로 한 줄로 */
+.ws-card.has-side.sim-only { display: flex; flex-direction: column; }
+.ws-card.sim-only .ws-main { display: contents; }
+.ws-card.sim-only .ws-head, .ws-card.sim-only .ws-group, .ws-card.sim-only #ws-login, .ws-card.sim-only .ws-page { order: 1; }
+.ws-card.sim-only .ws-side { order: 2; position: static; width: 100%; height: calc(100vh - 230px); min-height: 520px; }
+.ws-card.sim-only .ws-nav { order: 3; }
+.ws-card.sim-only .ws-foot { order: 4; }
 .ws-gate { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; padding: 12px 16px; border-radius: 16px;
   background: var(--accent-tint); border: 1.5px solid var(--accent); color: var(--accent); }
 .ws-gate.is-open { background: var(--passed-bg); border-color: var(--passed-solid); color: var(--passed-fg); animation: ws-gate-in .4s var(--ease); }

@@ -114,6 +114,9 @@ table.mini .bl{min-width:52px;margin:0 2px}
 .simpage .qs .card.q{font-size:18px!important;padding:9px 14px!important;line-height:1.45}
 .simpage .qs .qnum{width:28px;height:28px;font-size:15px}
 .simpage .qs .choice span{font-size:17px;padding:0 10px}
+.split:has(>#m11.zoom){transform:none!important;animation:none!important}#m11.zoom{position:absolute;inset:40px 72px 22px;z-index:30;background:var(--canvas);height:auto}#m11.zoom svg{cursor:zoom-out!important}
+#m11~.stack .choice span{font-size:17px;padding:0 10px}
+#m11~.stack .rulebar{padding:10px 16px;gap:12px}#m11~.stack .rulebar .t{font-size:18px;line-height:1.4}
 
 .simbox{border:1px solid var(--hairline);border-radius:16px;overflow:hidden;background:#fff;height:100%;min-height:0}
 .simbox iframe{border:0;width:100%;height:100%;display:block}
@@ -148,6 +151,19 @@ svg text{font-family:var(--font)}
 @keyframes pop{0%{transform:scale(.96);opacity:0}100%{transform:none;opacity:1}}
 .choice span.right.on{animation:pop .35s ease-out}
 @media (prefers-reduced-motion:reduce){.slide.active > .sub ~ *,.bl.on,.choice span.right.on{animation:none}}
+
+.hs13{position:relative;flex:0 1 auto;min-height:0}
+.motion .hs13 svg{max-height:none}
+.hs13-spot{cursor:pointer;outline:none}
+.hs13-ring{transform-box:fill-box;transform-origin:center;animation:hs13p 1.6s ease-in-out infinite}
+@keyframes hs13p{0%,100%{transform:scale(1);opacity:1}50%{transform:scale(1.15);opacity:.5}}
+.hs13-spot.seen .hs13-ring{stroke:#30D158}
+.hs13-spot.on .hs13-ring{animation:none;opacity:0}
+.hs13-card{position:absolute;top:10px;right:10px;width:57%;background:rgba(255,255,255,.95);border-radius:12px;padding:8px 12px;font-size:14px;line-height:1.45;color:var(--ink);box-shadow:0 4px 14px rgba(0,0,0,.35)}
+.hs13-card>b{display:block;font-size:17px;color:var(--primary);margin-bottom:2px}
+.hs13-card p{margin:3px 0 0}
+.hs13-card span{display:inline-block;font-size:12px;font-weight:700;color:#fff;background:#D70015;border-radius:999px;padding:0 7px;margin-right:5px}
+.hs13-card p+p span{background:var(--primary)}
 </style>
 
 <style>
@@ -304,15 +320,14 @@ table.rule.tight .bl{min-width:60px}
 
 <section class="slide has-ws" data-title="1859년 캐링턴 사건">
 <button class="reveal">답 보기</button><div class="top"><span class="chapter">활동 3 · 과거의 피해 사례</span><span class="ws">학습지 구역 4</span></div><h1>1859년, 17시간 뒤 지구에서는?</h1><p class="sub">태양 활동이 활발해지면 많은 양의 에너지와 물질이 지구로 날아온다. 실제로 있었던 일을 살펴보자.</p>
-  <div class="split" style="grid-template-columns:.85fr 1.15fr;gap:18px;align-items:stretch">
+  <div class="split" style="grid-template-columns:1.2fr 1fr;gap:18px;align-items:stretch">
     <div class="motion" id="m11"></div>
     <div class="stack" style="gap:10px;justify-content:center">
-      <div class="card q pred" style="font-size:19px;padding:10px 16px"><span class="tag b">예상</span>밝은 빛이 번쩍이고 약 17시간 뒤, 지구에서는? <span style="font-size:15px;color:var(--muted)">(여러 개)</span> <span class="choice"><span>아무 일도 없었다</span><span>밤하늘이 밝게 빛났다</span><span>통신 장치가 고장 났다</span></span></div>
+      <div class="card q pred" style="font-size:17px;padding:8px 14px"><span class="tag b">예상</span>밝은 빛이 번쩍이고 약 17시간 뒤, 지구에서는? <span style="font-size:15px;color:var(--muted)">(여러 개)</span> <span class="choice"><span>아무 일도 없었다</span><span>밤하늘이 밝게 빛났다</span><span>통신 장치가 고장 났다</span></span></div>
       <div class="ans ans-box plain" style="margin-top:0;font-size:16px;padding:8px 14px">밤하늘이 밝게 빛났고(오로라), 통신 장치(전신기)가 고장 났다.<br><span style="font-size:14.5px;font-weight:500"><b>오로라</b>: 북극 또는 남극 근처에서 태양에서 온 입자에 의해 대기가 빛을 내는 현상</span></div>
-      <table class="rule tight" style="font-size:17px">
-        <tr><th style="width:170px">날짜</th><th>영향과 피해</th></tr>
+      <table class="rule tight" style="font-size:16px">
+        <tr><th style="width:110px">날짜</th><th>영향과 피해</th></tr>
         <tr><td>1859. 9. 1.<br>캐링턴 사건</td><td>세계 곳곳에서 밝은 <span class="bl">오로라</span>가 관측되고, 지구 자기장이 요동쳤으며 <span class="bl">전신기</span>가 고장 났다.</td></tr>
-        <tr><td>1989. 3. 10.<br>퀘벡주 정전 사태</td><td>캐나다 퀘벡주의 <span class="bl">전력</span> 시설에 장애가 생겨 9시간 동안 대규모 <span class="bl">정전</span>이 일어났다.</td></tr>
       </table>
       <div class="rulebar"><span class="pill">그런데</span><span class="t">1859년엔 전기 기계가 전신기 정도였다. <b>오늘날</b>이라면?</span></div>
     </div>
@@ -582,13 +597,17 @@ makeMotion('m7','0 0 600 340',[2400,2600],(svg)=>{
 });
 
 /* ---------- 10쪽: 캐링턴 사건 ---------- */
-makeMotion('m11','0 0 600 450',[1600,2600,2800],(svg)=>{
-  el('rect',{x:0,y:0,width:600,height:450,rx:14,fill:'#F5F5F7'},svg);
+makeMotion('m11','0 0 600 430',[1600,2600,2800],(svg,m)=>{
+  el('rect',{x:0,y:0,width:600,height:430,rx:14,fill:'#F5F5F7'},svg);
   function panel(k,x,y,w,h){const g=el('g',{},svg);img(g,k,x,y,w,h);el('rect',{x,y,width:w,height:h,fill:'none',stroke:'#1D1D1F','stroke-width':2},g);return g;}
   const P1=panel('p1',15,8,300,234),P4=panel('p4',331,8,254,234);
   const fl=pill(svg,458,214,'플레어',18,'#FF3B30');
-  const P3=panel('p3',47,298,176,150),P5=panel('p5',233,298,97,150),P6=panel('p6',340,298,211,150);
-  const cap=T(svg,300,276,'',{'text-anchor':'middle','font-size':19});
+  const P3=panel('p3',47,276,176,150),P5=panel('p5',233,276,97,150),P6=panel('p6',340,276,211,150);
+  const cap=T(svg,300,265,'',{'text-anchor':'middle','font-size':19});
+  const box=svg.parentNode,zb=document.createElement('button');zb.className='sl-btn';zb.dataset.x='1';zb.textContent='크게 보기';
+  const zoom=on=>{box.classList.toggle('zoom',on);zb.textContent=on?'작게 보기':'크게 보기';zb.classList.toggle('on',on);};
+  zb.onclick=()=>{zoom(!box.classList.contains('zoom'));zb.blur();};svg.style.cursor='zoom-in';svg.addEventListener('click',()=>zoom(!box.classList.contains('zoom')));
+  m.bar.insertBefore(zb,m.bar.querySelector('.st'));
   const C=['1859년 8월 30일 · 흑점이 무척 많아졌다','9월 1일 11시경 · 흑점 사이에서 무엇인가 밝게 빛났다','약 17시간 뒤, 지구에서는 …?','밝은 오로라 · 전신기 고장 · 지구 자기장 요동'];
   return p=>{const a=cl(p),b=cl(p-1),c=cl(p-2);
     P1.setAttribute('opacity',seg(a,0,.5));P4.setAttribute('opacity',seg(b,0,.35));
@@ -597,34 +616,123 @@ makeMotion('m11','0 0 600 450',[1600,2600,2800],(svg)=>{
 });
 
 /* ---------- 11쪽: 오늘날 태양 활동이 지구에 미치는 영향 ---------- */
-makeMotion('m13','0 0 1200 1123',[2200,2600,3200,2200],(svg,m)=>{
-  const d=el('defs',{},svg);const c=el('clipPath',{id:'c13'},d);el('rect',{x:0,y:0,width:1200,height:1123,rx:30},c);
+/* m13: 그림 속 비행기·인공위성·내비게이션·송전탑을 눌러 태양 활동의 영향 보기 */
+(function(){
+  const box=document.getElementById('m13');if(!box)return;
+  const wrap=document.createElement('div');wrap.className='hs13';box.appendChild(wrap);
+  const svg=el('svg',{viewBox:'0 0 1200 1123',role:'img','aria-label':'태양 활동이 지구에 미치는 영향 그림'},wrap);
+  const d=el('defs',{},svg);
+  el('rect',{x:0,y:0,width:1200,height:1123,rx:30},el('clipPath',{id:'c13'},d));
+  el('circle',{cx:1025,cy:462,r:128},el('clipPath',{id:'c13s'},d));
+  el('feGaussianBlur',{stdDeviation:16},el('filter',{id:'f13b',x:'-60%',y:'-60%',width:'220%',height:'220%'},d));
   const r=el('g',{'clip-path':'url(#c13)'},svg);img(r,'v8',0,0,1200,1123);
-  const ov=el('g',{},r);
-  const P=[];for(let i=0;i<46;i++)P.push({e:el('circle',{r:i%3?6:9,fill:i%4?'#FFB347':'#FFE08A',opacity:0},ov),dl:(i%12)/12*.5,ox:((i*61)%300)-150,oy:((i*37)%200)-100});
-  const au=el('ellipse',{cx:200,cy:640,rx:190,ry:95,fill:'#5CFF9D',opacity:0},ov);
-  const ring=(x,y,rr)=>el('circle',{cx:x,cy:y,r:rr,fill:'none',stroke:'#FF453A','stroke-width':8,opacity:0},ov);
-  const rA=ring(781,452,62),rP=ring(585,590,95),rS=ring(1023,455,120),rT=ring(890,700,70);
-  const gps=[[1000,480,600,590],[1000,480,502,795],[1000,480,906,980],[1000,480,340,795]].map(l=>el('line',{x1:l[0],y1:l[1],x2:l[2],y2:l[3],stroke:'#5AC8FA','stroke-width':6,'stroke-dasharray':'16 12',opacity:0},ov));
-  const sp=[[1050,735],[1125,745],[1000,450]].map(([x,y])=>{const g=el('g',{stroke:'#FFE066','stroke-width':6,'stroke-linecap':'round',opacity:0},ov);for(let k=0;k<6;k++){const an=k*Math.PI/3+.3;el('line',{x1:x+Math.cos(an)*14,y1:y+Math.sin(an)*14,x2:x+Math.cos(an)*40,y2:y+Math.sin(an)*40},g);}return g;});
-  const lead=(g,x1,y1,x2,y2)=>{const l=el('line',{x1,y1,x2,y2,stroke:'#fff','stroke-width':4},g);g.insertBefore(l,g.firstChild);return g;};
-  const F=46,L={au:pill(ov,30,500,'오로라가 자주 발생',F,'#0066CC','start'),ra:pill(ov,560,420,'방사선 노출',F,'#0066CC'),
-    sa:pill(ov,1185,295,'인공위성 궤도 이탈·부품 손상',42,'#0066CC','end'),gp:pill(ov,560,700,'GPS 통신 오류',F,'#0066CC'),
-    rd:lead(pill(ov,90,960,'장거리 무선 통신 두절',F,'#0066CC','start'),560,950,880,760),pw:lead(pill(ov,90,1065,'전력 시설 고장',F,'#0066CC','start'),400,1055,1060,790)};
-  let calm=false;
-  const tb=document.createElement('button');tb.className='sl-btn';tb.dataset.x='1';tb.textContent='평상시 보기';
-  tb.onclick=()=>{calm=!calm;tb.textContent=calm?'활발할 때 보기':'평상시 보기';tb.classList.toggle('on',calm);m.render(m.p);tb.blur();};
-  m.bar.insertBefore(tb,m.bar.querySelector('.st'));
-  return p=>{const a=cl(p),b=cl(p-1),cc=cl(p-2),dd=cl(p-3);
-    ov.setAttribute('opacity',calm?0:1);
-    P.forEach(o=>{const t=ease(cl((a-o.dl)/.5));o.e.setAttribute('cx',300+(650+o.ox-300)*t);o.e.setAttribute('cy',230+(560+o.oy-230)*t);o.e.setAttribute('opacity',a>o.dl?(1-.7*seg(b,0,.5)):0);});
-    au.setAttribute('opacity',b>0?.18+.14*Math.sin(b*12):0);L.au.setAttribute('opacity',seg(b,0,.3));
-    rA.setAttribute('opacity',seg(b,.35,.55));rP.setAttribute('opacity',seg(b,.45,.65));L.ra.setAttribute('opacity',seg(b,.55,.8));
-    rS.setAttribute('opacity',seg(cc,0,.2));sp[2].setAttribute('opacity',cc>0&&cc<.35?Math.abs(Math.sin(cc*40)):0);L.sa.setAttribute('opacity',seg(cc,.1,.3));
-    gps.forEach((g,i)=>g.setAttribute('opacity',cc>.35?(cc<1?.3+.7*Math.abs(Math.cos(cc*20+i)):.8):0));L.gp.setAttribute('opacity',seg(cc,.4,.6));
-    rT.setAttribute('opacity',seg(cc,.7,.85));L.rd.setAttribute('opacity',seg(cc,.75,.95));
-    sp[0].setAttribute('opacity',dd>0?(dd<1?Math.abs(Math.sin(dd*14)):1):0);sp[1].setAttribute('opacity',dd>.15?(dd<1?Math.abs(Math.cos(dd*12)):1):0);L.pw.setAttribute('opacity',seg(dd,.3,.6));};
-});
+  const fx=el('g',{},r),hot=el('g',{},r);
+  const op=(e,v)=>e.setAttribute('opacity',v);
+  const burst=(x,y,col)=>{const g=el('g',{stroke:col||'#FFE066','stroke-width':6,'stroke-linecap':'round',opacity:0},fx);
+    for(let k=0;k<8;k++){const an=k*Math.PI/4+.2;el('line',{x1:x+Math.cos(an)*14,y1:y+Math.sin(an)*14,x2:x+Math.cos(an)*42,y2:y+Math.sin(an)*42},g);}return g;};
+
+  /* 공통: 태양 폭발 → 입자가 대상까지 날아감 */
+  const SUN=[225,205];
+  const glow=el('circle',{cx:215,cy:195,r:120,fill:'#FFE29A',opacity:0,filter:'url(#f13b)'},fx);
+  const P=[];for(let i=0;i<40;i++)P.push({e:el('circle',{r:i%3?6:9,fill:i%4?'#FFB347':'#FFE08A',opacity:0},fx),dl:(i%10)/10*.45,ox:((i*61)%160)-80,oy:((i*37)%120)-60});
+
+  /* 비행기: 방사선 */
+  const PL=[569,598];
+  const plGlow=el('ellipse',{cx:PL[0],cy:PL[1],rx:150,ry:70,fill:'#FF453A',opacity:0,filter:'url(#f13b)'},fx);
+  const rays=[];for(let i=0;i<14;i++){const x=PL[0]-130+i*20;rays.push({e:el('line',{x1:x,y1:0,x2:x-14,y2:30,stroke:'#C6FF5A','stroke-width':5,'stroke-linecap':'round',opacity:0},fx),x,dl:(i*7%14)/14});}
+  const plTag=pill(fx,PL[0],PL[1]-95,'방사선 노출 ↑',40,'#D70015');
+
+  /* 인공위성: 부품 손상·궤도 이탈 */
+  const orbit=el('path',{d:'M600 360 Q1025 330 1200 420',fill:'none',stroke:'#fff','stroke-width':4,'stroke-dasharray':'14 12',opacity:0},fx);
+  const cover=el('ellipse',{cx:1025,cy:465,rx:140,ry:78,fill:'#0E0809',opacity:0,filter:'url(#f13b)'},fx);
+  const satG=el('g',{opacity:0},fx);img(satG,'v8',0,0,1200,1123,{'clip-path':'url(#c13s)'});
+  const satSp=[burst(950,440),burst(1110,470,'#FF9F0A')];
+  const satTag=pill(fx,1190,660,'부품 손상 · 궤도 이탈',40,'#D70015','end');
+
+  /* 내비게이션: GPS 오류 */
+  const CAR=[492,800];
+  const gps=[[700,240],[960,200],[1020,470]].map(([x,y])=>el('line',{x1:x,y1:y,x2:CAR[0],y2:CAR[1],stroke:'#5AC8FA','stroke-width':6,'stroke-dasharray':'16 12',opacity:0},fx));
+  const navG=el('g',{opacity:0},fx);
+  el('line',{x1:CAR[0],y1:CAR[1]+20,x2:420,y2:880,stroke:'#fff','stroke-width':4},navG);
+  el('rect',{x:150,y:870,width:330,height:220,rx:26,fill:'#1D1D1F'},navG);
+  el('rect',{x:166,y:886,width:298,height:188,rx:14,fill:'#EEF1F5'},navG);
+  [['M166 960 L464 940'],['M240 886 L270 1074'],['M166 1030 L464 1050'],['M380 886 L360 1074']].forEach(a=>el('path',{d:a[0],stroke:'#fff','stroke-width':14,fill:'none'},navG));
+  el('path',{d:'M200 1040 L262 1000 L262 950 L372 945 L368 900',stroke:'#0A84FF','stroke-width':8,fill:'none','stroke-linecap':'round','stroke-linejoin':'round'},navG);
+  const dot=el('circle',{cx:262,cy:1000,r:14,fill:'#0A84FF',stroke:'#fff','stroke-width':5},navG);
+  const err=el('g',{opacity:0},navG);el('rect',{x:182,y:896,width:266,height:44,rx:10,fill:'#D70015'},err);T(err,315,928,'GPS 신호 오류!',{'text-anchor':'middle','font-size':28,fill:'#fff'});
+  const navTag=pill(fx,CAR[0]+20,CAR[1]-80,'현재 위치를 못 찾아요',38,'#D70015');
+
+  /* 송전탑: 대규모 정전 */
+  const LIGHTS=[[887,760],[965,750],[985,817],[1064,836],[1143,826],[1162,902],[1083,883],[936,788],[1044,770],[1172,960],[860,820],[1120,930]];
+  const dark=el('rect',{x:0,y:0,width:1200,height:1123,fill:'#000',opacity:0},fx);
+  const lights=LIGHTS.map(([x,y],i)=>({e:el('circle',{cx:x,cy:y,r:9,fill:'#FFE066',stroke:'#fff','stroke-width':2,opacity:0},fx),dl:(i*5%12)/12}));
+  const wire=el('path',{d:'M960 790 L1043 742 L1118 752 L1200 770',fill:'none',stroke:'#FFE066','stroke-width':9,'stroke-linecap':'round','stroke-dasharray':'26 18',opacity:0},fx);
+  const pwSp=[burst(1043,742),burst(1118,752)];
+  const pwTag=pill(fx,1185,670,'대규모 정전',44,'#D70015','end');
+
+  const ALL=[glow,plGlow,plTag,orbit,cover,satG,satTag,navG,navTag,dark,wire,pwTag,...satSp,...pwSp,...gps];
+
+  const INFO={
+    plane:{n:'비행기',at:PL,a:'태양에서 날아온 높은 에너지 입자(<b>방사선</b>)가 대기 위쪽으로 많이 쏟아져요.',b:'높은 하늘, 특히 극지방 하늘을 나는 승무원과 승객이 방사선에 더 노출되어 항로를 바꾸기도 해요.'},
+    sat:{n:'인공위성',at:[1025,462],a:'강한 입자에 <b>부품이 손상</b>되거나, 부풀어 오른 대기에 부딪혀 <b>궤도를 벗어나요</b>.',b:'위성 방송·일기 예보·위성 통신이 끊길 수 있어요.'},
+    nav:{n:'내비게이션',at:CAR,a:'인공위성에서 오는 신호가 흔들려 <b>GPS 통신 오류</b>가 생겨요.',b:'현재 위치가 엉뚱하게 나와 길을 찾기 어려워요.'},
+    pow:{n:'송전탑',at:[1080,775],a:'지구 자기장이 크게 흔들려 전선에 강한 전류가 흐르고 <b>전력 시설이 고장</b> 나요.',b:'<b>대규모 정전</b>이 일어나요. (1989년 캐나다 퀘벡주 9시간 정전)'}};
+  const KEYS=Object.keys(INFO);
+
+  /* 누를 곳 표시 */
+  const HS={};
+  KEYS.forEach(k=>{const [x,y]=INFO[k].at;const g=el('g',{class:'hs13-spot',tabindex:0,role:'button','aria-label':INFO[k].n},hot);
+    el('circle',{cx:x,cy:y,r:84,fill:'transparent'},g);
+    el('circle',{class:'hs13-ring',cx:x,cy:y,r:66,fill:'rgba(255,255,255,.10)',stroke:'#fff','stroke-width':6},g);
+    const lb=pill(g,x,y+(k==='pow'?118:112),INFO[k].n,34,'#0066CC');
+    g.addEventListener('click',()=>pick(k));g.addEventListener('keydown',e=>{if(e.key==='Enter'){e.stopPropagation();pick(k);}});
+    HS[k]={g,lb};});
+
+  const card=document.createElement('div');card.className='hs13-card';wrap.appendChild(card);
+  const bar=document.createElement('div');bar.className='mc';box.appendChild(bar);
+  const rb=document.createElement('button');rb.className='sl-btn';rb.textContent='처음으로';rb.onclick=()=>{rb.blur();reset();};bar.appendChild(rb);
+  const st=document.createElement('span');st.className='st';bar.appendChild(st);
+
+  let sel=null,t0=0,raf13=0;const seen=new Set();const DUR=4200;
+  function reset(){sel=null;seen.clear();cancelAnimationFrame(raf13);raf13=0;render(0);ui();}
+  function ui(){
+    KEYS.forEach(k=>{HS[k].g.classList.toggle('on',k===sel);HS[k].g.classList.toggle('seen',seen.has(k));});
+    st.textContent=`${seen.size} / 4 확인`;
+    if(!sel){card.innerHTML='<b>태양에서 큰 폭발이 일어났다!</b><p>그림 속 깜빡이는 동그라미를 눌러<br>어떤 일이 생기는지 살펴보자.</p>';return;}
+    const o=INFO[sel];card.innerHTML=`<b>${o.n}</b><p><span>무슨 일이?</span>${o.a}</p><p><span>생활 속 불편</span>${o.b}</p>`;}
+  function pick(k){sel=k;seen.add(k);ui();t0=performance.now();
+    if(RED){render(1);return;}cancelAnimationFrame(raf13);
+    const step=now=>{const t=Math.min(1,(now-t0)/DUR);render(t);raf13=t<1?requestAnimationFrame(step):0;};raf13=requestAnimationFrame(step);}
+
+  function render(t){
+    ALL.forEach(e=>op(e,0));P.forEach(o=>op(o.e,0));rays.forEach(o=>op(o.e,0));lights.forEach(o=>op(o.e,0));
+    HS.pow&&KEYS.forEach(k=>op(HS[k].g,sel&&t<1&&k!==sel?.35:1));
+    if(!sel)return;
+    const o=INFO[sel],[tx,ty]=o.at;
+    /* 1) 태양 폭발 → 입자 이동 (0~0.35) */
+    const a=cl(t/.35);op(glow,t<.45?Math.sin(Math.min(1,t/.25)*Math.PI)*.9:0);
+    P.forEach(p=>{const u=ease(cl((a-p.dl)/.55));const x=SUN[0]+(tx+p.ox-SUN[0])*u,y=SUN[1]+(ty+p.oy-SUN[1])*u;
+      p.e.setAttribute('cx',x);p.e.setAttribute('cy',y);op(p.e,a>p.dl&&t<.5?1-seg(t,.36,.5):0);});
+    const b=cl((t-.3)/.7),flick=Math.abs(Math.sin(t*60));
+    if(sel==='plane'){
+      rays.forEach(r=>{const u=(b*3+r.dl)%1;r.e.setAttribute('x1',r.x+30*u);r.e.setAttribute('y1',PL[1]-260+240*u);r.e.setAttribute('x2',r.x+30*u-12);r.e.setAttribute('y2',PL[1]-230+240*u);op(r.e,b>0&&b<1?.9:0);});
+      op(plGlow,b>0?.35+.35*Math.abs(Math.sin(b*10)):0);op(plTag,seg(b,.1,.3));}
+    if(sel==='sat'){
+      op(orbit,seg(b,0,.15)*.7);op(cover,b>0?1:0);op(satG,b>0?1:0);
+      const u=ease(cl((b-.25)/.75));satG.setAttribute('transform',`translate(${-40*u} ${120*u}) rotate(${-32*u} 1025 462)`);
+      satSp.forEach((s,i)=>op(s,b>0&&b<.45?Math.abs(Math.sin(b*40+i)):0));op(satTag,seg(b,.2,.4));}
+    if(sel==='nav'){
+      gps.forEach((g,i)=>{op(g,b>0?(b<.25?.9:.15+.85*Math.abs(Math.sin(b*25+i*2))*(1-b*.6)):0);g.setAttribute('stroke',b>.25?'#FF453A':'#5AC8FA');});
+      op(navG,seg(b,.05,.2));const j=b>.3?(b-.3)/.7:0;
+      dot.setAttribute('cx',262+(j?Math.sin(j*17)*120+60*Math.sin(j*5):0));dot.setAttribute('cy',1000+(j?Math.cos(j*13)*55:0));
+      op(err,b>.3?(b<1?.6+.4*Math.abs(Math.sin(b*12)):1):0);op(navTag,seg(b,.35,.55));}
+    if(sel==='pow'){
+      op(wire,b>0&&b<.75?1:0);wire.setAttribute('stroke-dashoffset',-b*900);
+      pwSp.forEach((s,i)=>op(s,b>.15&&b<.8?Math.abs(Math.sin(b*30+i*1.7)):0));
+      op(dark,seg(b,.55,.85)*.5);lights.forEach(l=>op(l.e,b<.55?1:(b<.6+l.dl*.3?flick:0)));op(pwTag,seg(b,.7,.9));}
+  }
+  reset();
+})();
 
 /* ---------- 쪽 넘기기 ---------- */
 function show(i){const m0=curMotion();if(m0)m0.playing=false;

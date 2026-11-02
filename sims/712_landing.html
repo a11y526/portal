@@ -92,6 +92,8 @@ const up=()=>{if(!drag)return;drag=null;pr.style.cursor='';state='fall';vy=0;fal
 pr.addEventListener('pointerup',up);pr.addEventListener('pointercancel',up);
 document.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key===' '){e.preventDefault();if(state==='top'){state='fall';fall();}}});
 document.getElementById('again').onclick=reset;
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+if(window.parent!==window)document.addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End','Escape','a','A','g','G','f','F','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
 tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:2});
 pick(2);
 })();

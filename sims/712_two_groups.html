@@ -14,6 +14,7 @@ html,body{margin:0;height:100%;background:#fff;font-family:var(--font);color:#1D
 body{display:flex;flex-direction:column;padding:10px;gap:8px;overflow:auto;user-select:none;-webkit-user-select:none}
 .tray{display:flex;flex-wrap:wrap;gap:6px;min-height:84px;padding:8px;border-radius:14px;background:#F5F5F7;align-content:flex-start}
 .tray:empty::before{content:"";flex:1}
+body.ok .tray{display:none}
 .bins{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0}
 .bin{border-radius:14px;border:2px dashed #636366;background:#ECECEE;padding:8px;display:flex;flex-direction:column;gap:6px;min-height:150px}
 .bin.a{border-color:var(--p);background:#E6F0FA}
@@ -69,7 +70,7 @@ function place(i,g){where[i]=g;(g?slotOf(g):tray).appendChild(cards[i]);check();
 function check(){
   const placed=Object.values(where).filter(Boolean).length;
   const ok=P.every((q,i)=>where[i]===(q[3]?'나':'가'));
-  bins.forEach(b=>b.classList.toggle('done',ok));
+  bins.forEach(b=>b.classList.toggle('done',ok));document.body.classList.toggle('ok',ok);
   st.className='st'+(ok?' good':placed===8?' bad':'');
   st.textContent=ok?'바르게 나눴어요':placed===8?'섞여 있어요':`남은 행성 ${8-placed}개`;
   if(ok&&!done){done=true;tell({type:'sim:progress',n:1,total:1});tell({type:'sim:done'});}}
@@ -91,6 +92,8 @@ cards.forEach((c,i)=>{if(FIX[i])return;
 bins.forEach(b=>b.addEventListener('click',e=>{if(sel==null||e.target.closest('.card'))return;place(sel,b.dataset.g);cards[sel].classList.remove('sel');sel=null;}));
 tray.addEventListener('click',e=>{if(sel==null||e.target.closest('.card'))return;place(sel,'');cards[sel].classList.remove('sel');sel=null;});
 document.getElementById('reset').onclick=reset;
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+if(window.parent!==window)document.addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End','Escape','a','A','g','G','f','F','ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
 tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:1});
 reset();
 })();

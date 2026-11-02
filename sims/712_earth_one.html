@@ -88,6 +88,8 @@ svg.addEventListener('pointerdown',e=>{if(e.target.closest('#hd'))return;setV((s
 document.getElementById('minus').onclick=()=>setV(v-P[cur][4]);
 document.getElementById('plus').onclick=()=>setV(v+P[cur][4]);
 document.addEventListener('keydown',e=>{if(e.key==='ArrowRight'){e.preventDefault();setV(v+P[cur][4]);}else if(e.key==='ArrowLeft'){e.preventDefault();setV(v-P[cur][4]);}});
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+if(window.parent!==window)document.addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End','Escape','a','A','g','G','f','F'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
 tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:2});
 pick(0);
 })();

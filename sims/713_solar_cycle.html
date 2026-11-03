@@ -196,10 +196,11 @@ function done(){
   t1.textContent='평균: '+sum+' ÷ '+cnt+' = '+(Math.round(sum/cnt*10)/10)+'\n→ 약 '+Math.round(sum/cnt)+'년';t1.style.whiteSpace='pre-line';
   t2.textContent='흑점 수는 약 11년을 주기로 많아졌다가 적어지기를 반복한다.';
   t1.classList.add('fin');
+  KIT.tell({type:'sim:answer',n:1,value:String(Math.round(sum/cnt))});   /* 학습지 칸(.sim-in) 1: 평균 주기 */
   dots.forEach(function(o){o.halo.setAttribute('opacity',0);});
   pred.classList.add('on');setTimeout(function(){pin.focus();},60);}
 function checkPred(){var v=+pin.value;if(!pin.value)return;
-  if(v>=2034&&v<=2036){pin.classList.remove('bad');pin.classList.add('ok');pin.readOnly=true;pmsg.textContent='맞았다! 2024년 + 약 11년';predG.setAttribute('opacity',1);KIT.tell({type:'sim:done'});}
+  if(v>=2034&&v<=2036){pin.classList.remove('bad');pin.classList.add('ok');pin.readOnly=true;pmsg.textContent='맞았다! 2024년 + 약 11년';predG.setAttribute('opacity',1);KIT.tell({type:'sim:answer',n:2,value:String(v)});KIT.tell({type:'sim:done'});}
   else{pin.classList.add('bad');pmsg.textContent='2024년에 평균 주기를 더해 보자.';}}
 pin.addEventListener('input',function(){pin.value=pin.value.replace(/[^0-9]/g,'');pin.classList.remove('bad');if(pin.value.length===4)checkPred();});
 pin.addEventListener('keydown',function(e){if(e.key==='Enter')checkPred();});

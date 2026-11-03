@@ -73,7 +73,8 @@ body{display:flex;flex-direction:column;padding:10px;gap:8px;overflow:hidden;use
 <script>
 /* 712 활동 1. #ws=6: 8개 행성 카드를 내 마음대로 두 무리로 나눈다(끌어 놓기, 또는 카드를 누른 뒤 무리를 누르기).
    #ws=7·8: 기준 버튼을 누르면 행성이 그 기준대로 줄을 선다. 6쪽에서 만든 내 무리 색이 테두리로 따라온다.
-   7쪽은 반지름·질량, 8쪽은 위성 수·고리·표면을 모두 눌러 보면 끝(sim:done). 수치는 교과서 220쪽 그림 Ⅶ-2 */
+   7쪽은 반지름·질량, 8쪽은 위성 수·고리·표면을 모두 눌러 보면 끝(sim:done). 수치는 교과서 220쪽 그림 Ⅶ-2
+   6쪽은 다 나눌 때마다 내가 만든 두 무리를 학습지 칸(.sim-in)에 보낸다(sim:answer) */
 (function(){
 'use strict';
 const tell=d=>{if(window.parent!==window)window.parent.postMessage(d,'*');};
@@ -104,7 +105,9 @@ if(W==='6'){
     const ok=na+nb===8&&na>0&&nb>0;
     st.className='st'+(ok?' good':'');st.textContent=ok?`무리 A ${na}개 · 무리 B ${nb}개 · 다 나눴어요`:na+nb===8?'한 무리에 모두 넣었어요':`남은 행성 ${8-na-nb}개`;
     tell({type:'sim:progress',n:na+nb,total:8});
-    if(ok){save(P.map((q,i)=>where[i]));if(!done){done=true;tell({type:'sim:done'});}}}
+    if(ok){save(P.map((q,i)=>where[i]));if(!done){done=true;tell({type:'sim:done'});}
+      const names=g=>P.filter((q,i)=>where[i]===g).map(q=>q[0]).join(', ');
+      tell({type:'sim:answer',n:1,value:`무리 A: ${names('a')} / 무리 B: ${names('b')}`});}}
   function reset(){where={};sel=null;cards.forEach((c,i)=>{c.classList.remove('sel');where[i]='';tray.appendChild(c);});check();}
   let drag=null;
   cards.forEach((c,i)=>{

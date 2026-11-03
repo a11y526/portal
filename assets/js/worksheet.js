@@ -9,6 +9,9 @@
 // 학생 답은 "x,y|x,y"(x 오름차순) 문자열. 채점은 서버(_ws_plot)가 정답 점마다 오차 안의 학생 점을 하나씩 짝짓는다
 // 여러 개 고르기 <span class="ox multi"><i class="ok">…</i>…</span>(2026-11-01): 학생 답은 고른 보기를 보기 순서대로 "|"로 이은 글.
 // 고른 것이 정답(ok)과 꼭 같아야 맞음(_ws_check)
+// 시뮬레이션이 채우는 칸 .sim-in(2026-11-03, .bl·.fill에 붙임): fields에 sim:true, 학생은 못 쓰고(readonly) 시뮬레이션이
+// {type:'sim:answer', n, value}로 그 쪽 n번째 .sim-in 칸을 채운다. 키는 학습지의 다른 칸을 다 센 뒤 맨 뒤 번호
+// (이미 올린 학습지에 넣어도 원래 칸의 키·학생 답이 밀리지 않게)
 
 const FIELD = '.bl, .ox, .ineq .box, .fill, .plot';
 const SYMS = { '<': '<', '＜': '<', '〈': '<', '=': '=', '＝': '=', '>': '>', '＞': '>', '〉': '>' };
@@ -77,6 +80,9 @@ export function parseWorksheet(text) {
   const key = {};
   const report = [];
   let n = 0;
+  // .sim-in 칸 키는 다른 칸 뒤 번호부터(위 설명)
+  const isField = (el) => !el.parentElement.closest(FIELD) && !el.closest('.ans, .key-tag');
+  let late = sections.reduce((c, sec) => c + [...sec.querySelectorAll(FIELD)].filter((el) => isField(el) && !el.matches('.sim-in')).length, 0);
   const seen = new Set();
   const sims = new Set();
 
@@ -118,7 +124,8 @@ export function parseWorksheet(text) {
     [...sec.querySelectorAll(FIELD)]
       .filter((el) => !el.parentElement.closest(FIELD))
       .forEach((el) => {
-        const k = 'f' + (++n);
+        const simIn = el.matches('.sim-in') && el.matches('.bl, .fill');
+        const k = 'f' + (simIn ? ++late : ++n);
         const mark = doc.createElement('span');
         mark.setAttribute('data-ws', k);
         let spec;
@@ -154,7 +161,7 @@ export function parseWorksheet(text) {
         }
         count[spec.type]++;
         key[k] = spec;
-        fields.push({ key: k, type: spec.type, ...(spec.options ? { options: spec.options } : {}), ...(spec.axis ? { axis: spec.axis } : {}) });
+        fields.push({ key: k, type: spec.type, ...(spec.options ? { options: spec.options } : {}), ...(spec.axis ? { axis: spec.axis } : {}), ...(simIn ? { sim: true } : {}) });
         el.replaceWith(mark);
       });
     if (missing) warn.push(`정답이 빠진 칸 ${missing}개 (채우기만 하면 맞음으로 처리돼요)`);
@@ -168,7 +175,7 @@ export function parseWorksheet(text) {
       open: fields.filter((f) => f.type === 'choice' && !key[f.key].answers.length).length });
   });
 
-  return { title, pages, key, report, fieldCount: n, sims: [...sims] };
+  return { title, pages, key, report, fieldCount: Math.max(n, late), sims: [...sims] };
 }
 
 /* ---------- 점 찍기 칸 읽기 ----------
@@ -280,6 +287,11 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
       el.value = v;
       el.disabled = locked;
       el.setAttribute('aria-label', `${no}번 칸`);
+    }
+    if (f.sim) {
+      el.readOnly = true;
+      el.classList.add('ws-sim-in');
+      el.placeholder = f.type === 'text' ? '시뮬레이션을 하면 저절로 채워져요' : '시뮬레이션';
     }
     mark.replaceWith(el);
   });

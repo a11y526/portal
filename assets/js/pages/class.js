@@ -379,6 +379,7 @@ const WS_ERR = {
 const ws = {
   preAnswered: new Set(), // 시뮬레이션 잠금이 생기기 전에 답을 써 둔 쪽(쪽 번호)
   simProg: new Map(), // '쪽|주소' → { n, total } 시뮬레이션이 알려 준 진행(잠긴 쪽 안내 띠에 표시)
+  simFill: new Map(), // 칸 키 → 시뮬레이션이 보낸 답(sim:answer). 아직 쓸 수 없으면 여기 두었다가 쪽을 다시 그릴 때 넣는다
   unlocked: null,     // 방금 시뮬레이션을 끝내 칸이 열린 쪽(안내 띠를 '완료'로 한 번 보여 줌)
   meta: null,       // get_class_page의 worksheet
   boardId: null,
@@ -607,6 +608,7 @@ function renderWsPage() {
   $('ws-prev').disabled = ws.idx <= 0;
   $('ws-next').disabled = ws.idx >= list.length - 1;
   renderDots();
+  if (!isClosed(page)) applySimFill(page);
 }
 
 // 쪽 점: 지금 쪽, 제출한 쪽(초록 + 체크), 다 썼지만 아직 제출 안 한 쪽, 고칠 칸이 있는 쪽
@@ -737,6 +739,29 @@ function markSimDone(pg, src) {
   toast(isShut(page, i) ? '시뮬레이션 완료! 선생님이 열면 쓸 수 있어요' : '시뮬레이션 완료! 이제 답을 쓸 수 있어요', 'ok');
   renderWsPage();
   renderWsFoot();
+}
+
+// 시뮬레이션이 채우는 칸(.sim-in, fields의 sim:true): {type:'sim:answer', n, value} → 그 쪽 n번째(1부터) .sim-in 칸.
+// S 전·시뮬레이션 잠금 중이면 ws.simFill에 두었다가 칸이 열려 다시 그릴 때 넣는다(제출한 칸은 그대로)
+function simAnswer(pg, n, value) {
+  const page = pages()[ws.idx];
+  if (!page || String(page.slide) !== String(pg) || typeof value !== 'string') return;
+  const f = (page.fields ?? []).filter((x) => x.sim)[Math.max(1, Math.floor(Number(n) || 1)) - 1];
+  if (!f) return;
+  ws.simFill.set(f.key, value.replace(/\s+/g, ' ').trim().slice(0, f.type === 'text' ? 300 : 40));
+  applySimFill(page);
+}
+function applySimFill(page) {
+  if (!page || locked() || gated(page)) return;
+  (page.fields ?? []).forEach((f) => {
+    if (!f.sim || !ws.simFill.has(f.key) || ws.passed.has(f.key)) return;
+    const v = ws.simFill.get(f.key);
+    ws.simFill.delete(f.key);
+    if ((ws.answers[f.key] ?? '') === v) return;
+    const el = $('ws-page').querySelector(`.ws-in[data-k="${f.key}"]`);
+    if (el) el.value = v;
+    setAnswer(f.key, v);
+  });
 }
 
 function setStatus(text) {
@@ -1344,6 +1369,7 @@ addEventListener('message', (e) => {
     }
   } else if (msg.type === 'sim:part' && typeof msg.label === 'string') markPart(pg, msg.label.trim().slice(0, 40));
   else if (msg.type === 'sim:done') markSimDone(pg, sim);
+  else if (msg.type === 'sim:answer') simAnswer(pg, msg.n, msg.value);
   else if (msg.type === 'sim:progress') {
     const n = Math.max(0, Math.floor(Number(msg.n) || 0));
     const total = Math.max(1, Math.floor(Number(msg.total) || 1));

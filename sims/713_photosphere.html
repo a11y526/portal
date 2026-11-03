@@ -139,7 +139,7 @@ const H=Q.how(['① <b>돋보기를 끌어</b> 광구 위에 놓기','② 아래
 const P=Q.panel([
   {html:'<span class="n">1</span>광구를 끝까지 확대하면 보이는 무늬는?',opts:['쌀알 무늬','줄무늬','물결무늬'],lock:'② 끝까지 확대해 보세요'},
   {html:'<span class="n">2</span>흑점은 주변보다 온도가 ( ) 어둡게 보인다.',opts:['높아서','낮아서'],lock:'③ 두 곳의 온도를 재어 보세요'},
-  {html:'<span class="tag">예상</span>흑점 하나의 크기는 지구와 비교하면 어떨까?',opts:['지구보다 훨씬 작다','지구와 비슷하거나 더 크다']}],{how:H});
+  {html:'<span class="n">3</span><span class="tag">예상</span>흑점 하나의 크기는 지구와 비교하면 어떨까?',opts:['지구보다 훨씬 작다','지구와 비슷하거나 더 크다']}],{how:H});
 const svg=document.getElementById('s'),defs=el('defs',{},svg);
 el('rect',{x:0,y:0,width:800,height:500,rx:16,fill:'#05070D'},svg);
 const C=[230,248],R=195,IX=30,IY=40,IW=420,IH=416;

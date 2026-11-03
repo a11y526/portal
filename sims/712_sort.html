@@ -110,14 +110,21 @@ if(W==='6'){
       tell({type:'sim:answer',n:1,value:`무리 A: ${names('a')} / 무리 B: ${names('b')}`});}}
   function reset(){where={};sel=null;cards.forEach((c,i)=>{c.classList.remove('sel');where[i]='';tray.appendChild(c);});check();}
   let drag=null;
+  /* 놓을 곳: 끌던 카드와 가장 많이 겹친 무리(또는 처음 칸). 손가락 끝이 상자 밖이어도 카드가 걸쳐 있으면 들어간다.
+     pointercancel 때 좌표가 0으로 오는 기기가 있어 손 위치 대신 카드 위치로 정한다 */
+  function target(c){const r=c.getBoundingClientRect();let best=null,bestA=0;
+    [...bins,tray].forEach(z=>{const q=z.getBoundingClientRect();
+      const a=Math.max(0,Math.min(r.right,q.right)-Math.max(r.left,q.left))*Math.max(0,Math.min(r.bottom,q.bottom)-Math.max(r.top,q.top));
+      if(a>bestA){bestA=a;best=z;}});
+    return bestA>r.width*r.height*.15?best:null;}
   cards.forEach((c,i)=>{
     c.addEventListener('pointerdown',e=>{e.preventDefault();try{c.setPointerCapture(e.pointerId);}catch(_){}const r=c.getBoundingClientRect();drag={i,x:e.clientX,y:e.clientY,dx:e.clientX-r.left,dy:e.clientY-r.top,on:false};});
     c.addEventListener('pointermove',e=>{if(!drag||drag.i!==i)return;
       if(!drag.on&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6){drag.on=true;c.classList.add('drag');}
       if(drag.on){c.style.left=(e.clientX-drag.dx)+'px';c.style.top=(e.clientY-drag.dy)+'px';
-        const t=document.elementFromPoint(e.clientX,e.clientY);bins.forEach(b=>b.classList.toggle('over',!!t&&b.contains(t)));}});
-    const up=e=>{if(!drag||drag.i!==i)return;const was=drag.on;drag=null;c.classList.remove('drag');c.style.left=c.style.top='';bins.forEach(b=>b.classList.remove('over'));
-      if(was){const t=document.elementFromPoint(e.clientX,e.clientY);const b=t&&t.closest('.bin');if(b)place(i,b.dataset.g);else if(t&&t.closest('.tray'))place(i,'');}
+        const t=target(c);bins.forEach(b=>b.classList.toggle('over',b===t));}});
+    const up=e=>{if(!drag||drag.i!==i)return;const was=drag.on;drag=null;const t=was?target(c):null;c.classList.remove('drag');c.style.left=c.style.top='';bins.forEach(b=>b.classList.remove('over'));
+      if(was){if(t===tray)place(i,'');else if(t)place(i,t.dataset.g);}
       else{sel=sel===i?null:i;cards.forEach((x,k)=>x.classList.toggle('sel',k===sel));}};
     c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);});
   bins.forEach(b=>b.addEventListener('click',e=>{if(sel==null||e.target.closest('.card'))return;cards[sel].classList.remove('sel');place(sel,b.dataset.g);sel=null;}));

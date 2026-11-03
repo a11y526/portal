@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>수수께끼 행성</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--font:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--p:#0066CC;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;font-family:var(--font);color:#1D1D1F;word-break:keep-all}
+body{display:flex;flex-direction:column;padding:10px;gap:10px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.mc{display:flex;flex-wrap:wrap;gap:8px;align-items:center;flex:none}
+.sl-btn{font:700 17px var(--font);color:var(--p);background:#fff;border:1.5px solid var(--p);border-radius:999px;padding:6px 16px;cursor:pointer;min-height:44px;touch-action:manipulation}
+.sl-btn.on{background:var(--p);color:#fff}
+.sl-btn.big{font-size:19px;padding:8px 22px;background:var(--p);color:#fff}
+.sl-btn:disabled{opacity:.35;cursor:default}
+.sl-btn.solved::after{content:' ✓'}
+.main{flex:1;min-height:0;display:grid;grid-template-columns:1.25fr 1fr;gap:12px}
+.clues{display:flex;flex-direction:column;gap:8px;min-height:0}
+.clue{flex:1;display:flex;align-items:center;gap:12px;border-radius:14px;padding:6px 16px;background:#F2F2F5;border:2px dashed #C7C7CC;font-size:21px;font-weight:700;line-height:1.4;min-height:0}
+.clue .k{flex:none;width:34px;height:34px;border-radius:50%;display:grid;place-items:center;background:#C7C7CC;color:#fff;font-size:17px;font-weight:800}
+.clue.open{background:#EEF5FD;border:2px solid var(--p);animation:flip .45s ease-out}
+.clue.open .k{background:var(--p)}
+.clue .q{color:#AEAEB2;font-size:24px}
+@keyframes flip{0%{transform:rotateX(90deg)}100%{transform:none}}
+.planets{display:grid;grid-template-columns:1fr 1fr;grid-template-rows:repeat(4,1fr);gap:8px;min-height:0}
+.pl{position:relative;display:flex;align-items:center;gap:10px;border-radius:14px;background:#0F1420;color:#fff;padding:4px 12px;cursor:pointer;font-size:19px;font-weight:800;min-height:0;transition:opacity .3s,transform .3s}
+.pl svg{flex:none;width:44px;height:44px}
+.pl.x{opacity:.28}
+.pl.x::after{content:'';position:absolute;left:10px;right:10px;top:50%;border-top:4px solid #FF453A;transform:rotate(-8deg)}
+.pl.ans{outline:5px solid #FFD60A;transform:scale(1.04);opacity:1}
+.pl.ans::after{display:none}
+.pl.dim{opacity:.18}
+.pl .tag{margin-left:auto;font-size:13px;font-weight:700;color:#9FC6FF}
+.st{margin-left:auto;font-size:17px;font-weight:800;color:#6E6E73}
+.st.good{color:#1E8E3E}
+@media (prefers-reduced-motion: reduce){.clue.open{animation:none}.pl{transition:none}}
+</style>
+</head>
+<body>
+<div class="mc" id="tabs"></div>
+<div class="main">
+  <div class="clues" id="clues"></div>
+  <div class="planets" id="planets"></div>
+</div>
+<div class="mc"><button class="sl-btn big" id="next">단서 열기</button><button class="sl-btn" id="show">정답 공개</button><span class="st" id="st"></span><button class="sl-btn" id="again">이 문제 처음부터</button></div>
+<script>
+/* 712 마무리 스무고개. 단서를 하나씩 열고(단서 열기), 학생은 단서가 열릴 때마다 학습지에서 답을 고르거나 바꾼다.
+   행성 카드를 누르면 '아니다' 표시(×)가 켜졌다 꺼진다. 정답 공개를 누르면 그 행성이 빛난다.
+   단서는 교과서 220쪽 그림 Ⅶ-2의 반지름·질량·위성 수(2023년)·고리·표면 상태만 쓴다 */
+(function(){
+'use strict';
+const P=[['수성',.38,0,'#A29D97'],['금성',.95,0,'#DDBF86'],['지구',1,0,'#3B78C4'],['화성',.53,0,'#C4603A'],
+  ['목성',11.2,1,'#D6B48E'],['토성',9.4,1,'#E1C894'],['천왕성',4,1,'#A6DCE0'],['해왕성',3.9,1,'#4E7FD0']];
+const R=[
+  {a:3,c:['나는 표면이 단단한 암석으로 이루어져 있다.','나에게는 위성이 있다.','나는 지구보다 작다.','내 위성은 2개다.']},
+  {a:5,c:['나는 고리가 있다.','내 반지름은 지구의 9배가 넘는다.','나는 태양계에서 가장 큰 행성은 아니다.','내 위성은 146개로, 8개 행성 중 가장 많다.']},
+  {a:7,c:['나는 단단한 표면이 없다.','내 반지름은 지구의 약 4배로, 목성형 행성 중 작은 편이다.','내 질량은 지구의 약 17배다.','내 위성은 14개다.']}
+];
+const S=R.map(()=>({open:1,x:new Set(),shown:false}));
+let cur=0;
+const tabs=document.getElementById('tabs'),clues=document.getElementById('clues'),pl=document.getElementById('planets'),st=document.getElementById('st');
+const nextB=document.getElementById('next'),showB=document.getElementById('show');
+R.forEach((r,i)=>{const b=document.createElement('button');b.className='sl-btn';b.textContent='수수께끼 '+(i+1);b.onclick=()=>{cur=i;draw();};tabs.appendChild(b);});
+const icon=q=>{const r=Math.max(4,q[1]/11.2*20);return `<svg viewBox="-23 -23 46 46"><circle r="${r}" fill="${q[3]}"/>${q[2]?`<ellipse rx="${Math.min(22,r*1.75)}" ry="${Math.min(22,r*1.75)*.28}" fill="none" stroke="#E8D9B5" stroke-width="2" transform="rotate(-18)"/>`:''}</svg>`;};
+const cards=P.map((q,i)=>{const d=document.createElement('div');d.className='pl';d.innerHTML=icon(q)+'<span>'+q[0]+'</span><span class="tag"></span>';
+  d.onclick=()=>{const s=S[cur];if(s.shown)return;s.x.has(i)?s.x.delete(i):s.x.add(i);draw();};pl.appendChild(d);return d;});
+function draw(flip){const r=R[cur],s=S[cur];
+  [...tabs.children].forEach((b,i)=>{b.classList.toggle('on',i===cur);b.classList.toggle('solved',S[i].shown);});
+  clues.innerHTML='';r.c.forEach((t,i)=>{const d=document.createElement('div');const op=i<s.open;d.className='clue'+(op?' open':'');
+    if(op&&!(flip&&i===s.open-1))d.style.animation='none';
+    d.innerHTML=`<span class="k">${i+1}</span>`+(op?`<span>${t}</span>`:'<span class="q">?</span>');clues.appendChild(d);});
+  cards.forEach((c,i)=>{c.classList.toggle('x',s.x.has(i)&&!s.shown);c.classList.toggle('ans',s.shown&&i===r.a);c.classList.toggle('dim',s.shown&&i!==r.a);
+    c.querySelector('.tag').textContent=s.shown&&i===r.a?(P[i][2]?'목성형 행성':'지구형 행성'):'';});
+  nextB.disabled=s.open>=r.c.length;nextB.textContent=s.open>=r.c.length?'단서 끝':`단서 열기 (${s.open+1}번)`;
+  showB.disabled=s.shown;
+  st.className='st'+(s.shown?' good':'');st.textContent=s.shown?`정답: ${P[r.a][0]} · 단서 ${s.open}개`:`열린 단서 ${s.open} / ${r.c.length}`;}
+nextB.onclick=()=>{const s=S[cur];if(s.open<R[cur].c.length){s.open++;draw(true);}};
+showB.onclick=()=>{S[cur].shown=true;draw();};
+document.getElementById('again').onclick=()=>{S[cur]={open:1,x:new Set(),shown:false};draw();};
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+if(window.parent!==window)document.addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End','Escape','a','A','g','G','f','F','ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
+draw();
+})();
+</script>
+</body>
+</html>

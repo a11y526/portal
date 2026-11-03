@@ -1,0 +1,175 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>행성 두 무리로 나누기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--font:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;--p:#0066CC;--a:#0066CC;--b:#E8590C;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;font-family:var(--font);color:#1D1D1F;word-break:keep-all}
+body{display:flex;flex-direction:column;padding:10px;gap:8px;overflow:hidden;user-select:none;-webkit-user-select:none}
+.how{flex:none;margin:0;padding:7px 12px;border-radius:12px;background:#F2F6FC;font-size:15px;line-height:1.5}
+.how b{color:var(--p)}
+.mc{display:flex;flex-wrap:wrap;gap:6px;align-items:center;flex:none}
+.sl-btn{font:700 15px var(--font);color:var(--p);background:#fff;border:1.5px solid var(--p);border-radius:999px;padding:5px 13px;cursor:pointer;min-height:40px;position:relative;touch-action:manipulation}
+.sl-btn.on{background:var(--p);color:#fff}
+.sl-btn .need{position:absolute;top:-5px;right:-3px;width:12px;height:12px;border-radius:50%;background:#FFB020;border:2px solid #fff}
+.sl-btn.seen .need{background:#1E8E3E}
+.st{margin-left:auto;font-size:14px;font-weight:700;color:#6E6E73}
+.st.good{color:#1E8E3E}
+
+/* 자유 분류 */
+#free{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+.tray{display:flex;flex-wrap:wrap;gap:6px;padding:6px;border-radius:14px;background:#F5F5F7;align-content:flex-start;flex:none;min-height:58px}
+.tray:empty{display:none}
+.bins{display:grid;grid-template-columns:1fr 1fr;gap:8px;flex:1;min-height:0}
+.bin{border-radius:14px;border:2px dashed var(--a);background:#EEF5FD;padding:6px;display:flex;flex-direction:column;gap:6px;min-height:0;overflow:auto}
+.bin.b{border-color:var(--b);background:#FFF2EA}
+.bin.over{outline:3px solid #FFB020;outline-offset:2px}
+.bin h4{margin:0;font-size:16px;font-weight:800;color:var(--a)}
+.bin.b h4{color:var(--b)}
+.slot{display:flex;flex-wrap:wrap;gap:6px;align-content:flex-start;flex:1}
+.card{display:flex;align-items:center;gap:6px;background:#fff;border:1.5px solid #D1D1D6;border-radius:12px;padding:3px 9px 3px 3px;cursor:grab;touch-action:none;min-height:48px}
+.card.sel{border-color:#FFB020;box-shadow:0 0 0 3px rgba(255,176,32,.35)}
+.card.drag{position:fixed;z-index:9;pointer-events:none;box-shadow:0 8px 20px rgba(0,0,0,.18)}
+.card b{font-size:16px;font-weight:800;display:block;line-height:1.25}
+.card small{font-size:12px;color:#55555A;display:block;line-height:1.35;white-space:nowrap}
+.card svg{width:44px;height:44px;flex:none;background:#0F1420;border-radius:9px}
+
+/* 줄 세우기 */
+#line{flex:1;min-height:0;display:none;flex-direction:column;gap:6px}
+#stage{position:relative;flex:1;min-height:0;border-radius:14px;background:#F7F8FA;overflow:hidden}
+.col{position:absolute;bottom:0;display:flex;flex-direction:column;align-items:center;transition:left .9s cubic-bezier(.5,0,.2,1)}
+.col .v{font-size:14px;font-weight:800;color:#1D1D1F;white-space:nowrap;margin-bottom:2px}
+.col .bar{width:62%;border-radius:6px 6px 0 0;background:#AEB8C6;transition:height .9s cubic-bezier(.5,0,.2,1),background .3s}
+.col .ic{border-radius:50%;margin-top:4px;background:#0F1420;display:grid;place-items:center;border:3px solid transparent}
+.col.ga .ic{border-color:var(--a)}.col.gb .ic{border-color:var(--b)}
+.col .nm{font-size:14px;font-weight:800;margin:2px 0 6px;white-space:nowrap}
+.grp{position:absolute;top:8px;font-size:15px;font-weight:800;color:#6E6E73;text-align:center;opacity:0;transition:opacity .4s}
+.grp.on{opacity:1}
+#split{position:absolute;top:34px;bottom:8px;width:0;border-left:3px dashed #8E8E93;opacity:0;transition:opacity .4s}
+#split.on{opacity:1}
+.res{flex:none;font-size:15px;font-weight:700;min-height:22px;color:#1D1D1F}
+.res i{font-style:normal;display:inline-block;width:12px;height:12px;border-radius:50%;margin:0 3px 0 8px;vertical-align:-1px}
+@media (prefers-reduced-motion: reduce){.col,.col .bar{transition:none}}
+</style>
+</head>
+<body>
+<p class="how" id="how"></p>
+<div class="mc" id="crit"></div>
+<div id="free">
+  <div class="tray" id="tray"></div>
+  <div class="bins">
+    <div class="bin a" data-g="a"><h4>무리 A</h4><div class="slot"></div></div>
+    <div class="bin b" data-g="b"><h4>무리 B</h4><div class="slot"></div></div>
+  </div>
+</div>
+<div id="line"><div id="stage"><div id="split"></div><div class="grp" id="g1"></div><div class="grp" id="g2"></div></div><div class="res" id="res"></div></div>
+<div class="mc"><span class="st" id="st"></span><button class="sl-btn" id="reset">처음부터</button></div>
+<script>
+/* 712 활동 1. #ws=6: 8개 행성 카드를 내 마음대로 두 무리로 나눈다(끌어 놓기, 또는 카드를 누른 뒤 무리를 누르기).
+   #ws=7·8: 기준 버튼을 누르면 행성이 그 기준대로 줄을 선다. 6쪽에서 만든 내 무리 색이 테두리로 따라온다.
+   7쪽은 반지름·질량, 8쪽은 위성 수·고리·표면을 모두 눌러 보면 끝(sim:done). 수치는 교과서 220쪽 그림 Ⅶ-2 */
+(function(){
+'use strict';
+const tell=d=>{if(window.parent!==window)window.parent.postMessage(d,'*');};
+const W=String((window.SIM_INIT&&window.SIM_INIT.ws)||(location.hash.match(/ws=(\d+)/)||[])[1]||'6');
+// 이름, 반지름, 질량, 위성 수, 고리, 표면(0 암석, 1 기체), 색
+const P=[['수성',.38,.06,0,0,0,'#A29D97'],['금성',.95,.82,0,0,0,'#DDBF86'],['지구',1,1,1,0,0,'#3B78C4'],['화성',.53,.11,2,0,0,'#C4603A'],
+  ['목성',11.2,318,95,1,1,'#D6B48E'],['토성',9.4,95,146,1,1,'#E1C894'],['천왕성',4,14.5,27,1,1,'#A6DCE0'],['해왕성',3.9,17,14,1,1,'#4E7FD0']];
+const C={r:{t:'반지름',f:q=>q[1],v:q=>q[1]+'배',lo:'작은 쪽',hi:'큰 쪽'},m:{t:'질량',f:q=>q[2],v:q=>q[2]+'배',lo:'작은 쪽',hi:'큰 쪽'},
+  n:{t:'위성 수',f:q=>q[3],v:q=>q[3]+'개',lo:'적은 쪽',hi:'많은 쪽'},g:{t:'고리',cat:1,f:q=>q[4],v:q=>q[4]?'있음':'없음',lo:'고리 없음',hi:'고리 있음'},
+  s:{t:'표면',cat:1,f:q=>q[5],v:q=>q[5]?'기체':'암석',lo:'흙, 암석',hi:'기체'}};
+const NEED={'7':['r','m'],'8':['n','g','s']}[W]||[];
+const KEY='712_sort_groups';
+const load=()=>{try{return JSON.parse(localStorage.getItem(KEY)||'null');}catch(e){return null;}};
+const save=g=>{try{localStorage.setItem(KEY,JSON.stringify(g));}catch(e){}};
+const icon=(q,s)=>{const r=Math.max(3.2,q[1]/11.2*20);const ring=q[4]?`<ellipse rx="${Math.min(22,r*1.75)}" ry="${Math.min(22,r*1.75)*.28}" fill="none" stroke="#E8D9B5" stroke-width="2" transform="rotate(-18)"/>`:'';
+  return `<svg viewBox="-23 -23 46 46" ${s?`width="${s}" height="${s}"`:''}><circle r="${r}" fill="${q[6]}"/>${ring}</svg>`;};
+const how=document.getElementById('how'),st=document.getElementById('st');
+
+if(W==='6'){
+  how.innerHTML='<b>기준은 내 마음대로!</b> 행성 카드를 끌어서 무리 A, 무리 B에 나눠 넣는다. (카드를 누르고 무리를 눌러도 된다)';
+  document.getElementById('crit').style.display='none';
+  const tray=document.getElementById('tray'),bins=[...document.querySelectorAll('.bin')],slotOf=g=>bins.find(b=>b.dataset.g===g).querySelector('.slot');
+  let where={},sel=null,done=false;
+  const cards=P.map((q,i)=>{const c=document.createElement('div');c.className='card';
+    c.innerHTML=`${icon(q)}<div><b>${q[0]}</b><small>반지름 ${q[1]} · 질량 ${q[2]}</small><small>위성 ${q[3]} · 고리 ${q[4]?'있음':'없음'} · ${q[5]?'기체':'암석'}</small></div>`;return c;});
+  function place(i,g){where[i]=g;(g?slotOf(g):tray).appendChild(cards[i]);check();}
+  function check(){const v=Object.values(where);const na=v.filter(x=>x==='a').length,nb=v.filter(x=>x==='b').length;
+    const ok=na+nb===8&&na>0&&nb>0;
+    st.className='st'+(ok?' good':'');st.textContent=ok?`무리 A ${na}개 · 무리 B ${nb}개 · 다 나눴어요`:na+nb===8?'한 무리에 모두 넣었어요':`남은 행성 ${8-na-nb}개`;
+    tell({type:'sim:progress',n:na+nb,total:8});
+    if(ok){save(P.map((q,i)=>where[i]));if(!done){done=true;tell({type:'sim:done'});}}}
+  function reset(){where={};sel=null;cards.forEach((c,i)=>{c.classList.remove('sel');where[i]='';tray.appendChild(c);});check();}
+  let drag=null;
+  cards.forEach((c,i)=>{
+    c.addEventListener('pointerdown',e=>{e.preventDefault();try{c.setPointerCapture(e.pointerId);}catch(_){}const r=c.getBoundingClientRect();drag={i,x:e.clientX,y:e.clientY,dx:e.clientX-r.left,dy:e.clientY-r.top,on:false};});
+    c.addEventListener('pointermove',e=>{if(!drag||drag.i!==i)return;
+      if(!drag.on&&Math.hypot(e.clientX-drag.x,e.clientY-drag.y)>6){drag.on=true;c.classList.add('drag');}
+      if(drag.on){c.style.left=(e.clientX-drag.dx)+'px';c.style.top=(e.clientY-drag.dy)+'px';
+        const t=document.elementFromPoint(e.clientX,e.clientY);bins.forEach(b=>b.classList.toggle('over',!!t&&b.contains(t)));}});
+    const up=e=>{if(!drag||drag.i!==i)return;const was=drag.on;drag=null;c.classList.remove('drag');c.style.left=c.style.top='';bins.forEach(b=>b.classList.remove('over'));
+      if(was){const t=document.elementFromPoint(e.clientX,e.clientY);const b=t&&t.closest('.bin');if(b)place(i,b.dataset.g);else if(t&&t.closest('.tray'))place(i,'');}
+      else{sel=sel===i?null:i;cards.forEach((x,k)=>x.classList.toggle('sel',k===sel));}};
+    c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);});
+  bins.forEach(b=>b.addEventListener('click',e=>{if(sel==null||e.target.closest('.card'))return;cards[sel].classList.remove('sel');place(sel,b.dataset.g);sel=null;}));
+  tray.addEventListener('click',e=>{if(sel==null||e.target.closest('.card'))return;cards[sel].classList.remove('sel');place(sel,'');sel=null;});
+  document.getElementById('reset').onclick=reset;
+  tell({type:'sim:gate'});
+  reset();
+}else{
+  document.getElementById('free').style.display='none';
+  document.getElementById('line').style.display='flex';
+  const mine=load();
+  how.innerHTML='<b>기준 버튼</b>을 누르면 행성이 그 기준대로 줄을 선다. '+(mine?'동그라미 테두리 색은 내가 만든 무리(<b style="color:var(--a)">A</b>·<b style="color:var(--b)">B</b>)다.':'')+
+    (NEED.length?` <b>${NEED.map(k=>C[k].t).join('·')}</b>을 모두 눌러 보자.`:'');
+  const stage=document.getElementById('stage'),split=document.getElementById('split'),g1=document.getElementById('g1'),g2=document.getElementById('g2'),res=document.getElementById('res');
+  const seen=new Set();let cur=null,done=false;
+  const cols=P.map((q,i)=>{const d=document.createElement('div');d.className='col'+(mine&&mine[i]?' g'+mine[i]:'');
+    d.innerHTML=`<div class="v"></div><div class="bar" style="height:0"></div><div class="ic">${icon(q)}</div><div class="nm">${q[0]}</div>`;stage.appendChild(d);return d;});
+  const crit=document.getElementById('crit');
+  const btns={};Object.keys(C).forEach(k=>{const b=document.createElement('button');b.className='sl-btn';b.innerHTML=C[k].t+(NEED.includes(k)?'<span class="need"></span>':'');
+    b.onclick=()=>show(k);crit.appendChild(b);btns[k]=b;});
+  function order(k){const idx=P.map((q,i)=>i);if(!k)return idx;const c=C[k];return idx.sort((a,b)=>c.f(P[a])-c.f(P[b])||a-b);}
+  function layout(){const w=stage.clientWidth,h=stage.clientHeight,gap=Math.max(18,w*.05),cw=(w-16-gap)/8;
+    const isz=Math.max(28,Math.min(52,cw*.62));
+    const ord=order(cur),c=cur&&C[cur];const mx=c&&!c.cat?Math.max(...P.map(c.f)):1;
+    const barMax=Math.max(30,h-isz-90);
+    ord.forEach((pi,slot)=>{const d=cols[pi],q=P[pi];const x=8+slot*cw+(slot>=4?gap:0);
+      d.style.left=x+'px';d.style.width=cw+'px';
+      const svg=d.querySelector('svg');svg.setAttribute('width',isz-6);svg.setAttribute('height',isz-6);
+      d.querySelector('.ic').style.width=d.querySelector('.ic').style.height=isz+'px';
+      d.querySelector('.nm').style.fontSize=Math.max(11,Math.min(15,cw*.2))+'px';
+      d.querySelector('.v').style.fontSize=Math.max(11,Math.min(15,cw*.2))+'px';
+      d.querySelector('.v').textContent=c?c.v(q):'';
+      d.querySelector('.bar').style.height=(c&&!c.cat?Math.max(2,c.f(q)/mx*barMax):0)+'px';});
+    const sx=8+4*cw+gap/2;split.style.left=sx+'px';split.classList.toggle('on',!!cur);
+    g1.style.left='8px';g1.style.width=(4*cw)+'px';g2.style.left=(8+4*cw+gap)+'px';g2.style.width=(4*cw)+'px';
+    g1.textContent=c?c.lo:'';g2.textContent=c?c.hi:'';g1.classList.toggle('on',!!cur);g2.classList.toggle('on',!!cur);}
+  function show(k){cur=k;Object.keys(btns).forEach(x=>btns[x].classList.toggle('on',x===k));
+    if(!seen.has(k)){seen.add(k);btns[k].classList.add('seen');}
+    layout();
+    const left=new Set(order(k).slice(0,4));const ro={r:'반지름으로',m:'질량으로',n:'위성 수로',g:'고리로',s:'표면으로'}[k];
+    if(mine&&mine.every(Boolean)){const sideA=P.map((q,i)=>i).filter(i=>mine[i]==='a');
+      const same=sideA.length===4&&(sideA.every(i=>left.has(i))||sideA.every(i=>!left.has(i)));
+      res.innerHTML=same?`<b style="color:#1E8E3E">${ro} 나눈 두 무리 = 내가 만든 두 무리</b>`:`${ro} 나눈 두 무리는 내가 만든 무리<i style="background:var(--a)"></i>A<i style="background:var(--b)"></i>B와 다르다`;}
+    else res.textContent=`왼쪽 4개: ${order(k).slice(0,4).map(i=>P[i][0]).join(', ')}`;
+    const n=NEED.filter(x=>seen.has(x)).length;
+    if(NEED.length){st.className='st'+(n===NEED.length?' good':'');st.textContent=n===NEED.length?'다 눌러 봤어요':`눌러 본 기준 ${n} / ${NEED.length}`;
+      tell({type:'sim:progress',n,total:NEED.length});if(n===NEED.length&&!done){done=true;tell({type:'sim:done'});}}}
+  document.getElementById('reset').onclick=()=>{cur=null;Object.values(btns).forEach(b=>b.classList.remove('on'));res.textContent='';layout();};
+  addEventListener('resize',layout);
+  if(NEED.length){tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:NEED.length});st.textContent=`눌러 본 기준 0 / ${NEED.length}`;}
+  requestAnimationFrame(layout);
+}
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+if(window.parent!==window)document.addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End','Escape','a','A','g','G','f','F','ArrowLeft','ArrowRight',' '].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
+})();
+</script>
+</body>
+</html>

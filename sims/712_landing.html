@@ -47,6 +47,8 @@ const tell=d=>{if(window.parent!==window)window.parent.postMessage(d,'*');};
 const P=[['수성',0,'#A29D97','#7E7974'],['금성',0,'#DDBF86','#BC9A5E'],['지구',0,'#8B6A4F','#6E523C'],['화성',0,'#C4603A','#8F3F24'],
   ['목성',1,'#D6B48E','#A8734D'],['토성',1,'#E1C894','#B89A62'],['천왕성',1,'#A6DCE0','#86C2C8'],['해왕성',1,'#4E7FD0','#3A63AD']];
 const tried={};let cur=2,done=false;
+/* 11쪽(#ws=11)은 8개 행성에 모두 내려 본다 */
+const WS=String((window.SIM_INIT&&window.SIM_INIT.ws)||(location.hash.match(/ws=(\d+)/)||[])[1]||'');const NEED=WS==='11'?8:2;
 const svg=document.getElementById('s'),plist=document.getElementById('plist'),st=document.getElementById('st');
 P.forEach((q,i)=>{const b=document.createElement('button');b.className='sl-btn';b.textContent=q[0];b.onclick=()=>pick(i);plist.appendChild(b);});
 el('rect',{x:0,y:0,width:600,height:330,rx:14,fill:'#0F1420'},svg);
@@ -76,14 +78,14 @@ function pick(i){cur=i;const q=P[i];
 function reset(){cancelAnimationFrame(raf);raf=0;y=Y0;vy=0;state='top';msg.setAttribute('opacity',0);draw();}
 function draw(){pr.setAttribute('transform',`translate(${X},${y})`);
   const gas=P[cur][1],d=Math.max(0,y-GROUND);pr.setAttribute('opacity',gas?Math.max(0,1-d/110):1);deep.setAttribute('opacity',gas?Math.min(.45,d/240):0);
-  const n=Object.keys(tried).length;st.textContent=n>=2?`내려 본 행성 ${n}개 · 이제 답을 쓸 수 있어요`:`내려 본 행성 ${n} / 2개`;st.classList.toggle('ok',n>=2);
+  const n=Object.keys(tried).length;st.textContent=n>=NEED?`내려 본 행성 ${n}개 · 이제 답을 쓸 수 있어요`:`내려 본 행성 ${n} / ${NEED}개`;st.classList.toggle('ok',n>=NEED);
   hint.setAttribute('opacity',state==='top'?1:0);}
 function say(s,w){msgT.textContent=s;msgR.setAttribute('width',w);msgR.setAttribute('x',300-w/2);msg.setAttribute('opacity',1);}
 function finish(){const q=P[cur];state='end';tried[cur]=q[1]?'no':'ok';
   q[1]?say('땅이 없어요 — 기체 속으로 가라앉아요',360):say('단단한 땅에 착륙했어요 — 흙, 암석',340);
   const b=plist.children[cur];if(!b.querySelector('.mk')){const m=document.createElement('span');m.className='mk '+tried[cur];m.textContent=q[1]?'✕':'✓';b.appendChild(m);}
-  const n=Object.keys(tried).length;tell({type:'sim:progress',n:Math.min(n,2),total:2});
-  if(n>=2&&!done){done=true;tell({type:'sim:done'});}draw();}
+  const n=Object.keys(tried).length;tell({type:'sim:progress',n:Math.min(n,NEED),total:NEED});
+  if(n>=NEED&&!done){done=true;tell({type:'sim:done'});}draw();}
 /* 놓으면 떨어진다: 땅이 있으면 GROUND에 멈추고, 기체면 점점 느려지며 끝까지 가라앉는다 */
 function fall(){if(RED){y=P[cur][1]?GROUND+120:GROUND;finish();return;}
   let last=0;const step=now=>{const dt=last?Math.min(40,now-last)/1000:.016;last=now;const gas=P[cur][1];
@@ -100,7 +102,8 @@ document.addEventListener('keydown',e=>{if(e.key==='ArrowDown'||e.key===' '){e.p
 document.getElementById('again').onclick=reset;
 /* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
 if(window.parent!==window)document.addEventListener('keydown',e=>{if(['PageUp','PageDown','Home','End','Escape','a','A','g','G','f','F','ArrowLeft','ArrowRight'].includes(e.key)){e.preventDefault();window.parent.postMessage({type:'simkey',key:e.key,shift:e.shiftKey},'*');}});
-tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:2});
+if(NEED===8)document.querySelector('.how').innerHTML='행성을 고르고 탐사선을 끌어 내렸다 놓기(또는 ↓ 키). <b>8개 행성에 모두</b> 내려 보고 착륙한 행성(✓)을 확인하자.';
+tell({type:'sim:gate'});tell({type:'sim:progress',n:0,total:NEED});
 pick(2);
 })();
 </script>

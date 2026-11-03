@@ -2485,6 +2485,33 @@ as $$
 $$;
 revoke all on function public._ws_first_draw_secs() from public, anon, authenticated;
 
+-- 선착순 쪽(2026-11-03, 712 14쪽 스무고개): settings.ws_first_fcfs {"712": [14]}에 든 수업자료 쪽은
+-- 추첨 없이 낸 순서대로(추첨 시간 0, 모두 '늦게 낸' 줄처럼 낸 시각 순)
+create or replace function public._ws_first_fcfs(p_board_id uuid, p_slide int)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select (st.value -> b.lesson_code) @> to_jsonb(p_slide)
+                   from public.boards b, public.settings st
+                   where b.id = p_board_id and st.key = 'ws_first_fcfs'), false);
+$$;
+revoke all on function public._ws_first_fcfs(uuid, int) from public, anon, authenticated;
+
+-- 그 쪽의 추첨 시간(초): 선착순 쪽은 0
+create or replace function public._ws_first_secs(p_board_id uuid, p_slide int)
+returns int
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select case when public._ws_first_fcfs(p_board_id, p_slide) then 0 else public._ws_first_draw_secs() end;
+$$;
+revoke all on function public._ws_first_secs(uuid, int) from public, anon, authenticated;
+
 -- 그 보드 첫 답 줄의 쪽별 순서(rn, 1부터)와 추첨 뒤에 냈는지(late). 추첨 전 쪽은 추첨 시간 끝을 기준으로
 create or replace function public._ws_first_ranked(p_board_id uuid)
 returns table (id uuid, page int, rn int, late boolean)
@@ -2502,7 +2529,8 @@ as $$
             z.id))::int,
          z.late
   from (select f.id, f.page, f.prior, f.shown, f.lot, f.created_at,
-               f.created_at > coalesce(o.drawn_at, o.opened_at + make_interval(secs => public._ws_first_draw_secs()), '-infinity'::timestamptz) as late
+               (public._ws_first_fcfs(f.board_id, f.slide)
+                or f.created_at > coalesce(o.drawn_at, o.opened_at + make_interval(secs => public._ws_first_draw_secs()), '-infinity'::timestamptz)) as late
         from public.ws_firsts f
         left join public.ws_page_open o on o.board_id = f.board_id and o.page = f.page
         where f.board_id = p_board_id) z;
@@ -2525,7 +2553,7 @@ begin
     update public.ws_page_open o set drawn_at = now()
     where o.board_id = p_board_id and (p_slide is null or o.slide = p_slide)
       and o.drawn_at is null
-      and o.opened_at + make_interval(secs => public._ws_first_draw_secs()) <= now()
+      and o.opened_at + make_interval(secs => public._ws_first_secs(o.board_id, o.slide)) <= now()
     returning o.page
   )
   select array_agg(page) into v_pages from d;
@@ -2609,7 +2637,7 @@ begin
   where x.board_id = p_board_id and x.status = 'skipped' and (p_slide is null or x.slide = p_slide);
   -- 추첨 시간이 끝나기 전에는 띄우지 않는다(남은 ms만)
   if not p_accepted then
-    select max(o.opened_at + make_interval(secs => public._ws_first_draw_secs())) into v_dl
+    select max(o.opened_at + make_interval(secs => public._ws_first_secs(o.board_id, o.slide))) into v_dl
     from public.ws_page_open o
     where o.board_id = p_board_id and (p_slide is null or o.slide = p_slide) and o.closed_at is null;
     if v_dl > now() then
@@ -2644,6 +2672,7 @@ begin
     'slide',      f.slide,
     'pos',        v_rn,    -- 추첨 순서 (추첨 시간 뒤에 낸 학생은 그 뒤 낸 순서)
     'late',       v_late,  -- 추첨 시간 뒤에 냄
+    'fcfs',       public._ws_first_fcfs(f.board_id, f.slide),  -- 선착순 쪽(낸 순서)
     'count',      (select count(*)::int from public.ws_firsts z where z.board_id = f.board_id and z.page = f.page),
     'wait',       v_wait,
     'skipped',    v_skip,
@@ -2984,7 +3013,7 @@ begin
                         where f.board_id = b.id and f.status = 'wait' and f.slide is not null group by f.slide) z),
     -- 추첨 시간이 아직 남은 수업자료 쪽 {"18": 남은 ms}
     'draw',      (select coalesce(jsonb_object_agg(z.slide::text, z.ms), '{}'::jsonb)
-                  from (select o.slide, ceil(extract(epoch from max(o.opened_at + make_interval(secs => public._ws_first_draw_secs())) - now()) * 1000)::int as ms
+                  from (select o.slide, ceil(extract(epoch from max(o.opened_at + make_interval(secs => public._ws_first_secs(o.board_id, o.slide))) - now()) * 1000)::int as ms
                         from public.ws_page_open o
                         where o.board_id = b.id and o.closed_at is null and o.slide is not null
                         group by o.slide) z

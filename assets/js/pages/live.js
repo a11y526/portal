@@ -974,7 +974,7 @@ const wsFirst = {
     const name = it.nickname || '닉네임 미정';
     $('wsf-av').innerHTML = avatarSVG(it.avatar, 72, { label: `${name} 캐릭터` });
     $('wsf-name').textContent = it.group_no ? `${groupName(it.group_no)} · ${name}` : name;
-    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', it.late ? `늦게 냄 · ${it.pos}번째` : `추첨 ${it.pos}번째`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
+    $('wsf-meta').textContent = [it.slide ? `수업자료 ${it.slide}쪽` : '', it.fcfs ? `선착순 ${it.pos}번째` : it.late ? `늦게 냄 · ${it.pos}번째` : `추첨 ${it.pos}번째`, this.review ? '인정함' : ''].filter(Boolean).join(' · ');
     const box = $('wsf-page');
     closeSims(box);
     if (it.sheet_page) renderPage(box, it.sheet_page, it.answers, { locked: true });
@@ -1298,7 +1298,7 @@ const remote = {
       const name = it.nickname || '닉네임 미정';
       first = {
         name: it.group_no ? `${groupName(it.group_no)} · ${name}` : name,
-        meta: it.late ? `늦게 냄 · ${it.pos}번째` : `추첨 ${it.pos}번째`,
+        meta: it.fcfs ? `선착순 ${it.pos}번째` : it.late ? `늦게 냄 · ${it.pos}번째` : `추첨 ${it.pos}번째`,
         paid: !!it.paid, review: wsFirst.review, skipped: !!it.skipped, busy: !!wsFirst.busy,
       };
     }

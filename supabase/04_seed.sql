@@ -395,3 +395,7 @@ from (values
   ('bg_bubbles','거품'),
   ('bg_sunburst','햇살')
 ) v(id, name) where a.id = v.id;
+
+-- 2026-11-03 첫 답 선착순 쪽: 712 14쪽(스무고개)은 추첨 없이 낸 순서대로
+insert into public.settings (key, value) values ('ws_first_fcfs', '{"712": [14]}'::jsonb)
+on conflict (key) do nothing;

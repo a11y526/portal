@@ -12,6 +12,7 @@
 // 시뮬레이션이 채우는 칸 .sim-in(2026-11-03, .bl·.fill에 붙임): fields에 sim:true, 학생은 못 쓰고(readonly) 시뮬레이션이
 // {type:'sim:answer', n, value}로 그 쪽 n번째 .sim-in 칸을 채운다. 키는 학습지의 다른 칸을 다 센 뒤 맨 뒤 번호
 // (이미 올린 학습지에 넣어도 원래 칸의 키·학생 답이 밀리지 않게)
+// 고르기(.ox, 여러 개 고르기 빼고)에도 sim-in을 붙일 수 있다(2026-11-03, 713): 보기 버튼은 늘 잠기고, 시뮬레이션이 보기 글 그대로 보낸 값이 골라진다
 
 const FIELD = '.bl, .ox, .ineq .box, .fill, .plot';
 const SYMS = { '<': '<', '＜': '<', '〈': '<', '=': '=', '＝': '=', '>': '>', '＞': '>', '〉': '>' };
@@ -124,7 +125,7 @@ export function parseWorksheet(text) {
     [...sec.querySelectorAll(FIELD)]
       .filter((el) => !el.parentElement.closest(FIELD))
       .forEach((el) => {
-        const simIn = el.matches('.sim-in') && el.matches('.bl, .fill');
+        const simIn = el.matches('.sim-in') && el.matches('.bl, .fill, .ox:not(.multi)');
         const k = 'f' + (simIn ? ++late : ++n);
         const mark = doc.createElement('span');
         mark.setAttribute('data-ws', k);
@@ -264,7 +265,7 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
         b.dataset.v = o;
         b.textContent = o;
         b.setAttribute('aria-pressed', String(picked ? picked.has(o) : v === o));
-        b.disabled = locked;
+        b.disabled = locked || !!f.sim;
         el.append(b);
       });
     } else if (f.type === 'plot') {
@@ -288,7 +289,9 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
       el.disabled = locked;
       el.setAttribute('aria-label', `${no}번 칸`);
     }
-    if (f.sim) {
+    if (f.sim && el.tagName === 'SPAN') {
+      el.classList.add('ws-sim-ox');
+    } else if (f.sim) {
       el.readOnly = true;
       el.classList.add('ws-sim-in');
       el.placeholder = f.type === 'text' ? '시뮬레이션을 하면 저절로 채워져요' : '시뮬레이션';

@@ -1232,6 +1232,8 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-page .w-qline .ws-fill { flex: 1 1 100%; }
 .ws-sim-in { background: rgba(0,102,204,.05); border-style: dashed; cursor: default; resize: none; }
 .ws-sim-in::placeholder { color: rgba(0,102,204,.55); font-size: 14px; }
+.ws-sim-ox { padding: 3px; border: 2px dashed rgba(0,102,204,.35); background: rgba(0,102,204,.05); }
+.ws-sim-ox .ws-opt[disabled]:not([aria-pressed="true"]) { opacity: .45; }
 .ws-ox { display: inline-flex; flex-wrap: wrap; gap: 6px; vertical-align: middle; margin: 2px 4px; border-radius: 26px; }
 .ws-opt { min-height: 44px; padding: 0 16px; border-radius: var(--r-pill); border: 2px solid rgba(78,88,104,.22); background: rgba(255,255,255,.9);
   font: inherit; font-size: 16px; font-weight: 700; color: var(--ink); cursor: pointer; line-height: 1.3; }

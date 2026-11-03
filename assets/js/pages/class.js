@@ -748,7 +748,9 @@ function simAnswer(pg, n, value) {
   if (!page || String(page.slide) !== String(pg) || typeof value !== 'string') return;
   const f = (page.fields ?? []).filter((x) => x.sim)[Math.max(1, Math.floor(Number(n) || 1)) - 1];
   if (!f) return;
-  ws.simFill.set(f.key, value.replace(/\s+/g, ' ').trim().slice(0, f.type === 'text' ? 300 : 40));
+  const v = value.replace(/\s+/g, ' ').trim();
+  if (f.type === 'choice' && !(f.options ?? []).includes(v)) return; // 고르기 칸은 보기 글 그대로일 때만
+  ws.simFill.set(f.key, v.slice(0, f.type === 'text' ? 300 : 40));
   applySimFill(page);
 }
 function applySimFill(page) {
@@ -760,6 +762,7 @@ function applySimFill(page) {
     if ((ws.answers[f.key] ?? '') === v) return;
     const el = $('ws-page').querySelector(`.ws-in[data-k="${f.key}"]`);
     if (el) el.value = v;
+    $('ws-page').querySelectorAll(`.ws-opt[data-k="${f.key}"]`).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.v === v)));
     setAnswer(f.key, v);
   });
 }

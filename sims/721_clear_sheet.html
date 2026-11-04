@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>721 투명 판 뒤집어 보기</title>
+<style>
+:root{--p:#0066CC;--ink:#1D1D1F;--mut:#6E6E73;--line:#E3E3E8;--pearl:#F5F5F7;--ok:#1E8E3E;
+  --font:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;color:var(--ink);font-family:var(--font);word-break:keep-all;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;overflow:hidden;padding:8px;gap:8px}
+button{font:700 16px var(--font);color:var(--p);background:#fff;border:1.5px solid var(--p);border-radius:999px;padding:6px 14px;min-height:42px;cursor:pointer;touch-action:manipulation}
+button:active{background:#E8F1FB}
+button:disabled{opacity:.35;cursor:not-allowed;background:#fff}
+button.on{background:var(--p);color:#fff}
+svg text{font-family:var(--font)}
+.how{flex:none;margin:0;padding:7px 12px;border-radius:12px;background:#F2F6FC;font-size:16px;line-height:1.5;display:flex;flex-wrap:wrap;gap:2px 14px}
+.how span{color:#8A94A6;font-weight:600}
+.how span b{color:inherit}
+.how span.now{color:var(--ink)}
+.how span.now b{color:var(--p)}
+.how span.done{color:var(--ok)}
+.how span.done::after{content:" ✓";font-weight:800}
+.row{flex:1;min-height:0;display:flex;gap:10px}
+.stage{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;position:relative}
+.stage svg{display:block;flex:1;width:100%;min-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
+.ctrl{flex:none;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:16px;font-weight:700}
+.ctrl input[type=range]{accent-color:var(--p);flex:1;min-width:180px;height:34px;touch-action:none}
+.ctrl .st{margin-left:auto;font-size:15px;color:var(--mut)}
+.seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden}
+.seg button{border:0;border-radius:0;color:#515154;min-height:38px;padding:4px 12px}
+.seg button.on{background:var(--p);color:#fff}
+#qs{flex:0 0 clamp(236px,31%,300px);display:flex;flex-direction:column;gap:10px;overflow:auto;padding:2px 2px 4px}
+.q{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,opacity .2s}
+.q p{margin:0;font-size:16.5px;font-weight:700;line-height:1.45}
+.q .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--p);color:#fff;font-size:13px;margin-right:6px;vertical-align:2px}
+.q .tag{display:inline-block;font-size:12.5px;font-weight:800;color:#8A5300;background:rgba(255,196,77,.3);border-radius:999px;padding:1px 8px;margin-right:6px;vertical-align:2px}
+.q .opts{display:flex;flex-wrap:wrap;gap:6px}
+.q .opts button{border-color:#C7C7CC;color:var(--ink);font-size:15px;min-height:38px;padding:4px 12px;font-weight:600}
+.q .opts button.on{background:var(--p);border-color:var(--p);color:#fff}
+.q .inp{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}
+.q input[type=text],.q textarea{font:600 16px var(--font);border:2px solid #C7C7CC;border-radius:10px;padding:6px 10px;outline:none;color:var(--ink)}
+.q input[type=text]{width:90px;text-align:center}
+.q textarea{width:100%;resize:none}
+.q input:focus,.q textarea:focus{border-color:var(--p);box-shadow:0 0 0 3px #CFE3F8}
+.q .lock{font-size:14px;font-weight:700;color:var(--mut)}
+.q.locked{opacity:.55}
+.q.locked .opts,.q.locked .inp{display:none}
+.q:not(.locked) .lock{display:none}
+.q.picked{border-color:#9EC3EA}
+.sub{flex:none;display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.sub button{background:var(--p);color:#fff;font-size:17px;min-height:46px}
+.sub button:disabled{background:#fff;color:var(--p)}
+.sub .msg{font-size:14.5px;font-weight:700;color:var(--mut);text-align:center;min-height:21px}
+.sub .msg.ok{color:var(--ok)}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(29,29,31,.92);color:#fff;font-size:17px;font-weight:700;border-radius:999px;padding:8px 18px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:5;white-space:nowrap}
+.toast.on{opacity:1}
+@media (max-height:560px) and (min-width:601px){
+  body{padding:6px;gap:6px}
+  .how{font-size:14px;padding:5px 10px;gap:0 10px}
+  #qs{gap:6px}
+  .q{padding:6px 10px;gap:5px;border-radius:12px}
+  .q p{font-size:14.5px}
+  .q .opts{gap:4px}
+  .q .opts button{font-size:14px;min-height:32px;padding:2px 10px}
+  .q .lock{font-size:13px}
+  .sub{gap:3px}
+  .sub button{min-height:38px;font-size:16px}
+  .sub .msg{font-size:13px;min-height:18px}
+  button{min-height:36px}
+}
+@media (max-width:600px){
+  body{overflow:auto;height:auto;min-height:100%}
+  .row{flex-direction:column}
+  .stage{flex:none;height:62vh;min-height:300px}
+  #qs{flex:none;overflow:visible}
+}
+</style>
+<script>
+/* 공통: 조작 안내 줄(#how), 문항 칸(#qs)과 [제출] → 학습지 칸(.sim-in)으로 {type:'sim:answer', n, value} */
+/* 점검용: ?raf=timer 이면 화면이 숨겨져도 움직임이 돈다 */
+if(/raf=timer/.test(location.search))window.requestAnimationFrame=function(f){return setTimeout(function(){f(performance.now());},16);},window.cancelAnimationFrame=clearTimeout;
+var Q=(function(){
+'use strict';
+var WS=/ws=/.test(location.hash);
+var RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function tell(d){if(window.parent!==window)window.parent.postMessage(d,'*');}
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+addEventListener('keydown',function(e){if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(['ArrowRight','ArrowLeft','PageDown','PageUp',' ','Escape','a','A','f','F'].indexOf(e.key)>=0)tell({type:'simkey',key:e.key,shift:e.shiftKey});});
+tell({type:'sim:gate'});
+/* 수업자료 쪽이 바뀌면 {type:'active',on} — 다른 쪽에 있을 때는 움직임을 멈춘다 */
+var active=true,onAct=[];
+addEventListener('message',function(e){var d=e.data||{};if(d.type==='active'){active=!!d.on;onAct.forEach(function(f){f(active);});}});
+/* 안내 줄: steps = ['① <b>…</b> …', …], 지금 할 단계는 진하게, 끝낸 단계는 ✓ */
+function how(steps){
+  var box=document.getElementById('how'),done=steps.map(function(){return false;}),items=steps.map(function(s){var e=document.createElement('span');e.innerHTML=s;box.appendChild(e);return e;});
+  function draw(){var cur=done.indexOf(false);items.forEach(function(e,i){e.className=done[i]?'done':i===cur?'now':'';});}
+  draw();
+  return {done:function(i,v){done[i]=v!==false;draw();},is:function(i){return done[i];},first:function(){return done.indexOf(false);},steps:steps};}
+/* 잠깐 뜨는 알림 (예: ①부터 해 보세요) */
+var tt=0;
+function toast(msg){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
+  t.textContent=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},1600);}
+function mark(h){return (h.steps[h.first()]||'').match(/^[①-⑨]/)||[''];}
+/* 문항: list = [{html, opts:[…] | input:'short'|'long', lock:'…'}], 고른 값·쓴 값을 보낸다 */
+function panel(list,o){
+  o=o||{};
+  var box=document.getElementById('qs'),Hw=o.how;
+  var sent=false;
+  var st=list.map(function(q,i){
+    var d=document.createElement('div');d.className='q'+(q.lock?' locked':'');
+    var s={el:d,val:'',open:!q.lock,btns:[]};
+    if(q.input){
+      d.innerHTML='<p>'+q.html+'</p><div class="inp">'+(q.input==='long'?'<textarea rows="3" maxlength="120"></textarea>':'<input type="text" inputmode="numeric" maxlength="6">'+(q.unit||''))+'</div><div class="lock">'+(q.lock||'')+'</div>';
+      var f=d.querySelector('input,textarea');if(q.ph)f.placeholder=q.ph;
+      f.addEventListener('input',function(){s.val=f.value.trim();d.classList.toggle('picked',!!s.val);sent=false;sync();if(o.onPick)o.onPick(i,s.val);});
+    }else{
+      d.innerHTML='<p>'+q.html+'</p><div class="opts"></div><div class="lock">'+(q.lock||'')+'</div>';
+      var ob=d.querySelector('.opts');
+      q.opts.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
+        b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);sent=false;sync();if(o.onPick)o.onPick(i,s.val);};
+        ob.appendChild(b);s.btns.push(b);});}
+    d.addEventListener('click',function(){if(!s.open&&Hw)toast(mark(Hw)+'부터 해 보세요');});
+    box.appendChild(d);return s;});
+  var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
+  var sb=sub.querySelector('button'),msg=sub.querySelector('.msg');
+  function ready(){return st.every(function(s){return s.open&&s.val;})&&(!o.extra||o.extra());}
+  function sync(){
+    var r=ready();
+    sb.disabled=!r;msg.classList.toggle('ok',sent);
+    if(sent){msg.textContent=WS?'학습지 칸에 들어갔어요':'제출했어요';return;}
+    if(r){msg.textContent='';return;}
+    var k=Hw?Hw.first():-1;
+    if(k>=0&&(st.some(function(s){return !s.open;})||(o.extra&&!o.extra())))msg.textContent=mark(Hw)+'부터 해 보세요';
+    else msg.textContent='모든 문항을 골라 보세요';}
+  sb.onclick=function(){sb.blur();if(sb.disabled)return;
+    st.forEach(function(s,i){tell({type:'sim:answer',n:i+1,value:s.val});});tell({type:'sim:done'});sent=true;
+    if(Hw)Hw.done(Hw.steps.length-1);sync();};
+  sync();
+  return {open:function(i){var s=st[i];if(s.open)return;s.open=true;s.el.classList.remove('locked');sync();},
+    val:function(i){return st[i].val;},sync:sync};}
+/* 공통 그리기 도우미 */
+var NS='http://www.w3.org/2000/svg';
+function el(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function T(p,x,y,s,a){var e=el('text',Object.assign({x:x,y:y,'font-size':18,fill:'#1D1D1F','font-weight':700},a||{}),p);e.textContent=s;return e;}
+function pt(svg,e){var p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse());}
+/* 끌기: el 위에서 누르고 움직이면 fn(p, 시작점) */
+function drag(svg,target,move,start,end){var on=false;
+  target.style.touchAction='none';target.style.cursor='grab';
+  target.addEventListener('pointerdown',function(e){var p=pt(svg,e);if(start&&start(p,e)===false)return;on=true;target.setPointerCapture(e.pointerId);target.style.cursor='grabbing';e.preventDefault();});
+  target.addEventListener('pointermove',function(e){if(on)move(pt(svg,e),e);});
+  function up(e){if(!on)return;on=false;target.style.cursor='grab';if(end)end(e);}
+  target.addEventListener('pointerup',up);target.addEventListener('pointercancel',up);}
+/* 각도 차이를 -180~180으로 */
+function dAng(a,b){var d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;}
+return {WS:WS,RED:RED,tell:tell,how:how,panel:panel,toast:toast,el:el,T:T,pt:pt,drag:drag,dAng:dAng,
+  isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
+})();
+</script>
+
+</head>
+<body>
+<p class="how" id="how"></p>
+<div class="row">
+  <div class="stage">
+    <svg id="s" viewBox="0 0 900 500" role="img" aria-label="시계 방향 화살표가 그려진 투명 판을 끌어 뒤집어 보기"></svg>
+    <div class="ctrl"><span class="seg" id="sp"><button type="button" data-s="0.5" class="on">느리게</button><button type="button" data-s="1">보통</button><button type="button" data-s="1.8">빠르게</button></span><button id="pz" type="button">일시정지</button><span class="st" id="st"></span></div>
+  </div>
+  <aside id="qs"></aside>
+</div>
+<script>
+/* 721 8쪽(지도서 수업 TIP): 투명 판에 시계 방향으로 도는 화살표. 판을 끌어 뒤집으면(= 몸을 돌려 반대쪽을 보면) 같은 회전이 시계 반대 방향으로 보인다 */
+(function(){
+'use strict';
+const {el,T}=Q;
+const H=Q.how(['① <b>투명 판을 옆으로 끌어</b> 뒷면이 보이게 뒤집기','② <b>다시 앞면</b>으로 끌어 화살표 방향 비교하기','③ 1~3번을 <b>골라 [제출]</b>']);
+const P=Q.panel([
+  {html:'<span class="n">1</span>시계 방향 화살표가 그려진 투명 판을 반대쪽(뒷면)에서 바라보면 화살표는 어느 방향으로 회전하는 것처럼 보일까?',opts:['시계 방향','시계 반대 방향'],lock:'① 판을 뒤집어 보세요'},
+  {html:'<span class="n">2</span>남쪽 하늘을 바라볼 때와 몸을 돌려 북쪽 하늘을 바라볼 때, 관측자가 바라보는 방향은 서로 (　).',opts:['같다','반대이다'],lock:'② 다시 앞면으로 돌려 보세요'},
+  {html:'<span class="n">3</span>그래서 북쪽 하늘을 바라보면 별들은 북극성을 중심으로 (　)으로 회전하는 것처럼 보인다.',opts:['시계 방향','시계 반대 방향'],lock:'② 다시 앞면으로 돌려 보세요'}],{how:H});
+const svg=document.getElementById('s'),defs=el('defs',{},svg);
+el('rect',{x:0,y:0,width:900,height:500,rx:16,fill:'#0B1630'},svg);
+/* 왼쪽 작은 그림: 관측자가 바라보는 방향 (위에서 본 모습) */
+const M=[130,250];
+const mm=el('g',{},svg);
+T(mm,M[0],46,'관측자가 바라보는 쪽',{'text-anchor':'middle','font-size':17,fill:'#C9D6EE'});
+el('circle',{cx:M[0],cy:M[1],r:92,fill:'rgba(255,255,255,.06)',stroke:'#5D7FBF'},mm);
+[['북',0,-104],['남',0,116],['동',108,6],['서',-108,6]].forEach(([s,x,y])=>T(mm,M[0]+x,M[1]+y,s,{'text-anchor':'middle','font-size':18,fill:'#fff'}));
+const body=el('g',{},mm);
+el('path',{d:`M${M[0]} ${M[1]+70} L${M[0]-20} ${M[1]+26} L${M[0]+20} ${M[1]+26}Z`,fill:'#5AB0FF',opacity:.55},body);
+el('circle',{cx:M[0],cy:M[1],r:22,fill:'#5AB0FF'},body);
+el('circle',{cx:M[0],cy:M[1]+14,r:7,fill:'#0B1630'},body);
+const lookT=T(svg,M[0],M[1]+160,'',{'text-anchor':'middle','font-size':19,fill:'#FFD60A'});
+/* 오른쪽: 투명 판 */
+const PC=[600,240],PW=300,PH=330;
+el('ellipse',{cx:PC[0],cy:PC[1]+PH/2+26,rx:170,ry:12,fill:'rgba(0,0,0,.35)'},svg);
+const plate=el('g',{style:'cursor:grab'},svg);
+const sheet=el('g',{},plate);
+const face=el('rect',{x:PC[0]-PW/2,y:PC[1]-PH/2,width:PW,height:PH,rx:18,fill:'rgba(170,215,255,.22)',stroke:'#BFE0FF','stroke-width':3},sheet);
+const arcR=104;
+el('circle',{cx:PC[0],cy:PC[1],r:arcR,fill:'none',stroke:'rgba(255,255,255,.18)','stroke-width':2,'stroke-dasharray':'4 6'},sheet);
+el('path',{d:star(PC[0],PC[1],12),fill:'#FFF3B0'},sheet);
+const pol=T(sheet,PC[0],PC[1]+34,'북극성',{'text-anchor':'middle','font-size':16,fill:'#FFF3B0'});
+const arr=el('g',{},sheet);
+el('path',{d:arcPath(arcR,40,150),fill:'none',stroke:'#FF6B6B','stroke-width':9,'stroke-linecap':'round'},arr);
+el('path',{d:'M-15 -16 L17 0 L-15 16Z',fill:'#FF6B6B',transform:headAt(arcR,40)},arr);
+const sideT=T(sheet,PC[0]-PW/2+18,PC[1]-PH/2+32,'앞면',{'font-size':20,fill:'#fff'});
+const hint=T(svg,PC[0],PC[1]+PH/2+60,'◀ 판을 옆으로 끌어 뒤집어 보자 ▶',{'text-anchor':'middle','font-size':18,fill:'#C9D6EE'});
+const badge=el('g',{},svg);
+const bBg=el('rect',{x:PC[0]-170,y:16,width:340,height:44,rx:22,fill:'#fff'},badge);
+const bT=T(badge,PC[0],45,'',{'text-anchor':'middle','font-size':20,fill:'#D70015'});
+function star(x,y,r){let d='';for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;d+=(i?'L':'M')+(x+rr*Math.cos(a)).toFixed(1)+' '+(y+rr*Math.sin(a)).toFixed(1);}return d+'Z';}
+/* 판 위의 각도(수학): 시계 방향으로 돌므로 a가 줄어든다 */
+function arcPath(r,a0,a1){const p=a=>[PC[0]+r*Math.cos(a*Math.PI/180),PC[1]-r*Math.sin(a*Math.PI/180)];const [x0,y0]=p(a0),[x1,y1]=p(a1);return `M${x1} ${y1} A${r} ${r} 0 0 1 ${x0} ${y0}`;}
+function headAt(r,a){const t=a*Math.PI/180,x=PC[0]+r*Math.cos(t),y=PC[1]-r*Math.sin(t);/* 시계 방향 접선 */const dir=Math.atan2(Math.cos(t),Math.sin(t))*180/Math.PI;return `translate(${x} ${y}) rotate(${dir})`;}
+let beta=0,spin=0,speed=.5,paused=false,flipped=false,back=false,last=0;
+function render(){
+  const sx=Math.cos(beta*Math.PI/180);
+  sheet.setAttribute('transform',`translate(${PC[0]} ${PC[1]}) scale(${sx.toFixed(3)} 1) translate(${-PC[0]} ${-PC[1]})`);
+  arr.setAttribute('transform',`rotate(${spin} ${PC[0]} ${PC[1]})`);
+  const front=sx>=0;
+  sideT.textContent=front?'앞면':'뒷면';
+  face.setAttribute('fill',front?'rgba(170,215,255,.22)':'rgba(255,214,150,.2)');
+  body.setAttribute('transform',`rotate(${beta} ${M[0]} ${M[1]})`);
+  lookT.textContent=beta<10?'남쪽 하늘을 볼 때':beta>170?'뒤로 돌아 북쪽 하늘을 볼 때':'몸을 돌리는 중';
+  const edge=Math.abs(sx)<.12;
+  bT.textContent=edge?'판의 옆면':(front?'시계 방향으로 돈다':'시계 반대 방향으로 돈다');
+  bT.setAttribute('fill',edge?'#6E6E73':(front?'#D70015':'#0066CC'));
+  hint.setAttribute('opacity',flipped?0:1);}
+function loop(now){const dt=last?Math.min(50,now-last):16;last=now;
+  if(!paused&&Q.isActive()&&!Q.RED)spin+=dt*.09*speed;   /* svg rotate(+)는 화면에서 시계 방향 */
+  render();requestAnimationFrame(loop);}
+let sx0=0,b0=0;
+Q.drag(svg,plate,p=>{const d=Math.abs(p.x-sx0)*.55;beta=Math.max(0,Math.min(180,b0<90?b0+d:b0-d));
+    if(beta>=175&&!flipped){flipped=true;H.done(0);P.open(0);}
+    if(flipped&&beta<=5&&!back){back=true;H.done(1);P.open(1);P.open(2);}},
+  p=>{sx0=p.x;b0=beta;},()=>{beta=beta>90?180:0;if(beta===180&&!flipped){flipped=true;H.done(0);P.open(0);}if(flipped&&beta===0&&!back){back=true;H.done(1);P.open(1);P.open(2);}});
+const seg=document.getElementById('sp');seg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;b.blur();speed=+b.dataset.s;seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));});
+document.getElementById('pz').onclick=e=>{paused=!paused;e.target.textContent=paused?'다시 재생':'일시정지';e.target.blur();};
+render();requestAnimationFrame(loop);
+})();
+</script>
+</body>
+</html>

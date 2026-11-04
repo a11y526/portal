@@ -1,0 +1,272 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>721 회전목마 위에서 본 나무</title>
+<style>
+:root{--p:#0066CC;--ink:#1D1D1F;--mut:#6E6E73;--line:#E3E3E8;--pearl:#F5F5F7;--ok:#1E8E3E;
+  --font:"Noto Sans KR","Noto Sans CJK KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif;color-scheme:light}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#fff;color:var(--ink);font-family:var(--font);word-break:keep-all;-webkit-tap-highlight-color:transparent}
+body{display:flex;flex-direction:column;overflow:hidden;padding:8px;gap:8px}
+button{font:700 16px var(--font);color:var(--p);background:#fff;border:1.5px solid var(--p);border-radius:999px;padding:6px 14px;min-height:42px;cursor:pointer;touch-action:manipulation}
+button:active{background:#E8F1FB}
+button:disabled{opacity:.35;cursor:not-allowed;background:#fff}
+button.on{background:var(--p);color:#fff}
+svg text{font-family:var(--font)}
+.how{flex:none;margin:0;padding:7px 12px;border-radius:12px;background:#F2F6FC;font-size:16px;line-height:1.5;display:flex;flex-wrap:wrap;gap:2px 14px}
+.how span{color:#8A94A6;font-weight:600}
+.how span b{color:inherit}
+.how span.now{color:var(--ink)}
+.how span.now b{color:var(--p)}
+.how span.done{color:var(--ok)}
+.how span.done::after{content:" ✓";font-weight:800}
+.row{flex:1;min-height:0;display:flex;gap:10px}
+.stage{flex:1;min-width:0;min-height:0;display:flex;flex-direction:column;gap:8px;position:relative}
+.stage svg{display:block;flex:1;width:100%;min-height:0;touch-action:none;user-select:none;-webkit-user-select:none}
+.ctrl{flex:none;display:flex;flex-wrap:wrap;gap:8px 12px;align-items:center;font-size:16px;font-weight:700}
+.ctrl input[type=range]{accent-color:var(--p);flex:1;min-width:180px;height:34px;touch-action:none}
+.ctrl .st{margin-left:auto;font-size:15px;color:var(--mut)}
+.seg{display:inline-flex;border:1.5px solid #D1D1D6;border-radius:999px;overflow:hidden}
+.seg button{border:0;border-radius:0;color:#515154;min-height:38px;padding:4px 12px}
+.seg button.on{background:var(--p);color:#fff}
+#qs{flex:0 0 clamp(236px,31%,300px);display:flex;flex-direction:column;gap:10px;overflow:auto;padding:2px 2px 4px}
+.q{border:1.5px solid var(--line);border-radius:14px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,opacity .2s}
+.q p{margin:0;font-size:16.5px;font-weight:700;line-height:1.45}
+.q .n{display:inline-grid;place-items:center;width:24px;height:24px;border-radius:50%;background:var(--p);color:#fff;font-size:13px;margin-right:6px;vertical-align:2px}
+.q .tag{display:inline-block;font-size:12.5px;font-weight:800;color:#8A5300;background:rgba(255,196,77,.3);border-radius:999px;padding:1px 8px;margin-right:6px;vertical-align:2px}
+.q .opts{display:flex;flex-wrap:wrap;gap:6px}
+.q .opts button{border-color:#C7C7CC;color:var(--ink);font-size:15px;min-height:38px;padding:4px 12px;font-weight:600}
+.q .opts button.on{background:var(--p);border-color:var(--p);color:#fff}
+.q .inp{display:flex;align-items:center;gap:8px;font-size:16px;font-weight:700}
+.q input[type=text],.q textarea{font:600 16px var(--font);border:2px solid #C7C7CC;border-radius:10px;padding:6px 10px;outline:none;color:var(--ink)}
+.q input[type=text]{width:90px;text-align:center}
+.q textarea{width:100%;resize:none}
+.q input:focus,.q textarea:focus{border-color:var(--p);box-shadow:0 0 0 3px #CFE3F8}
+.q .lock{font-size:14px;font-weight:700;color:var(--mut)}
+.q.locked{opacity:.55}
+.q.locked .opts,.q.locked .inp{display:none}
+.q:not(.locked) .lock{display:none}
+.q.picked{border-color:#9EC3EA}
+.sub{flex:none;display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.sub button{background:var(--p);color:#fff;font-size:17px;min-height:46px}
+.sub button:disabled{background:#fff;color:var(--p)}
+.sub .msg{font-size:14.5px;font-weight:700;color:var(--mut);text-align:center;min-height:21px}
+.sub .msg.ok{color:var(--ok)}
+.toast{position:absolute;left:50%;top:14px;transform:translateX(-50%);background:rgba(29,29,31,.92);color:#fff;font-size:17px;font-weight:700;border-radius:999px;padding:8px 18px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:5;white-space:nowrap}
+.toast.on{opacity:1}
+@media (max-height:560px) and (min-width:601px){
+  body{padding:6px;gap:6px}
+  .how{font-size:14px;padding:5px 10px;gap:0 10px}
+  #qs{gap:6px}
+  .q{padding:6px 10px;gap:5px;border-radius:12px}
+  .q p{font-size:14.5px}
+  .q .opts{gap:4px}
+  .q .opts button{font-size:14px;min-height:32px;padding:2px 10px}
+  .q .lock{font-size:13px}
+  .sub{gap:3px}
+  .sub button{min-height:38px;font-size:16px}
+  .sub .msg{font-size:13px;min-height:18px}
+  button{min-height:36px}
+}
+@media (max-width:600px){
+  body{overflow:auto;height:auto;min-height:100%}
+  .row{flex-direction:column}
+  .stage{flex:none;height:62vh;min-height:300px}
+  #qs{flex:none;overflow:visible}
+}
+</style>
+<script>
+/* 공통: 조작 안내 줄(#how), 문항 칸(#qs)과 [제출] → 학습지 칸(.sim-in)으로 {type:'sim:answer', n, value} */
+/* 점검용: ?raf=timer 이면 화면이 숨겨져도 움직임이 돈다 */
+if(/raf=timer/.test(location.search))window.requestAnimationFrame=function(f){return setTimeout(function(){f(performance.now());},16);},window.cancelAnimationFrame=clearTimeout;
+var Q=(function(){
+'use strict';
+var WS=/ws=/.test(location.hash);
+var RED=matchMedia('(prefers-reduced-motion: reduce)').matches;
+function tell(d){if(window.parent!==window)window.parent.postMessage(d,'*');}
+/* 수업자료 안에서는 쪽 넘기기·답 보기 키를 수업자료로 넘긴다 */
+addEventListener('keydown',function(e){if(/INPUT|TEXTAREA/.test(e.target.tagName))return;
+  if(['ArrowRight','ArrowLeft','PageDown','PageUp',' ','Escape','a','A','f','F'].indexOf(e.key)>=0)tell({type:'simkey',key:e.key,shift:e.shiftKey});});
+tell({type:'sim:gate'});
+/* 수업자료 쪽이 바뀌면 {type:'active',on} — 다른 쪽에 있을 때는 움직임을 멈춘다 */
+var active=true,onAct=[];
+addEventListener('message',function(e){var d=e.data||{};if(d.type==='active'){active=!!d.on;onAct.forEach(function(f){f(active);});}});
+/* 안내 줄: steps = ['① <b>…</b> …', …], 지금 할 단계는 진하게, 끝낸 단계는 ✓ */
+function how(steps){
+  var box=document.getElementById('how'),done=steps.map(function(){return false;}),items=steps.map(function(s){var e=document.createElement('span');e.innerHTML=s;box.appendChild(e);return e;});
+  function draw(){var cur=done.indexOf(false);items.forEach(function(e,i){e.className=done[i]?'done':i===cur?'now':'';});}
+  draw();
+  return {done:function(i,v){done[i]=v!==false;draw();},is:function(i){return done[i];},first:function(){return done.indexOf(false);},steps:steps};}
+/* 잠깐 뜨는 알림 (예: ①부터 해 보세요) */
+var tt=0;
+function toast(msg){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
+  t.textContent=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},1600);}
+function mark(h){return (h.steps[h.first()]||'').match(/^[①-⑨]/)||[''];}
+/* 문항: list = [{html, opts:[…] | input:'short'|'long', lock:'…'}], 고른 값·쓴 값을 보낸다 */
+function panel(list,o){
+  o=o||{};
+  var box=document.getElementById('qs'),Hw=o.how;
+  var sent=false;
+  var st=list.map(function(q,i){
+    var d=document.createElement('div');d.className='q'+(q.lock?' locked':'');
+    var s={el:d,val:'',open:!q.lock,btns:[]};
+    if(q.input){
+      d.innerHTML='<p>'+q.html+'</p><div class="inp">'+(q.input==='long'?'<textarea rows="3" maxlength="120"></textarea>':'<input type="text" inputmode="numeric" maxlength="6">'+(q.unit||''))+'</div><div class="lock">'+(q.lock||'')+'</div>';
+      var f=d.querySelector('input,textarea');if(q.ph)f.placeholder=q.ph;
+      f.addEventListener('input',function(){s.val=f.value.trim();d.classList.toggle('picked',!!s.val);sent=false;sync();if(o.onPick)o.onPick(i,s.val);});
+    }else{
+      d.innerHTML='<p>'+q.html+'</p><div class="opts"></div><div class="lock">'+(q.lock||'')+'</div>';
+      var ob=d.querySelector('.opts');
+      q.opts.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
+        b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);sent=false;sync();if(o.onPick)o.onPick(i,s.val);};
+        ob.appendChild(b);s.btns.push(b);});}
+    d.addEventListener('click',function(){if(!s.open&&Hw)toast(mark(Hw)+'부터 해 보세요');});
+    box.appendChild(d);return s;});
+  var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
+  var sb=sub.querySelector('button'),msg=sub.querySelector('.msg');
+  function ready(){return st.every(function(s){return s.open&&s.val;})&&(!o.extra||o.extra());}
+  function sync(){
+    var r=ready();
+    sb.disabled=!r;msg.classList.toggle('ok',sent);
+    if(sent){msg.textContent=WS?'학습지 칸에 들어갔어요':'제출했어요';return;}
+    if(r){msg.textContent='';return;}
+    var k=Hw?Hw.first():-1;
+    if(k>=0&&(st.some(function(s){return !s.open;})||(o.extra&&!o.extra())))msg.textContent=mark(Hw)+'부터 해 보세요';
+    else msg.textContent='모든 문항을 골라 보세요';}
+  sb.onclick=function(){sb.blur();if(sb.disabled)return;
+    st.forEach(function(s,i){tell({type:'sim:answer',n:i+1,value:s.val});});tell({type:'sim:done'});sent=true;
+    if(Hw)Hw.done(Hw.steps.length-1);sync();};
+  sync();
+  return {open:function(i){var s=st[i];if(s.open)return;s.open=true;s.el.classList.remove('locked');sync();},
+    val:function(i){return st[i].val;},sync:sync};}
+/* 공통 그리기 도우미 */
+var NS='http://www.w3.org/2000/svg';
+function el(t,a,p){var e=document.createElementNS(NS,t);for(var k in a)e.setAttribute(k,a[k]);if(p)p.appendChild(e);return e;}
+function T(p,x,y,s,a){var e=el('text',Object.assign({x:x,y:y,'font-size':18,fill:'#1D1D1F','font-weight':700},a||{}),p);e.textContent=s;return e;}
+function pt(svg,e){var p=svg.createSVGPoint();p.x=e.clientX;p.y=e.clientY;return p.matrixTransform(svg.getScreenCTM().inverse());}
+/* 끌기: el 위에서 누르고 움직이면 fn(p, 시작점) */
+function drag(svg,target,move,start,end){var on=false;
+  target.style.touchAction='none';target.style.cursor='grab';
+  target.addEventListener('pointerdown',function(e){var p=pt(svg,e);if(start&&start(p,e)===false)return;on=true;target.setPointerCapture(e.pointerId);target.style.cursor='grabbing';e.preventDefault();});
+  target.addEventListener('pointermove',function(e){if(on)move(pt(svg,e),e);});
+  function up(e){if(!on)return;on=false;target.style.cursor='grab';if(end)end(e);}
+  target.addEventListener('pointerup',up);target.addEventListener('pointercancel',up);}
+/* 각도 차이를 -180~180으로 */
+function dAng(a,b){var d=a-b;while(d>180)d-=360;while(d<-180)d+=360;return d;}
+return {WS:WS,RED:RED,tell:tell,how:how,panel:panel,toast:toast,el:el,T:T,pt:pt,drag:drag,dAng:dAng,
+  isActive:function(){return active;},onActive:function(f){onAct.push(f);}};
+})();
+</script>
+
+</head>
+<body>
+<p class="how" id="how"></p>
+<div class="row">
+  <div class="stage">
+    <svg id="s" viewBox="0 0 900 520" role="img" aria-label="회전목마를 돌리며 나무가 움직이는 것처럼 보이는 방향 관찰하기"></svg>
+    <div class="ctrl"><span>돌린 양</span><span id="turn">0바퀴</span><button id="rs" type="button">처음 위치로</button><span class="st" id="st"></span></div>
+  </div>
+  <aside id="qs"></aside>
+</div>
+<script>
+/* 721 2쪽: 위에서 본 회전목마를 끌어 시계 반대 방향으로 돌리면, 회전목마에 탄 나의 시점에서 나무가 반대(시계 방향)로 지나간다 */
+(function(){
+'use strict';
+const {el,T,dAng}=Q;
+const H=Q.how(['① <b>회전목마를 끌어</b> 시계 반대 방향으로 한 바퀴 돌리기','② 오른쪽 <b>[나의 시점]</b>에서 나무가 지나가는 쪽 보기','③ 1·2번을 <b>골라 [제출]</b>']);
+const P=Q.panel([
+  {html:'<span class="n">1</span>회전목마가 시계 반대 방향으로 회전할 때, 회전목마 위에 탄 사람에게 가만히 있는 나무는 어느 방향으로 움직이는 것처럼 보일까?',opts:['시계 방향','시계 반대 방향','움직이지 않는다'],lock:'① 한 바퀴 돌려 보세요'},
+  {html:'<span class="n">2</span><span class="tag">예상</span>하루 동안 태양, 달, 별이 하늘에서 움직이는 것처럼 보이는 까닭은 무엇일까?',opts:['천체들이 실제로 하루에 한 바퀴씩 지구를 돌아서','천체는 가만히 있는데 지구가 하루에 한 바퀴씩 회전해서']}],{how:H});
+const svg=document.getElementById('s'),defs=el('defs',{},svg);
+/* ---- 왼쪽: 위에서 본 회전목마 ---- */
+const C=[220,262],R=140;
+el('rect',{x:0,y:0,width:440,height:520,rx:16,fill:'#E9F4DF'},svg);
+T(svg,18,34,'위에서 본 회전목마',{'font-size':20,fill:'#3A5A2A'});
+const TR=[[90,205,true],[205,210],[330,212]];   /* 나무: [각도(수학), 중심에서 거리, 큰 나무] — 가만히 있다 */
+function treeTop(p,x,y,s,main){const g=el('g',{transform:`translate(${x} ${y}) scale(${s})`},p);
+  el('circle',{cx:0,cy:0,r:26,fill:main?'#2E8B3E':'#5DAA5F',stroke:'#1F5E2A','stroke-width':3},g);
+  el('circle',{cx:-8,cy:-7,r:9,fill:'#fff',opacity:.25},g);return g;}
+TR.forEach(([a,d,m])=>{const x=C[0]+d*Math.cos(a*Math.PI/180),y=C[1]-d*Math.sin(a*Math.PI/180);treeTop(svg,x,y,m?1.15:.85,m);
+  if(m)T(svg,x+36,y+7,'나무',{'font-size':20,fill:'#1F5E2A'});});
+/* 시계 반대 방향 화살표 (고정) */
+const arc=(r,a0,a1)=>{const p=a=>[C[0]+r*Math.cos(a*Math.PI/180),C[1]-r*Math.sin(a*Math.PI/180)];const [x0,y0]=p(a0),[x1,y1]=p(a1);return `M${x0} ${y0} A${r} ${r} 0 0 0 ${x1} ${y1}`;};
+el('marker',{id:'ah',viewBox:'0 0 10 10',refX:5,refY:5,markerWidth:5,markerHeight:5,orient:'auto-start-reverse'},defs).appendChild(el('path',{d:'M0 0L10 5L0 10z',fill:'#0066CC'}));
+el('marker',{id:'ar',viewBox:'0 0 10 10',refX:5,refY:5,markerWidth:5,markerHeight:5,orient:'auto-start-reverse'},defs).appendChild(el('path',{d:'M0 0L10 5L0 10z',fill:'#D70015'}));
+const plat=el('g',{style:'cursor:grab'},svg);
+el('circle',{cx:C[0],cy:C[1],r:R+8,fill:'#8E6A3A'},plat);
+const spin=el('g',{},plat);
+el('circle',{cx:C[0],cy:C[1],r:R,fill:'#F6D9A6'},spin);
+for(let k=0;k<8;k++){const a=k*45*Math.PI/180;el('line',{x1:C[0],y1:C[1],x2:C[0]+R*Math.cos(a),y2:C[1]-R*Math.sin(a),stroke:'#E0A85C','stroke-width':3},spin);}
+for(let k=0;k<6;k++){if(k===0)continue;const a=(90+k*60)*Math.PI/180;el('ellipse',{cx:C[0]+(R-30)*Math.cos(a),cy:C[1]-(R-30)*Math.sin(a),rx:16,ry:10,fill:'#fff',stroke:'#B07A3A','stroke-width':2},spin);}
+el('circle',{cx:C[0],cy:C[1],r:22,fill:'#D70015'},spin);
+/* 나: 회전목마 가장자리(처음 90°)에서 바깥을 본다 */
+const me=el('g',{},spin);
+el('circle',{cx:C[0],cy:C[1]-(R-26),r:17,fill:'#0066CC',stroke:'#fff','stroke-width':3},me);
+el('path',{d:`M${C[0]-9} ${C[1]-(R-26)-14} L${C[0]} ${C[1]-(R-26)-30} L${C[0]+9} ${C[1]-(R-26)-14}z`,fill:'#0066CC'},me);
+T(me,C[0],C[1]-(R-26)+7,'나',{'text-anchor':'middle','font-size':17,fill:'#fff'});
+el('path',{d:arc(R+24,200,320),fill:'none',stroke:'#0066CC','stroke-width':6,'marker-end':'url(#ah)'},svg);
+T(svg,C[0],C[1]+R+60,'시계 반대 방향으로 회전',{'text-anchor':'middle','font-size':19,fill:'#0066CC'});
+const hint=T(svg,C[0],C[1]+6,'끌어서 돌리기',{'text-anchor':'middle','font-size':17,fill:'#fff','pointer-events':'none'});
+/* ---- 오른쪽: 회전목마에 탄 나의 시점 ---- */
+const VX=460,VW=440,VC=VX+VW/2;
+const vc=el('clipPath',{id:'vc'},defs);el('rect',{x:VX,y:0,width:VW,height:520,rx:16},vc);
+const view=el('g',{'clip-path':'url(#vc)'},svg);
+const sky=el('linearGradient',{id:'sky',x1:0,y1:0,x2:0,y2:1},defs);[['0','#BFE3FF'],['1','#E9F6FF']].forEach(a=>el('stop',{offset:a[0],'stop-color':a[1]},sky));
+el('rect',{x:VX,y:0,width:VW,height:520,fill:'url(#sky)'},view);
+el('rect',{x:VX,y:330,width:VW,height:190,fill:'#9CCB7A'},view);
+function treeSide(p,s,main){const g=el('g',{},p);
+  el('rect',{x:-9*s,y:-60*s,width:18*s,height:60*s,fill:'#7A5230'},g);
+  el('ellipse',{cx:0,cy:-110*s,rx:48*s,ry:62*s,fill:main?'#2E8B3E':'#5DAA5F'},g);
+  if(main)T(g,0,24,'나무',{'text-anchor':'middle','font-size':20,fill:'#1F5E2A'});return g;}
+const VT=TR.map(([a,d,m])=>({a,d,g:treeSide(view,m?1.25:.9,m)}));
+/* 창틀 */
+el('rect',{x:VX+6,y:6,width:VW-12,height:508,rx:12,fill:'none',stroke:'#1D1D1F','stroke-width':12},svg);
+T(svg,VX+24,40,'[회전목마에 탄 나의 시점]',{'font-size':19});
+/* 나를 중심으로 본 나무 위치 (작은 원) */
+const IN=[VX+VW-96,446],IR=44;
+el('circle',{cx:IN[0],cy:IN[1],r:IR+16,fill:'#fff',opacity:.9},svg);
+el('circle',{cx:IN[0],cy:IN[1],r:IR,fill:'none',stroke:'#C7C7CC','stroke-width':2,'stroke-dasharray':'4 4'},svg);
+el('circle',{cx:IN[0],cy:IN[1],r:8,fill:'#0066CC'},svg);
+const trail=el('path',{fill:'none',stroke:'#D70015','stroke-width':4,'marker-end':'url(#ar)'},svg);
+const tdot=el('circle',{r:8,fill:'#2E8B3E'},svg);
+T(svg,IN[0],IN[1]-IR-22,'나를 중심으로 본 나무',{'text-anchor':'middle','font-size':14,fill:'#6E6E73'});
+const msg=el('g',{opacity:0,style:'transition:opacity .5s'},svg);
+el('rect',{x:VX+20,y:62,width:VW-40,height:62,rx:12,fill:'#fff',opacity:.94},msg);
+T(msg,VC,88,'내가 시계 반대 방향으로 돌면',{'text-anchor':'middle','font-size':17,fill:'#0066CC'});
+T(msg,VC,113,'나무는 시계 방향으로 움직이는 것처럼 보인다',{'text-anchor':'middle','font-size':17,fill:'#D70015'});
+/* ---- 상태 ---- */
+let phi=90,net=0,hist=[],passed=false,lastRel=null;
+function rel(){const a=VT[0].a*Math.PI/180,mx=(R-26)*Math.cos(phi*Math.PI/180),my=(R-26)*Math.sin(phi*Math.PI/180);
+  return t=>{const x=t.d*Math.cos(t.a*Math.PI/180)-mx,y=t.d*Math.sin(t.a*Math.PI/180)-my;return dAng(Math.atan2(y,x)*180/Math.PI,phi);};}
+function draw(){
+  spin.setAttribute('transform',`rotate(${90-phi} ${C[0]} ${C[1]})`);
+  const f=rel();
+  VT.forEach(t=>{const r=f(t);const x=VC-r*(VW/2)/62;t.g.setAttribute('transform',`translate(${x} 345)`);t.g.setAttribute('opacity',Math.abs(r)<80?1:0);t.r=r;});
+  const r0=VT[0].r;
+  /* 작은 원: 나는 늘 위를 보고, 나무의 방향 = 위에서 r0만큼 시계 반대 */
+  const ang=(90+r0)*Math.PI/180,tx=IN[0]+IR*Math.cos(ang),ty=IN[1]-IR*Math.sin(ang);
+  tdot.setAttribute('cx',tx);tdot.setAttribute('cy',ty);
+  if(!hist.length||Math.abs(dAng(hist[hist.length-1],r0))>2){hist.push(r0);if(hist.length>40)hist.shift();}
+  if(hist.length>3){const pts=hist.map(h=>{const a=(90+h)*Math.PI/180;return [IN[0]+IR*Math.cos(a),IN[1]-IR*Math.sin(a)];});
+    trail.setAttribute('d','M'+pts.map(p=>p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' L'));}
+  else trail.setAttribute('d','');
+  if(lastRel!==null&&lastRel>0&&r0<=0&&Math.abs(r0)<30)passed=true;
+  lastRel=r0;
+  const turns=Math.max(0,net)/360;
+  document.getElementById('turn').textContent=(Math.floor(turns*10)/10).toFixed(1)+'바퀴';
+  if(net>=360&&!H.is(0)){H.done(0);}
+  if(H.is(0)&&passed&&!H.is(1)){H.done(1);P.open(0);msg.setAttribute('opacity',1);}
+  document.getElementById('st').textContent=net<0?'시계 반대 방향으로 돌려 보자':'';
+  hint.setAttribute('opacity',Math.abs(net)>20?0:1);
+}
+let a0=null;
+Q.drag(svg,plat,p=>{const a=Math.atan2(C[1]-p.y,p.x-C[0])*180/Math.PI;if(a0===null){a0=a;return;}const d=dAng(a,a0);a0=a;phi+=d;net+=d;draw();},
+  ()=>{a0=null;},()=>{a0=null;});
+document.getElementById('rs').onclick=e=>{e.target.blur();phi=90;hist=[];lastRel=null;draw();};
+draw();
+})();
+</script>
+</body>
+</html>

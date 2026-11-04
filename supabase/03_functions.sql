@@ -5349,7 +5349,7 @@ end $$;
 -- 반 게시판 (2026-10-20)
 -- ---------------------------------------------------------
 
--- 학생(그 반에 로그인한 학생만). p_v가 지금 버전과 같으면 {ok, v, same: true}만 돌려준다(15초 갱신 가볍게)
+-- 학생(그 반에 로그인한 학생만). 모든 반 공통 섹션(class_id null)이 맨 앞. p_v가 지금 버전과 같으면 {ok, v, same: true}만 돌려준다(15초 갱신 가볍게)
 -- 결과: {ok: true, v, sections: [{id, name, items: [{id, title, body, link, file, file_type, file_name, updated_at}]}]}
 --       또는 {ok: false, error: 'NO_SESSION'}
 create or replace function public.get_class_materials(p_class_id int, p_token text, p_v text default null)
@@ -5370,13 +5370,13 @@ begin
   end if;
 
   select concat_ws(':',
-           (select count(*) from public.class_sections where class_id = p_class_id),
-           (select extract(epoch from max(updated_at))::bigint from public.class_sections where class_id = p_class_id),
+           (select count(*) from public.class_sections where class_id = p_class_id or class_id is null),
+           (select extract(epoch from max(updated_at))::bigint from public.class_sections where class_id = p_class_id or class_id is null),
            count(m.id),
            extract(epoch from max(m.updated_at))::bigint)
     into v_v
   from public.class_sections s join public.class_materials m on m.section_id = s.id
-  where s.class_id = p_class_id;
+  where s.class_id = p_class_id or s.class_id is null;
 
   if p_v is not null and p_v = v_v then
     return jsonb_build_object('ok', true, 'v', v_v, 'same', true);
@@ -5397,8 +5397,8 @@ begin
                         ) order by m.sort, m.created_at)
                  from public.class_materials m where m.section_id = s.id and not m.hidden
                ), '[]'::jsonb)
-             ) order by s.sort, s.created_at)
-      from public.class_sections s where s.class_id = p_class_id
+             ) order by (s.class_id is null) desc, s.sort, s.created_at)
+      from public.class_sections s where s.class_id = p_class_id or s.class_id is null
     ), '[]'::jsonb)
   );
 end;

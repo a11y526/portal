@@ -1107,19 +1107,20 @@ export async function saveQuizShowRules(value) {
 
 /* ---------- 교사: 반 게시판 ---------- */
 
+// classId 0 = 모든 반 공통 섹션(class_id null)
 // [{ id, name, sort, items: [{ id, section_id, title, body, link, file, file_type, file_name, sort, hidden }] }] (순서대로)
 export async function listSections(classId) {
-  const secs = unwrap(await need().from('class_sections')
-    .select('id, name, sort, created_at, items:class_materials(id, section_id, title, body, link, file, file_type, file_name, sort, hidden, created_at)')
-    .eq('class_id', classId)
-    .order('sort').order('created_at'));
+  let q = need().from('class_sections')
+    .select('id, name, sort, created_at, items:class_materials(id, section_id, title, body, link, file, file_type, file_name, sort, hidden, created_at)');
+  q = classId ? q.eq('class_id', classId) : q.is('class_id', null);
+  const secs = unwrap(await q.order('sort').order('created_at'));
   const byOrder = (a, b) => a.sort - b.sort || String(a.created_at).localeCompare(String(b.created_at));
   for (const s of secs) s.items.sort(byOrder);
   return secs;
 }
 
 export async function addSection(classId, name, sort) {
-  return unwrap(await need().from('class_sections').insert({ class_id: classId, name, sort }).select('id').single());
+  return unwrap(await need().from('class_sections').insert({ class_id: classId || null, name, sort }).select('id').single());
 }
 
 export async function updateSection(id, fields) {
@@ -1133,10 +1134,10 @@ export async function deleteSection(section) {
   if (files.length) await need().storage.from(MATERIAL_BUCKET).remove(files).catch(() => {});
 }
 
-// 파일 올리기: 반/무작위.확장자 경로. 결과: 경로
+// 파일 올리기: 반(공통은 all)/무작위.확장자 경로. 결과: 경로
 export async function uploadMaterialFile(classId, file, type) {
   const ext = type === 'pdf' ? 'pdf' : (file.type === 'image/png' ? 'png' : 'jpg');
-  const path = `${classId}/${crypto.randomUUID()}.${ext}`;
+  const path = `${classId || 'all'}/${crypto.randomUUID()}.${ext}`;
   const { error } = await need().storage.from(MATERIAL_BUCKET)
     .upload(path, file, { contentType: type === 'pdf' ? 'application/pdf' : (file.type || 'image/jpeg'), upsert: false, cacheControl: '86400' });
   if (error) throw error;
@@ -1180,7 +1181,7 @@ export async function copySections(fromClass, toClass) {
     for (const [j, m] of s.items.entries()) {
       let file = null;
       if (m.file) {
-        file = `${toClass}/${crypto.randomUUID()}.${m.file.split('.').pop()}`;
+        file = `${toClass || 'all'}/${crypto.randomUUID()}.${m.file.split('.').pop()}`;
         const { error } = await need().storage.from(MATERIAL_BUCKET).copy(m.file, file);
         if (error) throw error;
       }

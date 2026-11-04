@@ -1,5 +1,6 @@
 // 관리 '반 게시판'(#mats): 반을 골라 섹션을 짜고(추가·이름·옮기기·지우기) 자료(글·사진·PDF·링크·유튜브)를 올린다.
-// 바꿀 때마다 그 반에 새로고침 신호 → 학생 [게시판] 탭이 바로 바뀐다
+// '모든 반'(classId 0)에 만든 섹션은 모든 반 게시판 맨 앞에 보인다.
+// 바꿀 때마다 그 반(모든 반이면 6개 반 모두)에 새로고침 신호 → 학생 [게시판] 탭이 바로 바뀐다
 import { CLASSES } from '../config.js';
 import { toast } from '../ui.js';
 import {
@@ -13,7 +14,7 @@ import { errMsg } from '../gate.js';
 const $ = (id) => document.getElementById(id);
 const PDF_MAX = 20 * 1024 * 1024;
 
-let classId = (() => { try { const n = Number(localStorage.getItem('matClass')); return CLASSES.includes(n) ? n : CLASSES[0]; } catch { return CLASSES[0]; } })();
+let classId = (() => { try { const v = localStorage.getItem('matClass'); const n = Number(v); return v === '0' || CLASSES.includes(n) ? n : CLASSES[0]; } catch { return CLASSES[0]; } })();
 let sections = [];
 let busy = false;
 
@@ -22,7 +23,7 @@ let editing = null;
 let picked = null;      // { blob, type: 'image'|'pdf', name, preview }
 let dropFile = false;   // 지금 파일 빼기
 
-$('mat-class').innerHTML = CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+$('mat-class').innerHTML = '<option value="0">모든 반</option>' + CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
 $('mat-class').value = String(classId);
 $('mat-class').addEventListener('change', () => {
   classId = Number($('mat-class').value);
@@ -36,11 +37,13 @@ export async function refreshMats() {
   render();
 }
 const reload = () => refreshMats().catch((err) => toast(errMsg(err), 'error'));
+const className = (n) => (n ? `${n}반` : '모든 반');
+const refreshStudents = () => (classId ? sendClassRefresh(classId) : Promise.all(CLASSES.map(sendClassRefresh)));
 
 function render() {
   closeVideos($('mat-board'));
   const n = sections.reduce((a, s) => a + s.items.length, 0);
-  $('mat-count').textContent = `섹션 ${sections.length}개 · 자료 ${n}개`;
+  $('mat-count').textContent = `${classId ? '' : '모든 반 게시판 맨 앞에 보여요 · '}섹션 ${sections.length}개 · 자료 ${n}개`;
   $('mat-board').innerHTML = sections.length
     ? materialsHTML(sections, { admin: true })
     : '<div class="col-empty">[+ 섹션]으로 칸을 만들어 주세요</div>';
@@ -53,7 +56,7 @@ async function run(fn, done) {
   try {
     await fn();
     if (done) toast(done);
-    sendClassRefresh(classId);
+    refreshStudents();
   } catch (err) {
     console.error(err);
     toast(errMsg(err), 'error');
@@ -78,7 +81,7 @@ $('mat-add-sec').addEventListener('click', () => {
 
 $('mat-copy').addEventListener('click', () => {
   const others = CLASSES.filter((n) => n !== classId);
-  const v = prompt(`어느 반의 섹션과 자료를 ${classId}반 뒤에 붙일까요? (${others.join(', ')})`);
+  const v = prompt(`어느 반의 섹션과 자료를 ${className(classId)} 뒤에 붙일까요? (${others.join(', ')})`);
   if (v === null) return;
   const from = Number(v.replace(/[^0-9]/g, ''));
   if (!others.includes(from)) { toast('반 번호를 확인해 주세요', 'error'); return; }
@@ -258,7 +261,7 @@ $('mat-save').addEventListener('click', async () => {
     // 바꾸거나 뺀 예전 파일은 지운다
     if (editing.file && editing.file !== file) await removeMaterialFiles([editing.file]);
     uploaded = null;
-    sendClassRefresh(classId);
+    refreshStudents();
     toast('저장했어요');
     closeDlg();
   } catch (err) {

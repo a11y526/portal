@@ -40,18 +40,19 @@ body.ws .playbtn{display:none}
 .gap.ok{border-color:#34C759;background:#EAF8EE;color:#1E7A3A}
 .gap.bad{border-color:#FF3B30;background:#FFF0EF;animation:sh .3s}
 @keyframes sh{25%{transform:translateX(-3px)}75%{transform:translateX(3px)}}
-.row{flex:1;min-height:0;display:flex;gap:10px;padding:8px}
+.row{flex:1;min-height:0;display:flex;flex-direction:column;gap:6px;padding:6px 8px}
 .row .stage{padding:0}
-#side{flex:0 0 250px;display:flex;flex-direction:column;gap:8px;justify-content:center;padding:4px 6px}
+#side{flex:none;display:flex;flex-wrap:wrap;gap:8px 18px;align-items:center;padding:6px 8px;border-top:1px solid var(--line)}
+.msg{flex:1;min-width:280px;display:flex;flex-direction:column;gap:4px}
 #side p{margin:0}
-#sun{width:96px;height:96px}
-#t1{font-size:21px;font-weight:800;line-height:1.4}
+#sun{width:72px;height:72px;flex:none}
+#t1{font-size:24px;font-weight:800;line-height:1.4}
 #t1.fin{color:var(--p)}
-#t2{font-size:16px;font-weight:600;color:var(--mut);line-height:1.5}
-#pred{display:none;flex-direction:column;gap:6px;border-top:1px solid var(--line);padding-top:10px;font-size:18px;font-weight:700}
+#t2{font-size:18px;font-weight:600;color:var(--mut);line-height:1.5}
+#pred{display:none;flex-direction:column;gap:6px;border-left:1px solid var(--line);padding-left:18px;font-size:19px;font-weight:700}
 #pred.on{display:flex}
 #pmsg{font-size:16px;color:var(--p)}
-.btns{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+.btns{display:flex;gap:6px;flex-wrap:wrap}
 .btns button{min-height:36px;padding:4px 12px;font-size:14px}
 .pred{display:inline-flex;gap:6px;align-items:center}
 .pred button{border-color:#D1D1D6;color:#1D1D1F}
@@ -63,7 +64,7 @@ body.ws .playbtn{display:none}
 <div class="stage" id="st"></div>
 <aside id="side">
   <svg id="sun" viewBox="0 0 120 120" aria-hidden="true"></svg>
-  <p id="t1"></p><p id="t2"></p>
+  <div class="msg"><p id="t1"></p><p id="t2"></p></div>
   <div id="pred"><p class="pq">2024년 다음으로 태양 활동이 활발한 시기는?</p>
     <p><input id="pin" class="gap" style="width:88px" inputmode="numeric" maxlength="4" aria-label="다음 태양 활동이 활발한 시기"> 년</p><p id="pmsg"></p></div>
   <div class="btns"><button id="fillall">모두 채우기</button><button id="rs">처음부터</button></div>

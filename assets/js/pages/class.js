@@ -601,8 +601,8 @@ function renderWsPage() {
   const hasSide = !!$('ws-side').dataset.id;
   $('ws-side').classList.toggle('hidden', !hasSide);
   $('sheet').classList.toggle('has-side', hasSide);
-  // 쓸 칸이 없는 쪽: 시뮬레이션을 가운데 크게, 쪽 번호는 그 아래로
-  $('sheet').classList.toggle('sim-only', hasSide && !hasFields(page));
+  // 쓸 칸이 없는 쪽(칸이 모두 시뮬레이션이 채우는 .sim-in이어도): 시뮬레이션을 가운데 크게, 쪽 번호는 그 아래로
+  $('sheet').classList.toggle('sim-only', hasSide && (page?.fields ?? []).every((f) => f.sim));
   document.querySelector('.class-wrap').classList.toggle('is-wide', hasSide && tab === 'sheet');
   markFields($('ws-page'), ws.bad, wsMarks());
   $('ws-prev').disabled = ws.idx <= 0;

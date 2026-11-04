@@ -158,7 +158,6 @@ textarea:focus{box-shadow:0 0 0 3px #CFE3F8}
       <p class="step" id="sp"></p>
       <div class="dmg" id="dm"></div>
       <p class="hint" id="hi"></p>
-      <p class="got" id="got" hidden></p>
       <textarea id="tx" rows="2" maxlength="60" hidden aria-label="우리 생활에 생길 불편"></textarea>
       <button id="ok" hidden>도미노 완성</button>
     </div>
@@ -271,7 +270,7 @@ function ui(){
   $('dh').textContent=made.length>=NEED?'도미노 완성 '+made.length+'개':'도미노 '+(made.length+1)+' / '+NEED;
   chain();
   $('dm').style.display=stage===1?'flex':'none';
-  $('got').hidden=stage!==2;$('tx').hidden=stage!==2;$('ok').hidden=stage!==2;
+  $('tx').hidden=stage!==2;$('ok').hidden=stage!==2;
   $('sp').textContent=made.length>=NEED&&stage===0?'다른 대상으로 더 만들어도 돼요.':stage===0?'① 그림에서 깜빡이는 대상 하나를 누르세요.':stage===1?'② '+INFO[cur.k].n+'에는 무엇이 고장 날까?':'③ 그래서 우리 생활에는 어떤 불편이 생길까?';
   KEYS.forEach(k=>{HS[k].classList.toggle('used',made.some(m=>m.k===k));HS[k].classList.toggle('off',stage!==0||made.some(m=>m.k===k));});
   $('made').innerHTML='';
@@ -285,7 +284,7 @@ function pick(k){if(stage!==0||made.some(m=>m.k===k))return;cur={k};stage=1;sel=
   H.done(0);play();ui();}
 function choose(b,t){if(stage!==1)return;
   if(t!==INFO[cur.k].ok){b.classList.remove('bad');void b.offsetWidth;b.classList.add('bad');$('hi').textContent='이 대상에 생기는 일이 아니에요. 그림 속 '+INFO[cur.k].n+'을(를) 다시 보세요.';return;}
-  cur.d=t;stage=2;$('hi').textContent='';$('got').textContent=INFO[cur.k].a;phaseB=true;H.done(1);play();ui();
+  cur.d=t;stage=2;$('hi').textContent='';phaseB=true;H.done(1);play();ui();
   $('tx').value='';setTimeout(()=>$('tx').focus(),50);}
 $('tx').addEventListener('input',()=>{cur.t=$('tx').value.trim();chain();});
 $('ok').onclick=()=>{$('ok').blur();const t=$('tx').value.trim();if(t.length<4){$('hi').textContent='우리 생활의 불편을 조금 더 써 보세요.';$('tx').focus();return;}

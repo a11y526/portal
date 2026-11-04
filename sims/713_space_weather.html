@@ -167,7 +167,7 @@ textarea:focus{box-shadow:0 0 0 3px #CFE3F8}
   </aside>
 </div>
 <script>
-/* 713 11쪽 「태양 폭풍 도미노」: ① 그림에서 대상 누르기 → ② 무엇이 고장 날지 고르기(맞아야 그 피해가 그림에 일어남) → ③ 우리 생활의 불편 한 줄.
+/* 713 11쪽 「태양 폭풍 도미노」(대상 6개: 비행기·우주비행사·인공위성·내비게이션·배·송전탑, 오로라는 늘 함께 나타남): ① 그림에서 대상 누르기 → ② 무엇이 고장 날지 고르기(맞아야 그 피해가 그림에 일어남) → ③ 우리 생활의 불편 한 줄.
    도미노 2개를 만들어 [제출]하면 '대상 → 피해 → 불편 / …' 한 줄이 학습지 칸(.sim-in 1번)으로 */
 (function(){
 'use strict';
@@ -196,8 +196,22 @@ const PT=[];for(let i=0;i<40;i++)PT.push({e:el('circle',{r:i%3?6:9,fill:i%4?'#FF
 /* 비행기: 방사선 */
 const PL=[569,598];
 const plGlow=el('ellipse',{cx:PL[0],cy:PL[1],rx:150,ry:70,fill:'#FF453A',opacity:0,filter:'url(#f13b)'},fx);
-const rays=[];for(let i=0;i<14;i++){const x=PL[0]-130+i*20;rays.push({e:el('line',{x1:x,y1:0,x2:x-14,y2:30,stroke:'#C6FF5A','stroke-width':5,'stroke-linecap':'round',opacity:0},fx),x,dl:(i*7%14)/14});}
+const mkRays=(cx,n)=>{const a=[];for(let i=0;i<n;i++){const x=cx-(n-1)*10+i*20;a.push({e:el('line',{x1:x,y1:0,x2:x-14,y2:30,stroke:'#C6FF5A','stroke-width':5,'stroke-linecap':'round',opacity:0},fx),x,dl:(i*7%n)/n});}return a;};
+const rayRun=(a,cy,b)=>a.forEach(r=>{const u=(b*3+r.dl)%1;r.e.setAttribute('x1',r.x+30*u);r.e.setAttribute('y1',cy-260+240*u);r.e.setAttribute('x2',r.x+30*u-12);r.e.setAttribute('y2',cy-230+240*u);op(r.e,b>0&&b<1?.9:0);});
+const rays=mkRays(PL[0],14);
 const plTag=pill(fx,PL[0],PL[1]-95,'방사선 노출 ↑',40,'#D70015');
+/* 우주비행사: 방사선(막아 줄 대기가 없음) */
+const AS=[780,452];
+const asGlow=el('ellipse',{cx:AS[0],cy:AS[1],rx:90,ry:95,fill:'#FF453A',opacity:0,filter:'url(#f13b)'},fx);
+const asRays=mkRays(AS[0],9);
+const asTag=pill(fx,AS[0],AS[1]-112,'방사선에 그대로 노출',38,'#D70015');
+/* 극지방 하늘: 오로라(고장·불편이 아니라 도미노 대상은 아님. 어느 대상을 골라도 입자가 오면 함께 나타남) */
+const AU=[175,640];
+const auGr=el('linearGradient',{id:'g13a',x1:0,y1:0,x2:0,y2:1},d);
+[[0,'#FF5AD8',0],[.25,'#7CFFB2',.9],[.75,'#30D158',.8],[1,'#30D158',0]].forEach(([o,c,a])=>el('stop',{offset:o,'stop-color':c,'stop-opacity':a},auGr));
+const auF=el('filter',{id:'f13a',x:'-50%',y:'-20%',width:'200%',height:'140%'},d);el('feGaussianBlur',{stdDeviation:7},auF);
+const curt=[0,1,2,3,4,5,6].map(i=>{const x=20+i*52;return el('path',{d:`M${x} ${500+(i%2)*30} C${x+40} 570 ${x-30} 650 ${x+18} ${760-(i%3)*20}`,fill:'none',stroke:'url(#g13a)','stroke-width':34,'stroke-linecap':'round',filter:'url(#f13a)',opacity:0},fx);});
+const auTag=pill(fx,AU[0]+60,AU[1]-170,'극지방에 오로라',36,'#1E8E3E');
 /* 인공위성: 부품 손상·궤도 이탈 */
 const orbit=el('path',{d:'M600 360 Q1025 330 1200 420',fill:'none',stroke:'#fff','stroke-width':4,'stroke-dasharray':'14 12',opacity:0},fx);
 const cover=el('ellipse',{cx:1025,cy:465,rx:140,ry:78,fill:'#0E0809',opacity:0,filter:'url(#f13b)'},fx);
@@ -229,11 +243,12 @@ const lights=LIGHTS.map(([x,y],i)=>({e:el('circle',{cx:x,cy:y,r:9,fill:'#FFE066'
 const wire=el('path',{d:'M960 790 L1043 742 L1118 752 L1200 770',fill:'none',stroke:'#FFE066','stroke-width':9,'stroke-linecap':'round','stroke-dasharray':'26 18',opacity:0},fx);
 const pwSp=[burst(1043,742),burst(1118,752)];
 const pwTag=pill(fx,1185,670,'대규모 정전',44,'#D70015','end');
-const ALL=[glow,plGlow,plTag,orbit,cover,satG,satTag,navG,navTag,dark,wire,pwTag,xMark,shTag,...satSp,...pwSp,...gps,...waves];
+const ALL=[glow,plGlow,plTag,asGlow,asTag,auTag,...curt,orbit,cover,satG,satTag,navG,navTag,dark,wire,pwTag,xMark,shTag,...satSp,...pwSp,...gps,...waves];
 
 const DMG=['방사선 노출','인공위성 고장·궤도 이탈','GPS 오류','장거리 무선 통신 두절','대규모 정전'];
 const INFO={
   plane:{n:'비행기',at:PL,ok:'방사선 노출',a:'태양에서 날아온 높은 에너지 입자(방사선)가 높은 하늘로 많이 쏟아진다.'},
+  astro:{n:'우주비행사',at:AS,ok:'방사선 노출',a:'우주에는 막아 줄 대기가 없어, 태양에서 온 강한 방사선에 그대로 노출된다.'},
   sat:{n:'인공위성',at:[1025,462],ok:'인공위성 고장·궤도 이탈',a:'강한 입자에 부품이 손상되거나, 궤도를 벗어난다.'},
   nav:{n:'자동차 내비게이션',at:CAR,ok:'GPS 오류',a:'인공위성에서 오는 위치 신호가 흔들려 GPS 오류가 생긴다.'},
   ship:{n:'먼바다의 배',at:SH,ok:'장거리 무선 통신 두절',a:'멀리 보내는 무선 전파가 끊겨 육지와 교신할 수 없다.'},
@@ -285,7 +300,7 @@ function play(){t0=performance.now();cancelAnimationFrame(raf);
   if(Q.RED){render(phaseB?1:.35);return;}
   const step=now=>{const u=Math.min(1,(now-t0)/DUR);render(phaseB?.3+.7*u:.35*u);raf=u<1?requestAnimationFrame(step):0;};raf=requestAnimationFrame(step);}
 function render(t){
-  ALL.forEach(e=>op(e,0));PT.forEach(o=>op(o.e,0));rays.forEach(o=>op(o.e,0));lights.forEach(o=>op(o.e,0));
+  ALL.forEach(e=>op(e,0));PT.forEach(o=>op(o.e,0));rays.forEach(o=>op(o.e,0));asRays.forEach(o=>op(o.e,0));lights.forEach(o=>op(o.e,0));
   KEYS.forEach(k=>op(HS[k],sel&&k!==sel?.35:1));
   if(!sel)return;
   const [tx,ty]=INFO[sel].at;
@@ -295,8 +310,13 @@ function render(t){
   if(!phaseB)return;
   const b=cl((t-.3)/.7),flick=Math.abs(Math.sin(t*60));
   if(sel==='plane'){
-    rays.forEach(r=>{const u=(b*3+r.dl)%1;r.e.setAttribute('x1',r.x+30*u);r.e.setAttribute('y1',PL[1]-260+240*u);r.e.setAttribute('x2',r.x+30*u-12);r.e.setAttribute('y2',PL[1]-230+240*u);op(r.e,b>0&&b<1?.9:0);});
+    rayRun(rays,PL[1],b);
     op(plGlow,b>0?.35+.35*Math.abs(Math.sin(b*10)):0);op(plTag,seg(b,.1,.3));}
+  if(sel==='astro'){
+    rayRun(asRays,AS[1],b);
+    op(asGlow,b>0?.35+.35*Math.abs(Math.sin(b*10)):0);op(asTag,seg(b,.1,.3));}
+  curt.forEach((c,i)=>{op(c,b>0?seg(b,0,.35)*(.55+.45*Math.abs(Math.sin(b*7+i*1.3))):0);c.setAttribute('transform',`translate(${Math.sin(b*9+i)*16} 0)`);});
+  op(auTag,seg(b,.35,.55));
   if(sel==='sat'){
     op(orbit,seg(b,0,.15)*.7);op(cover,b>0?1:0);op(satG,b>0?1:0);
     const u=ease(cl((b-.25)/.75));satG.setAttribute('transform',`translate(${-40*u} ${120*u}) rotate(${-32*u} 1025 462)`);

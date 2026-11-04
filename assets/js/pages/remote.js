@@ -1,5 +1,6 @@
 // 휴대폰 리모컨: 프로젝터의 수업 모드(live.html)에 명령을 보내고 상태를 받는다.
 // 비공개 채널 'remote'(교사만, 02_policies). 수업 모드가 여러 개면 가장 최근에 연 것 하나에만 보낸다
+import { clsName } from '../config.js';
 import { onRemote, sendRemote, getAwayStats } from '../db.js';
 import { teacherGate } from '../gate.js';
 import { initUI, esc } from '../ui.js';
@@ -75,7 +76,7 @@ function render() {
 }
 
 function paint(s) {
-  $('title').textContent = s.title || `${s.cls}반 ${s.code}차시`;
+  $('title').textContent = s.title || `${clsName(s.cls)}반 ${s.code}차시`;
   $('st-slide').textContent = s.slide ? `${s.slide}${s.slides ? ` / ${s.slides}` : ''}쪽` : '-';
 
   const firstOpen = !!s.first;

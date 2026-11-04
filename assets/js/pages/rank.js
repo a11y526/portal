@@ -1,5 +1,5 @@
 // 이번 달 순위표: 전체 TOP 40 + 우리 반 TOP 10 (시상대 1~3위 + 나머지, 캐릭터)
-import { CLASSES, GRADE } from '../config.js';
+import { CLASSES, GRADE, clsName } from '../config.js';
 import { initUI, esc, countUp, isLite } from '../ui.js';
 import { getMonthTop20 } from '../db.js';
 import { readLogin } from '../login.js';
@@ -25,7 +25,7 @@ let mode = 'all';   // 'all' (전체 TOP 40) | 'class' (우리 반 TOP 10)
 let waveTimer = null;
 
 $('scope').textContent = `${GRADE}학년 ${CLASSES[0]}~${CLASSES[CLASSES.length - 1]}반 · 이번 달 XP`;
-if (login?.class_id) $('tab-class').textContent = `${login.class_id}반 TOP 10`;
+if (login?.class_id) $('tab-class').textContent = `${clsName(login.class_id)}반 TOP 10`;
 
 let mark = null;
 try { mark = JSON.parse(sessionStorage.getItem('me-mark') || 'null'); } catch {}
@@ -53,7 +53,7 @@ function podiumSlot(r) {
         ${top === 1 ? CROWN : ''}
         <span class="pod-av">${avatarSVG(r.avatar, top === 1 ? 96 : 80, { label: r.nickname || '캐릭터', live: true })}</span>
         <span class="pod-name">${nameOf(r)}</span>
-        <span class="rr-tags"><span class="chip">${r.class_id}반</span>${mine ? '<span class="me-chip">나</span>' : ''}</span>
+        <span class="rr-tags"><span class="chip">${clsName(r.class_id)}반</span>${mine ? '<span class="me-chip">나</span>' : ''}</span>
         <span class="pod-xp"><span class="num" data-xp="${r.xp}">0</span><small> XP</small></span>
       </div>
       <div class="pod-block glass-strong${top === 1 ? ' shine' : ''}"><span class="num">${r.rank}</span></div>
@@ -68,7 +68,7 @@ function rowHtml(r) {
       ${avatarSVG(r.avatar, 40, { label: r.nickname || '캐릭터' })}
       <span class="rr-who">
         <span class="rr-name">${nameOf(r)}</span>
-        <span class="rr-tags"><span class="chip">${r.class_id}반</span>${mine ? '<span class="me-chip">나</span>' : ''}</span>
+        <span class="rr-tags"><span class="chip">${clsName(r.class_id)}반</span>${mine ? '<span class="me-chip">나</span>' : ''}</span>
       </span>
       ${moveHtml(r.move)}
       <span class="rr-xp"><span class="num">${r.xp}</span><small> XP</small></span>
@@ -84,7 +84,7 @@ function render() {
   const m = Number(String(data?.month || '').split('-')[1]);
   const hasServerClass = data && 'my_class' in data;
   const myClass = hasServerClass ? data.my_class : (login?.class_id ?? null);
-  $('tab-class').textContent = myClass ? `${myClass}반 TOP 10` : '우리 반 TOP 10';
+  $('tab-class').textContent = myClass ? `${clsName(myClass)}반 TOP 10` : '우리 반 TOP 10';
 
   document.querySelectorAll('#rank-tabs [data-mode]').forEach((btn) => {
     const on = btn.dataset.mode === mode;
@@ -93,7 +93,7 @@ function render() {
   });
 
   if (mode === 'class') {
-    const clsText = myClass ? `${myClass}반` : '우리 반';
+    const clsText = myClass ? `${clsName(myClass)}반` : '우리 반';
     $('scope').textContent = `${GRADE}학년 ${clsText} · 이번 달 XP`;
     $('month-title').textContent = m ? `${m}월 ${clsText} TOP 10` : `${clsText} TOP 10`;
     if (m) document.title = `${m}월 ${clsText} TOP 10`;

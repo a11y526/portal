@@ -1,10 +1,11 @@
 // 오목 AI 랭킹 그리기(omok-rank.html, omok-online.html 공통)
 // box 안의 [data-r="wins"] [data-r="rate"] [data-r="min"] [data-r="me"]를 채운다
+import { clsName } from './config.js';
 import { esc } from './ui.js';
 import { getOmokRank } from './db.js';
 import { avatarSVG } from './avatar.js';
 
-const nameOf = (r) => `${r.class_id}반 ${r.nickname ?? '닉네임 미정'}`;
+const nameOf = (r) => `${clsName(r.class_id)}반 ${r.nickname ?? '닉네임 미정'}`;
 
 function rows(list, value) {
   if (!list.length) return '<li class="omr-empty">아직 기록이 없어요</li>';

@@ -1,7 +1,7 @@
 // 수업 모드 (프로젝터): 수업자료 HTML이 화면 가득, G키로 모둠활동 덮개(모둠·게시판·순위 발표·퀴즈 쇼)를 열고 닫는다
 // live.html?c=<반>&l=<차시>
 // 수업자료 iframe은 한 번 만들면 없애거나 다시 불러오지 않는다(보던 쪽과 시뮬레이션 상태가 남게)
-import { CLASSES, GRADE } from '../config.js';
+import { TEACHER_CLASSES, GRADE, clsName } from '../config.js';
 import { toast, esc, groupName } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
@@ -1343,14 +1343,14 @@ let started = false;
 teacherGate($('app'), async () => {
   if (started) return;
   started = true;
-  if (!CLASSES.includes(classId) || !code) return fail('반과 차시가 없는 주소예요');
+  if (!TEACHER_CLASSES.includes(classId) || !code) return fail('반과 차시가 없는 주소예요');
 
   const [lesson, classes, boards] = await Promise.all([getLesson(code), listClasses(), listBoards()]);
   board = boards.find((b) => b.class_id === classId && b.lesson_code === code) ?? null; // 가장 최근 것
 
-  const title = [`${GRADE}학년 ${classId}반`, `${code}차시`, lesson?.title || board?.title].filter(Boolean).join(' · ');
+  const title = [`${GRADE}학년 ${clsName(classId)}반`, `${code}차시`, lesson?.title || board?.title].filter(Boolean).join(' · ');
   $('cover-title').textContent = title;
-  document.title = `${classId}반 ${code}차시 수업`;
+  document.title = `${clsName(classId)}반 ${code}차시 수업`;
 
   // 수업 중에는 이 반 오목을 끈다 (보드가 없어도)
   if (classes.find((x) => x.id === classId)?.omok_open) {

@@ -1,6 +1,7 @@
 // 입구: 로그인(반·번호·코드) → 왼쪽 내 캐릭터, 오른쪽 수업·마이페이지·이번 달 순위, 아래 우리 반 게시판
 // 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(게시판)만 볼 수도 있다.
-import { CLASSES, GRADE } from '../config.js';
+// test.html은 같은 화면을 test반 하나로 쓴다(<main data-test>): 반 고르기·코드 없이 보기 없음
+import { CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
 import { studentLogin, studentLogout, getMyPage, getOmok, getClassMaterials, onClassRefresh } from '../db.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
@@ -23,8 +24,10 @@ const ERR = {
 };
 
 /* ---------- 로그인 ---------- */
-let pickClass = Number(store.get('lastClass'));
-if (!CLASSES.includes(pickClass)) pickClass = null;
+const TEST = 'test' in document.querySelector('main').dataset;
+const PICKS = TEST ? [TEST_CLASS] : CLASSES;
+let pickClass = TEST ? TEST_CLASS : Number(store.get('lastClass'));
+if (!PICKS.includes(pickClass)) pickClass = null;
 
 const who = (n) => (n === 0 ? '선생님' : `${n}번`);
 
@@ -35,7 +38,7 @@ function savedNum(c) {
 }
 
 function renderClassPick() {
-  $('cls-pick').innerHTML = CLASSES.map((n) => `
+  $('cls-pick').innerHTML = PICKS.map((n) => `
     <button type="button" role="radio" class="login-cls press${n === pickClass ? ' on' : ''}" aria-checked="${n === pickClass}" data-c="${n}">
       <b class="num">${n}</b><span>반</span>
     </button>`).join('');
@@ -51,7 +54,11 @@ $('cls-pick').addEventListener('click', (e) => {
   (n != null ? $('code-in') : $('num-in')).focus();
 });
 
-$('guest').innerHTML = CLASSES.map((n) => `<a class="guest-link glass lift" href="class.html?c=${n}">${n}반</a>`).join('');
+if (TEST) {
+  $('cls-pick').closest('.field').classList.add('hidden');
+  $('guest').closest('.guest').classList.add('hidden');
+}
+$('guest').innerHTML = CLASSES.map((n) => `<a class="guest-link glass lift" href="class.html?c=${n}">${clsName(n)}반</a>`).join('');
 
 function showLogin() {
   hideMats();
@@ -98,7 +105,7 @@ $('login-form').addEventListener('submit', async (e) => {
       inp.focus();
       return;
     }
-    store.set('lastClass', String(pickClass));
+    if (!TEST) store.set('lastClass', String(pickClass));
     store.set('num-' + pickClass, String(number));
     saveLogin(res);
     showHome(readLogin());
@@ -117,8 +124,8 @@ async function showHome(login) {
   $('logout').classList.remove('hidden');
   $('v-home').classList.remove('hidden');
   $('go-class').href = `class.html?c=${login.class_id}`;
-  $('go-class-sub').textContent = `${GRADE}학년 ${login.class_id}반`;
-  $('home-cls').textContent = `${login.class_id}반 · ${who(login.number)}`;
+  $('go-class-sub').textContent = `${GRADE}학년 ${clsName(login.class_id)}반`;
+  $('home-cls').textContent = `${clsName(login.class_id)}반 · ${who(login.number)}`;
   prepareDraw($('v-home'));
   startMats(login);
 
@@ -133,7 +140,7 @@ async function showHome(login) {
     react(svg, 'wave', { delay: 500 });
     $('home-nick').textContent = me.nickname || '닉네임 미정';
     $('home-nick').classList.toggle('muted', !me.nickname);
-    $('home-cls').textContent = `${me.class_id}반 · ${who(me.number)} · Lv.${me.level.level}`;
+    $('home-cls').textContent = `${clsName(me.class_id)}반 · ${who(me.number)} · Lv.${me.level.level}`;
     $('go-me-sub').textContent = `레벨 ${me.level.level}`;
     $('go-shop-sub').textContent = `금화 ${me.coins} · 은화 ${me.silver ?? 0}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
@@ -209,6 +216,8 @@ $('logout').addEventListener('click', async () => {
 });
 
 /* ---------- 시작 ---------- */
+// test반 출입증은 test.html에서, 다른 반 출입증은 index.html에서 연다
 const login = readLogin();
-if (login) showHome(login);
+if (login && !TEST && login.class_id === TEST_CLASS) location.replace('test.html');
+else if (login && (!TEST || login.class_id === TEST_CLASS)) showHome(login);
 else showLogin();

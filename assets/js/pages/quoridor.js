@@ -2,6 +2,7 @@
 // 차례마다 말을 한 칸(뛰어넘기 포함) 움직이거나 벽을 하나 놓는다. 한 수 제한 시간이 지나면 서버가 차례를 넘기고, 2번 연속이면 나간 것으로.
 // 갱신: 판 채널(qd-<판>) Broadcast 신호 + 대기·대국 중 2초마다 qd_state. 신호 내용은 믿지 않고 항상 다시 읽는다.
 // 판은 내 자리가 늘 아래에 오도록 돌려서 그린다(벽 번호·칸 번호는 서버 기준 그대로).
+import { clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import { qdState, qdJoin, qdLeave, qdPlay, onGameRefresh, sendGameRefresh, onClassRefresh } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -18,7 +19,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 const SEAT_NAME = ['파랑', '초록', '주황', '보라'];
-const nameOf = (p) => (p.me ? '나' : `${p.class_id}반 ${p.nickname ?? '닉네임 미정'}`);
+const nameOf = (p) => (p.me ? '나' : `${clsName(p.class_id)}반 ${p.nickname ?? '닉네임 미정'}`);
 const U = 12;           // 칸 + 홈 간격(칸 10, 홈 2)
 
 let info = null;        // qd_state 결과(game 빼고)

@@ -8,6 +8,10 @@ insert into public.classes (id, label)
 select n, '1-' || n from generate_series(7, 12) as n
 on conflict (id) do nothing;
 
+-- test반(20반): 시험용. 입구는 test.html 하나, 메인 입구·순위·진도에는 안 나온다(config.js TEST_CLASS)
+insert into public.classes (id, label) values (20, 'test')
+on conflict (id) do nothing;
+
 -- 포인트 규칙 (7절)
 insert into public.settings (key, value) values
   ('points', '{"pass_xp": 10, "pass_coins": 10, "rank_bonus": [10, 6, 3], "rank_bonus_coins": [10, 6, 3]}'::jsonb),
@@ -151,6 +155,15 @@ on conflict (key) do nothing;
 insert into public.students (class_id, number)
 select id, 0 from public.classes
 on conflict (class_id, number) do update set active = true;
+
+-- test반 1~5번(0번 포함 6명). 코드는 7반 0번과 같은 해시를 복사한다(코드 발급에서 빠짐).
+-- 0번 코드를 바꾸면 test반도 같이: ... where number = 0 or class_id = 20
+insert into public.students (class_id, number)
+select 20, n from generate_series(1, 5) as n
+on conflict (class_id, number) do update set active = true;
+update public.students t set code_hash = z.code_hash
+from public.students z
+where t.class_id = 20 and t.code_hash is null and z.class_id = 7 and z.number = 0 and z.code_hash is not null;
 
 -- 오목 1대1: 하루 판 수(시작된 판), 한 수 제한 시간(초). 보상 없음
 insert into public.settings (key, value) values

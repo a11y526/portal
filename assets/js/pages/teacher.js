@@ -1,7 +1,7 @@
 // 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #ai #roster #nick #buys #shopset #grant #coins #points #data #lock #omok #presets)
 // 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 반 게시판(반마다 섹션·자료), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인·반별 닉네임 고치기, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
-import { CLASSES, GRADE } from '../config.js';
+import { CLASSES, TEACHER_CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, cleanupPostPhotos,
@@ -117,8 +117,8 @@ function renderToday() {
         .map((b) => `<option value="${b.id}" ${b.id === c.today_board_id ? 'selected' : ''}>${esc(boardLabel(b))}</option>`)
         .join('');
       return `<tr>
-        <td style="width:64px">${c.id}반</td>
-        <td><select class="nd-ghost${c.today_board_id ? '' : ' dim'}" data-today="${c.id}" aria-label="${c.id}반 오늘 보드">
+        <td style="width:64px">${clsName(c.id)}반</td>
+        <td><select class="nd-ghost${c.today_board_id ? '' : ' dim'}" data-today="${c.id}" aria-label="${clsName(c.id)}반 오늘 보드">
           <option value="" ${c.today_board_id ? '' : 'selected'}>없음</option>${opts}
         </select></td>
         <td><div class="nd-row-acts">
@@ -138,7 +138,7 @@ $('today-list').addEventListener('change', async (e) => {
   sel.disabled = true;
   try {
     await setTodayBoard(classId, sel.value || null);
-    toast(`${classId}반 오늘 보드를 바꿨어요`, 'ok');
+    toast(`${clsName(classId)}반 오늘 보드를 바꿨어요`, 'ok');
     await refresh();
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -182,12 +182,12 @@ function renderBoards() {
         </tr>
         ${list.map((b) => `
           <tr>
-            <td style="width:64px">${b.class_id}반</td>
+            <td style="width:64px">${clsName(b.class_id)}반</td>
             <td>${b.status === 'revealed' ? '<span class="nd-tag green">발표함</span>' : '<span class="nd-tag yellow">진행 중</span>'}</td>
             <td>${todayIds.has(b.id) ? '<span class="nd-tag blue">오늘</span>' : ''}</td>
             <td>${pages(b)}</td>
             <td class="muted">${fmtDate(b.created_at)}</td>
-            <td><div class="nd-row-acts"><details class="nd-menu"><summary aria-label="${b.class_id}반 보드 메뉴">⋯</summary><div class="nd-menu-list">
+            <td><div class="nd-row-acts"><details class="nd-menu"><summary aria-label="${clsName(b.class_id)}반 보드 메뉴">⋯</summary><div class="nd-menu-list">
               <button type="button" class="nd-btn" data-edit="${b.id}">수정</button>
               <button type="button" class="nd-btn" data-away="${b.id}">딴 화면 기록</button>
               <button type="button" class="nd-btn danger" data-del="${b.id}">삭제</button>
@@ -212,7 +212,7 @@ $('board-groups').addEventListener('click', async (e) => {
       const latest = new Map();
       for (const b of list) if (!latest.has(b.class_id)) latest.set(b.class_id, b);
       for (const b of latest.values()) await setTodayBoard(b.class_id, b.id);
-      toast(`${[...latest.keys()].sort((a, b) => a - b).join(', ')}반 오늘 보드를 바꿨어요`, 'ok');
+      toast(`${clsName([...latest.keys()].sort((a, b) => a - b).join(', '))}반 오늘 보드를 바꿨어요`, 'ok');
     } catch (err) { toast(errMsg(err), 'error'); }
     await refresh();
   }
@@ -236,7 +236,7 @@ $('board-groups').addEventListener('click', async (e) => {
 
   if (delBtn) {
     const b = boards.find((x) => x.id === delBtn.dataset.del);
-    if (!b || !confirm(`${b.class_id}반 ${b.lesson_code}차시 보드를 삭제할까요?`)) return;
+    if (!b || !confirm(`${clsName(b.class_id)}반 ${b.lesson_code}차시 보드를 삭제할까요?`)) return;
     try {
       await deleteBoard(b.id);
       toast('삭제했어요', 'ok');
@@ -247,8 +247,8 @@ $('board-groups').addEventListener('click', async (e) => {
 
 /* ---------- 보드 만들기 ---------- */
 function renderCreateForm() {
-  $('class-picks').innerHTML = CLASSES.map((n) => `
-    <label class="check"><input type="checkbox" data-include="${n}" checked> ${n}반</label>`).join('');
+  $('class-picks').innerHTML = TEACHER_CLASSES.map((n) => `
+    <label class="check"><input type="checkbox" data-include="${n}"${n === TEST_CLASS ? '' : ' checked'}> ${clsName(n)}반</label>`).join('');
   const sims = $('create').querySelector('[data-sims]');
   sims.innerHTML = '';
   addSimRow(sims);
@@ -275,7 +275,7 @@ $('create').addEventListener('submit', async (e) => {
   if (!sim_links) return;
 
   const items = [];
-  for (const n of CLASSES) {
+  for (const n of TEACHER_CLASSES) {
     if (!f.querySelector(`[data-include="${n}"]`).checked) continue;
     items.push({ class_id: n });
   }
@@ -325,7 +325,7 @@ const editForm = $('edit-form');
 function openEdit(b) {
   if (!b) return;
   editing = b;
-  $('edit-title').textContent = `${b.class_id}반 보드 수정`;
+  $('edit-title').textContent = `${clsName(b.class_id)}반 보드 수정`;
   editForm.lesson_code.value = b.lesson_code;
   editForm.elements.title.value = b.title;
   editForm.elements.ws_group.checked = !!b.ws_group;
@@ -360,14 +360,14 @@ editForm.addEventListener('submit', async (e) => {
 });
 
 /* ---------- 명단 ---------- */
-let rosterClass = CLASSES[0];
+let rosterClass = TEACHER_CLASSES[0];
 
 function renderRoster() {
-  const counts = new Map(CLASSES.map((n) => [n, 0]));
+  const counts = new Map(TEACHER_CLASSES.map((n) => [n, 0]));
   for (const s of students) if (s.active) counts.set(s.class_id, (counts.get(s.class_id) || 0) + 1);
-  $('roster-tabs').innerHTML = CLASSES.map((n) => `
+  $('roster-tabs').innerHTML = TEACHER_CLASSES.map((n) => `
     <button type="button" role="tab" class="cls-tab press${n === rosterClass ? ' on' : ''}" aria-selected="${n === rosterClass}" data-tab="${n}">
-      ${n}반 <span class="num">${counts.get(n)}</span>
+      ${clsName(n)}반 <span class="num">${counts.get(n)}</span>
     </button>`).join('');
 
   const list = students.filter((s) => s.class_id === rosterClass)
@@ -405,8 +405,8 @@ function renderRosterSize() {
     const last = students.filter((s) => s.class_id === n && s.active).reduce((m, s) => Math.max(m, s.number), 0);
     return `
       <label class="roster-size-item">
-        <span>${n}반</span>
-        <input class="input num" type="number" min="1" max="99" value="${last || ''}" data-last="${n}" aria-label="${n}반 마지막 번호">
+        <span>${clsName(n)}반</span>
+        <input class="input num" type="number" min="1" max="99" value="${last || ''}" data-last="${n}" aria-label="${clsName(n)}반 마지막 번호">
       </label>`;
   }).join('');
 }
@@ -420,7 +420,7 @@ $('roster-size').addEventListener('submit', async (e) => {
     if (!raw) continue;
     const last = Number(raw);
     if (!Number.isInteger(last) || last < 1 || last > 99) {
-      toast(`${n}반 마지막 번호를 확인해 주세요`, 'error');
+      toast(`${clsName(n)}반 마지막 번호를 확인해 주세요`, 'error');
       input.focus();
       return;
     }
@@ -429,13 +429,13 @@ $('roster-size').addEventListener('submit', async (e) => {
   }
   if (!changes.length) { toast('바뀐 반이 없어요'); return; }
   const shrink = changes.filter((c) => c.last < c.current);
-  if (shrink.length && !confirm(shrink.map((c) => `${c.n}반 ${c.last + 1}~${c.current}번`).join(', ') + '을(를) 명단에서 뺄까요?')) return;
+  if (shrink.length && !confirm(shrink.map((c) => `${clsName(c.n)}반 ${c.last + 1}~${c.current}번`).join(', ') + '을(를) 명단에서 뺄까요?')) return;
 
   const btn = e.currentTarget.querySelector('[type="submit"]');
   btn.disabled = true;
   try {
     for (const c of changes) await setRosterSize(c.n, c.last);
-    toast(`${changes.map((c) => c.n + '반').join(', ')} 명단을 저장했어요`, 'ok');
+    toast(`${changes.map((c) => clsName(c.n) + '반').join(', ')} 명단을 저장했어요`, 'ok');
     rosterClass = changes[0].n;
     await refreshStudents();
   } catch (err) {
@@ -457,7 +457,7 @@ $('roster-list').addEventListener('click', async (e) => {
   if (!row) return;
   const s = students.find((x) => x.id === row.dataset.sid);
   if (!s) return;
-  const label = `${s.class_id}반 ${s.number}번`;
+  const label = `${clsName(s.class_id)}반 ${s.number}번`;
   try {
     if (e.target.closest('[data-reset]')) {
       if (!confirm(`${label} 코드를 새로 만들까요? 지금 코드는 더 이상 쓸 수 없어요.`)) return;
@@ -480,13 +480,13 @@ $('roster-list').addEventListener('click', async (e) => {
 /* ---------- 코드 발급 + A4 인쇄 ---------- */
 async function issue(onlyMissing) {
   const n = rosterClass;
-  if (!onlyMissing && !confirm(`${n}반 학생 전체의 코드를 새로 만들까요? 지금 코드는 더 이상 쓸 수 없어요.`)) return;
+  if (!onlyMissing && !confirm(`${clsName(n)}반 학생 전체의 코드를 새로 만들까요? 지금 코드는 더 이상 쓸 수 없어요.`)) return;
   const btn = $(onlyMissing ? 'issue-missing' : 'issue-all');
   btn.disabled = true;
   try {
     const list = await issueCodes(n, onlyMissing);
     if (!list.length) toast('발급할 학생이 없어요', 'error');
-    else showCodes(list, `${n}반 코드 ${list.length}장`);
+    else showCodes(list, `${clsName(n)}반 코드 ${list.length}장`);
     await refreshStudents();
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -507,7 +507,7 @@ function showCodes(list, title) {
   const site = esc(siteAddress());
   $('print-sheet').innerHTML = list.map((c) => `
     <div class="code-card">
-      <div class="cc-top"><b>${GRADE}학년 ${c.class_id}반 ${c.number}번</b></div>
+      <div class="cc-top"><b>${GRADE}학년 ${clsName(c.class_id)}반 ${c.number}번</b></div>
       <div class="cc-code">${esc(c.code.slice(0, 3))} ${esc(c.code.slice(3))}</div>
       <div class="cc-bottom"><span class="cc-name">이름</span><span class="cc-url">${site}</span></div>
     </div>`).join('');
@@ -521,7 +521,7 @@ $('codes-close').addEventListener('click', () => $('codes-dlg').close());
 const awayDur = (sec) => sec >= 60 ? `${Math.floor(sec / 60)}분 ${sec % 60}초` : `${sec}초`;
 async function openAway(b) {
   if (!b) return;
-  $('away-title').textContent = `${b.class_id}반 ${b.lesson_code}차시 딴 화면 기록`;
+  $('away-title').textContent = `${clsName(b.class_id)}반 ${b.lesson_code}차시 딴 화면 기록`;
   $('away-sum').textContent = '불러오는 중';
   $('away-rows').innerHTML = '';
   $('away-dlg').showModal();
@@ -550,7 +550,7 @@ function renderNicks() {
   $('nick-count').textContent = nickReqs.length ? String(nickReqs.length) : '';
   $('nick-list').innerHTML = nickReqs.length ? nickReqs.map((s) => `
     <div class="nick-row" data-nid="${s.id}">
-      <b class="num">${s.class_id}반 ${s.number}번</b>
+      <b class="num">${clsName(s.class_id)}반 ${s.number}번</b>
       <span class="new">${esc(s.nickname_request)}</span>
       ${s.nickname ? `<span class="old">지금: ${esc(s.nickname)}</span>` : ''}
       <span class="roster-btns">
@@ -585,12 +585,12 @@ $('nick-list').addEventListener('click', async (e) => {
 });
 
 /* ---------- 반별 닉네임: 번호마다 닉네임을 보고 바로 고침 ---------- */
-let nickClass = CLASSES[0];
+let nickClass = TEACHER_CLASSES[0];
 try { nickClass = Number(localStorage.getItem('nickClass')) || nickClass; } catch {}
-if (!CLASSES.includes(nickClass)) nickClass = CLASSES[0];
+if (!TEACHER_CLASSES.includes(nickClass)) nickClass = TEACHER_CLASSES[0];
 let nickAll = [];
 
-$('nick-class').innerHTML = CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+$('nick-class').innerHTML = TEACHER_CLASSES.map((n) => `<option value="${n}">${clsName(n)}반</option>`).join('');
 $('nick-class').value = String(nickClass);
 $('nick-class').addEventListener('change', () => {
   nickClass = Number($('nick-class').value);
@@ -665,7 +665,7 @@ $('nick-all').addEventListener('submit', async (e) => {
 let buyReqs = [];
 let buyDone = [];
 
-const who = (p) => `${p.student?.class_id ?? '?'}반 ${p.student?.number ?? '?'}번`;
+const who = (p) => `${clsName(p.student?.class_id ?? '?')}반 ${p.student?.number ?? '?'}번`;
 const buyWhat = (p) => esc(p.item?.name ?? p.item_id) +
   (p.item?.kind === 'pair' && p.partner_number ? ` · ${p.partner_number}번과 함께` : '');
 
@@ -805,7 +805,7 @@ $('set-items').addEventListener('change', async (e) => {
 });
 
 /* ---------- 점수 주기: 고른 학생에게 XP·금화 (음수면 빼기) ---------- */
-let grantClass = CLASSES[0];
+let grantClass = TEACHER_CLASSES[0];
 let grantPick = new Set(); // 고른 학생 id
 
 const signed = (n, unit) => (n ? `${n > 0 ? '+' : '−'}${Math.abs(n)} ${unit}` : '');
@@ -815,8 +815,8 @@ function grantRoster() {
 }
 
 function renderGrant() {
-  $('grant-tabs').innerHTML = CLASSES.map((n) => `
-    <button type="button" role="tab" class="cls-tab press${n === grantClass ? ' on' : ''}" aria-selected="${n === grantClass}" data-gcls="${n}">${n}반</button>`).join('');
+  $('grant-tabs').innerHTML = TEACHER_CLASSES.map((n) => `
+    <button type="button" role="tab" class="cls-tab press${n === grantClass ? ' on' : ''}" aria-selected="${n === grantClass}" data-gcls="${n}">${clsName(n)}반</button>`).join('');
   const list = grantRoster();
   $('grant-roll').innerHTML = list.length ? list.map((s) => `
     <button type="button" class="roll-chip num${grantPick.has(s.id) ? ' on' : ''}" aria-pressed="${grantPick.has(s.id)}" data-gsid="${s.id}">${s.number}</button>`).join('')
@@ -849,7 +849,7 @@ $('grant-form').addEventListener('submit', async (e) => {
   if (!xp && !coins) return toast('XP나 금화를 넣어 주세요', 'error');
   const nums = grantRoster().filter((s) => grantPick.has(s.id)).map((s) => s.number);
   const what = [signed(xp, 'XP'), signed(coins, '금화')].filter(Boolean).join(', ');
-  if (!confirm(`${grantClass}반 ${nums.length}명(${nums.join(', ')}번)에게 ${what}\n사유: ${reason}`)) return;
+  if (!confirm(`${clsName(grantClass)}반 ${nums.length}명(${nums.join(', ')}번)에게 ${what}\n사유: ${reason}`)) return;
   const btn = $('grant-go');
   btn.disabled = true;
   try {
@@ -872,7 +872,7 @@ async function refreshGrants() {
   const rows = await listGrants();
   $('grant-log').innerHTML = rows.length ? rows.map((g) => `
     <div class="nick-row">
-      <b class="num">${g.student?.class_id ?? '?'}반 ${g.student?.number ?? '?'}번</b>
+      <b class="num">${clsName(g.student?.class_id ?? '?')}반 ${g.student?.number ?? '?'}번</b>
       <span>${esc(g.reason)}</span>
       <span class="old num">${fmtDate(g.created_at)}</span>
       <span class="grant-amt num">${[signed(g.xp, 'XP'), signed(g.coins, '금화')].filter(Boolean).join(' · ')}</span>
@@ -880,13 +880,13 @@ async function refreshGrants() {
 }
 
 /* ---------- 금화 현황: 학생별 잔액·받은·쓴·보상 신청 (0이면 모든 반) ---------- */
-let coinClass = CLASSES[0];
+let coinClass = TEACHER_CLASSES[0];
 try { const v = localStorage.getItem('coinClass'); if (v !== null) coinClass = Number(v); } catch {}
-if (coinClass !== 0 && !CLASSES.includes(coinClass)) coinClass = CLASSES[0];
+if (coinClass !== 0 && !TEACHER_CLASSES.includes(coinClass)) coinClass = TEACHER_CLASSES[0];
 let coinSort = 'number';
 let coinRows = [];
 
-$('coins-class').innerHTML = '<option value="0">모든 반</option>' + CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+$('coins-class').innerHTML = '<option value="0">모든 반</option>' + TEACHER_CLASSES.map((n) => `<option value="${n}">${clsName(n)}반</option>`).join('');
 $('coins-class').value = String(coinClass);
 $('coins-class').addEventListener('change', () => {
   coinClass = Number($('coins-class').value);
@@ -927,7 +927,7 @@ function renderCoins() {
       <th>잔액</th><th>받은 금화</th><th>뺀 금화</th><th>보상 신청</th><th>은화</th><th>레벨</th>
     </tr></thead>
     <tbody>${rows.map((r) => `<tr>
-      ${all ? `<td class="l">${r.class_id}반</td>` : ''}<td class="l">${r.number}번</td>
+      ${all ? `<td class="l">${clsName(r.class_id)}반</td>` : ''}<td class="l">${r.number}번</td>
       <td class="l">${r.nickname ? esc(r.nickname) : '<span class="muted">닉네임 미정</span>'}</td>
       <td class="bal${r.coins < 0 ? ' minus' : ''}">${r.coins}</td>
       <td>${r.earned}</td><td>${r.spent}</td>
@@ -1286,7 +1286,7 @@ function renderLessons() {
         <div class="lesson-chips">
           ${classes.map((c) => {
             const has = !!lessonBoard(c.id, l.code);
-            return `<span class="tag ${has ? 'tag-done' : 'tag-off'}" title="${c.id}반 ${esc(l.code)}차시 보드 ${has ? '있음' : '없음'}">${c.id}반 ${has ? '있음' : '없음'}</span>`;
+            return `<span class="tag ${has ? 'tag-done' : 'tag-off'}" title="${clsName(c.id)}반 ${esc(l.code)}차시 보드 ${has ? '있음' : '없음'}">${clsName(c.id)}반 ${has ? '있음' : '없음'}</span>`;
           }).join('')}
         </div>
         <div class="lesson-go">
@@ -1294,7 +1294,7 @@ function renderLessons() {
           ${ready ? '' : '<span class="muted lesson-need">수업자료 주소를 먼저 저장해 주세요</span>'}
         </div>
         ${open ? `<div class="lesson-classes" role="group" aria-label="반 고르기">
-          ${classes.map((c, j) => `<button type="button" class="lesson-cls press pop${c.id === last ? ' is-last' : ''}" style="--d:${j * 0.03}s" data-live="${c.id}">${c.id}반</button>`).join('')}
+          ${classes.map((c, j) => `<button type="button" class="lesson-cls press pop${c.id === last ? ' is-last' : ''}" style="--d:${j * 0.03}s" data-live="${c.id}">${clsName(c.id)}반</button>`).join('')}
         </div>` : ''}
       </article>`;
   }).join('') : '<div class="empty"><strong>아직 차시가 없어요</strong></div>';
@@ -1513,9 +1513,9 @@ $('lesson-add').addEventListener('submit', async (e) => {
 function renderLocks() {
   $('lock-list').innerHTML = classes.map((c) => `
     <div class="lock-row${c.locked ? ' is-locked' : ''}">
-      <b>${c.id}반</b>
+      <b>${clsName(c.id)}반</b>
       <span class="tag ${c.locked ? 'tag-warn' : 'tag-done'}">${c.locked ? '잠김' : '열림'}</span>
-      <button type="button" class="switch" role="switch" aria-checked="${!!c.locked}" data-lock="${c.id}" aria-label="${c.id}반 잠금"><span></span></button>
+      <button type="button" class="switch" role="switch" aria-checked="${!!c.locked}" data-lock="${c.id}" aria-label="${clsName(c.id)}반 잠금"><span></span></button>
     </div>`).join('');
   updateHub();
 }
@@ -1525,13 +1525,13 @@ $('lock-list').addEventListener('click', async (e) => {
   if (!btn) return;
   const c = classes.find((x) => x.id === Number(btn.dataset.lock));
   const next = !c.locked;
-  if (next && !confirm(`${c.id}반을 잠글까요? 로그인해 있던 학생도 모두 로그아웃돼요.`)) return;
+  if (next && !confirm(`${clsName(c.id)}반을 잠글까요? 로그인해 있던 학생도 모두 로그아웃돼요.`)) return;
   btn.disabled = true;
   try {
     await setClassLock(c.id, next);
     c.locked = next;
     renderLocks();
-    toast(next ? `${c.id}반을 잠갔어요` : `${c.id}반을 열었어요`, 'ok');
+    toast(next ? `${clsName(c.id)}반을 잠갔어요` : `${clsName(c.id)}반을 열었어요`, 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
     btn.disabled = false;
@@ -1713,9 +1713,9 @@ $('omok-form').addEventListener('submit', async (e) => {
 function renderOmok() {
   $('omok-list').innerHTML = classes.map((c) => `
     <div class="lock-row${c.omok_open ? ' is-open' : ''}">
-      <b>${c.id}반</b>
+      <b>${clsName(c.id)}반</b>
       <span class="tag ${c.omok_open ? 'tag-done' : 'tag-off'}">${c.omok_open ? '켜짐' : '꺼짐'}</span>
-      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${c.id}반 게임"><span></span></button>
+      <button type="button" class="switch switch-on" role="switch" aria-checked="${!!c.omok_open}" data-omok="${c.id}" aria-label="${clsName(c.id)}반 게임"><span></span></button>
     </div>`).join('');
   updateHub();
 }
@@ -1736,7 +1736,7 @@ $('omok-list').addEventListener('click', async (e) => {
   btn.disabled = true;
   try {
     await setOmok([c], !c.omok_open);
-    toast(c.omok_open ? `${c.id}반 게임을 켰어요` : `${c.id}반 게임을 껐어요`, 'ok');
+    toast(c.omok_open ? `${clsName(c.id)}반 게임을 켰어요` : `${clsName(c.id)}반 게임을 껐어요`, 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
     btn.disabled = false;
@@ -1758,10 +1758,10 @@ $('omok-all').addEventListener('click', async (e) => {
 /* ---------- 달 자원 RPG 결과 (712, 반별 엔딩 4종 막대 + 이벤트 7개 선택 비율) ---------- */
 let mrClass = 0;
 try { const v = localStorage.getItem('mrClass'); if (v !== null) mrClass = Number(v); } catch {}
-if (mrClass !== 0 && !CLASSES.includes(mrClass)) mrClass = 0;
+if (mrClass !== 0 && !TEACHER_CLASSES.includes(mrClass)) mrClass = 0;
 
 if ($('mr-class')) {
-  $('mr-class').innerHTML = '<option value="0">모든 반</option>' + CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+  $('mr-class').innerHTML = '<option value="0">모든 반</option>' + TEACHER_CLASSES.map((n) => `<option value="${n}">${clsName(n)}반</option>`).join('');
   $('mr-class').value = String(mrClass);
   $('mr-class').addEventListener('change', () => {
     mrClass = Number($('mr-class').value);
@@ -1844,15 +1844,15 @@ function updateHub() {
   const ready = lessonWindows().filter((l) => l.lesson_src).length;
   if (lessons.length || boards.length) set('hub-lessons', `수업자료 준비 ${ready}차시`);
   const today = classes.filter((c) => c.today_board_id).length;
-  if (classes.length) set('hub-boards', `오늘 보드 ${today}/${classes.length}반`);
+  if (classes.length) set('hub-boards', `오늘 보드 ${today}/${clsName(classes.length)}반`);
   const active = students.filter((s) => s.active);
   if (active.length) set('hub-roster', `학생 ${active.length}명 · 코드 없음 ${active.filter((s) => !s.has_code).length}명`);
   set('hub-nick', nickReqs.length ? `기다리는 신청 ${nickReqs.length}개` : '기다리는 신청 없음');
   $('hub-nick-badge').textContent = nickReqs.length;
   $('hub-nick-badge').classList.toggle('hidden', !nickReqs.length);
-  const locked = classes.filter((c) => c.locked).map((c) => `${c.id}반`);
+  const locked = classes.filter((c) => c.locked).map((c) => `${clsName(c.id)}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
-  const omok = classes.filter((c) => c.omok_open).map((c) => `${c.id}반`);
+  const omok = classes.filter((c) => c.omok_open).map((c) => `${clsName(c.id)}반`);
   if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (otRules ? ` · 오델로 ${otRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : '') + (qdRules ? ` · 쿼리도 ${qdRules.daily}판` : ''));
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');

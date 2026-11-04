@@ -1,6 +1,6 @@
 // 모둠 편성 (교사, 프로젝터): 반의 오늘 보드에 그날 모둠을 정한다
 // 결석/조퇴는 빼고, 함께 묶은 학생(모둠 선택권)은 같은 모둠에 둔 채 무작위로 나눈다
-import { CLASSES } from '../config.js';
+import { TEACHER_CLASSES, clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, getBoard, listStudents, getBoardGroups, setBoardGroups, countSubmissions, sendClassRefresh,
@@ -47,8 +47,8 @@ const groupCount = () => Math.min(20, Math.max(2, Number($('gcount').value) || 7
 
 /* ---------- 반 고르기 ---------- */
 function renderTabs() {
-  $('cls-tabs').innerHTML = CLASSES.map((n) => `
-    <button type="button" role="tab" class="cls-tab press${n === classId ? ' on' : ''}" aria-selected="${n === classId}" data-cls="${n}">${n}반</button>`).join('');
+  $('cls-tabs').innerHTML = TEACHER_CLASSES.map((n) => `
+    <button type="button" role="tab" class="cls-tab press${n === classId ? ' on' : ''}" aria-selected="${n === classId}" data-cls="${n}">${clsName(n)}반</button>`).join('');
 }
 
 $('cls-tabs').addEventListener('click', (e) => {
@@ -256,7 +256,7 @@ function renderResults(groups, tiedColor, animate = true) {
         }).join('') : '<span class="gm-empty">배정된 학생 없음</span>'}
       </div>
     </article>`).join('');
-  $('stage-title').textContent = `${classId}반 모둠`;
+  $('stage-title').textContent = `${clsName(classId)}반 모둠`;
   $('stage-sub').textContent = $('lesson').textContent;
   fitMembers();
 }
@@ -342,7 +342,7 @@ async function save() {
     saved = preview.groups;
     preview = null;
     sendClassRefresh(classId);
-    toast(`${classId}반 모둠을 확정했어요`, 'ok');
+    toast(`${clsName(classId)}반 모둠을 확정했어요`, 'ok');
     if (embed) parent.postMessage({ type: 'groups-saved', classId }, location.origin);
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -359,5 +359,5 @@ addEventListener('beforeunload', (e) => { if (preview) e.preventDefault(); });
 teacherGate($('app'), async () => {
   const fromUrl = Number(new URLSearchParams(location.search).get('c'));
   const last = Number(store.get('groupsClass'));
-  await pickClass(CLASSES.includes(fromUrl) ? fromUrl : CLASSES.includes(last) ? last : CLASSES[0]);
+  await pickClass(TEACHER_CLASSES.includes(fromUrl) ? fromUrl : TEACHER_CLASSES.includes(last) ? last : TEACHER_CLASSES[0]);
 });

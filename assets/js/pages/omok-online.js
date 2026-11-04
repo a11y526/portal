@@ -1,6 +1,7 @@
 // 오목 1대1: 6개 반 전체에서 먼저 온 2명끼리. 보상 없음. 흑·백은 서버가 무작위로, 흑이 먼저.
 // 한 수 제한 시간을 넘기면 진다(서버가 판정). 선생님이 오목을 켠 반만, 하루 판 수 제한(AI 대전과 따로).
 // 판 채널 om-<판> Broadcast로 상대에게 '새로고침' 신호 + 대기·대국 중에는 2초마다 om_state.
+import { clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import { omState, omJoin, omLeave, omPlay, onGameRefresh, sendGameRefresh, onClassRefresh } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -14,7 +15,7 @@ bindReactions();
 const $ = (id) => document.getElementById(id);
 const login = readLogin();
 const COLOR = { 1: 'black', 2: 'white' };
-const nameOf = (p) => (p.me ? '나' : `${p.class_id}반 ${p.nickname ?? '닉네임 미정'}`);
+const nameOf = (p) => (p.me ? '나' : `${clsName(p.class_id)}반 ${p.nickname ?? '닉네임 미정'}`);
 
 let info = null;      // om_state 결과(game 빼고)
 let game = null;      // 지금 보는 판

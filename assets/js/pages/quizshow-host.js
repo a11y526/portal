@@ -3,7 +3,7 @@
 //                    ?c=<반>&set=<세트>&mode=solo|team : 판을 새로 만들고 ?c=&g=로 바꾼다
 //                    &embed=1              : 수업 모드 덮개 [퀴즈 쇼] 탭 안(뒤로 가기 숨김)
 // Space·Enter·→ : 다음. 학생 번호는 보이지 않는다(닉네임만)
-import { CLASSES } from '../config.js';
+import { TEACHER_CLASSES, clsName } from '../config.js';
 import { toast, esc } from '../ui.js';
 import { qsCreate, qsHost, qsNext, qsCancel, currentQsGame, listQsSets, sendQuizShow } from '../db.js';
 import { TYPES, POINTS, shapeSVG, optionHTML, imageURL, sliderValue, problemOf } from '../quizshow.js';
@@ -38,7 +38,7 @@ const ERR = {
   NO_GROUPS: '이 반 오늘 보드에 모둠 편성이 없어요. 모둠 편성을 먼저 하거나 개인전으로 시작하세요',
 };
 
-$('top-class').textContent = CLASSES.includes(classId) ? `${classId}반` : '';
+$('top-class').textContent = TEACHER_CLASSES.includes(classId) ? `${clsName(classId)}반` : '';
 
 /* ---------- 판 열기 ---------- */
 function setUrl() {
@@ -50,7 +50,7 @@ function setUrl() {
 }
 
 async function start() {
-  if (!CLASSES.includes(classId)) {
+  if (!TEACHER_CLASSES.includes(classId)) {
     $('stage').innerHTML = '<div class="empty"><strong>반이 없어요</strong></div>';
     return;
   }

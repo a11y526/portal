@@ -1,6 +1,6 @@
 // 순위 발표 (프로젝터)
 // 화면 어두워짐 → 3위·2위·1위 순서로 카드가 뒤집히며 공개(클릭/스페이스) → 1위에서 빛줄기 + 폭죽 → 4위부터 목록
-import { CLASSES, GRADE } from '../config.js';
+import { TEACHER_CLASSES, GRADE, clsName } from '../config.js';
 import { initUI, toast, countUp, isLite } from '../ui.js';
 import { listClasses, getBoard, listSubmissions, revealBoard, unrevealBoard, onSubmissionsChange, sendClassRefresh } from '../db.js';
 import { teacherGate, errMsg } from '../gate.js';
@@ -31,7 +31,7 @@ let queue = [];
 
 /* ---------- 준비 화면 ---------- */
 async function loadReady() {
-  $('ready-class').textContent = `${GRADE}학년 ${classId}반`;
+  $('ready-class').textContent = `${GRADE}학년 ${clsName(classId)}반`;
   const classes = await listClasses();
   const c = classes.find((x) => x.id === classId);
   board = c?.today_board_id ? await getBoard(c.today_board_id) : null;
@@ -65,7 +65,7 @@ async function loadReady() {
 /* ---------- 발표 취소: 그 발표로 준 포인트를 거둬들이고 보드를 다시 연다 ---------- */
 $('unreveal').addEventListener('click', async () => {
   if (!board || board.status !== 'revealed') return;
-  if (!confirm(`${classId}반 ${board.lesson_code}차시 발표를 취소할까요?\n이 발표로 준 포인트를 거둬들이고, 제출과 검사를 다시 할 수 있게 돼요.`)) return;
+  if (!confirm(`${clsName(classId)}반 ${board.lesson_code}차시 발표를 취소할까요?\n이 발표로 준 포인트를 거둬들이고, 제출과 검사를 다시 할 수 있게 돼요.`)) return;
   $('unreveal').disabled = true;
   try {
     const res = await unrevealBoard(board.id);
@@ -89,7 +89,7 @@ const scheduleReady = () => {
 function showClassPicker() {
   $('ready-class').classList.add('hidden');
   $('ready-info').textContent = '반을 골라 주세요';
-  $('ready-classes').innerHTML = CLASSES.map((n) => `<a class="glass lift ready-cls" href="?c=${n}">${n}반</a>`).join('');
+  $('ready-classes').innerHTML = TEACHER_CLASSES.map((n) => `<a class="glass lift ready-cls" href="?c=${n}">${clsName(n)}반</a>`).join('');
   $('ready-classes').classList.remove('hidden');
 }
 
@@ -115,7 +115,7 @@ $('start').addEventListener('click', async () => {
 });
 
 function buildStage(ranking) {
-  $('stage-label').textContent = `${GRADE}학년 ${classId}반 · ${board.lesson_code}차시`;
+  $('stage-label').textContent = `${GRADE}학년 ${clsName(classId)}반 · ${board.lesson_code}차시`;
   const byRank = new Map(ranking.map((r) => [r.rank, r]));
   const top = [2, 1, 3].map((rank) => {
     const r = byRank.get(rank);
@@ -238,7 +238,7 @@ addEventListener('keydown', (e) => {
 
 /* ---------- 시작 ---------- */
 teacherGate($('app'), async () => {
-  if (!CLASSES.includes(classId)) return showClassPicker();
+  if (!TEACHER_CLASSES.includes(classId)) return showClassPicker();
   await loadReady();
   onSubmissionsChange(scheduleReady);
 });

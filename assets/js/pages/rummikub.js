@@ -2,6 +2,7 @@
 // 판 찾기 → 대기(3명이 되면 서버가 나눠 줌) → 차례마다 판을 고쳐 [내기] 또는 [1장 가져오기]. 한 턴 제한 시간이 지나면 서버가 1장 뽑고 넘긴다.
 // 갱신: 판 채널(rk-<판>) Broadcast 신호 + 3초마다 rk_state. 신호 내용은 믿지 않고 항상 다시 읽는다.
 // 조작: 타일을 눌러 고르고 세트의 [+] / [새 세트] / [손패로]를 누르거나, 끌어다 놓는다.
+import { clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import { rkState, rkJoin, rkLeave, rkDraw, rkPlay, onGameRefresh, sendGameRefresh, onClassRefresh } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -32,7 +33,7 @@ let order = [];        // 내 손패 보여 주는 순서
 const myTurn = () => game?.status === 'playing' && !game.left && game.turn === game.me;
 const fresh = () => new Set(work.board.flat().filter((t) => !game.board.flat().includes(t)));   // 이번 차례에 낸 타일
 const changed = () => JSON.stringify(work.board) !== JSON.stringify(game?.board ?? []);
-const nameOf = (p) => (p.me ? '나' : `${p.class_id}반 ${p.nickname ?? '닉네임 미정'}`);
+const nameOf = (p) => (p.me ? '나' : `${clsName(p.class_id)}반 ${p.nickname ?? '닉네임 미정'}`);
 const player = (seat) => game?.players.find((p) => p.seat === seat);
 
 // 내용이 바뀔 때만 다시 그린다(3초마다 갱신해도 애니메이션이 되풀이되지 않게)

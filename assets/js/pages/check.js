@@ -1,5 +1,5 @@
 // 검사 화면 (휴대폰 우선): 반을 고르면 오늘 보드의 제출이 제출 순서대로 쌓인다
-import { CLASSES } from '../config.js';
+import { TEACHER_CLASSES, clsName } from '../config.js';
 import { initUI, toast, esc, groupName } from '../ui.js';
 import {
   listClasses, getBoard, listSubmissions, listPresets, reviewSubmission,
@@ -217,8 +217,8 @@ function pickClass(n) {
 teacherGate($('app'), async () => {
   let saved = null;
   try { saved = Number(localStorage.getItem('checkClass')); } catch {}
-  classId = CLASSES.includes(saved) ? saved : CLASSES[0];
-  $('cls').innerHTML = CLASSES.map((n) => `<option value="${n}" ${n === classId ? 'selected' : ''}>${n}반</option>`).join('');
+  classId = TEACHER_CLASSES.includes(saved) ? saved : TEACHER_CLASSES[0];
+  $('cls').innerHTML = TEACHER_CLASSES.map((n) => `<option value="${n}" ${n === classId ? 'selected' : ''}>${clsName(n)}반</option>`).join('');
   $('cls').addEventListener('change', (e) => pickClass(Number(e.target.value)));
 
   presets = await listPresets().catch(() => []);

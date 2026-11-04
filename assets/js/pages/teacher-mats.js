@@ -1,7 +1,7 @@
 // 관리 '반 게시판'(#mats): 반을 골라 섹션을 짜고(추가·이름·옮기기·지우기) 자료(글·사진·PDF·링크·유튜브)를 올린다.
 // '모든 반'(classId 0)에 만든 섹션은 모든 반 게시판 맨 앞에 보인다.
 // 바꿀 때마다 그 반(모든 반이면 6개 반 모두)에 새로고침 신호 → 학생 [게시판] 탭이 바로 바뀐다
-import { CLASSES } from '../config.js';
+import { TEACHER_CLASSES, clsName } from '../config.js';
 import { toast } from '../ui.js';
 import {
   listSections, addSection, updateSection, deleteSection, uploadMaterialFile, removeMaterialFiles,
@@ -14,7 +14,7 @@ import { errMsg } from '../gate.js';
 const $ = (id) => document.getElementById(id);
 const PDF_MAX = 20 * 1024 * 1024;
 
-let classId = (() => { try { const v = localStorage.getItem('matClass'); const n = Number(v); return v === '0' || CLASSES.includes(n) ? n : CLASSES[0]; } catch { return CLASSES[0]; } })();
+let classId = (() => { try { const v = localStorage.getItem('matClass'); const n = Number(v); return v === '0' || TEACHER_CLASSES.includes(n) ? n : TEACHER_CLASSES[0]; } catch { return TEACHER_CLASSES[0]; } })();
 let sections = [];
 let busy = false;
 
@@ -23,7 +23,7 @@ let editing = null;
 let picked = null;      // { blob, type: 'image'|'pdf', name, preview }
 let dropFile = false;   // 지금 파일 빼기
 
-$('mat-class').innerHTML = '<option value="0">모든 반</option>' + CLASSES.map((n) => `<option value="${n}">${n}반</option>`).join('');
+$('mat-class').innerHTML = '<option value="0">모든 반</option>' + TEACHER_CLASSES.map((n) => `<option value="${n}">${clsName(n)}반</option>`).join('');
 $('mat-class').value = String(classId);
 $('mat-class').addEventListener('change', () => {
   classId = Number($('mat-class').value);
@@ -37,8 +37,8 @@ export async function refreshMats() {
   render();
 }
 const reload = () => refreshMats().catch((err) => toast(errMsg(err), 'error'));
-const className = (n) => (n ? `${n}반` : '모든 반');
-const refreshStudents = () => (classId ? sendClassRefresh(classId) : Promise.all(CLASSES.map(sendClassRefresh)));
+const className = (n) => (n ? `${clsName(n)}반` : '모든 반');
+const refreshStudents = () => (classId ? sendClassRefresh(classId) : Promise.all(TEACHER_CLASSES.map(sendClassRefresh)));
 
 function render() {
   closeVideos($('mat-board'));
@@ -80,15 +80,15 @@ $('mat-add-sec').addEventListener('click', () => {
 });
 
 $('mat-copy').addEventListener('click', () => {
-  const others = CLASSES.filter((n) => n !== classId);
+  const others = TEACHER_CLASSES.filter((n) => n !== classId);
   const v = prompt(`어느 반의 섹션과 자료를 ${className(classId)} 뒤에 붙일까요? (${others.join(', ')})`);
   if (v === null) return;
   const from = Number(v.replace(/[^0-9]/g, ''));
   if (!others.includes(from)) { toast('반 번호를 확인해 주세요', 'error'); return; }
   run(async () => {
     const n = await copySections(from, classId);
-    if (!n) throw new Error(`${from}반에는 섹션이 없어요`);
-  }, `${from}반 게시판을 가져왔어요`);
+    if (!n) throw new Error(`${clsName(from)}반에는 섹션이 없어요`);
+  }, `${clsName(from)}반 게시판을 가져왔어요`);
 });
 
 // 순서 바꾸기: 두 줄의 sort를 서로 바꾸지 않고 목록 전체를 0,1,2…로 다시 매긴다(같은 sort가 있어도 맞게)

@@ -1,4 +1,5 @@
 // 마이페이지(로그인 필요): 캐릭터, 레벨 고리, XP 바, 이번 달 순위, 금화, 받은 기록, 닉네임 신청, 꾸미기, 레벨업 연출
+import { clsName } from '../config.js';
 import { initUI, toast, esc, countUp, isLite, groupName } from '../ui.js';
 import { getMyPage, requestNickname, saveAvatar } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -68,7 +69,7 @@ function renderHero() {
 function renderNick() {
   $('nick').textContent = me.nickname || '닉네임 미정';
   $('nick').classList.toggle('muted', !me.nickname);
-  $('cls-chip').textContent = `${me.class_id}반` + (me.today_group != null ? ` · ${groupName(me.today_group)}` : '');
+  $('cls-chip').textContent = `${clsName(me.class_id)}반` + (me.today_group != null ? ` · ${groupName(me.today_group)}` : '');
   const st = $('nick-state');
   const req = me.nickname_request;
   if (me.nickname_status === 'pending' && req) {

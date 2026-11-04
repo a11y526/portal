@@ -1,6 +1,6 @@
 // 퀴즈 쇼 만들기 (관리): 세트 목록 → 세트 편집(왼쪽 문제 목록, 가운데 문제, 오른쪽 속성). 바꾸면 잠시 뒤 저장.
 // quizshow-edit.html?id=<세트>
-import { CLASSES } from '../config.js';
+import { TEACHER_CLASSES, clsName } from '../config.js';
 import { toast, esc } from '../ui.js';
 import {
   listQsSets, getQsSet, saveQsSet, deleteQsSet, qsImages, uploadQsImage, removeQsImages,
@@ -705,7 +705,7 @@ $('imp-go').addEventListener('click', async (e) => {
 
 /* ---------- 시작 ---------- */
 let startMode = 'solo';
-$('start-classes').innerHTML = CLASSES.map((c) => `<button type="button" class="btn btn-line qse-class press" data-c="${c}">${c}반</button>`).join('');
+$('start-classes').innerHTML = TEACHER_CLASSES.map((c) => `<button type="button" class="btn btn-line qse-class press" data-c="${c}">${clsName(c)}반</button>`).join('');
 document.querySelectorAll('[data-mode]').forEach((b) => b.addEventListener('click', () => {
   startMode = b.dataset.mode;
   document.querySelectorAll('[data-mode]').forEach((x) => { x.classList.toggle('on', x === b); x.setAttribute('aria-checked', String(x === b)); });

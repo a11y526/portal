@@ -1,7 +1,7 @@
 // 관리 '진도 관리'(#progress): 노션 '2학기 진도관리'를 옮김.
 // 오늘 수업 · 반별 진도(다음 차시, 남은 차시, 마감까지 남은 수업, 여유) · 주간 수업일 · 기본 시간표 · 차시 순서
 // 칸을 바꾸면 바로 저장한다. 수업 모드를 열면 그날 수업 줄에 차시가 적히고 다음 차시가 넘어간다(db.js recordLessonTaught)
-import { CLASSES } from '../config.js';
+import { CLASSES, clsName } from '../config.js';
 import { toast, esc } from '../ui.js';
 import {
   kstDay, listProgressClasses, updateClassProgress, getProgressRules, saveProgressRules,
@@ -162,7 +162,7 @@ function dayRowsHTML(rows) {
     const planned = !r.lesson_code && r.kind === '수업' && r.day >= today && next;
     return `<tr class="${r.day === today ? 'nd-now' : ''}">
       <td class="n">${r.period}교시</td>
-      <td>${r.class_id}반</td>
+      <td>${clsName(r.class_id)}반</td>
       <td>${kindSelect(`data-day-kind="${r.id}"`, r.kind)}</td>
       <td>${lessonSelect(`data-day-lesson="${r.id}"`, r.lesson_code, planned ? `${esc(lessonName(next))} · 예정` : '—')}</td>
       <td>${memoInput(`data-day-memo="${r.id}"`, r.memo)}</td>
@@ -195,7 +195,7 @@ function classesHTML() {
       const g = progressOf(c);
       const tone = g.spare < 0 ? 'bad' : g.spare <= 1 ? 'warn' : 'good';
       return `<tr>
-        <td>${c.id}반</td>
+        <td>${clsName(c.id)}반</td>
         <td>${nowHTML(g.a)}</td>
         <td class="clip">${g.a.auto ? (g.next ? esc(lessonName(g.next)) : '진도 끝') : lessonSelect(`data-next="${c.id}"`, c.next_lesson, planOf(c).length ? '진도 끝' : '—')}</td>
         <td>${g.need}</td>
@@ -239,7 +239,7 @@ function renderTimetable() {
     rows += `<tr><td class="n">${p}교시</td>${[1, 2, 3, 4, 5].map((w) => {
       const v = cell(w, p);
       return `<td><select class="nd-ghost${v ? ' on' : ' dim'}" data-tt="${w}-${p}" aria-label="${WD[w]} ${p}교시">
-        <option value="">·</option>${CLASSES.map((n) => `<option value="${n}"${n === v ? ' selected' : ''}>${n}반</option>`).join('')}</select></td>`;
+        <option value="">·</option>${CLASSES.map((n) => `<option value="${n}"${n === v ? ' selected' : ''}>${clsName(n)}반</option>`).join('')}</select></td>`;
     }).join('')}</tr>`;
   }
   $('pg-tt').innerHTML = `<table class="nd-table nd-tt"><thead><tr><th></th>${

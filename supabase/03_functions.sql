@@ -1006,7 +1006,7 @@ begin
 
   for r in
     select id, number from public.students
-    where class_id = p_class_id and active and number > 0 and (not p_only_missing or code_hash is null)
+    where class_id = p_class_id and class_id <> 20 and active and number > 0 and (not p_only_missing or code_hash is null)  -- test반은 0번 코드 그대로
     order by number
   loop
     v_code := public._new_code();
@@ -1095,7 +1095,7 @@ as $$
   from (
     select e.student_id as sid, sum(e.xp)::int as total
     from public.point_events e
-    join public.students s on s.id = e.student_id and s.active and s.number > 0
+    join public.students s on s.id = e.student_id and s.active and s.number > 0 and s.class_id <> 20  -- test반 제외
     where e.created_at >= public._month_start()
     group by e.student_id
   ) t
@@ -5024,7 +5024,7 @@ as $$
   with t as (
     select g.student_id as sid, count(*)::int as games, count(g.won_at)::int as wins
     from public.omok_games g
-    join public.students s on s.id = g.student_id and s.active and s.number > 0
+    join public.students s on s.id = g.student_id and s.active and s.number > 0 and s.class_id <> 20  -- test반 제외
     where g.started_at >= public._month_start()
     group by g.student_id
   )
@@ -6927,7 +6927,7 @@ begin
              (sum(u.cost) filter (where u.status = 'requested'))::int as pending
       from public.purchases u where u.student_id = s.id and u.status in ('requested', 'approved')
     ) b on true
-    where s.active and s.number > 0 and (p_class_id is null or s.class_id = p_class_id)
+    where s.active and s.number > 0 and (p_class_id is null and s.class_id <> 20 or s.class_id = p_class_id)  -- 모든 반 = test반 제외
   ), '[]'::jsonb);
 end;
 $$;
@@ -8117,14 +8117,14 @@ begin
   from public.moon_rpg_runs r
   join public.students s on s.id = r.student_id
   where s.number > 0
-    and (p_class_id is null or p_class_id = 0 or s.class_id = p_class_id);
+    and ((p_class_id is null or p_class_id = 0) and s.class_id <> 20 or s.class_id = p_class_id);
 
   with latest as (
     select distinct on (r.student_id) r.ending, r.choices
     from public.moon_rpg_runs r
     join public.students s on s.id = r.student_id
     where s.number > 0
-      and (p_class_id is null or p_class_id = 0 or s.class_id = p_class_id)
+      and ((p_class_id is null or p_class_id = 0) and s.class_id <> 20 or s.class_id = p_class_id)
     order by r.student_id, r.created_at desc, r.id desc
   )
   select jsonb_build_object(
@@ -8140,7 +8140,7 @@ begin
     from public.moon_rpg_runs r
     join public.students s on s.id = r.student_id
     where s.number > 0
-      and (p_class_id is null or p_class_id = 0 or s.class_id = p_class_id)
+      and ((p_class_id is null or p_class_id = 0) and s.class_id <> 20 or s.class_id = p_class_id)
     order by r.student_id, r.created_at desc, r.id desc
   ),
   picked as (

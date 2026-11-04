@@ -1,6 +1,6 @@
 // 반 페이지: [개인 학습지] [모둠활동] [게시판] 탭. 게시판은 선생님이 반마다 섹션을 짜고 올린 자료(로그인한 학생만). 모둠활동은 오늘 보드(모둠 게시판 + 시뮬레이션), 우리 모둠 제출(모둠원 캐릭터), 모둠 현황
 // 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
-import { CLASSES, GRADE } from '../config.js';
+import { CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
 import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onWsAi, onQuizShow,
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials, moonRpgState, moonRpgFinish } from '../db.js';
@@ -19,10 +19,13 @@ const RETRY_MS = 5000;      // 연결이 끊겼을 때는 더 자주 다시 시�
 const SUBMIT_WAIT_MS = 10000;
 const RECHECK_MS = 22000;    // AI 판정을 기다리는 칸이 있으면 신호를 놓쳤을 때만 이만큼(+0~5초) 뒤 그 쪽을 다시 제출. 서버는 20초 뒤 대신 판정
 const classId = Number(new URLSearchParams(location.search).get('c'));
-if (!CLASSES.includes(classId)) location.replace('index.html');
+if (!CLASSES.includes(classId) && classId !== TEST_CLASS) location.replace('index.html');
+// test반 입구는 test.html
+const HOME = classId === TEST_CLASS ? 'test.html' : 'index.html';
+if (HOME !== 'index.html') document.querySelectorAll('a[href="index.html"]').forEach((a) => { a.href = HOME; });
 
 const $ = (id) => document.getElementById(id);
-const titleText = `${GRADE}학년 ${classId}반`;
+const titleText = `${GRADE}학년 ${clsName(classId)}반`;
 $('title').textContent = titleText;
 document.title = titleText;
 $('me-link').href = `me.html?c=${classId}`;
@@ -91,7 +94,7 @@ let swapTimer;
 const loginBox = () => `
   <div class="state-box is-idle login-need">
     <span class="state-title">로그인하면 제출할 수 있어요</span>
-    <a class="btn btn-primary press" href="index.html">로그인</a>
+    <a class="btn btn-primary press" href="${HOME}">로그인</a>
   </div>`;
 
 const submitBtn = (text) => `
@@ -1065,7 +1068,7 @@ function renderQuiz(data) {
   if (!show) return;
   const go = $('quiz-go');
   let sub;
-  if (!login) { sub = '로그인하면 할 수 있어요'; go.textContent = '로그인'; go.href = 'index.html'; }
+  if (!login) { sub = '로그인하면 할 수 있어요'; go.textContent = '로그인'; go.href = HOME; }
   else if (data.my_group == null) { sub = '오늘 모둠 명단에 없어요'; go.textContent = '들어가기'; go.href = 'quiz.html'; }
   else {
     sub = q.state === 'done' ? '우리 모둠 결과 보기' : q.state === 'playing' ? '우리 모둠이 푸는 중' : `${groupName(data.my_group)}끼리 오늘 학습지 문제`;

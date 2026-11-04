@@ -1,6 +1,7 @@
 // 오델로: 6개 반 전체에서 먼저 온 2명끼리 온라인 대전. 돌 개수로 이긴 판만 XP·은화(하루 정한 횟수까지). 흑·백은 서버가 무작위로, 흑이 먼저.
 // 상대 돌을 하나 이상 뒤집을 수 있는 칸에만 둘 수 있고, 둘 곳이 없으면 자동으로 차례가 넘어간다(passed).
 // 양쪽 모두 둘 곳이 없으면 돌이 더 많은 쪽이 이긴다. 판 채널 ot-<판> Broadcast + 대기·대국 중 2초마다 ot_state.
+import { clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import { otState, otJoin, otLeave, otPlay, onGameRefresh, sendGameRefresh, onClassRefresh } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -17,7 +18,7 @@ const store = {
   set(k, v) { try { localStorage.setItem(k, v); } catch {} },
 };
 const COLOR = { 1: 'black', 2: 'white' };
-const nameOf = (p) => (p.me ? '나' : `${p.class_id}반 ${p.nickname ?? '닉네임 미정'}`);
+const nameOf = (p) => (p.me ? '나' : `${clsName(p.class_id)}반 ${p.nickname ?? '닉네임 미정'}`);
 
 let info = null;      // ot_state 결과(game 빼고)
 let game = null;      // 지금 보는 판

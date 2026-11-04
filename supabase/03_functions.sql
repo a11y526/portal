@@ -5395,7 +5395,7 @@ begin
                           'file', m.file, 'file_type', m.file_type, 'file_name', m.file_name,
                           'updated_at', m.updated_at
                         ) order by m.sort, m.created_at)
-                 from public.class_materials m where m.section_id = s.id
+                 from public.class_materials m where m.section_id = s.id and not m.hidden
                ), '[]'::jsonb)
              ) order by s.sort, s.created_at)
       from public.class_sections s where s.class_id = p_class_id

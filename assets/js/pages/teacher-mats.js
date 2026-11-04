@@ -4,7 +4,7 @@ import { CLASSES } from '../config.js';
 import { toast } from '../ui.js';
 import {
   listSections, addSection, updateSection, deleteSection, uploadMaterialFile, removeMaterialFiles,
-  saveMaterial, updateMaterialSort, deleteMaterial, copySections, materialUrl, sendClassRefresh,
+  saveMaterial, updateMaterialSort, setMaterialHidden, deleteMaterial, copySections, materialUrl, sendClassRefresh,
 } from '../db.js';
 import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
 import { shrinkPhoto } from '../posts.js';
@@ -128,6 +128,9 @@ $('mat-board').addEventListener('click', (e) => {
   } else if (d.matEdit) {
     const f = findMat(d.matEdit);
     if (f) openDlg(f.m, f.s);
+  } else if (d.matHide) {
+    const f = findMat(d.matHide);
+    if (f) run(() => setMaterialHidden(f.m.id, !f.m.hidden), f.m.hidden ? '학생에게 보여요' : '숨겼어요');
   } else if (d.matDel) {
     const f = findMat(d.matDel);
     if (!f || !confirm(`'${f.m.title || '제목 없는 자료'}'을(를) 지울까요?`)) return;

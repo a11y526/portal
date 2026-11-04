@@ -559,6 +559,8 @@ create table if not exists public.class_materials (
   updated_at timestamptz not null default now()
 );
 create index if not exists class_materials_section_idx on public.class_materials (section_id, sort);
+-- 숨긴 자료: 관리 화면에만 보이고 학생에게는 내보내지 않는다(2026-11-04)
+alter table public.class_materials add column if not exists hidden boolean not null default false;
 
 -- 자료 버킷: 공개 읽기, 20MB까지, jpeg·png·pdf
 do $$

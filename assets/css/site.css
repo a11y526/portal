@@ -690,6 +690,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 #go-class .home-ic { background: rgba(255,255,255,.2); color: #fff; }
 #go-class .home-txt b { font-size: 32px; }
 #go-class .home-txt span, #go-class .home-go { color: rgba(255,255,255,.88); }
+.home-mats { grid-column: 1 / -1; }
 @media (max-width: 760px) {
   .home { grid-template-columns: 1fr; }
   .home-av { width: 180px; height: 180px; }
@@ -1658,8 +1659,8 @@ dialog.rk-help { width: min(680px, calc(100vw - 32px)); }
 .post-link { display: flex; align-items: center; gap: 6px; min-height: 40px; padding: 0 12px; border-radius: 10px; background: var(--accent-tint);
   font-size: 14px; font-weight: 700; text-decoration: none; min-width: 0; }
 .post-link span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.post-acts { display: flex; justify-content: flex-end; gap: 6px; }
-.post-act { min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: rgba(78,88,104,.1); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
+.post-acts { display: flex; justify-content: flex-end; flex-wrap: wrap; gap: 6px; }
+.post-act { white-space: nowrap; min-height: 36px; padding: 0 12px; border: 0; border-radius: var(--r-pill); background: rgba(78,88,104,.1); color: var(--ink); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; }
 .post-act.is-del { background: var(--returned-bg); color: var(--returned-fg); }
 .lite .post { animation: none; }
 /* 글쓰기 창 */
@@ -1690,6 +1691,8 @@ dialog.rk-help { width: min(680px, calc(100vw - 32px)); }
 .mat-col-acts { display: flex; gap: 4px; flex-wrap: wrap; }
 .mat-col-acts .post-act { min-height: 32px; padding: 0 10px; }
 .post-act:disabled { opacity: .35; cursor: default; }
+.post.mat.is-hidden > :not(.post-acts):not(.mat-hidden-chip) { opacity: .45; }
+.mat-hidden-chip { align-self: flex-start; font-size: 12px; }
 .mat-pdf { display: flex; align-items: center; gap: 10px; min-height: 56px; padding: 8px 12px; border-radius: 10px;
   background: rgba(162,59,11,.08); color: var(--ink); text-decoration: none; min-width: 0; }
 .mat-pdf svg { flex: none; color: #A23B0B; }

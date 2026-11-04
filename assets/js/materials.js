@@ -29,7 +29,7 @@ const ICON_PDF = `<svg width="28" height="28" viewBox="0 0 24 24" fill="none" st
 const ICON_PLAY = `<svg width="30" height="30" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13l11-6.5z"/></svg>`;
 
 // m: { id, title, body, link, file, file_type, file_name }
-// opts.admin: 고치기·지우기·위아래 버튼
+// opts.admin: 고치기·숨기기·지우기·위아래 버튼, 숨긴 자료는 흐리게 '숨김'
 export function materialCardHTML(m, { admin = false, first = false, last = false } = {}) {
   let media = '';
   if (m.file && m.file_type === 'image') {
@@ -54,10 +54,12 @@ export function materialCardHTML(m, { admin = false, first = false, last = false
       <button type="button" class="post-act press" data-mat-up="${esc(m.id)}" aria-label="위로"${first ? ' disabled' : ''}>▲</button>
       <button type="button" class="post-act press" data-mat-down="${esc(m.id)}" aria-label="아래로"${last ? ' disabled' : ''}>▼</button>
       <button type="button" class="post-act press" data-mat-edit="${esc(m.id)}">고치기</button>
+      <button type="button" class="post-act press" data-mat-hide="${esc(m.id)}">${m.hidden ? '보이기' : '숨기기'}</button>
       <button type="button" class="post-act is-del press" data-mat-del="${esc(m.id)}">지우기</button>
     </div>` : '';
   return `
-    <article class="post mat" data-mat="${esc(m.id)}">
+    <article class="post mat${admin && m.hidden ? ' is-hidden' : ''}" data-mat="${esc(m.id)}">
+      ${admin && m.hidden ? '<span class="chip mat-hidden-chip">숨김 · 학생에게 안 보임</span>' : ''}
       ${m.title ? `<h4 class="post-title">${esc(m.title)}</h4>` : ''}
       ${media}${video}
       ${m.body ? `<p class="post-body">${esc(m.body)}</p>` : ''}

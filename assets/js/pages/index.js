@@ -1,10 +1,11 @@
-// 입구: 로그인(반·번호·코드) → 왼쪽 내 캐릭터, 오른쪽 수업·마이페이지·이번 달 순위
+// 입구: 로그인(반·번호·코드) → 왼쪽 내 캐릭터, 오른쪽 수업·마이페이지·이번 달 순위, 아래 우리 반 게시판
 // 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(게시판)만 볼 수도 있다.
 import { CLASSES, GRADE } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
-import { studentLogin, studentLogout, getMyPage, getOmok } from '../db.js';
+import { studentLogin, studentLogout, getMyPage, getOmok, getClassMaterials, onClassRefresh } from '../db.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
 import { mountAvatar, react, bindReactions } from '../avatar.js';
+import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
 
 initUI();
 bindReactions();
@@ -53,6 +54,7 @@ $('cls-pick').addEventListener('click', (e) => {
 $('guest').innerHTML = CLASSES.map((n) => `<a class="guest-link glass lift" href="class.html?c=${n}">${n}반</a>`).join('');
 
 function showLogin() {
+  hideMats();
   $('v-home').classList.add('hidden');
   $('logout').classList.add('hidden');
   $('top-rank').classList.remove('hidden');
@@ -118,6 +120,7 @@ async function showHome(login) {
   $('go-class-sub').textContent = `${GRADE}학년 ${login.class_id}반`;
   $('home-cls').textContent = `${login.class_id}반 · ${who(login.number)}`;
   prepareDraw($('v-home'));
+  startMats(login);
 
   try {
     const me = await getMyPage(login.token);
@@ -146,6 +149,57 @@ async function showHome(login) {
     toast('불러오지 못했어요', 'error');
   }
 }
+
+/* ---------- 우리 반 게시판 ----------
+   반 페이지 [게시판] 탭과 같은 자료(get_class_materials). 버전이 같으면 다시 그리지 않는다.
+   반 새로고침 신호와 15초마다(화면이 숨겨져 있으면 멈춤) 버전을 확인한다 */
+const MATS_MS = 15000;
+const mats = { login: null, v: null, busy: false, timer: 0, sub: 0 };
+bindVideos($('home-mats-board'));
+
+function hideMats() {
+  mats.login = null;
+  mats.v = null;
+  clearInterval(mats.timer);
+  closeVideos($('home-mats'));
+  $('home-mats').classList.add('hidden');
+  $('home-mats-board').innerHTML = '';
+}
+
+function startMats(login) {
+  hideMats();
+  mats.login = login;
+  if (mats.sub !== login.class_id) {
+    mats.sub = login.class_id;
+    onClassRefresh(login.class_id, () => { if (mats.login?.class_id === mats.sub) loadMats(); });
+  }
+  loadMats();
+  mats.timer = setInterval(() => { if (!document.hidden) loadMats(); }, MATS_MS);
+}
+
+async function loadMats() {
+  const login = mats.login;
+  if (!login || mats.busy) return;
+  mats.busy = true;
+  try {
+    const res = await getClassMaterials(login.class_id, login.token, mats.v);
+    if (login !== mats.login || !res?.ok || res.same) return;
+    mats.v = res.v;
+    closeVideos($('home-mats'));
+    const has = res.sections.some((s) => s.items?.length);
+    $('home-mats').classList.toggle('hidden', !has);
+    $('home-mats-board').innerHTML = has ? materialsHTML(res.sections.filter((s) => s.items?.length)) : '';
+  } catch (err) {
+    console.error(err);
+  } finally {
+    mats.busy = false;
+  }
+}
+
+document.addEventListener('visibilitychange', () => {
+  if (document.hidden) closeVideos($('home-mats'));
+  else loadMats();
+});
 
 $('logout').addEventListener('click', async () => {
   const login = readLogin();

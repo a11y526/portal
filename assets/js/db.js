@@ -1107,10 +1107,10 @@ export async function saveQuizShowRules(value) {
 
 /* ---------- 교사: 반 게시판 ---------- */
 
-// [{ id, name, sort, items: [{ id, section_id, title, body, link, file, file_type, file_name, sort }] }] (순서대로)
+// [{ id, name, sort, items: [{ id, section_id, title, body, link, file, file_type, file_name, sort, hidden }] }] (순서대로)
 export async function listSections(classId) {
   const secs = unwrap(await need().from('class_sections')
-    .select('id, name, sort, created_at, items:class_materials(id, section_id, title, body, link, file, file_type, file_name, sort, created_at)')
+    .select('id, name, sort, created_at, items:class_materials(id, section_id, title, body, link, file, file_type, file_name, sort, hidden, created_at)')
     .eq('class_id', classId)
     .order('sort').order('created_at'));
   const byOrder = (a, b) => a.sort - b.sort || String(a.created_at).localeCompare(String(b.created_at));
@@ -1161,6 +1161,11 @@ export async function updateMaterialSort(id, sort) {
   unwrap(await need().from('class_materials').update({ sort, updated_at: new Date().toISOString() }).eq('id', id));
 }
 
+// 숨긴 자료는 학생에게 안 보인다(get_class_materials가 뺌)
+export async function setMaterialHidden(id, hidden) {
+  unwrap(await need().from('class_materials').update({ hidden, updated_at: new Date().toISOString() }).eq('id', id));
+}
+
 export async function deleteMaterial(m) {
   unwrap(await need().from('class_materials').delete().eq('id', m.id));
   await removeMaterialFiles([m.file]);
@@ -1181,7 +1186,7 @@ export async function copySections(fromClass, toClass) {
       }
       await saveMaterial(null, {
         section_id: id, title: m.title, body: m.body, link: m.link,
-        file, file_type: file ? m.file_type : null, file_name: file ? m.file_name : null, sort: j,
+        file, file_type: file ? m.file_type : null, file_name: file ? m.file_name : null, sort: j, hidden: !!m.hidden,
       });
     }
   }

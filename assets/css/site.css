@@ -2308,3 +2308,190 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
   100% { transform: scaleX(1); }
 }
 .ot-cnt { margin-left: auto; font-size: 22px; font-weight: 900; padding-right: 4px; }
+
+/* ---------- 관리 화면 전체: 노션·클로드식 컴팩트 (2026-11-05) ----------
+   body.admin(teacher/index.html)만. 흰 바탕, 유리·그림자·큰 모서리 없음, 얇은 선, 글자 14px, 버튼·입력 30~32px.
+   960px 이하는 누르기 쉽게 38~40px. 첫 화면은 가운데 3D 장면(.hero, teacher-hero.js) */
+body.admin { --a-ink: #1F2328; --a-ink2: #6B7280; --a-ink3: #9CA3AF; --a-line: #ECEDEF; --a-line2: #E3E5E8; --a-hover: #F5F6F7; --side-w: 232px;
+  background: #fff; color: var(--a-ink); font-size: 14px; }
+body.admin .admin-wrap { max-width: 1040px; padding: 32px 48px 80px; }
+body.admin #v-admin { gap: 18px !important; }
+body.admin .admin-top h1 { font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+body.admin .admin-top .icon-btn { width: 32px; height: 32px; border-radius: 6px; background: none; border: 0; box-shadow: none; color: var(--a-ink2); }
+body.admin .admin-top .icon-btn:hover { background: var(--a-hover); color: var(--a-ink); }
+body.admin .admin-top .icon-btn svg { width: 18px; height: 18px; }
+body.admin .muted { color: var(--a-ink2); }
+
+/* 유리·떠오름·빛 반사 끔 */
+body.admin .glass, body.admin .glass-strong { background: transparent; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+body.admin .glass-live::after { display: none; }
+body.admin .lift:hover { transform: none; box-shadow: none; }
+body.admin .rise { animation: none; }
+
+/* 카드 → 제목 + 얇은 선으로 나눈 칸 */
+body.admin .panel { gap: 36px; }
+body.admin .card { border-radius: 0; padding: 0; gap: 10px; }
+body.admin .card h2 { font-size: 15px; font-weight: 700; letter-spacing: 0; }
+body.admin .card h2 .muted { font-weight: 400; color: var(--a-ink3); }
+body.admin .card > h2:first-child, body.admin .card > .card-head:first-child { padding-bottom: 8px; border-bottom: 1px solid var(--a-line); margin-bottom: 2px; }
+/* 항목 자체가 카드 하나면 맨 위 제목은 페이지 제목과 같으므로 숨김 */
+body.admin .card.panel > h2:first-child { display: none; }
+body.admin .card-head { gap: 8px; }
+body.admin .card p { line-height: 1.55; }
+
+/* 창(대화 상자)은 흰 상자로 */
+body.admin dialog .card { background: #fff; border-radius: 12px; padding: 20px 22px; gap: 12px;
+  box-shadow: 0 0 0 1px rgba(15,23,42,.06), 0 16px 48px rgba(15,23,42,.18); }
+body.admin dialog .card > h2:first-child { border-bottom: 0; padding-bottom: 0; font-size: 17px; }
+body.admin dialog.sheet::backdrop { background: rgba(15,23,42,.28); }
+
+/* 버튼 */
+body.admin .btn { min-height: 30px; padding: 0 12px; border-radius: 6px; font-weight: 500; font-size: 14px; box-shadow: none; gap: 6px; }
+body.admin .btn:active { transform: none; }
+body.admin .btn-small { min-height: 28px; padding: 0 10px; font-size: 13.5px; }
+body.admin .btn-line { background: #fff; border: 1px solid var(--a-line2); color: var(--a-ink); }
+body.admin .btn-line:hover { background: var(--a-hover); }
+body.admin .btn-primary { background: var(--accent); color: #fff; border: 0; box-shadow: none; }
+body.admin .btn-primary:hover { background: var(--accent-hover, #1D47C2); color: #fff; }
+body.admin .btn-danger { background: #fff; border: 1px solid #F3D3CB; color: #A6321A; }
+body.admin .btn-danger:hover { background: #FDF3F0; }
+body.admin .btn-pass { box-shadow: none; }
+body.admin .btn-big { min-height: 36px; font-size: 15px; }
+body.admin .post-act { min-height: 26px; padding: 0 8px; border-radius: 5px; font-weight: 500; font-size: 12.5px; background: var(--a-hover); }
+body.admin .post-act:hover { background: #ECEDEF; }
+
+/* 입력칸 */
+body.admin .input { height: 32px; border-radius: 6px; border: 1px solid var(--a-line2); background: #fff; padding: 0 9px; font-size: 14px; }
+body.admin textarea.input { height: auto; padding: 7px 9px; }
+body.admin .input:focus { outline: 2px solid rgba(36,87,230,.28); outline-offset: 0; border-color: #C9D5F7; }
+body.admin .field { gap: 4px; }
+body.admin .field > span { font-size: 12.5px; font-weight: 500; color: var(--a-ink2); }
+body.admin .check { min-height: 30px; font-weight: 400; gap: 6px; }
+body.admin .check input { width: 16px; height: 16px; }
+body.admin .class-pick { min-height: 32px; border: 1px solid var(--a-line2); border-radius: 6px; background: #fff; }
+body.admin .class-pick select { min-height: 30px; padding: 0 30px 0 10px; font-size: 14px; font-weight: 500; border-radius: 6px; }
+body.admin .class-pick svg { right: 9px; width: 14px; height: 14px; }
+
+/* 태그·탭·스위치 */
+body.admin .tag { font-size: 12.5px; font-weight: 500; padding: 1px 7px; border-radius: 4px; }
+body.admin .chip { border-radius: 4px; padding: 1px 7px; font-size: 12.5px; font-weight: 500; }
+body.admin .cls-tabs { gap: 2px; }
+body.admin .cls-tab { min-height: 28px; padding: 0 10px; border-radius: 6px; border: 0; background: none; color: var(--a-ink2); font-size: 14px; font-weight: 500; }
+body.admin .cls-tab:hover { background: var(--a-hover); color: var(--a-ink); }
+body.admin .cls-tab.on { background: var(--a-ink); color: #fff; }
+body.admin .switch { width: 36px; height: 20px; }
+body.admin .switch span { top: 2px; left: 2px; width: 16px; height: 16px; box-shadow: 0 1px 2px rgba(0,0,0,.2); }
+body.admin .switch[aria-checked="true"] span { transform: translateX(16px); }
+
+/* 목록 줄: 둥근 칸 → 얇은 선 줄 */
+body.admin :is(.nick-list, .set-list, .roster, .today-list) { gap: 0; }
+body.admin :is(.nick-row, .set-row, .roster-row, .today-row) { border-radius: 0; background: none; padding: 5px 6px; min-height: 40px; border-bottom: 1px solid var(--a-line); }
+body.admin :is(.nick-row, .set-row, .roster-row, .today-row):hover { background: #FAFAFA; }
+body.admin :is(.nick-row, .roster-row) > b { font-weight: 500; }
+body.admin .nick-row .new { font-size: 14px; font-weight: 700; }
+body.admin .nick-row .old { font-size: 12.5px; }
+body.admin .nick-edit .input { height: 30px; font-weight: 500; }
+body.admin .set-row .input { height: 30px; }
+body.admin .set-name { font-weight: 500; }
+body.admin .set-num { font-size: 13px; font-weight: 500; }
+body.admin .today-row .cls { font-size: 14px; font-weight: 700; }
+body.admin .roster { max-height: 560px; border-top: 1px solid var(--a-line); }
+body.admin .roster-row > b { font-size: 14px; }
+body.admin .roster-size { padding: 12px 14px; border-radius: 8px; background: #FAFAFA; border: 1px solid var(--a-line); gap: 8px; }
+body.admin .roster-size-label { font-size: 12.5px; font-weight: 500; }
+body.admin .roster-size-item { font-weight: 500; }
+body.admin .roster-size-item .input { height: 30px; width: 60px; }
+body.admin .roll { gap: 4px; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); }
+body.admin .roll-chip { min-height: 32px; height: 32px; border-radius: 6px; font-size: 14px; font-weight: 500; box-shadow: none; }
+body.admin .roll-chip:active { transform: none; }
+body.admin .roll-chip.on { font-weight: 700; }
+body.admin .preset-item { min-height: 30px; border-radius: 6px; border-color: var(--a-line2); background: #fff; font-weight: 500; padding-left: 10px; }
+body.admin .preset-del { width: 24px; height: 24px; border-radius: 5px; }
+body.admin .points-grid { gap: 6px 12px; }
+body.admin .points-grid > span { font-weight: 500; }
+body.admin .points-grid > b { font-size: 12.5px; font-weight: 500; }
+body.admin .points-grid .input { height: 30px; }
+
+/* 상자형 항목(반별 잠금·게임 켜기, 보관한 보드, AI 칸, 차시 창) */
+body.admin .lock-list { gap: 6px; grid-template-columns: repeat(auto-fill, minmax(190px, 1fr)); }
+body.admin .lock-row { padding: 8px 10px 8px 12px; border-radius: 8px; background: #fff; border: 1px solid var(--a-line); gap: 10px; }
+body.admin .lock-row b { font-size: 14px; font-weight: 700; width: auto; }
+body.admin .lock-row.is-locked { background: #FDF3F0; border-color: #F3D3CB; }
+body.admin .lock-row.is-open { background: #F0FAF5; border-color: #CDEBDB; }
+body.admin .board-groups { gap: 8px; }
+body.admin .board-group { border-radius: 8px; background: #fff; border: 1px solid var(--a-line); padding: 10px 12px; gap: 4px; }
+body.admin .board-group header b { font-size: 14px; }
+body.admin .board-item { border-top-color: var(--a-line); padding: 4px 0; }
+body.admin .board-item .cls { font-weight: 700; }
+body.admin .ai-field { border-radius: 8px; background: #fff; border: 1px solid var(--a-line); padding: 10px 12px; gap: 6px; }
+body.admin .ai-fhead b { font-weight: 700; }
+body.admin .ai-ok { min-height: 26px; padding: 0 10px; border-radius: 5px; font-weight: 500; }
+body.admin .ai-del { min-height: 26px; }
+body.admin .lesson-list { gap: 10px; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); }
+body.admin .card.lesson-win { border: 1px solid var(--a-line); border-radius: 10px; padding: 14px 16px; background: #fff; gap: 10px; }
+body.admin .card.lesson-win.is-open { box-shadow: 0 0 0 2px rgba(36,87,230,.25); border-color: #C9D5F7; }
+body.admin .lesson-code { font-size: 20px; font-weight: 700; letter-spacing: -0.01em; }
+body.admin .lesson-title { height: 30px; font-size: 14px; }
+body.admin .lesson-classes { gap: 6px; }
+body.admin .lesson-cls { min-height: 40px; border-radius: 6px; border-color: var(--a-line2); background: #fff; font-weight: 500; }
+body.admin .lesson-chip { padding: 2px 8px; font-size: 13px; }
+body.admin .lesson-add { max-width: 520px; }
+
+/* 표 */
+body.admin .coins-table { font-size: 14px; }
+body.admin .coins-table th { font-size: 12.5px; font-weight: 400; color: var(--a-ink2); padding: 6px 8px; border-bottom-color: var(--a-line); }
+body.admin .coins-table td { padding: 6px 8px; border-bottom-color: var(--a-line); }
+body.admin .coins-table td.bal { font-size: 14px; font-weight: 700; }
+body.admin .coins-table tbody tr:hover td { background: #FAFAFA; }
+
+/* 반 게시판 칸 */
+body.admin .post-board { gap: 10px; }
+body.admin .post-col, body.admin .mat-col { border-radius: 10px; background: #F7F7F5; border: 1px solid var(--a-line); box-shadow: none; padding: 10px; gap: 8px; }
+body.admin .post { border-radius: 8px; box-shadow: none; border: 1px solid var(--a-line); }
+
+/* 사이드바: 클로드 앱 왼쪽 목록처럼 */
+body.admin aside.side { background: #F7F7F5; border-right: 1px solid var(--a-line); padding: 10px 8px 12px; gap: 1px; }
+body.admin .side-top { padding: 4px 2px 8px 4px; }
+body.admin .side-home { flex: 1; padding: 4px 6px; border-radius: 6px; color: var(--a-ink); font-size: 14px; font-weight: 700; text-decoration: none; }
+body.admin .side-home:hover { background: #EAEAE7; }
+body.admin .side-x { width: 28px; height: 28px; border-radius: 6px; color: var(--a-ink3); }
+body.admin .side-x:hover { background: #EAEAE7; }
+body.admin .side-x svg { width: 16px; height: 16px; }
+body.admin .side-nav { gap: 1px; }
+body.admin .side-group { gap: 1px; }
+body.admin .side-label { margin: 14px 0 2px 8px; font-size: 12px; font-weight: 500; color: var(--a-ink3); }
+body.admin .side-label::before { display: none; }
+body.admin .side-link { min-height: 30px; padding: 0 8px; gap: 8px; border-radius: 6px; font-size: 14px; font-weight: 400; color: #3F4650; }
+body.admin .side-link:hover { background: #EAEAE7; color: var(--a-ink); }
+body.admin .side-link[aria-current="page"] { background: #E6E6E2; color: var(--a-ink); font-weight: 500; }
+body.admin .side-ic { width: 18px; height: 18px; border-radius: 0; background: none; color: var(--a-ink2); }
+body.admin .side-ic svg { width: 16px; height: 16px; }
+body.admin .side-ext, body.admin .side-ext svg { width: 12px; height: 12px; }
+body.admin .side-badge { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; }
+body.admin .side-out { margin-top: 10px; color: var(--a-ink2); }
+
+/* 첫 화면 3D 장면 */
+body.admin .hero { position: relative; height: calc(100vh - 140px); height: calc(100dvh - 140px); min-height: 420px; border-radius: 14px; overflow: hidden; background: #05070F; touch-action: none; }
+body.admin .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
+body.admin .hero-time { position: absolute; left: 24px; bottom: 20px; color: rgba(255,255,255,.88); pointer-events: none; }
+body.admin .hero-time b { display: block; font-size: 40px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
+body.admin .hero-time span { font-size: 13.5px; color: rgba(255,255,255,.55); }
+@media (min-width: 961px) {
+  body.admin.hero-on .admin-wrap { max-width: none; padding: 16px; }
+  html:not(.side-closed) body.admin.hero-on .admin-top { display: none; }
+  html:not(.side-closed) body.admin .hero { height: calc(100vh - 32px); height: calc(100dvh - 32px); }
+}
+
+@media (max-width: 960px) {
+  body.admin .admin-wrap { padding: 16px 16px 64px; }
+  body.admin aside.side { width: min(280px, 84vw); }
+  body.admin .side-link { min-height: 40px; }
+  body.admin .btn { min-height: 38px; }
+  body.admin .btn-small { min-height: 36px; }
+  body.admin .input, body.admin .set-row .input, body.admin .points-grid .input { height: 38px; }
+  body.admin .class-pick, body.admin .class-pick select { min-height: 38px; }
+  body.admin .cls-tab { min-height: 36px; }
+  body.admin .roll-chip { min-height: 40px; height: 40px; }
+  body.admin .hero { height: calc(100dvh - 100px); min-height: 360px; }
+  body.admin .hero-time b { font-size: 30px; }
+}

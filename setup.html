@@ -1,0 +1,153 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<title>설치 도우미</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+<style>
+  .setup { max-width: 760px; margin: 0 auto; padding: 32px 16px 80px; display: flex; flex-direction: column; gap: 20px; }
+  .setup h1 { margin: 0; font-size: 30px; font-weight: 900; letter-spacing: -0.03em; }
+  .step-head { display: flex; align-items: center; gap: 12px; }
+  .step-no { flex: none; width: 36px; height: 36px; border-radius: 50%; display: grid; place-items: center;
+    background: rgba(36,87,230,.12); color: var(--accent); font-weight: 900; font-variant-numeric: tabular-nums; }
+  .step.done .step-no { background: var(--passed-bg); color: var(--passed-fg); }
+  .step-head h2 { flex: 1; }
+  .state { font-size: 14px; font-weight: 700; padding: 4px 12px; border-radius: 999px; background: rgba(78,88,104,.1); color: var(--ink-2); }
+  .state.ok { background: var(--passed-bg); color: var(--passed-fg); }
+  .state.bad { background: var(--returned-bg); color: var(--returned-fg); }
+  .how { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 6px; line-height: 1.6; }
+  .how b { font-weight: 700; }
+  .how code, .note code { font-size: 14px; background: rgba(78,88,104,.1); padding: 1px 6px; border-radius: 6px; word-break: break-all; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  .cls-pick { display: flex; flex-wrap: wrap; gap: 8px; }
+  .cls-pick label { min-width: 56px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; gap: 0;
+    border-radius: 999px; border: 1px solid rgba(78,88,104,.25); background: rgba(255,255,255,.8); font-weight: 700; cursor: pointer; padding: 0 14px; }
+  .cls-pick input { position: absolute; opacity: 0; pointer-events: none; }
+  .cls-pick label:has(input:checked) { background: var(--accent); color: #fff; border-color: var(--accent); }
+  .cls-pick label:has(input:focus-visible) { outline: 3px solid rgba(36,87,230,.35); outline-offset: 1px; }
+  .msg { margin: 0; font-weight: 500; line-height: 1.6; }
+  .msg.bad { color: var(--returned-fg); }
+  .msg.ok { color: var(--passed-fg); }
+  .sql-out { width: 100%; height: 120px; font: 13px/1.4 ui-monospace, Menlo, monospace; border-radius: 16px; border: 1px solid rgba(78,88,104,.25);
+    padding: 10px 12px; background: rgba(255,255,255,.8); resize: vertical; }
+  .note { margin: 0; font-size: 14px; color: var(--ink-2); line-height: 1.6; }
+  .done-links { display: flex; gap: 10px; flex-wrap: wrap; }
+</style>
+</head>
+<body>
+<main class="setup">
+  <h1>설치 도우미</h1>
+  <p class="msg">과학 수업 포털을 내 서버로 처음 설정하는 화면이에요. 위에서부터 차례로 하면 됩니다.</p>
+
+  <!-- 0. 준비 -->
+  <section class="card glass step" id="s0">
+    <div class="step-head"><span class="step-no">0</span><h2>준비</h2></div>
+    <ol class="how">
+      <li><b>GitHub</b>: 원래 포털 저장소에서 오른쪽 위 <b>Fork</b> → <b>Create fork</b>.</li>
+      <li>내 저장소 <b>Settings → Pages</b>에서 Branch를 <b>main</b>, 폴더를 <b>/(root)</b>로 고르고 <b>Save</b>. 몇 분 뒤 위쪽에 사이트 주소가 뜹니다. 지금 보고 있는 이 화면은 그 주소의 <code>setup.html</code>이어야 해요.</li>
+      <li><b>Supabase</b>(supabase.com) 가입 → <b>New project</b>. Region은 <b>Northeast Asia (Seoul)</b>. 데이터베이스 비밀번호는 따로 적어 둡니다.</li>
+    </ol>
+    <p class="note">5번을 마치기 전까지 내 사이트는 원래 사이트의 서버에 연결되어 있어요. 학생에게 주소를 알려 주는 것은 5번을 끝낸 뒤에 합니다.</p>
+  </section>
+
+  <!-- 1. 서버 연결 -->
+  <section class="card glass step" id="s1">
+    <div class="step-head"><span class="step-no">1</span><h2>내 Supabase 서버 연결</h2><span class="state" id="st1">아직</span></div>
+    <ol class="how">
+      <li>Supabase 프로젝트 화면 위쪽 <b>Connect</b> 버튼(또는 왼쪽 아래 <b>Project Settings → API Keys</b>)을 엽니다.</li>
+      <li><b>Project URL</b>(<code>https://…supabase.co</code>)과 <b>Publishable key</b>(<code>sb_publishable_</code>로 시작)를 복사해 아래에 붙여 넣습니다. 예전 화면이면 <b>anon public</b> 키를 씁니다.</li>
+      <li><b>secret</b>·<b>service_role</b> 키는 절대 넣지 않습니다.</li>
+    </ol>
+    <label class="field"><span>Project URL</span><input class="input" id="in-url" placeholder="https://abcdefghijklmnopqrst.supabase.co" autocomplete="off" spellcheck="false"></label>
+    <label class="field"><span>Publishable key</span><input class="input" id="in-key" placeholder="sb_publishable_…" autocomplete="off" spellcheck="false"></label>
+    <div class="row"><button class="btn btn-primary" type="button" id="b-conn">연결 확인</button></div>
+    <p class="msg" id="m1" aria-live="polite"></p>
+  </section>
+
+  <!-- 2. 반 -->
+  <section class="card glass step" id="s2">
+    <div class="step-head"><span class="step-no">2</span><h2>담당 반과 선생님 체험 코드</h2><span class="state" id="st2">아직</span></div>
+    <div class="field">
+      <span>담당 반 (1학년)</span>
+      <div class="cls-pick" id="cls-pick" role="group" aria-label="담당 반"></div>
+    </div>
+    <label class="field"><span>선생님 체험 코드 (숫자 6자리)</span>
+      <input class="input num" id="in-code" type="text" inputmode="numeric" maxlength="6" placeholder="반마다 0번 계정에 쓸 코드" autocomplete="off"></label>
+    <p class="note">반마다 0번이 선생님 체험 계정이에요(학생 화면을 직접 보는 용도, 순위에는 안 나옴). 이 코드는 어디에도 저장되지 않으니 따로 적어 두세요.</p>
+    <p class="msg" id="m2" aria-live="polite"></p>
+  </section>
+
+  <!-- 3. 설치 SQL -->
+  <section class="card glass step" id="s3">
+    <div class="step-head"><span class="step-no">3</span><h2>서버에 설치하기</h2><span class="state" id="st3">아직</span></div>
+    <div class="row">
+      <button class="btn btn-primary" type="button" id="b-sql">설치 SQL 만들기</button>
+      <button class="btn btn-line hidden" type="button" id="b-copy">복사</button>
+      <button class="btn btn-line hidden" type="button" id="b-dl-sql">파일로 받기</button>
+    </div>
+    <textarea class="sql-out hidden" id="sql-out" readonly aria-label="설치 SQL"></textarea>
+    <ol class="how">
+      <li>위 <b>복사</b>를 누릅니다.</li>
+      <li>Supabase 왼쪽 메뉴 <b>SQL Editor</b>(&gt;_ 모양) → <b>+ New query</b>(또는 빈 입력 칸).</li>
+      <li>붙여 넣고(⌘V 또는 Ctrl+V) 오른쪽 아래 <b>Run</b>. 길어서 1분쯤 걸릴 수 있어요. 아래에 <b>Success</b>가 뜨면 됩니다. "destructive operation" 확인 창이 뜨면 <b>Run this query</b>.</li>
+      <li>여기로 돌아와 <b>설치 확인</b>.</li>
+    </ol>
+    <div class="row"><button class="btn btn-line" type="button" id="b-check">설치 확인</button></div>
+    <p class="msg" id="m3" aria-live="polite"></p>
+  </section>
+
+  <!-- 4. 교사 계정 -->
+  <section class="card glass step" id="s4">
+    <div class="step-head"><span class="step-no">4</span><h2>교사 계정 만들기</h2><span class="state" id="st4">아직</span></div>
+    <div class="grid2">
+      <label class="field"><span>이메일</span><input class="input" id="in-mail" type="email" autocomplete="username"></label>
+      <label class="field"><span>비밀번호 (8자 이상)</span><input class="input" id="in-pw" type="password" autocomplete="new-password" minlength="8"></label>
+    </div>
+    <div class="row">
+      <button class="btn btn-primary" type="button" id="b-signup">계정 만들기</button>
+      <button class="btn btn-line" type="button" id="b-claim">로그인하고 교사 등록</button>
+    </div>
+    <p class="msg" id="m4" aria-live="polite"></p>
+    <p class="note">계정 만들기 뒤 확인 메일이 오면 메일 속 링크를 누릅니다. 링크를 누른 뒤 '사이트에 연결할 수 없음'이 떠도 확인은 된 것이니, 이 화면으로 돌아와 <b>로그인하고 교사 등록</b>을 누르세요. 교사는 처음 등록한 한 명만 될 수 있어요.</p>
+  </section>
+
+  <!-- 5. site.js -->
+  <section class="card glass step" id="s5">
+    <div class="step-head"><span class="step-no">5</span><h2>사이트를 내 서버로 바꾸기</h2><span class="state" id="st5">아직</span></div>
+    <div class="row"><button class="btn btn-primary" type="button" id="b-dl-site">site.js 받기</button></div>
+    <ol class="how">
+      <li>GitHub 내 저장소에서 <b>assets</b> → <b>js</b> 폴더로 들어갑니다.</li>
+      <li>오른쪽 위 <b>Add file → Upload files</b> → 받은 <code>site.js</code>를 끌어다 놓습니다(파일 이름이 <code>site (1).js</code>처럼 바뀌었으면 <code>site.js</code>로 고친 뒤 올리기).</li>
+      <li>아래 <b>Commit changes</b>.</li>
+      <li>1~10분 뒤 <b>사이트 확인</b>.</li>
+    </ol>
+    <div class="row"><button class="btn btn-line" type="button" id="b-site">사이트 확인</button></div>
+    <p class="msg" id="m5" aria-live="polite"></p>
+  </section>
+
+  <!-- 6. 끝 -->
+  <section class="card glass step" id="s6">
+    <div class="step-head"><span class="step-no">6</span><h2>다음 할 일</h2></div>
+    <ol class="how">
+      <li><b>관리 화면</b> → 4번 계정으로 로그인 → <b>명단과 코드</b>: 반마다 마지막 번호를 넣고 학생 코드 발급·인쇄.</li>
+      <li><b>수업 시작</b>: 차시를 추가하고 수업자료 주소(<code>lessons/611.html</code> 등)와 학습지를 올립니다.</li>
+      <li>학생에게 사이트 주소(이 화면 주소에서 <code>setup.html</code>을 뺀 주소)를 알려 줍니다.</li>
+      <li>원래 사이트에 새 기능이 생기면 GitHub 내 저장소의 <b>Sync fork → Update branch</b>로 받습니다. 그 뒤 원래 사이트에서 알려 주는 SQL이 있으면 SQL Editor에서 실행합니다.</li>
+    </ol>
+    <div class="done-links">
+      <a class="btn btn-line" href="teacher/">관리 화면</a>
+      <a class="btn btn-line" href="./">학생 입구</a>
+    </div>
+  </section>
+</main>
+<script type="module" src="assets/js/pages/setup.js"></script>
+</body>
+</html>

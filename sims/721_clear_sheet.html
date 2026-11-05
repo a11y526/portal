@@ -175,11 +175,12 @@ return {WS:WS,RED:RED,tell:tell,how:how,panel:panel,toast:toast,el:el,T:T,pt:pt,
 (function(){
 'use strict';
 const {el,T}=Q;
-const H=Q.how(['① <b>투명 판을 옆으로 끌어</b> 뒷면이 보이게 뒤집기','② <b>다시 앞면</b>으로 끌어 화살표 방향 비교하기','③ 1~3번을 <b>골라 [제출]</b>']);
+const H=Q.how(['① <b>투명 판을 옆으로 끌어</b> 뒷면이 보이게 뒤집기','② <b>다시 앞면</b>으로 끌어 화살표 방향 비교하기','③ 1~4번을 <b>골라 [제출]</b>']);
 const P=Q.panel([
-  {html:'<span class="n">1</span>시계 방향 화살표가 그려진 투명 판을 반대쪽(뒷면)에서 바라보면 화살표는 어느 방향으로 회전하는 것처럼 보일까?',opts:['시계 방향','시계 반대 방향'],lock:'① 판을 뒤집어 보세요'},
-  {html:'<span class="n">2</span>남쪽 하늘을 바라볼 때와 몸을 돌려 북쪽 하늘을 바라볼 때, 관측자가 바라보는 방향은 서로 (　).',opts:['같다','반대이다'],lock:'② 다시 앞면으로 돌려 보세요'},
-  {html:'<span class="n">3</span>그래서 북쪽 하늘을 바라보면 별들은 북극성을 중심으로 (　)으로 회전하는 것처럼 보인다.',opts:['시계 방향','시계 반대 방향'],lock:'② 다시 앞면으로 돌려 보세요'}],{how:H});
+  {html:'<span class="n">1</span>남쪽 하늘을 바라볼 때 별들이 도는 회전의 중심(천구의 남극)은 지평선 (　)에 있어서 보이지 않는다.',opts:['위','아래']},
+  {html:'<span class="n">2</span>시계 방향 화살표가 그려진 투명 판을 반대쪽(뒷면)에서 바라보면 화살표는 어느 방향으로 회전하는 것처럼 보일까?',opts:['시계 방향','시계 반대 방향'],lock:'① 판을 뒤집어 보세요'},
+  {html:'<span class="n">3</span>남쪽 하늘을 바라볼 때와 몸을 돌려 북쪽 하늘을 바라볼 때, 관측자가 바라보는 방향은 서로 (　).',opts:['같다','반대이다'],lock:'② 다시 앞면으로 돌려 보세요'},
+  {html:'<span class="n">4</span>그래서 북쪽 하늘을 바라보면 별들은 북극성을 중심으로 (　)으로 회전하는 것처럼 보인다.',opts:['시계 방향','시계 반대 방향'],lock:'② 다시 앞면으로 돌려 보세요'}],{how:H});
 const svg=document.getElementById('s'),defs=el('defs',{},svg);
 el('rect',{x:0,y:0,width:900,height:500,rx:16,fill:'#0B1630'},svg);
 /* 왼쪽 작은 그림: 관측자가 바라보는 방향 (위에서 본 모습) */
@@ -201,8 +202,14 @@ const sheet=el('g',{},plate);
 const face=el('rect',{x:PC[0]-PW/2,y:PC[1]-PH/2,width:PW,height:PH,rx:18,fill:'rgba(170,215,255,.22)',stroke:'#BFE0FF','stroke-width':3},sheet);
 const arcR=104;
 el('circle',{cx:PC[0],cy:PC[1],r:arcR,fill:'none',stroke:'rgba(255,255,255,.18)','stroke-width':2,'stroke-dasharray':'4 6'},sheet);
-el('path',{d:star(PC[0],PC[1],12),fill:'#FFF3B0'},sheet);
-const pol=T(sheet,PC[0],PC[1]+34,'북극성',{'text-anchor':'middle','font-size':16,fill:'#FFF3B0'});
+/* 회전 중심: 앞면(남쪽 하늘)은 천구의 남극 = 지평선 아래라 안 보임, 뒷면(북쪽 하늘)은 북극성. 판 밖에 두어 글자가 뒤집히지 않게 */
+const ctrS=el('g',{'pointer-events':'none'},svg);
+el('circle',{cx:PC[0],cy:PC[1],r:9,fill:'none',stroke:'#9FB3D6','stroke-width':2,'stroke-dasharray':'3 3'},ctrS);
+T(ctrS,PC[0],PC[1]+32,'천구의 남극',{'text-anchor':'middle','font-size':16,fill:'#C9D6EE'});
+T(ctrS,PC[0],PC[1]+52,'(지평선 아래 · 안 보임)',{'text-anchor':'middle','font-size':13,fill:'#9FB3D6'});
+const ctrN=el('g',{'pointer-events':'none'},svg);
+el('path',{d:star(PC[0],PC[1],12),fill:'#FFF3B0'},ctrN);
+T(ctrN,PC[0],PC[1]+34,'북극성',{'text-anchor':'middle','font-size':16,fill:'#FFF3B0'});
 const arr=el('g',{},sheet);
 el('path',{d:arcPath(arcR,40,150),fill:'none',stroke:'#FF6B6B','stroke-width':9,'stroke-linecap':'round'},arr);
 el('path',{d:'M-15 -16 L17 0 L-15 16Z',fill:'#FF6B6B',transform:headAt(arcR,40)},arr);
@@ -226,6 +233,7 @@ function render(){
   body.setAttribute('transform',`rotate(${beta} ${M[0]} ${M[1]})`);
   lookT.textContent=beta<10?'남쪽 하늘을 볼 때':beta>170?'뒤로 돌아 북쪽 하늘을 볼 때':'몸을 돌리는 중';
   const edge=Math.abs(sx)<.12;
+  ctrS.setAttribute('opacity',front&&!edge?1:0);ctrN.setAttribute('opacity',!front&&!edge?1:0);
   bT.textContent=edge?'판의 옆면':(front?'시계 방향으로 돈다':'시계 반대 방향으로 돈다');
   bT.setAttribute('fill',edge?'#6E6E73':(front?'#D70015':'#0066CC'));
   hint.setAttribute('opacity',flipped?0:1);}
@@ -234,9 +242,9 @@ function loop(now){const dt=last?Math.min(50,now-last):16;last=now;
   render();requestAnimationFrame(loop);}
 let sx0=0,b0=0;
 Q.drag(svg,plate,p=>{const d=Math.abs(p.x-sx0)*.55;beta=Math.max(0,Math.min(180,b0<90?b0+d:b0-d));
-    if(beta>=175&&!flipped){flipped=true;H.done(0);P.open(0);}
-    if(flipped&&beta<=5&&!back){back=true;H.done(1);P.open(1);P.open(2);}},
-  p=>{sx0=p.x;b0=beta;},()=>{beta=beta>90?180:0;if(beta===180&&!flipped){flipped=true;H.done(0);P.open(0);}if(flipped&&beta===0&&!back){back=true;H.done(1);P.open(1);P.open(2);}});
+    if(beta>=175&&!flipped){flipped=true;H.done(0);P.open(1);}
+    if(flipped&&beta<=5&&!back){back=true;H.done(1);P.open(2);P.open(3);}},
+  p=>{sx0=p.x;b0=beta;},()=>{beta=beta>90?180:0;if(beta===180&&!flipped){flipped=true;H.done(0);P.open(1);}if(flipped&&beta===0&&!back){back=true;H.done(1);P.open(2);P.open(3);}});
 const seg=document.getElementById('sp');seg.addEventListener('click',e=>{const b=e.target.closest('button');if(!b)return;b.blur();speed=+b.dataset.s;seg.querySelectorAll('button').forEach(x=>x.classList.toggle('on',x===b));});
 document.getElementById('pz').onclick=e=>{paused=!paused;e.target.textContent=paused?'다시 재생':'일시정지';e.target.blur();};
 render();requestAnimationFrame(loop);

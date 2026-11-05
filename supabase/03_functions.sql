@@ -8179,3 +8179,48 @@ end;
 $$;
 revoke all on function public.get_moon_rpg_class(int) from public, anon;
 grant execute on function public.get_moon_rpg_class(int) to authenticated;
+
+-- ---------------------------------------------------------
+-- 설치 도우미 (2026-11-04, setup.html): 다른 선생님이 복사한 사이트를 처음 설정할 때만 쓴다.
+-- setup_status: 설치가 끝났는지(이 함수가 있으면 03까지 실행됨)와 교사 등록 여부·반 목록. 학생 정보 없음
+create or replace function public.setup_status()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'installed', true,
+    'seeded', exists (select 1 from public.settings where key = 'points'),
+    'has_teacher', exists (select 1 from public.teachers),
+    'classes', coalesce((select jsonb_agg(id order by id) from public.classes where id <> 20), '[]'::jsonb));
+$$;
+revoke all on function public.setup_status() from public;
+grant execute on function public.setup_status() to anon, authenticated;
+
+-- claim_first_teacher: 로그인한 계정을 교사로 등록. 교사가 아무도 없을 때만(처음 한 명). 이미 교사면 그대로
+create or replace function public.claim_first_teacher()
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+begin
+  if auth.uid() is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_LOGIN');
+  end if;
+  lock table public.teachers in exclusive mode;
+  if exists (select 1 from public.teachers where user_id = auth.uid()) then
+    return jsonb_build_object('ok', true, 'already', true);
+  end if;
+  if exists (select 1 from public.teachers) then
+    return jsonb_build_object('ok', false, 'error', 'TAKEN');
+  end if;
+  insert into public.teachers (user_id) values (auth.uid());
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.claim_first_teacher() from public, anon;
+grant execute on function public.claim_first_teacher() to authenticated;

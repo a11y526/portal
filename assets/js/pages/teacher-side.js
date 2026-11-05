@@ -4,7 +4,6 @@ const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
 const WIDE = matchMedia('(min-width: 961px)');
 const ARROW = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17L17 7M9 7h8v8"/></svg>';
-const HOME = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="3.5" width="7" height="7" rx="2"/><rect x="13.5" y="3.5" width="7" height="7" rx="2"/><rect x="3.5" y="13.5" width="7" height="7" rx="2"/><rect x="13.5" y="13.5" width="7" height="7" rx="2"/></svg>';
 
 const store = {
   get: () => { try { return localStorage.getItem('adminSide'); } catch { return null; } },
@@ -29,17 +28,13 @@ function link(a, cls) {
 export function initSide() {
   const side = $('side');
   side.innerHTML = `
-    <div class="side-top"><b>관리</b>
+    <div class="side-top"><a class="side-home" href="#">관리</a>
       <button type="button" class="side-x" id="side-close" aria-label="사이드바 접기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15M15.5 10l-2 2 2 2"/></svg></button>
     </div>
     <nav class="side-nav" aria-label="관리 메뉴"></nav>
     <button class="side-link side-out" type="button" data-logout><i class="side-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.5h4.5v15H14M10 8l-4 4 4 4M6 12h10"/></svg></i><span>로그아웃</span></button>`;
   const nav = side.querySelector('.side-nav');
-  const home = document.createElement('a');
-  home.className = 'side-link';
-  home.href = '#';
-  home.innerHTML = `<i class="side-ic" aria-hidden="true">${HOME}</i><span>첫 화면</span>`;
-  nav.append(home);
+  side.querySelector('.side-home').addEventListener('click', () => root.classList.remove('side-drawer'));
   document.querySelectorAll('#hub .hub-group').forEach((g) => {
     const cls = [...g.classList].find((c) => c.startsWith('g-')) || '';
     const sec = document.createElement('div');

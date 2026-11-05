@@ -22,6 +22,7 @@ import { refreshMats } from './teacher-mats.js';
 import { refreshProgress } from './teacher-progress.js';
 import { refreshAi } from './teacher-ai.js';
 import { initSide, markSide, syncSideBadges } from './teacher-side.js';
+import { startHero, stopHero } from './teacher-hero.js';
 
 initUI();
 
@@ -1869,11 +1870,11 @@ function route() {
     p.classList.toggle('hidden', !on);
     if (on) open = p;
   });
-  $('hub').classList.toggle('hidden', !!open);
-  $('hub-back').classList.toggle('hidden', !open);
+  // 첫 화면은 항목 카드 없이 가운데 3D 장면만. 항목은 사이드바로 연다
+  $('hero').classList.toggle('hidden', !!open);
+  document.body.classList.toggle('hero-on', !open);
+  if (open) stopHero(); else startHero($('hero'));
   $('admin-h').textContent = open ? open.dataset.title : '관리';
-  // 진도 관리·보드는 노션식 흰 문서 화면
-  document.body.classList.toggle('doc', key === 'progress' || key === 'boards');
   markSide(open ? key : '');
   scrollTo(0, 0);
   if (key === 'nick') { refreshNicks().catch(() => {}); refreshNickAll().catch(() => {}); }

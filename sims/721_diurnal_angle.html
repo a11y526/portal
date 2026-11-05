@@ -199,15 +199,15 @@ T(svg,C[0]-30*ax-10,C[1]+30*ay+22,'지구 자전축',{'font-size':14,fill:'#FFD6
 /* 천구 위의 별들 (북극성만 축 연장선 위) */
 const STARS=[[NP[0],NP[1],true],[C[0]-110,C[1]-110],[C[0]-40,C[1]-158],[C[0]+150,C[1]+40],[C[0]-150,C[1]+30],[C[0]+70,C[1]+130],[C[0]-80,C[1]+120],[C[0]+30,C[1]-70]];
 let found=false;
-const npLab=el('g',{opacity:0,style:'transition:opacity .4s'},svg);
+const npLab=el('g',{},svg);
 el('rect',{x:NP[0]-150,y:NP[1]-62,width:166,height:46,rx:10,fill:'#fff'},npLab);
 T(npLab,NP[0]-67,NP[1]-42,'천구의 북극',{'text-anchor':'middle','font-size':15,fill:'#0066CC'});
-T(npLab,NP[0]-67,NP[1]-23,'(북극성 근처)',{'text-anchor':'middle','font-size':14,fill:'#1D1D1F'});
+const npSub=T(npLab,NP[0]-67,NP[1]-23,'여기 있는 별은?',{'text-anchor':'middle','font-size':14,fill:'#1D1D1F'});
 STARS.forEach(([x,y,np])=>{const g=el('g',{style:'cursor:pointer'},svg);
   el('circle',{cx:x,cy:y,r:24,fill:'rgba(0,0,0,0)'},g);
   const s=el('path',{d:star(x,y,np?11:8),fill:np?'#FFF3B0':'#E6ECFF'},g);
   if(np){const ring=el('circle',{cx:x,cy:y,r:18,fill:'none',stroke:'#FFD60A','stroke-width':2,opacity:0},g);g._ring=ring;}
-  g.addEventListener('click',()=>{if(np){if(!found){found=true;npLab.setAttribute('opacity',1);g._ring.setAttribute('opacity',1);axisOut.setAttribute('stroke-width',4);H.done(0);P.open(0);
+  g.addEventListener('click',()=>{if(np){if(!found){found=true;npSub.textContent='(북극성 근처)';g._ring.setAttribute('opacity',1);axisOut.setAttribute('stroke-width',4);H.done(0);P.open(0);
       document.getElementById('tm').disabled=false;draw();}}
     else Q.toast('자전축을 곧게 늘인 선 위의 별을 찾아보자');});});
 function star(x,y,r){let d='';for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;d+=(i?'L':'M')+(x+rr*Math.cos(a)).toFixed(1)+' '+(y+rr*Math.sin(a)).toFixed(1);}return d+'Z';}

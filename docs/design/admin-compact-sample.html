@@ -1,0 +1,280 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>관리 화면 컴팩트 시안</title>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+/* 시안 전용. 가짜 데이터. 실제 적용 때는 site.css에 body.admin 범위로 옮김 */
+:root {
+  --ink: #1F2328; --ink2: #6B7280; --ink3: #9CA3AF;
+  --line: #ECEDEF; --hover: #F3F4F6; --side: #F7F7F5;
+  --accent: #2457E6; --accent-tint: #EBF0FD;
+  --side-w: 232px;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: #fff; color: var(--ink); font: 14px/1.5 "Noto Sans KR", system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+button, input, select { font: inherit; color: inherit; }
+svg { display: block; }
+
+/* 사이드바 */
+.side { position: fixed; inset: 0 auto 0 0; width: var(--side-w); background: var(--side); border-right: 1px solid var(--line);
+  padding: 10px 8px; display: flex; flex-direction: column; gap: 1px; overflow-y: auto; }
+.side-top { display: flex; align-items: center; justify-content: space-between; padding: 4px 8px 10px; }
+.side-top b { font-size: 14px; font-weight: 700; }
+.side-x { width: 26px; height: 26px; border: 0; background: none; border-radius: 6px; color: var(--ink3); display: grid; place-items: center; cursor: pointer; }
+.side-x:hover { background: #EAEAE7; color: var(--ink); }
+.side-label { margin: 14px 8px 2px; font-size: 12px; font-weight: 500; color: var(--ink3); }
+.side-link { display: flex; align-items: center; gap: 8px; height: 30px; padding: 0 8px; border-radius: 6px; color: #3F4650; text-decoration: none; cursor: pointer; }
+.side-link:hover { background: #EAEAE7; }
+.side-link[aria-current="page"] { background: #E6E6E2; color: var(--ink); font-weight: 500; }
+.side-link svg { width: 16px; height: 16px; flex: none; color: var(--ink2); }
+.side-link span { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.side-link .ext { width: 12px; height: 12px; color: var(--ink3); }
+.badge { min-width: 18px; height: 18px; padding: 0 5px; border-radius: 9px; background: #E5484D; color: #fff; font-size: 11px; font-weight: 700; display: grid; place-items: center; }
+.side-out { margin-top: auto; color: var(--ink2); }
+
+/* 본문 */
+.main { margin-left: var(--side-w); }
+.page { max-width: 960px; padding: 40px 48px 80px; margin: 0 auto; }
+.crumb { font-size: 13px; color: var(--ink2); margin-bottom: 6px; display: flex; gap: 6px; }
+.crumb a { color: inherit; text-decoration: none; } .crumb a:hover { color: var(--ink); }
+h1 { margin: 0 0 24px; font-size: 26px; font-weight: 700; letter-spacing: -0.02em; }
+
+/* 첫 화면: 작은 목록 칸 */
+.grp { margin-bottom: 28px; }
+.grp h2 { margin: 0 0 4px; padding: 0 0 6px; font-size: 13px; font-weight: 500; color: var(--ink2); border-bottom: 1px solid var(--line); }
+.grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px 12px; padding-top: 4px; }
+.item { display: flex; align-items: flex-start; gap: 10px; padding: 7px 8px; border-radius: 6px; color: inherit; text-decoration: none; cursor: pointer; }
+.item:hover { background: var(--hover); }
+.item svg { width: 18px; height: 18px; margin-top: 1px; color: var(--ink2); flex: none; }
+.item div { min-width: 0; flex: 1; }
+.item b { display: flex; align-items: center; gap: 6px; font-weight: 500; }
+.item b .ext { width: 12px; height: 12px; color: var(--ink3); }
+.item small { display: block; font-size: 12.5px; color: var(--ink3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.item.start b { color: var(--accent); }
+.item.start svg { color: var(--accent); }
+
+/* 항목 화면 */
+.sec { margin-bottom: 32px; }
+.sec-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 8px; border-bottom: 1px solid var(--line); margin-bottom: 10px; }
+.sec-head h2 { margin: 0; font-size: 15px; font-weight: 700; }
+.sec-head h2 .n { color: var(--ink3); font-weight: 400; margin-left: 4px; }
+.btn { height: 30px; padding: 0 10px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; white-space: nowrap; }
+.btn:hover { background: var(--hover); }
+.btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 500; }
+.btn.primary:hover { background: #1D47C2; }
+.btn.ghost { border-color: transparent; color: var(--ink2); }
+.btn.ghost:hover { color: var(--ink); }
+.btn.ok { color: #0B6B47; } .btn.no { color: #A6321A; }
+.input, .select { height: 30px; padding: 0 8px; border: 1px solid var(--line); border-radius: 6px; background: #fff; min-width: 0; }
+.input:focus, .select:focus { outline: 2px solid rgba(36,87,230,.3); border-color: #C9D5F7; }
+.tabs { display: flex; gap: 2px; flex-wrap: wrap; margin-bottom: 8px; }
+.tab { height: 28px; padding: 0 10px; border: 0; background: none; border-radius: 6px; color: var(--ink2); cursor: pointer; }
+.tab:hover { background: var(--hover); color: var(--ink); }
+.tab.on { background: var(--ink); color: #fff; }
+.row { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 10px; }
+.muted { color: var(--ink3); }
+.roll { display: grid; grid-template-columns: repeat(auto-fill, minmax(44px, 1fr)); gap: 4px; margin-bottom: 14px; }
+.roll button { height: 32px; border: 1px solid var(--line); background: #fff; border-radius: 6px; cursor: pointer; }
+.roll button:hover { background: var(--hover); }
+.roll button.on { background: var(--accent-tint); border-color: #C9D5F7; color: var(--accent); font-weight: 700; }
+.fields { display: grid; grid-template-columns: 110px 110px minmax(0, 1fr) auto; gap: 8px; align-items: end; }
+.fields label { display: flex; flex-direction: column; gap: 4px; font-size: 12.5px; color: var(--ink2); }
+table { width: 100%; border-collapse: collapse; }
+th { text-align: left; font-weight: 400; font-size: 12.5px; color: var(--ink2); padding: 6px 8px; border-bottom: 1px solid var(--line); }
+td { padding: 4px 8px; border-bottom: 1px solid var(--line); height: 38px; }
+tbody tr:hover td { background: #FAFAFA; }
+td.n { color: var(--ink2); width: 70px; }
+td.acts { text-align: right; white-space: nowrap; }
+.tag { display: inline-block; padding: 0 7px; border-radius: 4px; font-size: 12.5px; line-height: 20px; }
+.tag.yellow { background: #FCF1D2; color: #8A5A00; } .tag.green { background: #DDF3E8; color: #0B6B47; } .tag.gray { background: #EFF0F2; color: #5B616B; }
+.xp-p { color: #0B6B47; } .xp-m { color: #A6321A; }
+
+.hidden { display: none !important; }
+
+/* 시안 전환 띠 */
+.demo { position: fixed; right: 16px; bottom: 16px; z-index: 50; display: flex; gap: 4px; padding: 4px; background: #fff; border: 1px solid var(--line); border-radius: 8px; box-shadow: 0 6px 20px rgba(15,23,42,.1); }
+
+@media (max-width: 960px) {
+  .side { transform: translateX(-100%); }
+  .main { margin-left: 0; }
+  .page { padding: 20px 16px 80px; }
+  .grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item, .side-link { min-height: 40px; }
+  .btn, .input, .select { height: 38px; }
+  .fields { grid-template-columns: 1fr 1fr; }
+  .fields .reason, .fields .go { grid-column: 1 / -1; }
+}
+@media (max-width: 560px) { .grid { grid-template-columns: 1fr; } }
+</style>
+</head>
+<body>
+
+<aside class="side" aria-label="관리 사이드바">
+  <div class="side-top"><b>과학 수업 관리</b>
+    <button class="side-x" aria-label="사이드바 접기"><svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="3.5" y="4.5" width="17" height="15" rx="2.5"/><path d="M9.5 4.5v15"/></svg></button>
+  </div>
+  <a class="side-link" data-go="hub" aria-current="page"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 11l8-7 8 7v8.5a1.5 1.5 0 0 1-1.5 1.5h-13A1.5 1.5 0 0 1 4 19.5z"/></svg><span>첫 화면</span></a>
+  <div id="side-groups"></div>
+  <a class="side-link side-out"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 4h3.5A1.5 1.5 0 0 1 20 5.5v13a1.5 1.5 0 0 1-1.5 1.5H15M10 16l-4-4 4-4M6 12h10"/></svg><span>로그아웃</span></a>
+</aside>
+
+<div class="main">
+  <!-- 첫 화면 -->
+  <div class="page" id="v-hub">
+    <h1>관리</h1>
+    <div id="hub"></div>
+  </div>
+
+  <!-- 항목 예시: 점수 주기 -->
+  <div class="page hidden" id="v-grant">
+    <div class="crumb"><a data-go="hub" href="#">관리</a><span>/</span><span>점수 · 상점</span></div>
+    <h1>점수 주기</h1>
+    <section class="sec">
+      <div class="sec-head"><h2>학생 고르기<span class="n">3명</span></h2>
+        <div class="row" style="margin:0"><button class="btn ghost">반 전체</button><button class="btn ghost">선택 해제</button></div>
+      </div>
+      <div class="tabs" id="cls-tabs"></div>
+      <div class="roll" id="roll"></div>
+      <div class="fields">
+        <label>XP<input class="input" type="number" value="5"></label>
+        <label>금화<input class="input" type="number" value="0"></label>
+        <label class="reason">사유<input class="input" value="발표 잘함"></label>
+        <div class="go"><button class="btn primary">주기</button></div>
+      </div>
+    </section>
+    <section class="sec">
+      <div class="sec-head"><h2>최근 준 점수</h2></div>
+      <table>
+        <thead><tr><th>시각</th><th>학생</th><th>XP</th><th>금화</th><th>사유</th></tr></thead>
+        <tbody>
+          <tr><td class="n">11/5 10:42</td><td>8반 12 · 별빛토끼</td><td class="xp-p">+5</td><td class="muted">0</td><td>발표 잘함</td></tr>
+          <tr><td class="n">11/5 10:42</td><td>8반 17 · 과학왕</td><td class="xp-p">+5</td><td class="muted">0</td><td>발표 잘함</td></tr>
+          <tr><td class="n">11/4 14:10</td><td>10반 3 · 닉네임 미정</td><td class="muted">0</td><td class="xp-m">−10</td><td>시험 되돌리기</td></tr>
+        </tbody>
+      </table>
+    </section>
+  </div>
+
+  <!-- 항목 예시: 닉네임 -->
+  <div class="page hidden" id="v-nick">
+    <div class="crumb"><a data-go="hub" href="#">관리</a><span>/</span><span>학생</span></div>
+    <h1>닉네임</h1>
+    <section class="sec">
+      <div class="sec-head"><h2>닉네임 승인<span class="n">3</span></h2><button class="btn ghost">새로 고침</button></div>
+      <table>
+        <thead><tr><th>학생</th><th>지금</th><th>신청</th><th></th></tr></thead>
+        <tbody>
+          <tr><td>7반 4번</td><td class="muted">닉네임 미정</td><td><b>우주고양이</b></td><td class="acts"><button class="btn ok">승인</button> <button class="btn no">거절</button></td></tr>
+          <tr><td>9반 21번</td><td>달토끼</td><td><b>달탐사대장</b> <span class="tag yellow">은화 5</span></td><td class="acts"><button class="btn ok">승인</button> <button class="btn no">거절</button></td></tr>
+          <tr><td>11반 8번</td><td class="muted">닉네임 미정</td><td><b>입자박사</b></td><td class="acts"><button class="btn ok">승인</button> <button class="btn no">거절</button></td></tr>
+        </tbody>
+      </table>
+    </section>
+    <section class="sec">
+      <div class="sec-head"><h2>반별 닉네임<span class="n">24 / 29</span></h2>
+        <select class="select"><option>7반</option><option>8반</option></select>
+      </div>
+      <table>
+        <thead><tr><th>번호</th><th>닉네임</th><th></th></tr></thead>
+        <tbody id="nick-rows"></tbody>
+      </table>
+    </section>
+  </div>
+</div>
+
+<div class="demo" role="tablist" aria-label="시안 화면">
+  <button class="tab on" data-go="hub">첫 화면</button>
+  <button class="tab" data-go="grant">점수 주기</button>
+  <button class="tab" data-go="nick">닉네임</button>
+</div>
+
+<script>
+const I = {
+  play: '<path d="M7 4.5v15l12.5-7.5z"/>',
+  board: '<rect x="3" y="4" width="18" height="13" rx="2.5"/><path d="M8 21h8M12 17v4"/>',
+  check: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8.5 12.5l2.5 2.5 4.5-5"/>',
+  phone: '<rect x="7" y="2.5" width="10" height="19" rx="2.5"/><path d="M11 18h2"/>',
+  trophy: '<path d="M8 4h8v5a4 4 0 0 1-8 0z"/><path d="M8 6H5a3 3 0 0 0 3 4M16 6h3a3 3 0 0 1-3 4M12 13v4M8.5 20h7"/>',
+  people: '<circle cx="9" cy="8" r="3"/><circle cx="17" cy="9.5" r="2.4"/><path d="M3.5 19a5.5 5.5 0 0 1 11 0M15 14.2a4.5 4.5 0 0 1 5.5 4.8"/>',
+  quiz: '<circle cx="12" cy="12" r="8.5"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.4 2.3c-.6.3-.9.8-.9 1.4M12 16.5v.01"/>',
+  grid: '<rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/>',
+  cal: '<rect x="3.5" y="5" width="17" height="15" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  ai: '<rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h5M13.5 17l1.8 1.8 3.2-3.6"/>',
+  moon: '<path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/>',
+  key: '<circle cx="8" cy="15" r="4"/><path d="M11 12l8-8M16 7l2 2"/>',
+  tag: '<path d="M4 12V4.5h7.5L20 13l-7.5 7.5z"/><circle cx="8.5" cy="8.5" r="1.2"/>',
+  lock: '<rect x="5" y="10.5" width="14" height="10" rx="2"/><path d="M8 10.5V8a4 4 0 0 1 8 0v2.5"/>',
+  eye: '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12z"/><circle cx="12" cy="12" r="2.8"/>',
+  plus: '<circle cx="12" cy="12" r="8.5"/><path d="M12 8v8M8 12h8"/>',
+  coin: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5v9M9.5 10a2.5 2 0 0 1 5 0c0 2.5-5 1.5-5 4a2.5 2 0 0 0 5 0"/>',
+  rule: '<path d="M5 6h14M5 12h14M5 18h9"/>',
+  bag: '<path d="M5 8h14l-1 12H6z"/><path d="M9 8V6.5a3 3 0 0 1 6 0V8"/>',
+  gear: '<circle cx="12" cy="12" r="3"/><path d="M12 3v2.5M12 18.5V21M3 12h2.5M18.5 12H21M5.6 5.6l1.8 1.8M16.6 16.6l1.8 1.8M5.6 18.4l1.8-1.8M16.6 7.4l1.8-1.8"/>',
+  chat: '<path d="M4 5.5h16v10H9l-5 4z"/>',
+  down: '<path d="M12 4v11M7 10.5l5 5 5-5M5 20h14"/>',
+  game: '<rect x="3" y="7" width="18" height="11" rx="4"/><path d="M8 10.5v4M6 12.5h4M15.5 12h.01M18 13.5h.01"/>',
+};
+const EXT = '<svg class="ext" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg>';
+const ic = k => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${I[k]}</svg>`;
+const GROUPS = [
+  ['수업', [
+    ['play', '수업 시작', '차시 고르기 · 수업 모드', { start: 1 }],
+    ['board', '보드', '오늘 보드 7개 · 목록'],
+    ['check', '검사', '제출 확인 · 통과 · 다시', { ext: 1 }],
+    ['phone', '휴대폰 리모컨', '쪽 넘기기 · 덮개 · 타이머', { ext: 1 }],
+    ['trophy', '순위 발표', '프로젝터 화면', { ext: 1 }],
+    ['people', '모둠 편성', '그날 모둠 무작위', { ext: 1 }],
+    ['quiz', '퀴즈 쇼', '문제 만들기 · 반 전체 퀴즈', { ext: 1 }],
+    ['grid', '반 게시판', '반마다 섹션 · 자료 올리기'],
+    ['cal', '진도 관리', '오늘 3반 수업 · 여유 7'],
+    ['ai', 'AI 채점', '꺼짐'],
+    ['moon', '달 자원 RPG 결과', '712 엔딩 · 선택 비율'],
+  ]],
+  ['학생', [
+    ['key', '명단과 코드', '6개 반 · 175명'],
+    ['tag', '닉네임', '승인 기다림 3', { badge: 3, go: 'nick' }],
+    ['lock', '반별 잠금', '잠긴 반 없음'],
+    ['eye', '학생 화면', '새 탭에서 열기', { ext: 1 }],
+  ]],
+  ['점수 · 상점', [
+    ['plus', '점수 주기', 'XP · 금화 직접 주기', { go: 'grant' }],
+    ['coin', '금화 현황', '학생별 금화 잔액'],
+    ['rule', '포인트 규칙', '통과 10 · 순위 보너스 10/6/3'],
+    ['bag', '구매 승인', '기다리는 신청 2', { badge: 2 }],
+    ['gear', '상점 설정', '가격 · 판매 여부 · 레벨 조건'],
+  ]],
+  ['기타', [
+    ['chat', '빠른 피드백 버튼', '버튼 6개'],
+    ['down', '기록 내보내기 · 정리', 'CSV · 학기말 보드 보관'],
+    ['game', '게임', '켜진 반 2 · 하루 7판'],
+  ]],
+];
+const badge = n => n ? `<i class="badge">${n}</i>` : '';
+document.getElementById('hub').innerHTML = GROUPS.map(([g, items]) => `
+  <section class="grp"><h2>${g}</h2><div class="grid">
+    ${items.map(([k, t, s, o = {}]) => `<a class="item${o.start ? ' start' : ''}" ${o.go ? `data-go="${o.go}"` : ''}>${ic(k)}<div><b>${t}${o.ext ? EXT : ''}${badge(o.badge)}</b><small>${s}</small></div></a>`).join('')}
+  </div></section>`).join('');
+document.getElementById('side-groups').innerHTML = GROUPS.map(([g, items]) => `
+  <div class="side-label">${g}</div>
+  ${items.map(([k, t, s, o = {}]) => `<a class="side-link" ${o.go ? `data-go="${o.go}"` : ''}>${ic(k)}<span>${t}</span>${o.ext ? EXT : ''}${badge(o.badge)}</a>`).join('')}`).join('');
+
+document.getElementById('cls-tabs').innerHTML = [7, 8, 9, 10, 11, 12].map(c => `<button class="tab${c === 8 ? ' on' : ''}">${c}반</button>`).join('');
+document.getElementById('roll').innerHTML = Array.from({ length: 29 }, (_, i) => `<button class="${[12, 17, 23].includes(i + 1) ? 'on' : ''}">${i + 1}</button>`).join('');
+document.getElementById('roll').addEventListener('click', e => e.target.closest('button')?.classList.toggle('on'));
+const NICK = ['별빛토끼', '과학왕', '', '입자박사', '달토끼', '우주고양이', '', '실험러'];
+document.getElementById('nick-rows').innerHTML = NICK.map((n, i) => `<tr><td class="n">${i + 1}번</td><td><input class="input" style="width:180px" value="${n}" placeholder="닉네임 미정"></td><td class="acts"><button class="btn ghost">저장</button></td></tr>`).join('');
+
+function go(v) {
+  ['hub', 'grant', 'nick'].forEach(k => document.getElementById('v-' + k).classList.toggle('hidden', k !== v));
+  document.querySelectorAll('.demo .tab').forEach(b => b.classList.toggle('on', b.dataset.go === v));
+  document.querySelectorAll('.side-link').forEach(a => a.toggleAttribute('aria-current', a.dataset.go === v));
+  document.querySelectorAll('.side-link[aria-current]').forEach(a => a.setAttribute('aria-current', 'page'));
+  scrollTo(0, 0);
+}
+document.addEventListener('click', e => { const t = e.target.closest('[data-go]'); if (t) { e.preventDefault(); go(t.dataset.go); } });
+</script>
+</body>
+</html>

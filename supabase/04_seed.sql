@@ -3,9 +3,9 @@
 -- 이미 있는 값은 덮어쓰지 않는다(관리 화면에서 바꾼 값 보존).
 -- =========================================================
 
--- 반 6개 (7~12반)
+-- 담당 반 (7~12반). 설치 도우미(setup.html)가 array[…]의 반 번호를 그 사이트의 반으로 바꾼다
 insert into public.classes (id, label)
-select n, '1-' || n from generate_series(7, 12) as n
+select n, '1-' || n from unnest(array[7, 8, 9, 10, 11, 12]) as n
 on conflict (id) do nothing;
 
 -- test반(20반): 시험용. 입구는 test.html 하나, 메인 입구·순위·진도에는 안 나온다(config.js TEST_CLASS)
@@ -156,14 +156,15 @@ insert into public.students (class_id, number)
 select id, 0 from public.classes
 on conflict (class_id, number) do update set active = true;
 
--- test반 1~5번(0번 포함 6명). 코드는 7반 0번과 같은 해시를 복사한다(코드 발급에서 빠짐).
+-- test반 1~5번(0번 포함 6명). 코드는 첫 반(7반) 0번과 같은 해시를 복사한다(코드 발급에서 빠짐).
 -- 0번 코드를 바꾸면 test반도 같이: ... where number = 0 or class_id = 20
 insert into public.students (class_id, number)
 select 20, n from generate_series(1, 5) as n
 on conflict (class_id, number) do update set active = true;
 update public.students t set code_hash = z.code_hash
 from public.students z
-where t.class_id = 20 and t.code_hash is null and z.class_id = 7 and z.number = 0 and z.code_hash is not null;
+where t.class_id = 20 and t.code_hash is null and z.number = 0 and z.code_hash is not null
+  and z.class_id = (select min(id) from public.classes where id <> 20);
 
 -- 오목 1대1: 하루 판 수(시작된 판), 한 수 제한 시간(초). 보상 없음
 insert into public.settings (key, value) values
@@ -204,7 +205,7 @@ update public.settings set value = (value - 'coins') || jsonb_build_object('silv
 where key in ('omok', 'rummikub', 'quoridor') and not (value ? 'silver');
 
 -- 학습지 AI 채점 (2026-10-24): 처음 설치할 때만. on은 꺼 둠(관리 'AI 채점'에서 켬)
---   url = Edge Function ws-grade 주소, secret = cron이 함수에 보내는 비밀 표(48자). 둘 다 학생 쪽으로 나가지 않는다
+--   url = Edge Function ws-grade 주소(설치 도우미가 그 사이트의 Supabase 주소로 바꾼다), secret = cron이 함수에 보내는 비밀 표(48자). 둘 다 학생 쪽으로 나가지 않는다
 --   wait = 이 초가 지나도록 판정이 없으면 지금 방식으로 채점(빈칸은 등록 답, 서술은 채우면 맞음)
 --   예측 칸(621B1 f12)은 정답이 없어 AI를 끈다(사용자 결정). 관리 화면에서 다시 켤 수 있고, 이 줄은 처음 한 번만 넣는다
 do $$

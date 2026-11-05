@@ -11,7 +11,7 @@
 <link rel="stylesheet" href="../assets/css/design.css">
 <link rel="stylesheet" href="../assets/css/site.css">
 </head>
-<body>
+<body class="admin doc">
 <main class="wrap admin-wrap">
   <!-- 관리 (로그인과 교사 확인은 gate.js) -->
   <div id="v-admin" style="display:flex;flex-direction:column;gap:24px">
@@ -26,8 +26,11 @@
       <button class="btn btn-line top-out" type="button" data-logout>로그아웃</button>
     </div>
 
-    <!-- 첫 화면: 항목 (묶음별) -->
-    <nav class="hub" id="hub" aria-label="관리 항목">
+    <!-- 첫 화면: 가운데 3D 장면 (teacher-hero.js) -->
+    <div class="hero hidden" id="hero"><div class="hero-time" aria-hidden="true"><b></b><span></span></div></div>
+
+    <!-- 항목 목록: 화면에는 안 보이고, 사이드바가 이것을 읽어 만든다(teacher-side.js). 요약 글자·배지도 여기서 -->
+    <nav class="hub hidden" id="hub" aria-hidden="true">
       <section class="hub-group g-class" aria-label="수업">
         <h2 class="hub-label">수업</h2>
         <div class="hub-grid">

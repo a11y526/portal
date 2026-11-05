@@ -167,6 +167,42 @@ return {WS:WS,RED:RED,tell:tell,how:how,panel:panel,toast:toast,el:el,T:T,pt:pt,
 .tabs button.ok::after{content:" ✓";color:#1E8E3E;font-weight:800}
 .tabs button.on.ok::after{color:#B8F5C8}
 </style>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style id="new-design">
+/* 관리·학생 화면 새 디자인 규칙으로 덮어쓰기: 검정 = 누르는 것·고른 것, 회색 상자, 초록 = 맞음 */
+:root{--p:#0D0D0D;--ink:#0D0D0D;--mut:#5D5D5D;--line:#ECECEC;--pearl:#F7F7F7;--ok:#0F8A5F;
+  --font:"Noto Sans KR","Apple SD Gothic Neo","Malgun Gothic",sans-serif}
+body{padding:12px;gap:10px;-webkit-font-smoothing:antialiased}
+button{color:#0D0D0D;background:#F0F0F0;border:0;font-weight:700;border-radius:999px;transition:background .2s,color .2s}
+button:hover{background:#E6E6E6}
+button:active{background:#DCDCDC;transform:scale(.98)}
+button:disabled{background:#F0F0F0;color:#8A8A8A;opacity:.6}
+button.on,button.on:hover{background:#0D0D0D;color:#fff}
+.how{background:#F7F7F7;border-radius:16px;padding:9px 16px}
+.how span{color:#8A8A8A}
+.how span.now{color:#0D0D0D}
+.how span.now b{color:#0D0D0D;text-decoration:underline;text-underline-offset:3px;text-decoration-thickness:2px}
+.how span.done{color:#0F8A5F}
+.seg{border:0;background:#F0F0F0;padding:3px;gap:2px}
+.seg button{background:transparent;border-radius:999px;color:#5D5D5D}
+.seg button.on{background:#0D0D0D;color:#fff}
+.ctrl input[type=range]{accent-color:#0D0D0D}
+.ctrl .st{color:#5D5D5D}
+.q{border:0;background:#F7F7F7;border-radius:18px;padding:12px 14px}
+.q.picked{background:#F0F0F0}
+.q .n{background:#0D0D0D}
+.q .opts button{background:#fff;border:0;color:#0D0D0D;font-weight:700}
+.q .opts button:hover{background:#ECECEC}
+.q .opts button.on{background:#0D0D0D;color:#fff}
+.q input[type=text],.q textarea{border:0;background:#fff;box-shadow:inset 0 0 0 1.5px #E3E3E3}
+.q input:focus,.q textarea:focus{box-shadow:inset 0 0 0 2px #0D0D0D}
+.sub button{background:#0D0D0D;color:#fff}
+.sub button:hover{background:#2B2B2B}
+.sub button:disabled{background:#F0F0F0;color:#8A8A8A;opacity:1}
+.toast{background:rgba(13,13,13,.9)}
+[fill="#0066CC"],[fill="#0066cc"]{fill:#0D0D0D}
+[stroke="#0066CC"],[stroke="#0066cc"]{stroke:#0D0D0D}
+</style>
 </head>
 <body>
 <p class="how" id="how"></p>

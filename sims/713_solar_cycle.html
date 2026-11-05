@@ -146,10 +146,12 @@ var spots=SP.map(function(s){return el('circle',{cx:60+s[0]*.55,cy:58+s[1]*.55,r
 var t1=document.getElementById('t1'),t2=document.getElementById('t2');
 function act(i){return PK[i][1]/360;}
 function sunAt(i){var v=act(i);spots.forEach(function(s,j){s.setAttribute('opacity',j<Math.round(v*12)?1:0);});corona.setAttribute('r',40+24*v);}
-/* 봉우리 점, 연도, 간격 칸 */
+/* 봉우리 점, 연도, 간격 칸 — 띄엄띄엄 고른 세 쌍만 (PK 번호) */
+var PAIRS=[[0,1],[7,8],[12,13]];
 var arcs=el('g',{},svg),dotG=el('g',{},svg);
-var GAP=[],dots=[],yrs=[],boxes=[];
-for(var i=0;i<N;i++){(function(i){
+var dots={},boxes=[],seq=[];   /* seq: 누를 차례(봉우리 번호) */
+PAIRS.forEach(function(pr){seq.push(pr[0],pr[1]);});
+seq.forEach(function(i){
   var x=X(PK[i][0]),y=Y(PK[i][1]);
   var g=el('g',{style:'cursor:pointer'},dotG);
   var halo=el('circle',{cx:x,cy:y,r:15,fill:'#0066CC',opacity:0},g);
@@ -157,33 +159,36 @@ for(var i=0;i<N;i++){(function(i){
   var yt=T(g,x,y-16,String(PK[i][0]),{'text-anchor':'middle','font-size':17,fill:'#0066CC',stroke:'#fff','stroke-width':4,'paint-order':'stroke',opacity:0});
   el('circle',{cx:x,cy:y,r:18,fill:'transparent'},g);
   g.addEventListener('click',function(){pick(i);});
-  dots.push({g:g,d:d,halo:halo,yt:yt,on:false});})(i);}
-for(var j=0;j<N-1;j++){(function(j){
-  var xa=X(PK[j][0]),xb=X(PK[j+1][0]),xm=(xa+xb)/2;
+  dots[i]={g:g,d:d,halo:halo,yt:yt,on:false};});
+PAIRS.forEach(function(pr,k){
+  var a=pr[0],c=pr[1],xa=X(PK[a][0]),xb=X(PK[c][0]),xm=(xa+xb)/2;
   var g=el('g',{opacity:0},arcs);
   el('path',{d:'M'+(xa+3)+' 82 Q'+xm+' 62 '+(xb-3)+' 82',fill:'none',stroke:'#0066CC','stroke-width':2.5},g);
   var fo=el('foreignObject',{x:xm-23,y:16,width:46,height:36},g);
-  var inp=document.createElement('input');inp.type='text';inp.inputMode='numeric';inp.maxLength=3;inp.className='gap';inp.placeholder='?';inp.setAttribute('aria-label',PK[j][0]+'년부터 '+PK[j+1][0]+'년까지 몇 년');
+  var inp=document.createElement('input');inp.type='text';inp.inputMode='numeric';inp.maxLength=3;inp.className='gap';inp.placeholder='?';inp.setAttribute('aria-label',PK[a][0]+'년부터 '+PK[c][0]+'년까지 몇 년');
   fo.appendChild(inp);
-  inp.addEventListener('input',function(){inp.value=inp.value.replace(/[^0-9]/g,'');inp.classList.remove('bad');if(+inp.value===PK[j+1][0]-PK[j][0])ok(j);});
-  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){check(j);}});
-  inp.addEventListener('blur',function(){if(inp.value)check(j);});
-  boxes.push({g:g,inp:inp,done:false});})(j);}
-var next=0;   /* 다음에 누를 봉우리 */
-function check(j){var b=boxes[j];if(b.done)return;if(+b.inp.value===PK[j+1][0]-PK[j][0])ok(j);
-  else{b.inp.classList.add('bad');t2.textContent=PK[j+1][0]+' − '+PK[j][0]+' 을 다시 계산해 보자.';}}
-function ok(j){var b=boxes[j];if(b.done)return;b.done=true;b.inp.classList.remove('bad');b.inp.classList.add('ok');b.inp.readOnly=true;b.inp.blur();next=j+2;status();}
-function pick(i){if(i!==next||dots[i].on)return;var o=dots[i];o.on=true;o.d.setAttribute('fill','#0066CC');o.yt.setAttribute('opacity',1);sunAt(i);
-  if(i>0){var b=boxes[i-1];b.g.setAttribute('opacity',1);next=-1;setTimeout(function(){b.inp.focus();},30);}else next=1;
+  var ans=PK[c][0]-PK[a][0];
+  inp.addEventListener('input',function(){inp.value=inp.value.replace(/[^0-9]/g,'');inp.classList.remove('bad');if(+inp.value===ans)ok(k);});
+  inp.addEventListener('keydown',function(e){if(e.key==='Enter'){check(k);}});
+  inp.addEventListener('blur',function(){if(inp.value)check(k);});
+  boxes.push({g:g,inp:inp,a:a,c:c,ans:ans,done:false});});
+var step=0;   /* seq에서 다음에 누를 차례, -1이면 칸에 쓰는 중 */
+function nextDot(){return step>=0&&step<seq.length?seq[step]:-1;}
+function check(k){var b=boxes[k];if(b.done)return;if(+b.inp.value===b.ans)ok(k);
+  else{b.inp.classList.add('bad');t2.textContent=PK[b.c][0]+' − '+PK[b.a][0]+' 을 다시 계산해 보자.';}}
+function ok(k){var b=boxes[k];if(b.done)return;b.done=true;b.inp.classList.remove('bad');b.inp.classList.add('ok');b.inp.readOnly=true;b.inp.blur();step=2*k+2;status();}
+function pick(i){if(i!==nextDot()||dots[i].on)return;var o=dots[i];o.on=true;o.d.setAttribute('fill','#0066CC');o.yt.setAttribute('opacity',1);sunAt(i);
+  if(step%2===1){var b=boxes[(step-1)/2];b.g.setAttribute('opacity',1);step=-1;setTimeout(function(){b.inp.focus();},30);}else step++;
   status();}
 function status(){
-  dots.forEach(function(o,i){o.g.style.cursor=i===next?'pointer':'default';});
+  var ni=nextDot();
+  seq.forEach(function(i){dots[i].g.style.cursor=i===ni?'pointer':'default';});
   var nd=boxes.filter(function(b){return b.done;}).length;
-  if(nd===N-1){done();return;}
-  if(next===-1){var j=boxes.findIndex(function(b){return !b.done&&b.g.getAttribute('opacity')==='1';});
-    t1.textContent=PK[j][0]+'년부터 '+PK[j+1][0]+'년까지 몇 년 지났을까?';t2.textContent='그래프 위 파란 칸에 써 보자.';}
-  else if(next===0){t1.textContent='가장 왼쪽 봉우리의 점을 눌러 보자.';t2.textContent='흑점 수가 가장 많아진 때(봉우리)마다 점이 찍혀 있다.';}
-  else{t1.textContent='다음 봉우리의 점을 눌러 보자.';t2.textContent='간격 '+nd+'개 / '+(N-1)+'개';}}
+  if(nd===boxes.length){done();return;}
+  if(step===-1){var b=boxes.find(function(b){return !b.done&&b.g.getAttribute('opacity')==='1';});
+    t1.textContent=PK[b.a][0]+'년부터 '+PK[b.c][0]+'년까지 몇 년 지났을까?';t2.textContent='그래프 위 파란 칸에 써 보자.';}
+  else if(step%2===0){t1.textContent=(nd===0?'깜빡이는 봉우리의 점을 눌러 보자.':'이번엔 멀리 떨어진 깜빡이는 봉우리를 눌러 보자.');t2.textContent='흑점 수가 가장 많아진 때(봉우리)를 띄엄띄엄 세 번 재 본다. ('+nd+' / 3번)';}
+  else{t1.textContent='바로 다음 봉우리의 점을 눌러 보자.';t2.textContent='두 봉우리 사이가 몇 년인지 재 보자. ('+nd+' / 3번)';}}
 /* 평균과 예측 */
 var avgG=el('g',{opacity:0},svg);
 var pred=document.getElementById('pred'),pin=document.getElementById('pin'),pmsg=document.getElementById('pmsg');
@@ -193,12 +198,12 @@ var arr=el('line',{x1:x24,y1:yp,x2:x35,y2:yp,stroke:'#0066CC','stroke-width':4,'
 el('circle',{cx:x35,cy:yp,r:9,fill:'#fff',stroke:'#0066CC','stroke-width':4},predG);
 T(predG,x35-6,yp-16,'2035년',{'text-anchor':'end','font-size':20,fill:'#0066CC',stroke:'#fff','stroke-width':4,'paint-order':'stroke'});
 function done(){
-  var sum=PK[N-1][0]-PK[0][0],cnt=N-1;
-  t1.textContent='평균: '+sum+' ÷ '+cnt+' = '+(Math.round(sum/cnt*10)/10)+'\n→ 약 '+Math.round(sum/cnt)+'년';t1.style.whiteSpace='pre-line';
+  var g=boxes.map(function(b){return b.ans;}),sum=g.reduce(function(x,y){return x+y;},0),cnt=g.length;
+  t1.textContent='세 번 모두 '+g.join('년, ')+'년\n→ 약 '+Math.round(sum/cnt)+'년마다 봉우리';t1.style.whiteSpace='pre-line';
   t2.textContent='흑점 수는 약 11년을 주기로 많아졌다가 적어지기를 반복한다.';
   t1.classList.add('fin');
   KIT.tell({type:'sim:answer',n:1,value:String(Math.round(sum/cnt))});   /* 학습지 칸(.sim-in) 1: 평균 주기 */
-  dots.forEach(function(o){o.halo.setAttribute('opacity',0);});
+  seq.forEach(function(i){dots[i].halo.setAttribute('opacity',0);});
   pred.classList.add('on');setTimeout(function(){pin.focus();},60);}
 function checkPred(){var v=+pin.value;if(!pin.value)return;
   if(v>=2034&&v<=2036){pin.classList.remove('bad');pin.classList.add('ok');pin.readOnly=true;pmsg.textContent='맞았다! 2024년 + 약 11년';predG.setAttribute('opacity',1);KIT.tell({type:'sim:answer',n:2,value:String(v)});KIT.tell({type:'sim:done'});}
@@ -207,16 +212,16 @@ pin.addEventListener('input',function(){pin.value=pin.value.replace(/[^0-9]/g,''
 pin.addEventListener('keydown',function(e){if(e.key==='Enter')checkPred();});
 /* 다음에 누를 점이 깜빡인다 */
 var ph=0;
-KIT.ticker(function(dt){ph+=dt;dots.forEach(function(o,i){o.halo.setAttribute('opacity',i===next&&!o.on?.18+.18*Math.sin(ph/220):0);});return true;});
+KIT.ticker(function(dt){ph+=dt;var ni=nextDot();seq.forEach(function(i){var o=dots[i];o.halo.setAttribute('opacity',i===ni&&!o.on?.18+.18*Math.sin(ph/220):0);});return true;});
 KIT.kick();
-function resetAll(){next=0;dots.forEach(function(o){o.on=false;o.d.setAttribute('fill','#fff');o.yt.setAttribute('opacity',0);});
+function resetAll(){step=0;seq.forEach(function(i){var o=dots[i];o.on=false;o.d.setAttribute('fill','#fff');o.yt.setAttribute('opacity',0);});
   boxes.forEach(function(b){b.done=false;b.inp.value='';b.inp.readOnly=false;b.inp.classList.remove('ok','bad');b.g.setAttribute('opacity',0);});
   pin.value='';pin.readOnly=false;pin.classList.remove('ok','bad');pmsg.textContent='';pred.classList.remove('on');predG.setAttribute('opacity',0);t1.classList.remove('fin');sunAt(14);status();KIT.kick();}
 document.getElementById('rs').onclick=function(){this.blur();resetAll();};
 /* 수업자료에서 교사 시연용: 한 번에 채우기 (학습지 안에서는 숨김) */
 var fill=document.getElementById('fillall');
 if(KIT.WS)fill.style.display='none';
-fill.onclick=function(){this.blur();for(var i=0;i<N;i++){if(!dots[i].on){next=i;pick(i);}if(i>0){boxes[i-1].inp.value=PK[i][0]-PK[i-1][0];ok(i-1);}}};
+fill.onclick=function(){this.blur();boxes.forEach(function(b,k){if(b.done)return;step=2*k;[b.a,b.c].forEach(function(i){if(!dots[i].on){pick(i);}else if(step>=0)step++;});b.inp.value=b.ans;ok(k);});};
 sunAt(14);status();
 })();
 </script>

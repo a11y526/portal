@@ -1,0 +1,403 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>학생 화면 시안 · '나' + 리퀴드 글래스</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/design.css">
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { font-family: 'Noto Sans KR', system-ui, sans-serif; color: #0d0d0d; -webkit-font-smoothing: antialiased; font-size: 15px; min-height: 100vh; }
+  a { color: inherit; text-decoration: none; }
+  button { font: inherit; cursor: pointer; }
+  [hidden] { display: none !important; }
+  .num { font-variant-numeric: tabular-nums; }
+
+  /* ---------- 바탕 ---------- */
+  /* 가: '나'처럼 흰 바탕. 유리는 떠 있는 것(위 메뉴·탭·단추)에만 */
+  body.v-a { background: #fff; }
+  /* 나: 멈춰 있는 옅은 색 번짐 위에 큰 상자 자체가 유리 */
+  body.v-b { background:
+      radial-gradient(42% 38% at 12% 8%, rgba(110,168,255,.55), transparent 70%),
+      radial-gradient(38% 34% at 92% 18%, rgba(183,156,255,.50), transparent 70%),
+      radial-gradient(44% 40% at 80% 92%, rgba(111,227,200,.45), transparent 70%),
+      radial-gradient(36% 32% at 8% 86%, rgba(255,196,138,.45), transparent 70%),
+      #EEF1F6; background-attachment: fixed; }
+
+  /* ---------- 리퀴드 글래스 ----------
+     1) 흐림은 아주 약하게(뒤가 비쳐 보이게), 채도만 올림
+     2) 가장자리 굴절: 크롬은 SVG 변위 지도(가장자리 띠에서만 뒤 화면이 휘어 보임, JS가 크기마다 만듦)
+     3) 빛 테두리: 왼쪽 위가 밝고 오른쪽 아래로 옅어지는 1px 띠 + 안쪽 가장자리 옅은 빛
+     4) 바깥은 회색 그림자만. 큰 반사광 덩어리 없음 */
+  .lg { position: relative; isolation: isolate;
+    background: rgba(255,255,255,.55);
+    -webkit-backdrop-filter: blur(8px) saturate(170%);
+            backdrop-filter: blur(8px) saturate(170%);
+    box-shadow:
+      inset 0 0 0 .5px rgba(255,255,255,.6),
+      inset 1.5px 1.5px 1px -1px rgba(255,255,255,.95),
+      inset -1.5px -1.5px 1px -1px rgba(255,255,255,.7),
+      inset 0 0 14px rgba(255,255,255,.35),
+      0 0 0 .5px rgba(0,0,0,.06),
+      0 6px 22px -6px rgba(0,0,0,.14),
+      0 1px 3px rgba(0,0,0,.06); }
+  .lg.refract { -webkit-backdrop-filter: var(--lg-f) saturate(170%); backdrop-filter: var(--lg-f) saturate(170%); }
+  .lg::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+    background: linear-gradient(140deg, rgba(255,255,255,1), rgba(255,255,255,.2) 30%, rgba(255,255,255,0) 50%, rgba(255,255,255,.2) 72%, rgba(255,255,255,.85));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+            mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+  html.lite .lg, html.lite .lg.refract { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.94); }
+
+  /* ---------- 위 메뉴 (둘 다 떠 있는 유리 알약) ---------- */
+  .top { position: sticky; top: 12px; z-index: 30; margin: 12px auto 0; width: min(1160px, calc(100% - 24px)); height: 60px; border-radius: 999px;
+    display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; padding: 0 10px 0 22px; }
+  .brand { font-size: 17px; font-weight: 900; letter-spacing: -.02em; display: flex; align-items: center; gap: 8px; }
+  .nav { display: flex; gap: 2px; }
+  .nav a { height: 42px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; font-weight: 500; color: #3d3d3d; }
+  .nav a:hover { background: rgba(255,255,255,.55); }
+  .nav a.cur { background: #0d0d0d; color: #fff; }
+  .right { justify-self: end; display: flex; align-items: center; gap: 8px; }
+  .coin { height: 40px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; }
+  .coin i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; background: radial-gradient(circle at 35% 30%, #FFE7A1, #E0A92B 70%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+  .coin i.s { background: radial-gradient(circle at 35% 30%, #fff, #A9B0BB 70%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+  .me-dot { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #f2f2f2; }
+
+  /* ---------- 본문 ---------- */
+  .wrap { width: min(1160px, calc(100% - 32px)); margin: 0 auto; padding: 40px 0 120px; display: grid; gap: 22px; }
+  h1 { font-size: 44px; font-weight: 900; letter-spacing: -.035em; line-height: 1.1; }
+  .sub { color: #5d5d5d; font-size: 16px; margin-top: 8px; }
+  h2 { font-size: 21px; font-weight: 700; letter-spacing: -.02em; }
+  .muted { color: #5d5d5d; }
+
+  /* 큰 상자: 가 = 연회색, 나 = 유리 */
+  .box { border-radius: 30px; padding: 28px 30px; display: grid; gap: 16px; }
+  body.v-a .box { background: #F7F7F7; }
+  body.v-a .box.lg { background: #F7F7F7; -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+  body.v-a :is(.box, .item).lg { -webkit-backdrop-filter: none; backdrop-filter: none; box-shadow: none; }
+  body.v-a :is(.box, .item).lg::before { display: none; }
+  body.v-a .item.lg { background: #F7F7F7; }
+  .inner { background: #fff; border-radius: 18px; }
+  body.v-b .inner { background: rgba(255,255,255,.62); box-shadow: inset 0 0 0 1px rgba(255,255,255,.7); }
+
+  .pill { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 44px; padding: 0 22px; border: 0; border-radius: 999px; background: #0d0d0d; color: #fff; font-size: 15px; font-weight: 500; white-space: nowrap; }
+  .pill:hover { background: #2b2b2b; }
+  .pill.sub2 { background: #f2f2f2; color: #0d0d0d; }
+  body.v-b .pill.sub2 { background: rgba(255,255,255,.7); }
+  .pill.sm { height: 36px; padding: 0 16px; font-size: 14px; }
+  .tag { display: inline-flex; align-items: center; height: 26px; padding: 0 11px; border-radius: 999px; font-size: 13px; font-weight: 500; background: #ececec; color: #3d3d3d; }
+  body.v-b .tag { background: rgba(255,255,255,.7); }
+  .tag.ok { background: rgba(34,197,130,.16); color: #0B6B47; }
+  .tag.wait { background: rgba(255,196,77,.24); color: #8A5300; }
+  .tag.ret { background: rgba(255,122,69,.16); color: #A23B0B; }
+
+  /* ---------- 입구(홈) ---------- */
+  .home { display: grid; grid-template-columns: 360px 1fr; gap: 22px; align-items: stretch; }
+  .me { text-align: center; justify-items: center; padding: 34px 28px 28px; }
+  .me .nick { font-size: 28px; font-weight: 900; letter-spacing: -.03em; }
+  .lv { width: 100%; display: grid; gap: 8px; text-align: left; }
+  .lv-row { display: flex; justify-content: space-between; font-size: 14px; color: #5d5d5d; }
+  .lv-row b { color: #0d0d0d; font-size: 15px; }
+  .bar { height: 8px; border-radius: 99px; background: rgba(0,0,0,.08); overflow: hidden; }
+  .bar i { display: block; height: 100%; width: 64%; border-radius: 99px; background: #0d0d0d; }
+  .stats { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+  .stat { padding: 12px 8px; border-radius: 16px; text-align: center; }
+  .stat b { display: block; font-size: 22px; font-weight: 900; letter-spacing: -.02em; }
+  .stat span { font-size: 12.5px; color: #5d5d5d; }
+
+  .menu { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr auto; gap: 14px; }
+  .item { border-radius: 26px; padding: 22px 22px 20px; display: grid; gap: 14px; min-height: 150px; align-content: space-between; transition: transform .2s; }
+  .item:hover { transform: translateY(-2px); }
+  .item.wide { grid-column: span 2; min-height: 0; grid-template-columns: auto 1fr auto; align-items: center; }
+  body.v-a .item { background: #F7F7F7; }
+  .ic { width: 46px; height: 46px; border-radius: 14px; display: grid; place-items: center; background: #fff; }
+  body.v-b .ic { background: rgba(255,255,255,.75); }
+  .ic svg { width: 24px; height: 24px; }
+  .item b { font-size: 20px; font-weight: 900; letter-spacing: -.02em; display: block; }
+  .item .s { font-size: 14px; color: #5d5d5d; margin-top: 3px; display: block; }
+  .item.now { background: #0d0d0d !important; color: #fff; }
+  .item.now .s { color: #bdbdbd; }
+  .item.now .ic { background: rgba(255,255,255,.14); color: #fff; }
+
+  .mats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .mat { padding: 16px; display: grid; gap: 6px; }
+  .mat b { font-size: 15px; }
+  .mat span { font-size: 13.5px; color: #5d5d5d; }
+  .thumb { height: 92px; border-radius: 12px; background: linear-gradient(135deg, #d9dee8, #f3f4f7); }
+
+  /* ---------- 반 페이지 ---------- */
+  .head-row { display: flex; align-items: end; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
+  .seg { display: inline-flex; gap: 4px; padding: 5px; border-radius: 999px; }
+  body.v-a .seg { background: #F2F2F2; }
+  .seg button { height: 40px; padding: 0 18px; border: 0; border-radius: 999px; background: transparent; color: #3d3d3d; font-weight: 500; }
+  .seg button.on { background: #0d0d0d; color: #fff; }
+  .ws { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; align-items: start; }
+  .ws-head { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ws-head h2 { margin-right: auto; }
+  .q { padding: 20px 22px; display: grid; gap: 12px; line-height: 1.75; font-size: 16px; }
+  .bl { display: inline-block; min-width: 110px; height: 36px; border-radius: 10px; padding: 0 12px; border: 0; font: inherit; vertical-align: middle;
+    background: #fff; box-shadow: inset 0 0 0 1.5px #e0e0e0; }
+  .bl.okf { box-shadow: inset 0 0 0 1.5px #22A36D; }
+  .bl.bad { box-shadow: inset 0 0 0 1.5px #E2552B; }
+  .ox { display: flex; gap: 8px; flex-wrap: wrap; }
+  .ox button { height: 40px; padding: 0 18px; border-radius: 999px; border: 0; background: #fff; box-shadow: inset 0 0 0 1.5px #e0e0e0; font-weight: 500; }
+  .ox button.on { background: #0d0d0d; color: #fff; box-shadow: none; }
+  .dots { display: flex; gap: 6px; align-items: center; }
+  .dots i { width: 9px; height: 9px; border-radius: 50%; background: rgba(0,0,0,.14); }
+  .dots i.ok { background: #22A36D; }
+  .dots i.cur { width: 24px; border-radius: 99px; background: #0d0d0d; }
+  .foot { display: flex; align-items: center; justify-content: space-between; gap: 10px; }
+  .sim { border-radius: 22px; aspect-ratio: 4 / 3.4; display: grid; place-items: center; color: #8a8a8a; font-size: 14px;
+    background: #10142A; color: #9aa3c0; }
+  .group { display: grid; gap: 14px; }
+  .mates { display: flex; gap: 14px; flex-wrap: wrap; }
+  .mate { display: grid; justify-items: center; gap: 4px; font-size: 13px; color: #5d5d5d; }
+  .mate .avw { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; background: #fff; display: grid; place-items: center; }
+
+  /* 떠 있는 아래 탭 (휴대폰 폭에서) */
+  .dock { position: fixed; left: 50%; bottom: 14px; transform: translateX(-50%); z-index: 30; display: none; gap: 2px; padding: 6px; border-radius: 999px; }
+  .dock a { width: 64px; height: 52px; border-radius: 999px; display: grid; place-items: center; font-size: 11.5px; color: #3d3d3d; gap: 0; }
+  .dock a svg { width: 20px; height: 20px; }
+  .dock a.cur { background: #0d0d0d; color: #fff; }
+
+  @media (max-width: 860px) {
+    .top { grid-template-columns: 1fr auto; } .nav { display: none; }
+    .home, .ws { grid-template-columns: 1fr; }
+    .menu { grid-template-columns: 1fr 1fr; } .item { min-height: 128px; }
+    .mats { grid-template-columns: 1fr; }
+    h1 { font-size: 34px; }
+    .dock { display: flex; }
+    .box { padding: 22px 20px; border-radius: 26px; }
+  }
+
+  /* 시안 고르기 (화면 밖 도구) */
+  .pick { position: fixed; right: 16px; bottom: 16px; z-index: 99; display: flex; gap: 4px; padding: 4px; background: #0d0d0d; border-radius: 999px; box-shadow: 0 8px 30px rgba(0,0,0,.25); flex-wrap: wrap; max-width: calc(100% - 32px); }
+  .pick button { border: 0; background: transparent; color: #bdbdbd; font-size: 13px; padding: 8px 14px; border-radius: 999px; }
+  .pick button.on { background: #fff; color: #0d0d0d; font-weight: 700; }
+  @media (max-width: 860px) { .pick { bottom: 84px; } }
+</style>
+</head>
+<body class="v-a">
+
+<header class="top lg">
+  <div class="brand">1학년 과학</div>
+  <nav class="nav">
+    <a href="#" data-go="home" class="cur">홈</a>
+    <a href="#" data-go="class">수업</a>
+    <a href="#">마이페이지</a>
+    <a href="#">상점</a>
+    <a href="#">게임</a>
+    <a href="#">순위</a>
+  </nav>
+  <div class="right">
+    <span class="coin lg num"><i></i>128</span>
+    <span class="coin lg num"><i class="s"></i>342</span>
+    <span class="me-dot" id="top-av"></span>
+  </div>
+</header>
+
+<!-- ===== 입구(로그인 뒤) ===== -->
+<main class="wrap" id="p-home">
+  <div class="home">
+    <section class="box lg me">
+      <div id="me-av"></div>
+      <div class="nick">과학왕</div>
+      <span class="tag">1학년 8반</span>
+      <div class="lv">
+        <div class="lv-row"><b>Lv.6</b><span class="num">288 / 330 XP</span></div>
+        <div class="bar"><i></i></div>
+      </div>
+      <div class="stats">
+        <div class="stat inner"><b class="num">7</b><span>이번 달 순위</span></div>
+        <div class="stat inner"><b class="num">128</b><span>금화</span></div>
+        <div class="stat inner"><b class="num">342</b><span>은화</span></div>
+      </div>
+    </section>
+
+    <nav class="menu">
+      <a class="item lg now" href="#" data-go="class">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg></span>
+        <span><b>수업</b><span class="s">713 · 학습지 4 / 12쪽</span></span>
+      </a>
+      <a class="item lg" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg></span>
+        <span><b>마이페이지</b><span class="s">Lv.6 · 42 XP 남음</span></span>
+      </a>
+      <a class="item lg" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 9h16l-1.2 10.2A2 2 0 0 1 16.8 21H7.2a2 2 0 0 1-2-1.8z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></svg></span>
+        <span><b>상점</b><span class="s">금화 128 · 은화 342</span></span>
+      </a>
+      <a class="item lg" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7.5 10.5v4M5.5 12.5h4"/><circle cx="15.5" cy="11.5" r="1" fill="currentColor"/><circle cx="17.5" cy="13.5" r="1" fill="currentColor"/></svg></span>
+        <span><b>게임</b><span class="s">오목 · 오델로 · 루미큐브 · 쿼리도 · 윷놀이</span></span>
+      </a>
+      <a class="item lg wide" href="#">
+        <span class="ic"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 21h8"/><path d="M12 17v4"/><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M17 6h3v1a3 3 0 0 1-3 3"/><path d="M7 6H4v1a3 3 0 0 0 3 3"/></svg></span>
+        <span><b>이번 달 순위</b><span class="s">7위 · ▲2</span></span>
+        <span class="muted" style="font-size:22px">›</span>
+      </a>
+    </nav>
+  </div>
+
+  <section class="box lg">
+    <h2>우리 반 게시판</h2>
+    <div class="mats">
+      <div class="mat inner"><div class="thumb"></div><b>태양 관측 영상</b><span>유튜브</span></div>
+      <div class="mat inner"><div class="thumb"></div><b>7단원 정리 PDF</b><span>PDF</span></div>
+      <div class="mat inner"><div class="thumb"></div><b>수행평가 안내</b><span>12월 7일~11일</span></div>
+    </div>
+  </section>
+</main>
+
+<!-- ===== 반 페이지 ===== -->
+<main class="wrap" id="p-class" hidden>
+  <div class="head-row">
+    <div>
+      <h1>713 태양의 표면과 대기</h1>
+      <p class="sub">1학년 8반 · 3모둠</p>
+    </div>
+    <div class="seg lg">
+      <button class="on">개인 학습지</button><button>모둠활동</button><button>게시판</button>
+    </div>
+  </div>
+
+  <div class="ws">
+    <section class="box lg">
+      <div class="ws-head">
+        <h2>3쪽 · 광구의 모습</h2>
+        <span class="tag">수업자료 3쪽</span>
+        <span class="tag ok">제출함</span>
+      </div>
+      <div class="q inner">
+        <div>태양의 표면을 <input class="bl okf" value="광구">라고 하며, 표면에는 쌀알을 뿌려 놓은 것 같은 <input class="bl" placeholder=" "> 무늬가 보인다.</div>
+        <div>흑점은 주변보다 온도가
+          <div class="ox" style="display:inline-flex;margin-left:6px"><button class="on">낮다</button><button>높다</button></div>
+        </div>
+        <div>흑점이 움직이는 까닭: <input class="bl bad" style="min-width:220px" value="태양이 움직여서"></div>
+      </div>
+      <div class="foot">
+        <div class="dots"><i class="ok"></i><i class="ok"></i><i class="cur"></i><i></i><i></i><i></i><i></i><i></i></div>
+        <button class="pill">이 쪽 제출</button>
+      </div>
+    </section>
+
+    <section class="box lg">
+      <div class="ws-head"><h2>시뮬레이션</h2><button class="pill sm sub2">크게</button></div>
+      <div class="sim">돋보기로 광구 살펴보기</div>
+    </section>
+  </div>
+
+  <section class="box lg group">
+    <div class="ws-head"><h2>우리 모둠</h2><span class="tag wait">검사 대기</span></div>
+    <div class="mates" id="mates"></div>
+  </section>
+</main>
+
+<nav class="dock lg">
+  <a href="#" class="cur" data-go="home"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>홈</a>
+  <a href="#" data-go="class"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="3" width="7" height="9" rx="2"/><rect x="14" y="3" width="7" height="5" rx="2"/><rect x="14" y="12" width="7" height="9" rx="2"/><rect x="3" y="16" width="7" height="5" rx="2"/></svg>수업</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="8" r="4"/><path d="M4 21a8 8 0 0 1 16 0"/></svg>마이</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M4 9h16l-1.2 10.2A2 2 0 0 1 16.8 21H7.2a2 2 0 0 1-2-1.8z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/></svg>상점</a>
+  <a href="#"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M12 14v7M8 21h8"/></svg>순위</a>
+</nav>
+
+<div class="pick">
+  <button data-v="v-a" class="on">가 · 흰 바탕 + 떠 있는 것만 유리</button>
+  <button data-v="v-b">나 · 색 바탕 + 상자도 유리</button>
+  <button data-lite>저사양 보기</button>
+</div>
+
+<script type="module">
+  import { avatarSVG } from '../assets/js/avatar.js';
+  const av = (seed) => ({ face: 'face_round', hair: ['hair_short','hair_curly','hair_bob','hair_tied'][seed % 4], eyes: ['eyes_round','eyes_smile','eyes_sleepy'][seed % 3], mouth: ['mouth_smile','mouth_grin','mouth_flat'][seed % 3], outfit: seed % 2 ? 'outfit_hoodie' : 'outfit_tee', acc: 'acc_none', bg: 'bg_circle' });
+  const put = (id, a, size, live) => { const el = document.getElementById(id); if (el) el.innerHTML = avatarSVG(a, size, { live }); };
+  put('me-av', av(1), 180, true);
+  put('top-av', av(1), 40);
+  document.getElementById('mates').innerHTML = ['과학왕', '별빛', '닉네임 미정', '토끼'].map((n, i) =>
+    `<div class="mate"><span class="avw">${avatarSVG(av(i + 1), 60)}</span>${n}</div>`).join('');
+
+
+  /* 가장자리 굴절(크롬만): 요소 크기마다 변위 지도를 그려 backdrop-filter: url(#…)로 씀.
+     가장자리 bezel 띠 안에서만 뒤 화면을 안쪽으로 당겨 와서 볼록 렌즈처럼 휘어 보이게. 사파리는 흐림만 */
+  const canRefract = !!navigator.userAgentData && !document.documentElement.classList.contains('lite');
+  const svgNS = 'http://www.w3.org/2000/svg';
+  const defs = document.createElementNS(svgNS, 'svg');
+  defs.setAttribute('width', 0); defs.setAttribute('height', 0); defs.style.position = 'absolute';
+  document.body.appendChild(defs);
+  let fid = 0;
+  function mapURL(w, h, r, bezel) {
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const ctx = c.getContext('2d'); const img = ctx.createImageData(w, h); const d = img.data;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+      const px = x + .5, py = y + .5;
+      const cx = Math.min(Math.max(px, r), w - r), cy = Math.min(Math.max(py, r), h - r);
+      let vx = px - cx, vy = py - cy; let len = Math.hypot(vx, vy);
+      let dist, nx = 0, ny = 0;
+      if (len > 0) { dist = r - len; nx = vx / len; ny = vy / len; }
+      else { // 가운데 사각형 안: 가장 가까운 변 쪽
+        const L = px, R = w - px, T = py, B = h - py, m = Math.min(L, R, T, B);
+        dist = m; if (m === L) nx = -1; else if (m === R) nx = 1; else if (m === T) ny = -1; else ny = 1;
+      }
+      let mag = 0;
+      if (dist >= 0 && dist < bezel) { const t = 1 - dist / bezel; mag = t * t * (3 - 2 * t); }
+      const i = (y * w + x) * 4;
+      d[i] = 128 - nx * mag * 127; d[i + 1] = 128 - ny * mag * 127; d[i + 2] = 128; d[i + 3] = 255;
+    }
+    ctx.putImageData(img, 0, 0); return c.toDataURL();
+  }
+  function refract(el) {
+    const w = Math.round(el.offsetWidth), h = Math.round(el.offsetHeight);
+    if (!w || !h) return;
+    const key = w + 'x' + h;
+    if (el.dataset.lgKey === key) return;
+    el.dataset.lgKey = key;
+    const r = Math.min(parseFloat(getComputedStyle(el).borderTopLeftRadius) || 0, h / 2, w / 2);
+    const bezel = Math.min(Math.max(r * .8, 10), 22);
+    const id = 'lgf' + (++fid);
+    const f = document.createElementNS(svgNS, 'filter');
+    f.setAttribute('id', id); f.setAttribute('filterUnits', 'userSpaceOnUse'); f.setAttribute('primitiveUnits', 'userSpaceOnUse');
+    f.setAttribute('x', 0); f.setAttribute('y', 0); f.setAttribute('width', w); f.setAttribute('height', h);
+    f.setAttribute('color-interpolation-filters', 'sRGB');
+    f.innerHTML = `<feImage href="${mapURL(w, h, r, bezel)}" x="0" y="0" width="${w}" height="${h}" result="map"/>
+      <feGaussianBlur in="SourceGraphic" stdDeviation="4" result="soft"/>
+      <feDisplacementMap in="soft" in2="map" scale="${Math.round(bezel * 2.2)}" xChannelSelector="R" yChannelSelector="G"/>`;
+    defs.querySelector('#' + el.dataset.lgId)?.remove();
+    defs.appendChild(f); el.dataset.lgId = id;
+    el.style.setProperty('--lg-f', `url(#${id})`); el.classList.add('refract');
+  }
+  const refreshGlass = () => {
+    document.querySelectorAll('.lg.refract').forEach(el => { if (document.documentElement.classList.contains('lite')) el.classList.remove('refract'); });
+    if (!canRefract || document.documentElement.classList.contains('lite')) return;
+    document.querySelectorAll('.lg').forEach(el => {
+      const box = el.matches('.box, .item');
+      if (box && document.body.classList.contains('v-a')) { el.classList.remove('refract'); delete el.dataset.lgKey; return; }
+      refract(el);
+    });
+  };
+  addEventListener('resize', () => { clearTimeout(refreshGlass.t); refreshGlass.t = setTimeout(refreshGlass, 150); });
+
+  const show = (p) => {
+    document.getElementById('p-home').hidden = p !== 'home';
+    document.getElementById('p-class').hidden = p !== 'class';
+    document.querySelectorAll('[data-go]').forEach(a => a.classList.toggle('cur', a.dataset.go === p && !a.classList.contains('item')));
+    scrollTo(0, 0); refreshGlass();
+  };
+  document.querySelectorAll('[data-go]').forEach(a => a.addEventListener('click', e => { e.preventDefault(); show(a.dataset.go); }));
+  document.querySelectorAll('.pick [data-v]').forEach(b => b.addEventListener('click', () => {
+    document.body.className = b.dataset.v;
+    document.querySelectorAll('.pick [data-v]').forEach(x => x.classList.toggle('on', x === b));
+    refreshGlass();
+  }));
+  document.querySelector('.pick [data-lite]').addEventListener('click', e => {
+    e.currentTarget.classList.toggle('on', document.documentElement.classList.toggle('lite'));
+    document.querySelectorAll('.lg').forEach(el => delete el.dataset.lgKey); refreshGlass();
+  });
+  document.querySelectorAll('.seg button, .ox button').forEach(b => b.addEventListener('click', () => {
+    b.parentElement.querySelectorAll('button').forEach(x => x.classList.toggle('on', x === b));
+  }));
+  refreshGlass();
+  const q = new URLSearchParams(location.search); if (q.get('p')) show(q.get('p')); if (q.get('s')) scrollTo(0, +q.get('s'));
+</script>
+</body>
+</html>

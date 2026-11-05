@@ -1,6 +1,7 @@
 // 포인트 상점(로그인 필요): 꾸미기 아이템(미리 입어 보기 → 바로 구매·착용) / 보상(구매 신청 → 교사 승인)
 import { initUI, toast, esc, countUp } from '../ui.js';
-import { getShop, buyAvatarItem, requestPurchase, saveAvatar } from '../db.js';
+import { setTop } from '../topbar.js';
+import { getShop, buyAvatarItem, requestPurchase, saveAvatar, exchangeSilver } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
 import { avatarSVG, mountAvatar, react, bindReactions, normalize } from '../avatar.js';
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
@@ -16,6 +17,7 @@ const ERR = {
   NO_COINS: '금화가 모자라요',
   NO_SILVER: '은화가 모자라요',
   BAD_PARTNER: '친구 번호를 다시 골라 주세요',
+  BAD_COUNT: '바꿀 개수를 다시 골라 주세요',
 };
 const RARITY = { common: '일반', rare: '희귀', legend: '전설' };
 const STATUS = {
@@ -55,6 +57,7 @@ const lockedOf = (it) => !it.owned && it.min_level > level();
 function renderHero(fresh = null) {
   const look = trying ? { ...wearing, [trying.slot]: trying.id } : wearing;
   heroSvg = mountAvatar($('hero-av'), look, 200, { label: '내 캐릭터', fresh, live: true });
+  if (!trying) setTop({ avatar: wearing });
 }
 
 function renderTryBar() {
@@ -81,6 +84,7 @@ function renderCoins(animate = true) {
   if (animate) { countUp($('coins'), shop.coins); countUp($('silver'), shop.silver); }
   else { $('coins').textContent = shop.coins; $('silver').textContent = shop.silver; }
   $('lv-chip').textContent = `레벨 ${level()}`;
+  setTop({ coins: shop.coins, silver: shop.silver });
 }
 
 /* ---------- 꾸미기 ---------- */
@@ -256,6 +260,7 @@ async function sendRequest(id, partner, btn) {
     pairOpen = null;
     renderCoins();
     renderRewards();
+    renderSwap();
     renderDeco();
     toast('신청했어요', 'ok');
   } catch (err) {
@@ -294,6 +299,55 @@ $('reward-grid').addEventListener('submit', (e) => {
   sendRequest(f.dataset.pair, n, f.querySelector('[type="submit"]'));
 });
 
+/* ---------- 은화 바꾸기 ---------- */
+let swapN = 1;
+const rate = () => shop.exchange ?? { gold: 10, silver: 12 };
+const swapMax = () => Math.min(100, Math.floor(shop.coins / rate().gold));
+
+function renderSwap() {
+  const r = rate();
+  const max = swapMax();
+  swapN = Math.max(1, Math.min(swapN, Math.max(1, max)));
+  $('swap-rate').innerHTML = `${COIN}<b class="num">${r.gold}</b> 금화 → ${SILVER}<b class="num">${r.silver}</b> 은화`;
+  $('swap-sum').innerHTML = `${COIN}<b class="num">${swapN * r.gold}</b><span class="swap-arrow">→</span>${SILVER}<b class="num">${swapN * r.silver}</b>`;
+  $('swap-minus').disabled = swapN <= 1;
+  $('swap-plus').disabled = swapN >= max;
+  const go = $('swap-go');
+  go.disabled = max < 1 || busy;
+  go.textContent = max < 1 ? '금화 부족' : '바꾸기';
+}
+
+$('swap-minus').addEventListener('click', () => { swapN -= 1; renderSwap(); });
+$('swap-plus').addEventListener('click', () => { swapN += 1; renderSwap(); });
+
+$('swap-go').addEventListener('click', async () => {
+  if (busy || swapMax() < 1) return;
+  const r = rate();
+  if (!confirm(`금화 ${swapN * r.gold}개를 은화 ${swapN * r.silver}개로 바꿀까요?`)) return;
+  busy = true;
+  $('swap-go').disabled = true;
+  try {
+    const res = await exchangeSilver(login.token, swapN);
+    if (!res?.ok) {
+      if (res?.error === 'NO_SESSION') return goLogin();
+      toast(ERR[res?.error] || '바꾸지 못했어요', 'error');
+      return;
+    }
+    shop.coins = res.coins;
+    shop.silver = res.silver;
+    renderCoins();
+    renderDeco();
+    renderRewards();
+    toast(`은화 ${res.silver_got}개 받았어요`, 'ok');
+  } catch (err) {
+    console.error(err);
+    toast('바꾸지 못했어요. 다시 눌러 주세요', 'error');
+  } finally {
+    busy = false;
+    renderSwap();
+  }
+});
+
 /* ---------- 탭 ---------- */
 $('tabs').addEventListener('click', (e) => {
   const b = e.target.closest('[data-tab]');
@@ -306,6 +360,7 @@ $('tabs').addEventListener('click', (e) => {
   });
   $('p-deco').classList.toggle('hidden', tab !== 'deco');
   $('p-reward').classList.toggle('hidden', tab !== 'reward');
+  $('p-swap').classList.toggle('hidden', tab !== 'swap');
 });
 
 /* ---------- 시작 ---------- */
@@ -323,6 +378,7 @@ async function load(first = true) {
     renderTryBar();
     renderDeco();
     renderRewards();
+    renderSwap();
   } catch (err) {
     console.error(err);
     if (first) toast('불러오지 못했어요. 새로고침해 주세요', 'error');

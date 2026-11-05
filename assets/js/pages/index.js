@@ -5,6 +5,7 @@ import { CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { initUI, toast, prepareDraw } from '../ui.js';
 import { studentLogin, studentLogout, getMyPage, getClassMaterials, onClassRefresh } from '../db.js';
 import { getOmok } from '../db.js'; // nogame
+import { setTop, refreshTop } from '../topbar.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
 import { mountAvatar, react, bindReactions } from '../avatar.js';
 import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
@@ -120,6 +121,7 @@ $('login-form').addEventListener('submit', async (e) => {
 
 /* ---------- 로그인 뒤 ---------- */
 async function showHome(login) {
+  refreshTop();
   $('v-login').classList.add('hidden');
   $('top-rank').classList.add('hidden');
   $('logout').classList.remove('hidden');
@@ -145,10 +147,11 @@ async function showHome(login) {
     $('go-me-sub').textContent = `레벨 ${me.level.level}`;
     $('go-shop-sub').textContent = `금화 ${me.coins} · 은화 ${me.silver ?? 0}`;
     $('go-rank-sub').textContent = me.month_rank ? `전체 ${me.month_rank}위` : '';
+    setTop({ coins: me.coins, silver: me.silver ?? 0, avatar: me.avatar });
 /* nogame:start */
     // 게임은 오목 스위치 하나로 모두 켜고 끈다(오목·루미큐브·쿼리도)
     getOmok(login.token).then((o) => {
-      if (o?.ok) $('go-games').hidden = !o.open;
+      if (o?.ok) { $('go-games').hidden = !o.open; setTop({ games: !!o.open }); }
     }).catch(() => {});
 /* nogame:end */
     try {
@@ -215,6 +218,7 @@ $('logout').addEventListener('click', async () => {
   const login = readLogin();
   clearLogin();
   showLogin();
+  refreshTop();
   if (login) studentLogout(login.token).catch(() => {});
 });
 

@@ -913,6 +913,15 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .reward-txt span { font-size: 14px; color: var(--ink-2); }
 .reward-btn, .reward-tag { margin-left: auto; flex: none; }
 .reward-btn { min-height: 44px; padding: 0 18px; font-size: 15px; }
+.swap-box { display: flex; flex-direction: column; align-items: center; gap: 18px; padding: 8px 0 4px; }
+.swap-rate { display: flex; align-items: center; gap: 6px; font-size: 15px; color: var(--ink-2); }
+.swap-rate b { color: var(--ink); }
+.swap-step { display: flex; align-items: center; gap: 14px; }
+.swap-pm { width: 48px; min-height: 48px; padding: 0; font-size: 22px; font-weight: 700; }
+.swap-sum { display: flex; align-items: center; gap: 6px; min-width: 190px; justify-content: center; font-size: 24px; font-weight: 900; }
+.swap-sum svg { width: 26px; height: 26px; }
+.swap-arrow { margin: 0 6px; color: var(--ink-2); font-weight: 500; }
+.swap-go { min-height: 48px; min-width: 160px; font-size: 16px; }
 .reward-tag { padding: 8px 14px; font-size: 14px; }
 .pair-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .pair-label { font-size: 14px; font-weight: 700; color: var(--ink-2); }
@@ -2778,3 +2787,55 @@ body.admin dialog .card .input { border-color: var(--a-line2); }
   body.admin .btn { min-height: 40px; }
   body.admin .input { height: 40px; }
 }
+
+/* ===== 학생 화면 공통 위 메뉴 + 리퀴드 글래스 (2026-11-05 시안 mockups/student-glass.html '가' 승인)
+   유리는 떠 있는 것(위 메뉴·금화 알약·아래 탭 바)에만. 크롬은 glass.js가 가장자리 굴절(.lg-refract)을 붙임.
+   .lite·투명도 줄이기면 흐림 없이 흰색 ===== */
+.lg { position: relative; isolation: isolate; background: rgba(255,255,255,.55);
+  -webkit-backdrop-filter: blur(8px) saturate(170%); backdrop-filter: blur(8px) saturate(170%);
+  box-shadow: inset 0 0 0 .5px rgba(255,255,255,.6), inset 1.5px 1.5px 1px -1px rgba(255,255,255,.95), inset -1.5px -1.5px 1px -1px rgba(255,255,255,.7),
+    inset 0 0 14px rgba(255,255,255,.35), 0 0 0 .5px rgba(0,0,0,.06), 0 6px 22px -6px rgba(0,0,0,.14), 0 1px 3px rgba(0,0,0,.06); }
+.lg.lg-refract { -webkit-backdrop-filter: var(--lg-f) saturate(170%); backdrop-filter: var(--lg-f) saturate(170%); }
+.lg::before { content: ""; position: absolute; inset: 0; border-radius: inherit; padding: 1px; pointer-events: none;
+  background: linear-gradient(140deg, #fff, rgba(255,255,255,.2) 30%, rgba(255,255,255,0) 50%, rgba(255,255,255,.2) 72%, rgba(255,255,255,.85));
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor;
+          mask: linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0); }
+.lite .lg, .lite .lg.lg-refract { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.96); }
+@media (prefers-reduced-transparency: reduce) { .lg, .lg.lg-refract { -webkit-backdrop-filter: none; backdrop-filter: none; background: rgba(255,255,255,.96); } }
+
+.stu-top { position: sticky; top: 12px; z-index: 40; margin: 12px auto 0; width: min(1160px, calc(100% - 24px)); height: 60px; border-radius: 999px;
+  display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 12px; padding: 0 10px 0 22px; color: #0d0d0d; font-size: 15px; }
+.stu-brand { font-size: 17px; font-weight: 900; letter-spacing: -.02em; color: #0d0d0d; text-decoration: none; white-space: nowrap; }
+.stu-nav { display: flex; gap: 2px; }
+.stu-nav a { height: 42px; padding: 0 16px; border-radius: 999px; display: inline-flex; align-items: center; font-weight: 500; color: #3d3d3d; text-decoration: none; white-space: nowrap; }
+.stu-nav a:hover { background: rgba(0,0,0,.05); color: #0d0d0d; }
+.stu-nav a.cur { background: #0d0d0d; color: #fff; }
+.stu-right { justify-self: end; display: flex; align-items: center; gap: 8px; }
+.stu-coin { height: 40px; padding: 0 14px; border-radius: 999px; display: inline-flex; align-items: center; gap: 6px; font-weight: 700; font-size: 14px; font-variant-numeric: tabular-nums; }
+.stu-coin i { width: 14px; height: 14px; border-radius: 50%; display: inline-block; background: radial-gradient(circle at 35% 30%, #FFE7A1, #E0A92B 70%); box-shadow: inset 0 0 0 1px rgba(0,0,0,.18); }
+.stu-coin i.s { background: radial-gradient(circle at 35% 30%, #fff, #A9B0BB 70%); }
+.stu-coin .sr { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.stu-me { width: 42px; height: 42px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; background: #f2f2f2; }
+.stu-out, .stu-login { height: 40px; padding: 0 14px; border: 0; border-radius: 999px; background: transparent; color: #5d5d5d; font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+.stu-out:hover { background: rgba(0,0,0,.05); color: #0d0d0d; }
+.stu-login { background: #0d0d0d; color: #fff; padding: 0 18px; font-weight: 500; }
+.stu-dock { display: none; }
+/* 예전 페이지마다 있던 위쪽 링크는 위 메뉴가 대신함(되돌아가기 화살표는 그대로) */
+.has-stu-top .main-top, .has-stu-top .top-links, .has-stu-top .page-top > .nav-link { display: none; }
+
+@media (max-width: 860px) {
+  .stu-top { grid-template-columns: 1fr auto; height: 56px; padding: 0 8px 0 18px; }
+  .stu-nav { display: none; }
+  .stu-out { height: 36px; padding: 0 10px; font-size: 13.5px; }
+  .stu-coin { height: 36px; padding: 0 11px; font-size: 13.5px; }
+  .stu-me { width: 38px; height: 38px; }
+  .stu-dock { position: fixed; left: 50%; bottom: max(12px, env(safe-area-inset-bottom)); transform: translateX(-50%); z-index: 40;
+    display: flex; gap: 2px; padding: 6px; border-radius: 999px; max-width: calc(100% - 16px); }
+  .stu-dock a { min-width: 52px; height: 50px; padding: 0 6px; border-radius: 999px; display: grid; place-items: center; align-content: center; gap: 1px;
+    font-size: 11px; font-weight: 500; color: #3d3d3d; text-decoration: none; }
+  .stu-dock a svg { width: 20px; height: 20px; }
+  .stu-dock a.cur { background: #0d0d0d; color: #fff; }
+  .has-stu-top body { padding-bottom: 84px; }
+}
+@media (max-width: 480px) { .stu-top { grid-template-columns: 1fr; padding-left: 8px; } .stu-brand { display: none; } .stu-right { justify-self: stretch; justify-content: flex-end; } }
+@media (max-width: 400px) { .stu-coin b { font-size: 13px; } .stu-coin { padding: 0 9px; gap: 4px; } }

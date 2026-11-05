@@ -161,6 +161,9 @@ export function initUI({ orbs, measure = !location.pathname.includes('/teacher/'
   bindPointer();
   prepareDraw();
   if (measure) measureFrames();
+  // 학생 화면 공통 위 메뉴(교사 화면·iframe 안·설치 도우미·embed는 빼고)
+  if (!location.pathname.includes('/teacher/') && window.top === window && !/(^|\/)(setup|editor)\.html$/.test(location.pathname)
+    && !new URLSearchParams(location.search).has('embed')) import('./topbar.js').then((m) => m.mountTop()).catch(() => {});
   // 학생 화면: 수업 중 딴 화면 기록
   if (!location.pathname.includes('/teacher/') && window.top === window) import('./away.js').then((m) => m.startAway());
 }

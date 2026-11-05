@@ -1,5 +1,6 @@
 // 마이페이지(로그인 필요): 캐릭터, 레벨 고리, XP 바, 이번 달 순위, 금화, 받은 기록, 닉네임 신청, 꾸미기, 레벨업 연출
 import { clsName } from '../config.js';
+import { setTop } from '../topbar.js';
 import { initUI, toast, esc, countUp, isLite, groupName } from '../ui.js';
 import { getMyPage, requestNickname, saveAvatar } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
@@ -165,6 +166,7 @@ function renderStats() {
   countUp($('total-xp'), me.total_xp);
   countUp($('coins'), me.coins);
   countUp($('silver'), me.silver ?? 0);
+  setTop({ coins: me.coins, silver: me.silver ?? 0, avatar: me.avatar });
   $('month-rank').innerHTML = me.month_rank ? `전체 ${me.month_rank}위 ${moveText(me.month_move)}` : '';
 }
 
@@ -280,6 +282,7 @@ $('wear-save').addEventListener('click', async () => {
     wearing = normalize(res.avatar);
     draft = { ...wearing };
     me.avatar = res.avatar;
+    setTop({ avatar: res.avatar });
     updateWearButtons();
     react(heroSvg, 'wave');
     toast('저장했어요', 'ok');

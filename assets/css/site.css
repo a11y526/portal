@@ -1184,6 +1184,7 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-page td small { display: block; color: var(--accent); font-size: 12.5px; font-weight: 700; }
 .ws-page .w-item { margin-top: 14px; }
 .ws-page .w-q { margin: 8px 0; }
+.ws-page .w-q.ws-simq { display: none; } /* 시뮬레이션 안에 같은 문항이 있음 (worksheet.js hideSim) */
 .ws-page .w-n { display: inline-block; min-width: 22px; margin-right: 4px; font-weight: 900; color: var(--accent); }
 .ws-page .w-n:empty { display: none; }
 .ws-page .w-qline { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; }

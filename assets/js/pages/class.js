@@ -643,7 +643,7 @@ function renderWsPage() {
   // 넓은 화면이면 그 쪽의 시뮬레이션을 오른쪽 칸에 바로 띄운다(좁으면 쪽 안 카드 + [시뮬레이션 열기])
   const side = wideSheet.matches && !isClosed(page) ? $('ws-side') : null;
   if (isClosed(page)) $('ws-page').innerHTML = `<div class="empty ws-closed">${LOCK_SVG}<strong>아직 수업에서 안 나간 쪽이에요</strong></div>`;
-  else renderPage($('ws-page'), page, ws.answers, { locked: locked() || gated(), side });
+  else renderPage($('ws-page'), page, ws.answers, { locked: locked() || gated(), side, hideSim: true });
   if (!side) showSide($('ws-side'), []);
   if (!isClosed(page)) { if (gated(page)) openParts(page); renderGate(page, !!side); }
   const hasSide = !!$('ws-side').dataset.id;

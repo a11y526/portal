@@ -236,7 +236,7 @@ const plotValue = (pts) => [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]).m
    반 페이지: 한 쪽 그리기
    칸 자리(<span data-ws>)를 입력칸·보기 버튼으로 바꾼다
    ========================================================= */
-export function renderPage(box, page, answers, { locked = false, side = null } = {}) {
+export function renderPage(box, page, answers, { locked = false, side = null, hideSim = false } = {}) {
   const tpl = document.createElement('template');
   tpl.innerHTML = page?.html || '';
   const frag = tpl.content;
@@ -298,6 +298,14 @@ export function renderPage(box, page, answers, { locked = false, side = null } =
     }
     mark.replaceWith(el);
   });
+  // hideSim(반 페이지, 2026-11-05): 시뮬레이션이 있는 쪽에서 칸이 모두 시뮬레이션이 채우는 칸(.sim-in)인 문항은 숨긴다.
+  // 같은 문항이 시뮬레이션 안에 있고 답도 시뮬레이션에서 내므로 두 번 보이지 않게
+  if (hideSim && wrap.querySelector('.w-sim[data-sim]')) {
+    wrap.querySelectorAll('.w-q').forEach((q) => {
+      const all = q.querySelectorAll('.ws-ox, .ws-in, .ws-plot');
+      if (all.length && [...all].every((el) => el.matches('.ws-sim-ox, .ws-sim-in'))) q.classList.add('ws-simq');
+    });
+  }
   // 시뮬레이션 자리: 카드 + [시뮬레이션 열기]. iframe은 누를 때만 만든다
   // side(넓은 화면 반 페이지)를 주면 카드 대신 오른쪽 칸에 바로 띄운다
   const pg = String(page?.slide ?? '');

@@ -398,6 +398,9 @@
         <span>오델로 승리</span>
         <span></span>
         <input class="input num" type="number" min="0" max="1000" name="ot_silver" aria-label="오델로 승리 은화" required>
+        <span>윷놀이 승리(이긴 편 모두)</span>
+        <span></span>
+        <input class="input num" type="number" min="0" max="1000" name="yt_silver" aria-label="윷놀이 승리 은화" required>
         <span>달 자원 RPG 완료</span>
         <span></span>
         <input class="input num" type="number" min="0" max="1000" name="mr_silver" aria-label="달 자원 RPG 완료 은화" required>
@@ -452,7 +455,7 @@
 
     <section class="card glass rise panel hidden" data-panel="omok" data-title="게임" aria-labelledby="h-omok">
       <h2 id="h-omok">게임</h2>
-      <p class="muted" style="margin:0">켠 반만 오목·오델로·루미큐브·쿼리도를 할 수 있어요(학생 첫 화면의 '게임'). 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 온라인 판에서도 나가요.</p>
+      <p class="muted" style="margin:0">켠 반만 오목·오델로·루미큐브·쿼리도·윷놀이를 할 수 있어요(학생 첫 화면의 '게임'). 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 온라인 판에서도 나가요.</p>
       <p class="muted" style="margin:0">오목: 첫 돌을 놓으면 한 판으로 세고, 이긴 판마다 <span class="num" id="omok-reward">2 XP · 2금화</span>(보상은 하루에 정한 횟수까지, 그 뒤 승리는 랭킹에만).</p>
       <form class="row-actions" id="omok-form">
         <label for="omok-daily">오목 하루 판 수</label>
@@ -489,6 +492,14 @@
         <input class="input num" type="number" min="1" max="100" step="1" id="qd-daily" name="daily" required style="width:96px">
         <label for="qd-rdaily">보상 받는 승리(하루)</label>
         <input class="input num" type="number" min="0" max="100" step="1" id="qd-rdaily" name="reward_daily" required style="width:96px">
+        <button type="submit" class="btn btn-primary btn-small press">저장</button>
+      </form>
+      <p class="muted" style="margin:0">윷놀이: 1대1·2대2 팀전, 6개 반 전체에서 먼저 온 사람끼리, 던지기·말 옮기기 하나에 <span class="num" id="yt-turn">20</span>초(넘기면 대신 하고 4번 연속이면 나감). 빽도 있음. 시작된 판을 한 판으로 세고, 말 4개가 먼저 다 난 편 모두 <span class="num" id="yt-reward">3은화</span>, 보상은 하루에 정한 횟수까지(상대가 모두 나가서 이긴 판은 없음).</p>
+      <form class="row-actions" id="yt-form">
+        <label for="yt-daily">윷놀이 하루 판 수</label>
+        <input class="input num" type="number" min="1" max="100" step="1" id="yt-daily" name="daily" required style="width:96px">
+        <label for="yt-rdaily">보상 받는 승리(하루)</label>
+        <input class="input num" type="number" min="0" max="100" step="1" id="yt-rdaily" name="reward_daily" required style="width:96px">
         <button type="submit" class="btn btn-primary btn-small press">저장</button>
       </form>
       <div class="row-actions" id="omok-all">

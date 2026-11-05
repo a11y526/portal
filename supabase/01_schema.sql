@@ -923,3 +923,43 @@ create index if not exists moon_rpg_runs_student_idx on public.moon_rpg_runs (st
 alter table public.avatar_items drop constraint if exists avatar_items_slot_check;
 alter table public.avatar_items add constraint avatar_items_slot_check
   check (slot in ('face', 'hair', 'hat', 'eyes', 'mouth', 'outfit', 'acc', 'pet', 'aura', 'bg'));
+
+-- ---------------------------------------------------------
+-- 윷놀이 (2026-11-05 사용자 요청): 1대1(2명)·2대2 팀전(4명) 온라인. 6개 반 전체에서 인원별로 먼저 온 사람끼리.
+-- 오목 스위치(classes.omok_open)를 같이 쓴다. 이긴 편 모두 은화(settings.yut), 하루 판 수·보상 횟수 제한.
+-- 윷판 29밭(고정). 말 위치 -1 안 나감 · 0~28 판 위 · 100 남. 말 8개 = 편 0(0~3) + 편 1(4~7). 자리 = 0~3, 편 = 자리 % 2.
+-- 규칙은 assets/js/yut.js와 같다
+-- ---------------------------------------------------------
+create table if not exists public.yt_games (
+  id         uuid primary key default gen_random_uuid(),
+  status     text not null default 'waiting' check (status in ('waiting', 'playing', 'done')),
+  size       smallint not null check (size in (2, 4)),
+  created_at timestamptz not null default now(),
+  started_at timestamptz null,
+  ended_at   timestamptz null,
+  pieces     smallint[] not null default '{-1,-1,-1,-1,-1,-1,-1,-1}',
+  turn       smallint not null default 0,      -- 지금 차례 자리
+  turn_at    timestamptz null,                 -- 지금 할 일(던지기·말 쓰기)이 시작된 시각(제한 시간 기준)
+  throws     smallint not null default 0,      -- 남은 던지기
+  results    smallint[] not null default '{}', -- 던져 나온 윷 중 아직 안 쓴 것(-1 빽도, 1~5)
+  version    int not null default 0,
+  moves      int not null default 0,
+  last       jsonb null,                       -- 마지막 일 {seat, kind: throw|move|skip|leave, sticks, value, piece, from, to, n, caught, auto}
+  winner     smallint null,                    -- 이긴 편(0 | 1)
+  end_reason text null check (end_reason in ('home', 'left'))
+);
+create index if not exists yt_games_status_idx on public.yt_games (status, size, created_at);
+
+create table if not exists public.yt_players (
+  game_id    uuid not null references public.yt_games(id) on delete cascade,
+  seat       smallint not null check (seat between 0 and 3),
+  student_id uuid not null references public.students(id) on delete cascade,
+  timeouts   smallint not null default 0,      -- 연속으로 시간을 넘긴 수(4번이면 나간 것으로)
+  paid       boolean not null default false,   -- 이긴 편으로 은화를 받았는지
+  left_at    timestamptz null,
+  seen_at    timestamptz not null default now(),
+  joined_at  timestamptz not null default now(),
+  primary key (game_id, seat),
+  unique (game_id, student_id)
+);
+create index if not exists yt_players_student_idx on public.yt_players (student_id, joined_at);

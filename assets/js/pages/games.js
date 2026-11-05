@@ -1,7 +1,7 @@
-// 게임 모음: 오목(안에서 AI 대전·1대1·랭킹 탭)·오델로·루미큐브·쿼리도. 모두 오목 스위치(classes.omok_open) 하나로 켜고 끈다.
+// 게임 모음: 오목(안에서 AI 대전·1대1·랭킹 탭)·오델로·루미큐브·쿼리도·윷놀이. 모두 오목 스위치(classes.omok_open) 하나로 켜고 끈다.
 // 칸마다 오늘 한 판 수 또는 하는 중인 판을 보여 준다.
 import { initUI, prepareDraw } from '../ui.js';
-import { getOmok, omState, otState, rkState, qdState } from '../db.js';
+import { getOmok, omState, otState, rkState, qdState, ytState } from '../db.js';
 import { readLogin, clearLogin } from '../login.js';
 
 initUI();
@@ -39,6 +39,9 @@ async function load() {
   fill('go-rk-sub', rkState(login.token));
   qdState(login.token).then((r) => {
     if (r?.ok) $('go-qd-sub').textContent = r.game ? online(r) : `2명 · 4명 · ${online(r)}`;
+  }).catch(() => {});
+  ytState(login.token).then((r) => {
+    if (r?.ok) $('go-yt-sub').textContent = r.game ? online(r) : `1대1 · 2대2 · ${online(r)}`;
   }).catch(() => {});
 }
 

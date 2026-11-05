@@ -287,6 +287,30 @@ export async function qdPlay(token, gameId, kind, value) {
   return unwrap(await need().rpc('qd_play', { p_token: token, p_game_id: gameId, p_kind: kind, p_value: value }));
 }
 
+// 윷놀이 (1대1 = size 2, 2대2 팀전 = size 4). 결과: { ok: true, open, today, daily, silver, reward_daily, rewarded, turn(초), avatar, queue: { 2, 4 },
+//   game: null | { id, status, size, version, me(자리), team(편 0|1), turn, turn_sec, left_ms, pieces(말 8개: -1 안 나감·0~28·100 남),
+//                  throws(남은 던지기), results(안 쓴 윷: -1 빽도·1~5), moves, last, winner(편), end_reason(home|left), reward,
+//                  players: [{ seat, team, me, class_id, nickname, avatar, left }] } }
+export async function ytState(token, gameId = null) {
+  return unwrap(await need().rpc('yt_state', { p_token: token, p_game_id: gameId }));
+}
+
+// 판 찾기(size 2 | 4): ytState와 같은 결과 또는 error = 'CLOSED' | 'LIMIT' | 'BAD_SIZE'
+export async function ytJoin(token, size) {
+  return unwrap(await need().rpc('yt_join', { p_token: token, p_size: size }));
+}
+
+// 나가기(대기 중이면 취소, 하는 중이면 기권)
+export async function ytLeave(token, gameId) {
+  return unwrap(await need().rpc('yt_leave', { p_token: token, p_game_id: gameId }));
+}
+
+// 던지기 ytPlay(token, id, 'throw') · 말 쓰기 ytPlay(token, id, 'move', 말 0~7, 윷 -1·1~5)
+// 실패하면 { ok: false, error: 'OVER' | 'NOT_TURN' | 'NO_THROW' | 'THROW_FIRST' | 'BAD_PIECE' | 'BAD_VALUE' | 'BAD_MOVE' | 'BAD_GAME', state }
+export async function ytPlay(token, gameId, kind, piece = null, value = null) {
+  return unwrap(await need().rpc('yt_play', { p_token: token, p_game_id: gameId, p_kind: kind, p_piece: piece, p_value: value }));
+}
+
 // 오델로 (1대1 온라인). 결과: { ok: true, open, today, daily, turn(초), avatar,
 //   game: null | { id, status(waiting|playing|done), version, me(1 흑 | 2 백), turn, turn_sec, left_ms, board(64칸, 0 빈 칸·1 흑·2 백),
 //                  moves, last(칸), flipped(뒤집힌 칸들), passed(상대 자동 패스), winner, end_reason(end|time|left),
@@ -326,7 +350,7 @@ export async function moonRpgFinish(token, ending, stats, choices) {
   }));
 }
 
-/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>, 오델로 ot-<판>) ---------- */
+/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>, 오델로 ot-<판>, 윷놀이 yt-<판>) ---------- */
 let gameChannel = null;
 let gameChannelId = null;
 
@@ -641,7 +665,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   return unwrap(await need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","달 자원 RPG 완료","게임 XP 회수")')
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","윷놀이 승리","달 자원 RPG 완료","게임 XP 회수")')
     .order('created_at', { ascending: false }).limit(limit));
 }
 
@@ -986,6 +1010,16 @@ export async function getRummikubRules() {
 
 export async function saveRummikubRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'rummikub', value }, { onConflict: 'key' }));
+}
+
+// 윷놀이 { silver(이긴 편 모두), daily(하루 판 수), reward_daily(보상 받는 승리), turn(할 일 하나 초) }
+export async function getYutRules() {
+  const rows = unwrap(await need().from('settings').select('value').eq('key', 'yut'));
+  return rows[0]?.value ?? null;
+}
+
+export async function saveYutRules(value) {
+  unwrap(await need().from('settings').upsert({ key: 'yut', value }, { onConflict: 'key' }));
 }
 
 // 쿼리도 { xp, coins, daily(하루 판 수), reward_daily(보상 받는 승리), turn(한 수 초) }

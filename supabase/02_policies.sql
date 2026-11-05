@@ -422,3 +422,21 @@ drop policy if exists moon_rpg_runs_teacher_all on public.moon_rpg_runs;
 create policy moon_rpg_runs_teacher_all on public.moon_rpg_runs
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
+
+-- ---------------------------------------------------------
+-- 윷놀이 (2026-11-05): 학생은 yt_* 함수로만
+-- ---------------------------------------------------------
+alter table public.yt_games enable row level security;
+alter table public.yt_players enable row level security;
+revoke all on public.yt_games from anon;
+revoke all on public.yt_players from anon;
+
+drop policy if exists yt_games_teacher_all on public.yt_games;
+create policy yt_games_teacher_all on public.yt_games
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
+drop policy if exists yt_players_teacher_all on public.yt_players;
+create policy yt_players_teacher_all on public.yt_players
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());

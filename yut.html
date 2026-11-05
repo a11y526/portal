@@ -1,0 +1,223 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>윷놀이</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="assets/css/design.css">
+<link rel="stylesheet" href="assets/css/site.css">
+</head>
+<body>
+<main class="wrap me-wrap omok-wrap yt-wrap">
+  <div class="page-top">
+    <a href="games.html" class="icon-btn glass lift" aria-label="게임으로">
+      <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 12H5"/><path d="M11 6l-6 6 6 6"/></svg>
+    </a>
+    <a href="me.html" class="nav-link glass lift">마이페이지</a>
+  </div>
+
+  <nav class="class-tabs glass omok-modes" aria-label="윷놀이">
+    <button type="button" class="class-tab press on" data-tab="game" aria-current="page">게임</button>
+    <button type="button" class="class-tab press" data-tab="rules">규칙</button>
+  </nav>
+
+  <section class="glass-strong me-card omok-msg hidden rise" id="v-login">
+    <h1 class="omok-msg-h">윷놀이</h1>
+    <p class="muted">로그인하면 할 수 있어요</p>
+    <a class="btn btn-primary press" href="index.html">로그인</a>
+  </section>
+
+  <div class="omok-body hidden" id="v-game">
+    <section class="glass-strong omok-hero rise" id="hero">
+      <div class="omok-av" id="av"></div>
+      <div class="omok-hero-main">
+        <div class="me-name-row">
+          <h1 class="me-name">윷놀이</h1>
+          <span class="chip">6개 반 · 한 번에 <span class="num" id="turn-sec">20</span>초</span>
+        </div>
+        <p class="omok-reward">이기면 <b class="num" id="rw-co">3</b>은화 · 오늘 보상 <b class="num" id="rw-today">0 / 1</b></p>
+        <div class="omok-today">
+          <span>오늘 한 판</span>
+          <span class="omok-dots" id="dots" aria-hidden="true"></span>
+          <b class="num" id="today"></b>
+        </div>
+      </div>
+    </section>
+
+    <!-- 판 찾기·기다리기 -->
+    <section class="glass-strong rk-lobby rise" style="--d:.06s" id="lobby">
+      <div class="rk-seats" id="seats"></div>
+      <b class="rk-lobby-h" id="lobby-h">어떻게 할까요?</b>
+      <div class="qd-sizes" id="sizes">
+        <button type="button" class="qd-size glass press" data-size="2">
+          <b>1대1</b><span class="muted">말 4개씩</span><span class="qd-q num" id="q2"></span>
+        </button>
+        <button type="button" class="qd-size glass press" data-size="4">
+          <b>2대2</b><span class="muted">같은 편 둘이 말 4개</span><span class="qd-q num" id="q4"></span>
+        </button>
+      </div>
+      <div class="row-actions">
+        <button type="button" class="btn btn-line press hidden" id="cancel">취소</button>
+      </div>
+
+      <div class="omok-cover hidden" id="closed">
+        <div class="omok-cover-card glass-strong pop">
+          <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="10.5" width="14" height="10" rx="2.5"/><path d="M8 10.5V7.5a4 4 0 0 1 8 0v3"/></svg>
+          <b>지금은 게임을 할 수 없어요</b>
+          <span class="muted">선생님이 열면 할 수 있어요</span>
+        </div>
+      </div>
+
+      <div class="omok-cover hidden" id="limit">
+        <div class="omok-cover-card glass-strong pop">
+          <b>오늘 판을 다 했어요</b>
+          <span class="muted">내일 다시 할 수 있어요</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- 대국 -->
+    <section class="omok-play yt-play hidden" id="table">
+      <div class="omok-board-box glass-strong yt-board-box">
+        <svg class="yt-board" id="board" viewBox="-9 -9 118 118" role="group" aria-label="윷판"></svg>
+
+        <div class="omok-cover hidden" id="result">
+          <div class="omok-cover-card glass-strong pop" id="result-card">
+            <b class="omok-result-h" id="result-h"></b>
+            <span class="omok-result-s" id="result-s"></span>
+            <div class="row-actions">
+              <button type="button" class="btn btn-line press" id="view">판 보기</button>
+              <button type="button" class="btn btn-primary press" id="again">한 판 더</button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <aside class="omok-side om-side yt-side">
+        <div class="glass me-card omok-state">
+          <span class="omok-turn" id="turn"></span>
+          <span class="rk-clock num" id="clock" aria-live="off"></span>
+          <span class="muted qd-last" id="last"></span>
+        </div>
+
+        <div class="glass me-card yt-throw">
+          <div class="yt-sticks" id="sticks" aria-hidden="true"></div>
+          <b class="yt-got" id="got" aria-live="polite"></b>
+          <button type="button" class="btn btn-primary btn-big press" id="throw">윷 던지기</button>
+          <div class="yt-results" id="results" role="group" aria-label="쓸 윷"></div>
+          <span class="muted qd-hint" id="hint"></span>
+        </div>
+
+        <div class="yt-trays" id="trays"></div>
+        <div class="om-players" id="players"></div>
+        <div class="omok-btns">
+          <button type="button" class="btn btn-line press" id="resign">기권</button>
+          <button type="button" class="btn btn-primary press hidden" id="again2">한 판 더</button>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <!-- 규칙 탭 -->
+  <section class="glass-strong qd-rules hidden rise" id="v-rules" aria-labelledby="rules-h">
+    <h1 class="qd-rules-h" id="rules-h">윷놀이 규칙</h1>
+
+    <div class="qd-rule">
+      <div class="qd-mini yt-mini" data-mini="goal"></div>
+      <div>
+        <h2>목표</h2>
+        <p>말 4개를 윷판 한 바퀴 돌려 <b>참먹이(오른쪽 아래)를 지나 모두 먼저 나가면</b> 이겨요. 말은 오른쪽 아래에서 출발해 위로 올라가요.</p>
+        <p class="muted">1대1은 말 4개씩, 2대2는 같은 편 두 사람이 말 4개를 함께 써요. 차례는 편을 번갈아 돌아요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini yt-mini" data-mini="sticks"></div>
+      <div>
+        <h2>윷 던지기</h2>
+        <p>윷가락 4개 중 평평한 쪽(배)이 위로 온 수로 정해요. <b>도 1칸 · 개 2칸 · 걸 3칸 · 윷 4칸 · 모 5칸</b>. 배가 1개면 도, 2개 개, 3개 걸, 4개 윷, 하나도 없으면 모예요.</p>
+        <p><b>윷이나 모가 나오면 한 번 더</b> 던져요. 나온 윷을 모두 모은 뒤 하나씩 골라 말을 움직여요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini yt-mini" data-mini="back"></div>
+      <div>
+        <h2>빽도</h2>
+        <p>표시(빨간 점)가 있는 윷가락 하나만 배가 위로 오면 <b>빽도: 한 칸 뒤로</b> 가요. 판 위에 말이 없으면 그 빽도는 그냥 넘어가요.</p>
+        <p class="muted">방(가운데)에서 빽도면 오른쪽 위 길로, 참먹이에서 빽도면 바로 앞 칸으로 가요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini yt-mini" data-mini="short"></div>
+      <div>
+        <h2>지름길</h2>
+        <p>모서리나 가운데 방에 <b>딱 멈추면</b> 다음에 안쪽 대각선 길로 가요. 지나치기만 하면 그대로 바깥 길로 가요.</p>
+        <p class="muted">방에 멈춘 말은 참먹이 쪽으로 바로 가요. 가장 빠른 길이에요.</p>
+      </div>
+    </div>
+
+    <div class="qd-rule">
+      <div class="qd-mini yt-mini" data-mini="catch"></div>
+      <div>
+        <h2>잡기와 업기</h2>
+        <p>상대 말이 있는 칸에 멈추면 <b>그 말을 잡아</b> 처음으로 돌려보내고 <b>한 번 더</b> 던져요. 우리 편 말이 있는 칸에 멈추면 <b>업혀서</b> 다음부터 함께 움직여요(잡히면 같이 돌아가요).</p>
+      </div>
+    </div>
+
+    <div class="qd-rule qd-rule-text">
+      <div>
+        <h2>나가기</h2>
+        <ul>
+          <li>참먹이에 딱 멈추면 그 자리에 서 있고, 다음에 한 칸이라도 더 가야 나가요</li>
+          <li>남은 칸보다 큰 윷이 나와도 나갈 수 있어요</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="qd-rule qd-rule-text">
+      <div>
+        <h2>시간과 보상</h2>
+        <ul>
+          <li>던지기·말 옮기기 하나에 <b class="num" id="help-turn">20</b>초. 시간이 지나면 컴퓨터가 대신 던지거나 가장 앞선 말을 옮기고, 4번 연속이면 나간 것으로 해요</li>
+          <li>이기면 <b class="num" id="help-reward">3은화</b>(하루 <b class="num" id="help-rdaily">1</b>번까지). 2대2는 이긴 편 두 사람 모두 받아요. 상대가 모두 나가서 이긴 판은 보상이 없어요</li>
+          <li>하루 <b class="num" id="help-daily">5</b>판까지 할 수 있어요. 시작된 판은 중간에 나가도 한 판으로 세요</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="qd-rule qd-rule-text">
+      <div>
+        <h2>조작</h2>
+        <ul>
+          <li>[윷 던지기]를 누르면 던져요. 한 번 더 던질 수 있으면 버튼이 다시 켜져요</li>
+          <li>나온 윷이 여러 개면 쓸 윷을 먼저 누르고, 움직일 말(판 위의 말 또는 [새 말])을 누르세요. 마우스를 올리면 갈 칸이 보여요</li>
+        </ul>
+      </div>
+    </div>
+
+    <button type="button" class="btn btn-primary press qd-rules-go" data-tab="game">게임으로</button>
+  </section>
+
+  <div class="lvup hidden" id="lvup" role="dialog" aria-modal="true" aria-labelledby="lvup-h">
+    <div class="lvup-box">
+      <div class="lvup-rays" aria-hidden="true"><svg class="rays" viewBox="0 0 200 200">
+        <g fill="#FFC48A"><path d="M100 100 L96 0 L104 0 Z"/><path d="M100 100 L196 96 L196 104 Z"/><path d="M100 100 L104 200 L96 200 Z"/><path d="M100 100 L4 104 L4 96 Z"/><path d="M100 100 L168 26 L174 32 Z"/><path d="M100 100 L174 168 L168 174 Z"/><path d="M100 100 L32 174 L26 168 Z"/><path d="M100 100 L26 32 L32 26 Z"/></g>
+      </svg></div>
+      <div class="lvup-card glass-strong">
+        <div class="lvup-av" id="lvup-av"></div>
+        <span class="lvup-h" id="lvup-h">레벨 업!</span>
+        <span class="lvup-n num" id="lvup-n"></span>
+        <span class="lvup-s" id="lvup-s"></span>
+        <button type="button" class="btn btn-primary btn-big press" id="lvup-ok">확인</button>
+      </div>
+    </div>
+  </div>
+</main>
+<script type="module" src="assets/js/pages/yut.js"></script>
+</body>
+</html>

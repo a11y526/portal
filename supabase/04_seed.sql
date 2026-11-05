@@ -413,3 +413,8 @@ from (values
 -- 2026-11-03 첫 답 선착순 쪽: 712 14쪽(스무고개)은 추첨 없이 낸 순서대로
 insert into public.settings (key, value) values ('ws_first_fcfs', '{"712": [14]}'::jsonb)
 on conflict (key) do nothing;
+
+-- 윷놀이 (2026-11-05): 이긴 편 모두 받는 은화(XP 없음), 하루 판 수(시작된 판), 보상 받는 승리(하루), 할 일 하나 제한 시간(초)
+insert into public.settings (key, value) values
+  ('yut', '{"xp": 0, "silver": 3, "daily": 5, "reward_daily": 1, "turn": 20}'::jsonb)
+on conflict (key) do nothing;

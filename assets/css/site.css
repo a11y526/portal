@@ -2157,6 +2157,79 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
   .qd-pawn { transition: none; }
 }
 
+/* ---------- 윷놀이 (yut.html) ---------- */
+/* 편 색: 0 파랑 · 1 주황 */
+.yt-board-box { padding: 3%; }
+.yt-board { display: block; width: min(100%, calc(100vh - 240px)); min-width: 280px; margin: 0 auto; aspect-ratio: 1; user-select: none; -webkit-user-select: none; touch-action: manipulation; }
+.yt-line { stroke: rgba(78,88,104,.32); stroke-width: .9; }
+.yt-spot { fill: #fff; stroke: rgba(78,88,104,.5); stroke-width: .8; }
+.yt-spot.big { stroke: var(--ink); stroke-width: 1.1; }
+.yt-start { fill: none; stroke: var(--ink-2); stroke-width: 1; stroke-linecap: round; stroke-linejoin: round; }
+.yt-label { font-size: 4.6px; font-weight: 700; fill: var(--ink-2); }
+.yt-step { fill: rgba(11,18,32,.45); pointer-events: none; }
+.yt-to { fill: none; stroke-width: 1.4; stroke-dasharray: 2.2 1.6; pointer-events: none; }
+.yt-to.t0 { stroke: #2457E6; }
+.yt-to.t1 { stroke: #E58A00; }
+.yt-out { font-size: 5px; font-weight: 900; fill: var(--accent); pointer-events: none; }
+.yt-recent { fill: rgba(255,196,77,.35); pointer-events: none; }
+.yt-piece { transition: transform .3s ease-out; }
+.yt-piece-hit { fill: transparent; }
+.yt-piece-c { stroke: #fff; stroke-width: 1.1; }
+.yt-piece.t0 .yt-piece-c, .yt-chip.t0, .yt-tray.t0 .yt-tray-dots i { fill: #2457E6; background: #2457E6; }
+.yt-piece.t1 .yt-piece-c, .yt-chip.t1, .yt-tray.t1 .yt-tray-dots i { fill: #E58A00; background: #E58A00; }
+.yt-piece-n { font-size: 5px; font-weight: 900; fill: #fff; pointer-events: none; }
+.yt-piece.can { cursor: pointer; }
+.yt-piece.can .yt-piece-c { stroke: var(--ink); stroke-width: 1.3; }
+.yt-piece.can.hover .yt-piece-c, .yt-piece.can:focus-visible .yt-piece-c { stroke-width: 2; }
+.yt-piece:focus { outline: none; }
+.yt-chip { width: 18px; height: 18px; flex: none; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.8); }
+
+.yt-throw { display: flex; flex-direction: column; align-items: center; gap: 10px; padding: 16px; }
+.yt-sticks { display: flex; gap: 10px; justify-content: center; height: 76px; }
+.yt-stick { width: 20px; height: 72px; }
+.yt-stick-b { fill: #B88A5A; stroke: #7A5634; stroke-width: 1.4; }
+.yt-stick.up .yt-stick-b { fill: #F3E2C6; }
+.yt-stick-x { stroke: #5B3E22; stroke-width: 1.8; stroke-linecap: round; }
+.yt-stick-mark { fill: #D2361E; }
+.yt-stick.toss { animation: yt-toss .65s cubic-bezier(.3, .7, .4, 1) both; animation-delay: calc(var(--i) * 40ms); }
+@keyframes yt-toss {
+  0% { transform: translateY(0) rotate(0); }
+  45% { transform: translateY(-26px) rotate(200deg); }
+  100% { transform: translateY(0) rotate(360deg); }
+}
+.yt-got { font-size: 26px; font-weight: 900; min-height: 1.3em; letter-spacing: -0.02em; }
+.yt-got.big { color: var(--accent); }
+.yt-got.back { color: var(--returned-solid); }
+.yt-throw .btn-big { width: 100%; }
+.yt-results { display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; min-height: 0; }
+.yt-res { min-width: 56px; min-height: 44px; padding: 0 14px; border-radius: 999px; border: 1.5px solid rgba(78,88,104,.3);
+  background: rgba(255,255,255,.8); font: inherit; font-size: 17px; font-weight: 900; color: var(--ink); cursor: pointer; }
+.yt-res.back { color: var(--returned-solid); }
+.yt-res.on { background: var(--ink); border-color: var(--ink); color: #fff; }
+.yt-res:disabled { cursor: default; opacity: .75; }
+.yt-throw .qd-hint { padding-left: 0; text-align: center; }
+
+.yt-trays { display: grid; gap: 8px; }
+.yt-tray { display: grid; grid-template-columns: auto 1fr auto; align-items: center; gap: 4px 10px; padding: 10px 14px; border-radius: var(--r-md); font-size: 15px; }
+.yt-tray-dots { display: flex; gap: 4px; min-height: 14px; }
+.yt-tray-dots i { width: 14px; height: 14px; border-radius: 50%; box-shadow: inset 0 0 0 2px rgba(255,255,255,.85); }
+.yt-tray .muted { font-size: 13px; }
+.yt-tray .yt-new { grid-column: 1 / -1; }
+.yt-mini { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+.yt-mini .yt-piece { transition: none; }
+.yt-mini .yt-sticks { height: 60px; gap: 6px; }
+.yt-mini .yt-stick { width: 16px; height: 58px; }
+.yt-mini-cap { font-size: 18px; font-weight: 900; }
+.yt-mini-cap.back { color: var(--returned-solid); }
+@media (max-width: 820px) {
+  .yt-play .om-side { flex-direction: column; display: flex; }
+}
+.lite .yt-stick.toss { animation: none; }
+@media (prefers-reduced-motion: reduce) {
+  .yt-piece { transition: none; }
+  .yt-stick.toss { animation: none; }
+}
+
 /* ---------- 게임 모음 (games.html) ---------- */
 .games-h { margin: 0 0 4px 8px; font-size: 32px; font-weight: 900; letter-spacing: -0.03em; }
 .games-menu { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
@@ -2169,7 +2242,7 @@ select.nd-tag { padding: 1px 8px; margin: 0; }
 .qd-rules-h { margin: 0; font-size: 28px; font-weight: 900; letter-spacing: -0.03em; }
 .qd-rule { display: grid; grid-template-columns: 150px minmax(0, 1fr); gap: 20px; align-items: center; padding-top: 16px; border-top: 1px solid rgba(78,88,104,.14); }
 .qd-rule-text { grid-template-columns: minmax(0, 1fr); }
-.qd-rule h3 { margin: 0 0 4px; font-size: 18px; font-weight: 900; color: var(--accent); }
+.qd-rule h3, .qd-rule h2 { margin: 0 0 4px; font-size: 18px; font-weight: 900; color: var(--accent); }
 .qd-rule p, .qd-rule ul { margin: 0; }
 .qd-rule p + p { margin-top: 4px; }
 .qd-rule ul { padding-left: 20px; display: flex; flex-direction: column; gap: 4px; }

@@ -2553,11 +2553,13 @@ body.admin .side-badge { min-width: 18px; height: 18px; padding: 0 5px; font-siz
 body.admin .side-out { margin-top: 10px; color: var(--a-ink2); }
 
 /* 첫 화면 3D 장면: 가운데 어두운 우주(가장자리는 흰 바탕으로 흐려짐) 위 별 점 은하 + 아래 시각·오늘 수업 */
-body.admin .hero { position: relative; height: calc(100dvh - 100px); min-height: 420px; overflow: hidden; background: #fff; touch-action: none;
-  display: flex; flex-direction: column; gap: 18px; }
-body.admin .hero canvas { position: relative; flex: 1; min-height: 0; width: 100%; display: block; border-radius: 28px; cursor: pointer;
-  background: radial-gradient(60% 60% at 50% 46%, #161d3a 0%, #070912 82%); }
-body.admin .hero-foot { position: relative; flex: none; padding: 0 24px 4px; display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; pointer-events: none; }
+body.admin .hero { position: relative; height: calc(100dvh - 100px); min-height: 420px; overflow: hidden; background: #fff; touch-action: none; }
+/* 가운데 어두운 우주가 가장자리에서 흰 바탕으로 자연스럽게 흐려짐(옆으로 넓게, 위 메뉴·아래 시각 쪽은 옅게) */
+body.admin .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer;
+  background: radial-gradient(64% 56% at 50% 46%, #161d3a 0%, #070912 80%);
+  -webkit-mask-image: radial-gradient(ellipse 66% 50% at 50% 46%, #000 46%, rgba(0,0,0,.6) 70%, transparent 100%);
+          mask-image: radial-gradient(ellipse 66% 50% at 50% 46%, #000 46%, rgba(0,0,0,.6) 70%, transparent 100%); }
+body.admin .hero-foot { position: absolute; left: 0; right: 0; bottom: 0; padding: 0 48px 36px; display: flex; align-items: flex-end; justify-content: space-between; gap: 28px; pointer-events: none; }
 body.admin .hero-time { margin: 0; font-size: clamp(38px, 4.6vw, 68px); font-weight: 900; letter-spacing: -0.035em; line-height: 1.04; color: #0d0d0d; font-variant-numeric: tabular-nums; }
 body.admin .hero-time b { font-weight: 900; }
 body.admin .hero-next { margin: 10px 0 0; font-size: 17px; font-weight: 500; color: #5d5d5d; }
@@ -2580,7 +2582,7 @@ body.admin .hero-chip.off { color: #6e6e6e; }
   body.admin.hero-on .topnav { background: transparent; }
   body.admin.hero-on .admin-wrap { max-width: none; padding: 0; }
   body.admin.hero-on .admin-top { display: none; }
-  body.admin.hero-on .hero { position: fixed; inset: 0; height: auto; z-index: 0; padding: 68px 20px 22px; }
+  body.admin.hero-on .hero { position: fixed; inset: 0; height: auto; z-index: 0; }
 }
 .tn-brand { justify-self: start; font-size: 18px; font-weight: 700; letter-spacing: -0.01em; color: #0d0d0d; text-decoration: none; padding: 6px 8px; border-radius: 8px; }
 .tn-nav { display: flex; gap: 4px; }
@@ -2622,8 +2624,10 @@ body.admin .hero-chip.off { color: #6e6e6e; }
   body.admin .cls-tab { min-height: 36px; }
   body.admin .roll-chip { min-height: 40px; height: 40px; }
   body.admin .hero { height: calc(100dvh - 100px); min-height: 360px; }
-  body.admin .hero canvas { border-radius: 22px; }
-  body.admin .hero-foot { flex-direction: column; align-items: stretch; padding: 0 4px 4px; gap: 14px; }
+  body.admin .hero canvas { background: radial-gradient(80% 44% at 50% 42%, #161d3a 0%, #070912 78%);
+    -webkit-mask-image: radial-gradient(ellipse 80% 40% at 50% 42%, #000 46%, rgba(0,0,0,.6) 70%, transparent 100%);
+            mask-image: radial-gradient(ellipse 80% 40% at 50% 42%, #000 46%, rgba(0,0,0,.6) 70%, transparent 100%); }
+  body.admin .hero-foot { flex-direction: column; align-items: stretch; padding: 0 4px 12px; gap: 14px; }
   body.admin .hero-time { font-size: 34px; }
   body.admin .hero-next { font-size: 15px; }
   body.admin .hero-today { justify-content: flex-start; }

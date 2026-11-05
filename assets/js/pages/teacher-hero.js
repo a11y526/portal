@@ -1,5 +1,5 @@
 // 관리 첫 화면(아무 항목도 안 열었을 때) 가운데 3D 장면: 별 점으로 만든 나선 은하가 화면 가운데 어두운 우주에서 돈다.
-// 우주 바탕은 CSS(.hero canvas의 배경, 둥근 큰 상자). 아래에 시각과 오늘 수업(showToday).
+// 우주 바탕·가장자리 흐림은 CSS(.hero canvas의 배경과 mask). 아래에 시각과 오늘 수업(showToday).
 // 라이브러리 없이 Canvas 2D로 3D 투영. 교사 PC 전용(학생 화면에는 없음).
 // 마우스를 움직이면 살짝 기울고, 누르면 점이 흩어졌다 모이며 다음 모양(은하 → 토성 → DNA → 지구)으로 바뀐다.
 // 움직임 줄이기면 멈춘 한 장면만, 화면이 숨겨지면 requestAnimationFrame이 저절로 멈춘다.
@@ -186,7 +186,7 @@ function frame(now) {
 function draw(t) {
   if (!W || !H) return;
   ctx.clearRect(0, 0, W, H);
-  const D = 5200, f = Math.min(W * 0.44, H * 0.8) * D / 1150, cx = W / 2, cy = H * 0.5;
+  const D = 5200, f = Math.min(W * 0.44, H * 0.8) * D / 1150, cx = W / 2, cy = H * 0.46;
   const pt = pitch + my * 0.14, yaw = mx * 0.3;
   const cp = Math.cos(pt), sp = Math.sin(pt), cyw = Math.cos(yaw), syw = Math.sin(yaw);
   const cs = Math.cos(spin), ss = Math.sin(spin);

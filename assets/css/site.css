@@ -3075,3 +3075,254 @@ html.stu .guest-link { background: var(--s-pill); }
 .embed .gstage-close { background: #F0F0F0; box-shadow: none; }
 .embed .gstage-close:hover { background: #E6E6E6; }
 .embed .gstage .btn-pass { background: #0F8A5F; color: #fff; }
+
+/* ===== 교사 단독 화면 '다' 디자인 (2026-11-05, ../디자인_규칙.md)
+   <html class="tch">인 교사 화면(검사·리모컨·발표·모둠 편성·수업 모드 바탕·퀴즈 쇼·설치 도우미·편집기)만.
+   관리 '나'·학생 '가'와 같은 규칙: 흰 바탕(배경 원 없음), 연회색 큰 상자 #F7F7F7(28px) 안에 흰 칸,
+   검정 = 누르는 것·고른 것만, 초록 = 끝남·맞음. 그림자·테두리·흐림 없음(떠 있는 창만 예외) ===== */
+html.tch { --bg: #fff; --ink: #0D0D0D; --ink-2: #5D5D5D; --accent: #0D0D0D; --accent-hover: #2B2B2B; --accent-tint: #F0F0F0;
+  --t-box: #F7F7F7; --t-pill: #F0F0F0; --t-line: #E3E3E3; --t-mut: #8A8A8A;
+  --glass-bg: #F7F7F7; --glass-strong-bg: #F7F7F7; --shadow: none; --shadow-strong: none; --idle-bg: #ECECEC; }
+html.tch body { background: #fff; -webkit-font-smoothing: antialiased; }
+html.tch .bg { display: none; }
+html.tch :focus-visible { outline: 3px solid rgba(13,13,13,.28); }
+html.tch a:hover { color: inherit; }
+html.tch :is(.glass, .glass-strong) { background: var(--t-box); border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tch :is(.glass, .glass-strong) :is(.glass, .glass-strong) { background: #fff; }
+html.tch .glass-live::after { display: none; }
+html.tch .lift:hover { box-shadow: none; }
+html.tch .card { border-radius: 28px; }
+html.tch dialog.sheet .card, html.tch dialog .glass-strong { background: #fff; border-radius: 28px; box-shadow: 0 24px 60px -12px rgba(0,0,0,.28); }
+html.tch dialog.sheet::backdrop { background: rgba(0,0,0,.32); }
+html.tch .btn { font-weight: 700; border-radius: 999px; box-shadow: none; }
+html.tch .btn-primary { background: #0D0D0D; color: #fff; }
+html.tch .btn-primary:hover { background: #2B2B2B; color: #fff; }
+html.tch .btn-line, html.tch .btn-glass { background: var(--t-pill); border: 0; color: #0D0D0D; }
+html.tch .btn-line:hover, html.tch .btn-glass:hover { background: #E6E6E6; }
+html.tch :is(.glass, .glass-strong) .btn-line { background: #fff; }
+html.tch :is(.glass, .glass-strong) .btn-line:hover { background: #EDEDED; }
+html.tch dialog :is(.glass, .glass-strong) .btn-line { background: var(--t-pill); }
+html.tch .btn-danger { background: #fff; color: #A23B0B; box-shadow: inset 0 0 0 1px #F3D3CB; }
+html.tch .btn-pass { background: #0F8A5F; color: #fff; }
+html.tch .btn[disabled] { background: var(--t-pill); color: var(--t-mut); opacity: 1; }
+html.tch .input { background: #fff; border: 1px solid var(--t-line); border-radius: 12px; }
+html.tch .input:focus { outline: none; border-color: #0D0D0D; }
+html.tch :is(.glass, .glass-strong) .input { border-color: transparent; }
+html.tch :is(.glass, .glass-strong) .input:focus { border-color: #0D0D0D; }
+html.tch .class-pick { background: var(--t-pill); border: 0; box-shadow: none; }
+html.tch .class-pick:hover { background: #E6E6E6; }
+html.tch .chip { background: #ECECEC; color: #3D3D3D; font-weight: 500; }
+html.tch .skeleton { background: #F0F0F0; animation: none; }
+html.tch .cls-tab { border: 0; background: var(--t-pill); color: #0D0D0D; border-radius: 999px; }
+html.tch .cls-tab:hover { background: #E6E6E6; }
+html.tch .cls-tab.on { background: #0D0D0D; color: #fff; }
+/* 교사 로그인 */
+html.tch .login-card { background: var(--t-box); }
+html.tch .login-card h2 { font-weight: 900; letter-spacing: -0.03em; }
+/* 게시물 카드(검사 화면 '게시물 보기' 창 등): 흰 창 안 연회색 카드 */
+html.tch dialog .post { background: var(--t-box); box-shadow: none; border-radius: 18px; }
+html.tch .post-act { background: var(--t-pill); }
+html.tch .post-act.is-del { background: var(--returned-bg); color: var(--returned-fg); }
+html.tch .post-link { background: var(--t-pill); color: #0D0D0D; }
+html.tch .col-empty { color: var(--t-mut); }
+
+/* 검사 (teacher/check.html) */
+html.tch .check-top { padding-top: max(32px, env(safe-area-inset-top)); }
+html.tch .check-top h1 { font-size: 36px; letter-spacing: -0.045em; }
+html.tch .wait-badge { background: var(--pending-bg); font-weight: 700; }
+html.tch .check-lesson { color: var(--t-mut); font-weight: 500; }
+html.tch .check-note { border-radius: 28px; color: var(--t-mut); }
+html.tch .sub-card { border-radius: 28px; padding: 22px; }
+html.tch .sub-name span { color: var(--t-mut); }
+html.tch .posts-go { background: #fff; color: #0D0D0D; }
+html.tch .posts-go:hover { background: #EDEDED; }
+html.tch .act { font-weight: 700; transition: background .2s, transform .15s; }
+html.tch .act:active { transform: scale(.98); }
+html.tch .act-again { background: #fff; color: var(--returned-fg); }
+html.tch .act-again:hover { background: #FDF3F0; }
+html.tch .act-pass { background: #0F8A5F; box-shadow: none; }
+html.tch .act-pass:hover { background: #0B7A53; }
+html.tch .act-send { background: #A23B0B; box-shadow: none; }
+html.tch .act-cancel { background: #fff; border: 0; }
+html.tch .act-cancel:hover { background: #EDEDED; }
+html.tch .preset { background: #fff; border: 0; font-weight: 500; }
+html.tch .preset:hover { background: #EDEDED; }
+html.tch .preset[aria-pressed="true"] { background: #0D0D0D; color: #fff; }
+html.tch .memo-label { color: var(--ink-2); font-weight: 500; }
+html.tch .memo-in { background: #fff; border-color: transparent; }
+html.tch .done-h { font-size: 13px; color: var(--t-mut); }
+html.tch .done-box { border-radius: 28px; padding: 6px 20px; }
+html.tch .done-row { border-bottom-color: #E8E8E8; }
+html.tch .check-bottom { background: linear-gradient(rgba(255,255,255,0), #fff 40%); }
+html.tch .reveal-open { background: #0D0D0D; box-shadow: none; font-weight: 700; }
+html.tch .reveal-open:hover { background: #2B2B2B; }
+html.tch .check-admin { color: var(--t-mut); }
+
+/* 휴대폰 리모컨 (teacher/remote.html) */
+html.tch .rm-top h1 { font-size: 36px; letter-spacing: -0.045em; }
+html.tch .rm-conn { font-weight: 500; }
+html.tch .rm-title { color: var(--t-mut); font-weight: 500; }
+html.tch .rm-off { border-radius: 28px; color: var(--t-mut); }
+html.tch .rm-stat { border-radius: 20px; padding: 12px 14px; }
+html.tch .rm-stat small { color: var(--t-mut); font-weight: 500; }
+html.tch .rm-card { border-radius: 28px; padding: 22px; }
+html.tch .rm-card h2 { font-size: 13px; font-weight: 700; color: var(--t-mut); letter-spacing: 0; }
+html.tch .rm-sub { color: var(--ink-2); }
+html.tch .rm-big { font-weight: 700; }
+html.tch .rm-big:disabled, html.tch .rm-app .btn:disabled { opacity: 1; background: var(--t-pill); color: var(--t-mut); }
+html.tch .rm-app kbd { border: 0; background: rgba(127,127,127,.18); opacity: 1; font-weight: 500; }
+html.tch .rm-time { font-weight: 900; letter-spacing: -0.04em; }
+html.tch #timer.is-done .rm-time { color: #A23B0B; }
+html.tch .rm-first .chip { background: #fff; }
+html.tch .rm-away-list li { background: #fff; }
+html.tch .rm-away-list small { color: var(--t-mut); }
+html.tch .rm-away-list li.is-now { background: var(--returned-bg); }
+
+/* 순위 발표 (teacher/reveal.html, 수업 모드 덮개 [순위 발표] 탭): 흰 무대, 시상대 연회색, 순위 색(금·은·동)은 시상대 숫자·카드 테두리에만 */
+html.tch .ready-chip { background: var(--t-pill); color: var(--ink-2); font-weight: 500; }
+html.tch .ready-title { letter-spacing: -0.05em; }
+html.tch .ready-info { color: var(--t-mut); }
+html.tch .ready-start { font-weight: 700; }
+html.tch .ready-cls { border-radius: 24px; }
+html.tch .ready-cls:hover { background: #ECECEC; transform: none; }
+html.tch .stage { color: #0D0D0D; }
+html.tch .stage-dim { background: #fff; }
+html.tch .stage-label { background: var(--t-pill); border: 0; color: var(--ink-2); font-weight: 500; }
+html.tch .pts { background: var(--t-pill); border: 0; color: #0D0D0D; font-weight: 700; }
+html.tch .crown { filter: none; }
+html.tch .face.back { background: var(--t-box); border: 0; box-shadow: none; }
+html.tch .face.back span { color: #CFCFCF; }
+html.tch .face.front { background: #fff; border: 0; box-shadow: inset 0 0 0 4px var(--ring); }
+html.tch .face.front span { color: var(--t-mut); font-weight: 500; }
+html.tch .block { background: var(--t-box); border: 0; box-shadow: none; border-radius: 28px 28px 14px 14px; }
+html.tch .slot.is-open[data-rank="1"] .block::after { background: linear-gradient(110deg, transparent 20%, rgba(255,255,255,.85) 50%, transparent 80%); }
+html.tch .rays-spin { background: repeating-conic-gradient(from 0deg, rgba(242,183,5,.18) 0deg 8deg, transparent 8deg 22deg); }
+html.tch .rest li { background: var(--t-box); border: 0; }
+html.tch .rest .r, html.tch .rest .muted-d { color: var(--t-mut); }
+html.tch .stage-btn { background: var(--t-pill); border: 0; color: #0D0D0D; }
+html.tch .stage-btn:hover { background: #E6E6E6; }
+html.tch .stage-next { background: #0D0D0D; color: #fff; }
+html.tch .stage-next:hover { background: #2B2B2B; }
+
+/* 모둠 편성 (teacher/groups.html를 따로 열 때): 덮개 안(.embed)과 같은 모양 */
+html.tch body:has(.groups-wrap) .bg { display: none; }
+html.tch .groups-top h1 { font-size: 40px; letter-spacing: -0.04em; }
+html.tch .groups-lesson { margin: -6px 0 0; color: #8A8A8A; font-weight: 500; }
+html.tch .groups-wrap :is(.glass, .glass-strong) { background: #F7F7F7; border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tch .groups-wrap .glass-live::after { display: none; }
+html.tch .groups-panel { border-radius: 28px; padding: 26px 28px; gap: 18px; }
+html.tch .gcount, html.tch .mode-label { color: #5D5D5D; font-weight: 500; }
+html.tch .gcount .input { background: #fff; border: 0; box-shadow: none; border-radius: 999px; width: 76px; }
+html.tch .gcount .input:focus { outline: 2px solid #0D0D0D; outline-offset: 0; }
+html.tch .gstats { color: #8A8A8A; }
+html.tch .groups-wrap .cls-tab { border: 0; background: #fff; color: #0D0D0D; min-height: 42px; }
+html.tch .groups-wrap .cls-tab:hover { background: #ECECEC; }
+html.tch .groups-wrap .cls-tab.on { background: #0D0D0D; color: #fff; }
+html.tch .roll { grid-template-columns: repeat(auto-fill, minmax(56px, 1fr)); }
+html.tch .roll-chip { border: 0; background: #fff; border-radius: 999px; transition: transform .15s, background .15s; }
+html.tch .roll-chip:hover { background: #ECECEC; border-color: transparent; }
+html.tch .roll-chip.off { background: var(--returned-bg); color: var(--returned-fg); }
+html.tch .roll-chip.picking { background: #fff; box-shadow: 0 0 0 2px #0D0D0D; }
+html.tch .cluster-item { background: #fff; }
+html.tch .groups-wrap .btn, html.tch .gstage .btn { box-shadow: none; border: 0; border-radius: 999px; font-weight: 700; }
+html.tch .groups-wrap .btn-primary, html.tch .gstage .btn-primary { background: #0D0D0D; color: #fff; }
+html.tch .groups-wrap .btn-primary:hover, html.tch .gstage .btn-primary:hover { background: #2B2B2B; }
+html.tch .groups-wrap .btn-line, html.tch .gstage .btn-line { background: #fff; color: #0D0D0D; }
+html.tch .groups-wrap .btn-line:hover, html.tch .gstage .btn-line:hover { background: #ECECEC; }
+html.tch .groups-wrap .btn-line { background: #F0F0F0; }
+html.tch .groups-wrap .check-note { background: #F7F7F7; border-radius: 28px; }
+html.tch .gstage { background: #fff; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tch .gstage-top h2 { letter-spacing: -0.04em; }
+html.tch .gstage-sub { color: #8A8A8A; }
+html.tch .gstage .gcard { background: #F7F7F7; border: 0; box-shadow: none; border-radius: 28px; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.tch .gstage .gm { background: #fff; }
+html.tch .gstage-close { background: #F0F0F0; box-shadow: none; }
+html.tch .gstage-close:hover { background: #E6E6E6; }
+html.tch .gstage .btn-pass { background: #0F8A5F; color: #fff; }
+html.tch .groups-top .cls-tab { background: var(--t-pill); }
+html.tch .groups-top .cls-tab:hover { background: #E6E6E6; }
+html.tch .groups-top .cls-tab.on { background: #0D0D0D; color: #fff; }
+html.tch .roll-chip.tied, .embed .roll-chip.tied { background: var(--c); color: #fff; }
+html.tch .gstage .btn-line, .embed .gstage .btn-line { background: var(--t-pill, #F0F0F0); }
+html.tch .gstage .btn-line:hover, .embed .gstage .btn-line:hover { background: #E6E6E6; }
+
+/* 수업 모드 바탕 (teacher/live.html): 빈 안내·끼운 화면·구석 단추 */
+html.tch .empty { background: var(--t-box); border: 0; border-radius: 28px; color: var(--t-mut); }
+html.tch .empty strong { font-weight: 700; }
+html.tch .cover-embed { background: #fff; border-radius: 28px; }
+html.tch .live-corner .btn { box-shadow: 0 0 0 1px #ECECEC; }
+
+/* 퀴즈 쇼 프로젝터 (teacher/quizshow.html, 수업 모드 [퀴즈 쇼] 탭): 흰 바탕, 상자 연회색, 그림자 없음.
+   보기 색 6가지(.qs-c0~5)는 보기를 가르는 색이라 그대로 */
+html.tch .qsh-chip { background: var(--t-pill); color: #0D0D0D; font-weight: 700; }
+html.tch .qsh-progress, html.tch .qsh-hint { color: var(--t-mut); font-weight: 500; }
+html.tch .qsh-set { border-radius: 24px; }
+html.tch .qsh-set:hover { background: #ECECEC; transform: none; }
+html.tch .qsh-set-go { color: var(--ink-2); }
+html.tch .qsh-join { border-radius: 28px; }
+html.tch .qsh-join span { color: var(--t-mut); font-weight: 500; }
+html.tch .qsh-join b { color: #0D0D0D; }
+html.tch :is(.qsh-p, .qsh-word) { background: var(--t-box); box-shadow: none; }
+html.tch .qsh-team-col { background: var(--t-box); border-radius: 22px; }
+html.tch .qsh-team-col .qsh-p { background: #fff; }
+html.tch .qsh-q { background: var(--t-box); box-shadow: none; border-radius: 28px; }
+html.tch .qsh-type { color: var(--t-mut); font-weight: 500; }
+html.tch .qsh-clock { background: var(--t-box); box-shadow: none; }
+html.tch .qsh-clock small { color: var(--t-mut); font-weight: 500; }
+html.tch .qsh-bar { background: #ECECEC; }
+html.tch .qs-opt { box-shadow: none; border-radius: 20px; }
+html.tch .qsh-rank li { background: var(--t-box); box-shadow: none; border-radius: 20px; }
+html.tch .qsh-rk { color: var(--t-mut); }
+html.tch .qsh-pod-block { border-radius: 24px 24px 0 0; }
+html.tch .qsh-foot kbd { border: 0; background: rgba(127,127,127,.22); opacity: 1; }
+html.tch .qsh-bar i { background: #8A8A8A; }
+
+/* 퀴즈 쇼 만들기 (teacher/quizshow-edit.html): 세트 목록은 연회색 큰 상자, 편집은 왼쪽 목록·가운데 연회색 바탕 위 흰 칸·오른쪽 속성.
+   고른 문제·고른 방식은 검정. 보기 색(--qc)은 그대로 */
+html.tch .qse-body { --nd-ink: #0D0D0D; --nd-ink2: #5D5D5D; --nd-ink3: #8A8A8A; --nd-line: #ECECEC; --nd-hover: #F0F0F0; }
+html.tch .qse-body .icon-btn { background: var(--t-pill); border: 0; }
+html.tch .qse-body .icon-btn:hover { background: #E6E6E6; }
+html.tch .qse-list-wrap { max-width: 960px; padding-top: 44px; }
+html.tch .qse-list-top h1 { font-size: 40px; letter-spacing: -0.045em; }
+html.tch .qse-sets { border-top: 0; background: var(--t-box); border-radius: 28px; padding: 10px 24px; }
+html.tch .qse-sets:empty { display: none; }
+html.tch .qse-set { border-bottom-color: #E8E8E8; padding: 10px 0; }
+html.tch .qse-set:last-child { border-bottom: 0; }
+html.tch .qse-set:hover { background: transparent; }
+html.tch .qse-set-main span { color: var(--t-mut); }
+html.tch .qse-side { background: var(--t-box); border-right: 0; }
+html.tch .qse-items { padding: 12px 10px; }
+html.tch .qse-item { border-radius: 16px; }
+html.tch .qse-item-main { border-radius: 16px; }
+html.tch .qse-item:not(.on) .qse-item-main:hover { background: #ECECEC; }
+html.tch .qse-item.on { background: #0D0D0D; color: #fff; }
+html.tch .qse-item.on :is(.qse-item-no, .qse-item-body small) { color: rgba(255,255,255,.7); }
+html.tch .qse-item.is-over { box-shadow: inset 0 3px 0 #0D0D0D; }
+html.tch .qse-mini { box-shadow: none; border-radius: 999px; }
+html.tch .qse-mini:hover { background: #ECECEC; }
+html.tch .qse-side-btns { border-top: 0; padding: 12px; }
+html.tch .qse-main { background: #fff; padding: 26px; }
+html.tch .qse-card { background: var(--t-box); border-radius: 28px; padding: 28px; }
+html.tch .qse-q { border-color: transparent; border-radius: 18px; }
+html.tch .qse-media { border: 2px dashed #E0E0E0; border-radius: 20px; }
+html.tch .qse-media.is-over { border-color: #0D0D0D; background: #F0F0F0; }
+html.tch .qse-media.has-img { border: 0; }
+html.tch .qse-opt { border-radius: 18px; }
+html.tch .qse-opt-in:focus { outline: 2px solid #0D0D0D; border-radius: 8px; }
+html.tch .qse-ok { border-color: #D6D6D6; }
+html.tch :is(.qse-answers, .qse-puzzle, .qse-slider, .qse-pin-r) { border-radius: 20px; }
+html.tch .qse-pz-row { background: var(--t-box); }
+html.tch .qse-props { border-left: 0; }
+html.tch .qse-props-h { font-size: 13px; color: var(--t-mut); }
+html.tch .qse-types { gap: 10px; }
+html.tch .qse-type { border: 0; background: var(--t-box); border-radius: 20px; }
+html.tch .qse-type:hover { background: #ECECEC; }
+html.tch .qse-type span { color: var(--t-mut); }
+html.tch .qse-seg { background: var(--t-pill); }
+html.tch .qse-seg-b { color: var(--ink-2); }
+html.tch .qse-seg-b.on { background: #0D0D0D; color: #fff; box-shadow: none; }
+html.tch .qse-class { border-radius: 999px; }
+html.tch .qse-body .nd-views { border-bottom: 0; gap: 4px; }
+html.tch .qse-body .nd-views .nd-view { height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--t-pill); color: var(--ink-2); }
+html.tch .qse-body .nd-views .nd-view.on { background: #0D0D0D; color: #fff; }
+html.tch .qse-side .btn-line { background: #fff; } html.tch .qse-side .btn-line:hover { background: #EDEDED; }

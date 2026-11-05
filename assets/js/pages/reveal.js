@@ -207,7 +207,7 @@ function burst() {
   const C = window.confetti;
   if (!C || reduceMotion) return;
   const n = isLite ? 50 : 150;
-  const colors = ['#2457E6', '#F2B705', '#22C582', '#B79CFF', '#FF7A45', '#FFFFFF'];
+  const colors = ['#0D0D0D', '#F2B705', '#22C582', '#FF7A45', '#BDBDBD'];
   C({ particleCount: n, spread: 70, angle: 60, origin: { x: 0, y: 0.8 }, colors });
   C({ particleCount: n, spread: 70, angle: 120, origin: { x: 1, y: 0.8 }, colors });
   setTimeout(() => C({ particleCount: n, spread: 110, startVelocity: 45, origin: { x: 0.5, y: 0.35 }, colors }), 450);

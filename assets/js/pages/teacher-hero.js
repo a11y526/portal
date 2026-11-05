@@ -1,4 +1,5 @@
-// 관리 첫 화면(아무 항목도 안 열었을 때) 가운데 3D 장면: 별 점으로 만든 나선 은하가 흰 바탕 위에서 돈다.
+// 관리 첫 화면(아무 항목도 안 열었을 때) 가운데 3D 장면: 별 점으로 만든 나선 은하가 화면 가운데 어두운 우주에서 돈다.
+// 우주 바탕·가장자리 흐림은 CSS(.hero canvas의 배경과 mask). 아래에 시각과 오늘 수업(showToday).
 // 라이브러리 없이 Canvas 2D로 3D 투영. 교사 PC 전용(학생 화면에는 없음).
 // 마우스를 움직이면 은하가 살짝 기울고, 누르면 잠깐 빨리 돈다.
 // 움직임 줄이기면 멈춘 한 장면만, 화면이 숨겨지면 requestAnimationFrame이 저절로 멈춘다.
@@ -7,10 +8,10 @@ const rnd = (a, b) => a + Math.random() * (b - a);
 const gauss = () => (Math.random() + Math.random() + Math.random() + Math.random() - 2) / 2;
 const REDUCE = matchMedia('(prefers-reduced-motion: reduce)');
 
-// 흰 바탕에 맞춘 색(관리 화면 글자·강조색 계열)
-const C_CORE = [[31, 41, 96], [36, 87, 230], [59, 63, 159]];
-const C_ARM = [[36, 87, 230], [91, 141, 239], [124, 92, 232], [59, 63, 159]];
-const C_YOUNG = [[43, 179, 154], [240, 138, 60]];
+// 어두운 우주에 맞춘 색: 가운데는 따뜻한 흰색, 팔은 흰색·옅은 파랑
+const C_CORE = [[255, 240, 215], [255, 232, 196], [255, 248, 236]];
+const C_ARM = [[255, 255, 255], [226, 232, 255], [170, 196, 255], [240, 240, 250]];
+const C_YOUNG = [[150, 185, 255], [255, 214, 170]];
 
 let box = null, cv = null, ctx = null, W = 0, H = 0, raf = 0, ro = null, clock = 0, running = false;
 let pts = [], far = [];
@@ -70,15 +71,20 @@ function frame(now) {
 function draw(t) {
   if (!W || !H) return;
   ctx.clearRect(0, 0, W, H);
-  const D = 5200, f = Math.min(W * 0.56, H * 1.15) * D / 1150, cx = W / 2, cy = H / 2;
+  const D = 5200, f = Math.min(W * 0.34, H * 0.6) * D / 1150, cx = W / 2, cy = H * 0.45;
   const pitch = 0.72 + my * 0.14, yaw = mx * 0.3;
   const cp = Math.cos(pitch), sp = Math.sin(pitch), cyw = Math.cos(yaw), syw = Math.sin(yaw);
   const cs = Math.cos(spin), ss = Math.sin(spin);
 
   for (const p of far) {
-    ctx.fillStyle = `rgba(78,88,104,${p.o * (0.6 + 0.4 * Math.sin(t * 0.8 + p.tw))})`;
+    ctx.fillStyle = `rgba(255,255,255,${p.o * 1.6 * (0.6 + 0.4 * Math.sin(t * 0.8 + p.tw))})`;
     ctx.fillRect(p.x * W, p.y * H, p.s, p.s);
   }
+  const glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, f * 0.075);
+  glow.addColorStop(0, 'rgba(255,236,200,.5)');
+  glow.addColorStop(1, 'rgba(255,236,200,0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, W, H);
 
   for (const p of pts) {
     // 은하 회전(원반 축) → 좌우 기울기(마우스) → 앞뒤 기울기
@@ -102,7 +108,36 @@ function tick() {
   if (!el) return;
   const d = new Date();
   el.querySelector('b').textContent = d.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit', hour12: false });
-  el.querySelector('span').textContent = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+  el.querySelector('.hero-wd').textContent = d.toLocaleDateString('ko-KR', { weekday: 'long' });
+  el.title = d.toLocaleDateString('ko-KR', { month: 'long', day: 'numeric', weekday: 'long' });
+  paintToday();
+}
+
+// 오늘 수업: 교시 카드 + '지금/다음 수업' 한 줄. 교시 시간(진도 관리 설정)이 있어야 지금·다음을 안다
+let today = [];
+const hm = (d) => `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+const escH = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+export function showToday(rows) {
+  today = Array.isArray(rows) ? rows : [];
+  paintToday();
+}
+function paintToday() {
+  const list = document.getElementById('hero-today'), next = document.getElementById('hero-next');
+  if (!list || !next) return;
+  const now = hm(new Date());
+  const cls = (r) => (r.class_id === 20 ? 'test반' : `${r.class_id}반`);
+  const at = today.find((r) => r.kind === '수업' && r.end && now < r.end);
+  list.innerHTML = today.map((r) => {
+    const what = r.kind === '수업' ? (r.code || '차시 미정') : r.kind;
+    const live = r === at && r.start && now >= r.start;
+    const tag = r === at ? (live ? ' · 지금' : ' · 다음') : '';
+    return `<div class="hero-chip${r === at ? ' now' : ''}${r.kind !== '수업' ? ' off' : ''}"><small>${r.period}교시${tag}</small>${escH(cls(r))} · ${escH(what)}</div>`;
+  }).join('');
+  if (at) {
+    const live = at.start && now >= at.start;
+    next.innerHTML = `${live ? '지금 수업' : '다음 수업'} · ${at.period}교시 <b class="acc">${escH(cls(at))}</b> <b>${escH(at.code || '')} ${escH(at.title)}</b>`;
+  }
+  next.classList.toggle('hidden', !at);
 }
 
 function onMove(e) {

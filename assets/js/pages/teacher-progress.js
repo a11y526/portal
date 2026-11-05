@@ -46,6 +46,25 @@ const lessonName = (code) => {
 };
 
 export async function refreshProgress() {
+  await load();
+  render();
+}
+
+// 관리 첫 화면용: 오늘 수업 줄(교시 순)과 차시(적힌 차시, 없으면 예정 차시), 교시 시간
+export async function todayPlan() {
+  await load();
+  const today = kstDay();
+  const plans = new Map(classes.map((c) => [c.id, plannedOf(c)]));
+  const rows = days.filter((r) => r.day === today && CLASSES.includes(r.class_id)).sort((a, b) => a.period - b.period);
+  return rows.map((r) => {
+    const code = r.lesson_code || plans.get(r.class_id)?.get(r.id) || null;
+    const l = lessons.find((x) => x.code === code);
+    const [start = '', end = ''] = cal.periods[r.period - 1] ?? [];
+    return { period: r.period, class_id: r.class_id, kind: r.kind, memo: r.memo || '', code, title: l?.title || '', start, end };
+  });
+}
+
+async function load() {
   const today = kstDay();
   const [c, l, t, rules, b, k, tr] = await Promise.all([listProgressClasses(), listLessons(), listTimetable(), getProgressRules(), listProgressBoards(), getCalendarSettings(), listTaughtRows()]);
   taught = tr;
@@ -58,7 +77,6 @@ export async function refreshProgress() {
   const from = [today, weekStart].sort()[0];
   const to = [deadline, addDays(weekStart, 4), today].sort().pop();
   days = await listClassDays(from, to);
-  render();
 }
 const reload = () => refreshProgress().catch((err) => toast(errMsg(err), 'error'));
 

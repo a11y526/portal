@@ -24,10 +24,10 @@ import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
 import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../worksheet.js';
 import { refreshMats } from './teacher-mats.js';
-import { refreshProgress } from './teacher-progress.js';
+import { refreshProgress, todayPlan } from './teacher-progress.js';
 import { refreshAi } from './teacher-ai.js';
 import { initSide, markSide, syncSideBadges } from './teacher-side.js';
-import { startHero, stopHero } from './teacher-hero.js';
+import { startHero, stopHero, showToday } from './teacher-hero.js';
 
 initUI();
 
@@ -1954,6 +1954,7 @@ function loadPanel(key) {
   if (key === 'mats') refreshMats().catch(() => {});
   if (key === 'progress') refreshProgress().catch(() => {});
   if (key === 'ai') refreshAi().catch(() => {});
+  if (key === '') todayPlan().then(showToday).catch(() => {});
   if (key === 'moon-rpg') refreshMoonRpg().catch(() => {}); // nogame
 }
 initSide();

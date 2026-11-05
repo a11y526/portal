@@ -100,7 +100,7 @@ function panel(list,o){
   function sync(){
     var ready=st.every(function(s){return s.open&&s.val;});
     sb.disabled=!ready;msg.classList.toggle('ok',sent);
-    if(sent){msg.textContent=WS?'학습지 칸에 들어갔어요':'제출했어요';return;}
+    if(sent){msg.textContent=WS?'학습지로 보냈어요':'제출했어요';return;}
     if(ready){msg.textContent='';return;}
     var k=Hw?Hw.first():-1;
     if(k>=0&&st.some(function(s){return !s.open;}))msg.textContent=(Hw.steps[k].match(/^[①-⑨]/)||[''])[0]+'부터 해 보세요';

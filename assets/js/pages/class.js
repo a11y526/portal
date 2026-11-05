@@ -757,6 +757,16 @@ function simAnswer(pg, n, value) {
   ws.simFill.set(f.key, v.slice(0, f.type === 'text' ? 300 : 40));
   applySimFill(page);
 }
+// 시뮬레이션의 [제출](sim:answer … sim:done) → 그 쪽 칸이 모두 찼으면 [이 쪽 제출]까지 한 번에(2026-11-05).
+// 다 나눌 때마다 보내는 것(712_sort 등 sim:done 없음)은 칸만 채운다
+function simSubmit(pg) {
+  const page = pages()[ws.idx];
+  if (!page || String(page.slide) !== String(pg) || !(page.fields ?? []).some((f) => f.sim)) return;
+  if (locked() || gated(page)) return;
+  const empty = page.fields.filter((f) => (ws.answers[f.key] ?? '') === '').length;
+  if (empty) { toast(`남은 칸 ${empty}개를 쓰고 [이 쪽 제출]을 눌러 주세요`); return; }
+  submitPage($('ws-submit'));
+}
 function applySimFill(page) {
   if (!page || locked() || gated(page)) return;
   (page.fields ?? []).forEach((f) => {
@@ -1375,7 +1385,7 @@ addEventListener('message', (e) => {
       if (String(pages()[ws.idx]?.slide) === pg && gated()) renderWsPage();
     }
   } else if (msg.type === 'sim:part' && typeof msg.label === 'string') markPart(pg, msg.label.trim().slice(0, 40));
-  else if (msg.type === 'sim:done') markSimDone(pg, sim);
+  else if (msg.type === 'sim:done') { markSimDone(pg, sim); simSubmit(pg); }
   else if (msg.type === 'sim:answer') simAnswer(pg, msg.n, msg.value);
   else if (msg.type === 'sim:progress') {
     const n = Math.max(0, Math.floor(Number(msg.n) || 0));

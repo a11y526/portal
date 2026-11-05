@@ -102,7 +102,7 @@ function panel(list,o){
   function sync(){
     var ready=st.every(function(s){return s.open&&s.val;});
     sb.disabled=!ready;msg.classList.toggle('ok',sent);
-    if(sent){msg.textContent=WS?'학습지 칸에 들어갔어요':'제출했어요';return;}
+    if(sent){msg.textContent=WS?'학습지로 보냈어요':'제출했어요';return;}
     if(ready){msg.textContent='';return;}
     var k=Hw?Hw.first():-1;
     if(k>=0&&st.some(function(s){return !s.open;}))msg.textContent=(Hw.steps[k].match(/^[①-⑨]/)||[''])[0]+'부터 해 보세요';
@@ -278,7 +278,7 @@ function ui(){
   if(made.length){const b=document.createElement('button');b.className='small';b.textContent='처음부터 다시';b.onclick=()=>{made=[];cur=null;stage=0;sel=null;sent=false;H.done(0,false);H.done(1,false);H.done(2,false);H.done(3,false);render(0);ui();};$('made').appendChild(b);}
   $('sb').disabled=made.length<NEED;
   const m=$('msg');m.className='msg'+(sent?' ok':'');
-  m.textContent=sent?(Q.WS?'학습지 칸에 들어갔어요':'제출했어요'):made.length<NEED?'도미노 '+NEED+'개를 만들면 제출할 수 있어요':'';}
+  m.textContent=sent?(Q.WS?'학습지로 보냈어요':'제출했어요'):made.length<NEED?'도미노 '+NEED+'개를 만들면 제출할 수 있어요':'';}
 function pick(k){if(stage!==0||made.some(m=>m.k===k))return;cur={k};stage=1;sel=k;phaseB=false;$('hi').textContent='';
   [...$('dm').children].forEach(b=>b.classList.remove('bad'));
   H.done(0);play();ui();}

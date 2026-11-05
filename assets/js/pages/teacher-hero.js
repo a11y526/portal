@@ -26,19 +26,19 @@ function build() {
     const u = rnd(-1, 1), a = rnd(0, TAU), s = Math.sqrt(1 - u * u);
     pts.push({ x: r * s * Math.cos(a), y: r * u * 0.55, z: r * s * Math.sin(a), c: pick(C_CORE), s: rnd(1, 2.2), o: rnd(0.6, 1) * (1 - r / 520) });
   }
-  // 나선 팔 2개(로그 나선). 팔은 넓게, 바깥으로 갈수록 옅고 퍼짐
-  for (let i = 0; i < 7000; i++) {
-    const arm = i % 2;
-    const t = Math.pow(Math.random(), 0.9);
-    const r = 160 + t * 1000;
-    const a = arm * Math.PI + Math.log(r / 160) * 1.45 + gauss() * (0.28 + t * 0.22);
+  // 나선 팔 4개(로그 나선, 큰 팔 2개 + 사이 팔 2개). 팔은 넓게, 바깥으로 갈수록 옅고 퍼짐
+  for (let i = 0; i < 10000; i++) {
+    const arm = i % 4, minor = arm % 2;
+    const t = Math.pow(Math.random(), 0.85);
+    const r = 160 + t * 1150;
+    const a = arm * Math.PI / 2 + Math.log(r / 160) * 1.75 + gauss() * (0.2 + t * 0.16);
     const dr = gauss() * (30 + t * 70);
     const young = Math.random() < 0.05;
-    pts.push({ x: (r + dr) * Math.cos(a), y: gauss() * (16 + 14 * (1 - t)), z: (r + dr) * Math.sin(a), c: young ? pick(C_YOUNG) : pick(C_ARM), s: young ? rnd(1.4, 2.4) : rnd(0.8, 1.8), o: rnd(0.4, 0.9) * (1 - t * 0.4) });
+    pts.push({ x: (r + dr) * Math.cos(a), y: gauss() * (16 + 14 * (1 - t)), z: (r + dr) * Math.sin(a), c: young ? pick(C_YOUNG) : pick(C_ARM), s: young ? rnd(1.4, 2.4) : rnd(0.8, 1.8), o: rnd(0.4, 0.9) * (1 - t * 0.4) * (minor ? 0.7 : 1) });
   }
   // 원반(지수 분포): 팔 사이를 옅게 채움
   for (let i = 0; i < 3200; i++) {
-    const r = Math.min(1250, 120 - Math.log(1 - Math.random() * 0.98) * 330), a = rnd(0, TAU);
+    const r = Math.min(1400, 120 - Math.log(1 - Math.random() * 0.98) * 380), a = rnd(0, TAU);
     pts.push({ x: r * Math.cos(a), y: gauss() * 18, z: r * Math.sin(a), c: pick(C_ARM), s: rnd(0.6, 1.3), o: rnd(0.15, 0.4) });
   }
   // 멀리 있는 별(아주 옅게)
@@ -70,8 +70,8 @@ function frame(now) {
 function draw(t) {
   if (!W || !H) return;
   ctx.clearRect(0, 0, W, H);
-  const D = 5200, f = Math.min(W * 0.4, H * 0.78) * D / 1150, cx = W / 2, cy = H / 2;
-  const pitch = 0.58 + my * 0.14, yaw = mx * 0.3;
+  const D = 5200, f = Math.min(W * 0.56, H * 1.15) * D / 1150, cx = W / 2, cy = H / 2;
+  const pitch = 0.72 + my * 0.14, yaw = mx * 0.3;
   const cp = Math.cos(pitch), sp = Math.sin(pitch), cyw = Math.cos(yaw), syw = Math.sin(yaw);
   const cs = Math.cos(spin), ss = Math.sin(spin);
 

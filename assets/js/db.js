@@ -129,6 +129,7 @@ export async function submitWorksheetPage(token, boardId, page, answers) {
 }
 
 // 결과: { month: 'YYYY-MM', rows: [{ rank, class_id, nickname, avatar, xp, move }] }
+/* nogame:start */
 // 오목: { ok: true, open, today(오늘 시작한 판 수), daily(하루 판 수), xp, coins, avatar }
 export async function getOmok(token) {
   return unwrap(await need().rpc('get_omok', { p_token: token }));
@@ -152,6 +153,7 @@ export async function getOmokRank(token = null) {
   return unwrap(await need().rpc('get_omok_rank', { p_token: token }));
 }
 
+/* nogame:end */
 // 퀴즈 배틀 (그날 모둠끼리, 선생님이 연 보드에서만). 결과: { ok: true, open, board_id, lesson_code, group_no, count(문제 수), xp, coins, avatar,
 //   members: [{ nickname, avatar, me, joined, online }],
 //   game: null | { id, status(lobby|playing|done), phase(lobby|ready|ask|reveal|done), version, total, q, start_ms, left_ms, next_ms, gain,
@@ -216,6 +218,7 @@ export async function getMonthTop20(token = null) {
   return unwrap(await need().rpc('get_month_top20'));
 }
 
+/* nogame:start */
 // 루미큐브 (3명 온라인). 결과: { ok: true, open, today, daily, xp, coins, turn(초), avatar,
 //   game: null | { id, status(waiting|playing|done), version, me(내 자리), turn, left_ms, pool(남은 장 수), board, rack(내 손패),
 //                  melded, left, last, winner, end_reason(out|pool|left), reward, players: [{ seat, me, class_id, nickname, avatar, count, melded, left, points }] } }
@@ -350,7 +353,8 @@ export async function moonRpgFinish(token, ending, stats, choices) {
   }));
 }
 
-/* ---------- 실시간: 판 채널 "새로고침" 신호 (루미큐브 rk-<판>, 오목 1대1 om-<판>, 쿼리도 qd-<판>, 오델로 ot-<판>, 윷놀이 yt-<판>) ---------- */
+/* nogame:end */
+/* ---------- 실시간: 판 채널 "새로고침" 신호 (퀴즈 배틀 qb-<판>, 게임은 판마다 prefix-<판>) ---------- */
 let gameChannel = null;
 let gameChannelId = null;
 
@@ -550,11 +554,13 @@ export async function listNicknameRequests() {
     .order('class_id').order('number'));
 }
 
+/* nogame:start */
 // 오목 켜기/끄기 (반마다)
 export async function setOmokOpen(classId, open) {
   unwrap(await need().from('classes').update({ omok_open: open }).eq('id', classId));
 }
 
+/* nogame:end */
 // 반 잠금: 잠그면 그 반 학생 모두 로그아웃
 export async function setClassLock(classId, locked) {
   return unwrap(await need().rpc('set_class_lock', { p_class_id: classId, p_locked: locked }));
@@ -663,10 +669,11 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 
 // 최근 직접 준 점수 (발표 지급·학습지·첫 답·아이템 구매 제외)
 export async function listGrants(limit = 40) {
-  return unwrap(await need().from('point_events')
+  let q = need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","윷놀이 승리","달 자원 RPG 완료","게임 XP 회수")')
-    .order('created_at', { ascending: false }).limit(limit));
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%');
+  q = q.not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","윷놀이 승리","달 자원 RPG 완료","게임 XP 회수")'); // nogame
+  return unwrap(await q.order('created_at', { ascending: false }).limit(limit));
 }
 
 // 학생별 금화 현황(classId 없으면 모든 반): [{ id, class_id, number, nickname, coins, earned, spent, rewards, pending, total_xp, level }]
@@ -982,6 +989,7 @@ export async function saveWorksheetRules(value) {
   unwrap(await need().from('settings').upsert({ key: 'worksheet', value }, { onConflict: 'key' }));
 }
 
+/* nogame:start */
 // 오목 { xp, coins, daily(하루 판 수) }
 export async function getOmokRules() {
   const rows = unwrap(await need().from('settings').select('value').eq('key', 'omok'));
@@ -1058,6 +1066,7 @@ export async function getMoonRpgClass(classId = null) {
 }
 
 
+/* nogame:end */
 /* ---------- 교사: 퀴즈 쇼 ---------- */
 export const QS_BUCKET = 'quizshow';
 export const qsImageUrl = (path) => (path ? `${SUPABASE_URL}/storage/v1/object/public/${QS_BUCKET}/${path.split('/').map(encodeURIComponent).join('/')}` : '');

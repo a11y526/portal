@@ -74,10 +74,12 @@
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="4" y="3" width="16" height="18" rx="2.5"/><path d="M8 8h8M8 12h5"/><path d="M13.5 17l1.8 1.8 3.2-3.6"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>AI 채점</b><span id="hub-ai">학습지 빈칸 · 서술 답</span>
           </a>
+<!-- nogame:start -->
           <a class="hub-item glass glass-live lift rise" style="--d:0.148s" href="#moon-rpg">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>달 자원 RPG 결과</b><span id="hub-moon-rpg">712 엔딩 · 선택 비율</span>
           </a>
+<!-- nogame:end -->
         </div>
       </section>
       <section class="hub-group g-student" aria-label="학생">
@@ -137,10 +139,12 @@
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3.5v11M7.5 10l4.5 4.5 4.5-4.5"/><path d="M4.5 16.5v3h15v-3"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>기록 내보내기 · 정리</b><span>CSV · 학기말 보드 보관</span>
           </a>
+<!-- nogame:start -->
           <a class="hub-item glass glass-live lift rise" style="--d:0.35s" href="#omok">
             <i class="hub-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3.5 8h17M3.5 16h17M8 3.5v17M16 3.5v17"/><circle cx="8" cy="8" r="2.4" fill="currentColor"/><circle cx="16" cy="16" r="2.4" fill="#fff"/></svg></i><i class="hub-go" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M7 17L17 7M9 7h8v8"/></svg></i>
             <b>게임</b><span id="hub-omok"></span>
           </a>
+<!-- nogame:end -->
         </div>
       </section>
     </nav>
@@ -344,6 +348,7 @@
       <div class="ai-fields" id="ai-fields"></div>
     </section>
 
+<!-- nogame:start -->
     <section class="card glass rise panel hidden" data-panel="moon-rpg" data-title="달 자원 RPG 결과" aria-labelledby="h-moon-rpg">
       <div class="card-head">
         <h2 id="h-moon-rpg">달 자원 RPG 결과 <span class="muted num" id="mr-sum"></span></h2>
@@ -358,6 +363,7 @@
       <p class="muted" style="margin:0">712 「다누리 탐사대장」 반별 통계예요. 학생 번호·닉네임 없이 숫자만 보여 줘요(학생별 최근 완료 판 기준).</p>
       <div id="mr-body" style="display:flex;flex-direction:column;gap:20px"></div>
     </section>
+<!-- nogame:end -->
 
     <form class="card glass rise panel hidden" data-panel="points" data-title="포인트 규칙" id="points-form" aria-labelledby="h-points">
       <h2 id="h-points">포인트 규칙</h2>
@@ -385,6 +391,7 @@
         <span>퀴즈 배틀 모둠 1등</span>
         <input class="input num" type="number" min="0" max="1000" name="qb_xp" aria-label="퀴즈 배틀 1등 XP" required>
         <input class="input num" type="number" min="0" max="1000" name="qb_coins" aria-label="퀴즈 배틀 1등 금화" required>
+<!-- nogame:start -->
         <span></span><span></span><b>은화</b>
         <span>오목 AI 승리</span>
         <span></span>
@@ -404,6 +411,7 @@
         <span>달 자원 RPG 완료</span>
         <span></span>
         <input class="input num" type="number" min="0" max="1000" name="mr_silver" aria-label="달 자원 RPG 완료 은화" required>
+<!-- nogame:end -->
         <span>퀴즈 쇼 1위</span>
         <input class="input num" type="number" min="0" max="1000" name="qs_xp0" aria-label="퀴즈 쇼 1위 XP" required>
         <input class="input num" type="number" min="0" max="1000" name="qs_coins0" aria-label="퀴즈 쇼 1위 금화" required>
@@ -453,6 +461,7 @@
       </section>
     </div>
 
+<!-- nogame:start -->
     <section class="card glass rise panel hidden" data-panel="omok" data-title="게임" aria-labelledby="h-omok">
       <h2 id="h-omok">게임</h2>
       <p class="muted" style="margin:0">켠 반만 오목·오델로·루미큐브·쿼리도·윷놀이를 할 수 있어요(학생 첫 화면의 '게임'). 수업 모드를 열면 그 반은 자동으로 꺼지고, 하던 온라인 판에서도 나가요.</p>
@@ -508,6 +517,7 @@
       </div>
       <div class="lock-list" id="omok-list"></div>
     </section>
+<!-- nogame:end -->
 
     <section class="card glass rise panel hidden" data-panel="lock" data-title="반별 잠금" aria-labelledby="h-lock">
       <h2 id="h-lock">반별 잠금</h2>

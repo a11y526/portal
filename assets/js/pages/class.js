@@ -3,7 +3,8 @@
 import { CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
 import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onWsAi, onQuizShow,
-  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials, moonRpgState, moonRpgFinish } from '../db.js';
+  getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
+import { moonRpgState, moonRpgFinish } from '../db.js'; // nogame
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
 import { renderPage, markFields, closeSims, showSide, wakeSims, pageSims } from '../worksheet.js';
@@ -1392,6 +1393,7 @@ document.addEventListener('ws-sim-load', (e) => {
   setTimeout(() => { if (f.isConnected && !f.dataset.gate) markSimDone(f.dataset.pg, f.dataset.sim); }, SIM_OLD_MS);
 });
 
+/* nogame:start */
 /* ---------- 712 달 자원 RPG 시뮬레이션 iframe 브리지 ----------
    #ws-side / .ws-sim iframe은 sandbox="allow-scripts"라 localStorage를 직접 읽지 못하므로
    postMessage로 학생 닉네임·은화 보상 지급을 연결한다.
@@ -1445,3 +1447,4 @@ addEventListener('message', async (e) => {
     }
   }
 });
+/* nogame:end */

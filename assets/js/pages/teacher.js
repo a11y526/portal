@@ -6,15 +6,20 @@ import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, cleanupPostPhotos,
   listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
-  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock, setOmokOpen,
+  listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
-  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getOthelloRules, saveOthelloRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getYutRules, saveYutRules, getMoonRpgRules, saveMoonRpgRules, getMoonRpgClass, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants, getCoinStatus,
+  getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants, getCoinStatus,
   listArchivedBoards, archiveBoards, exportPointEvents, exportPurchases,
   listLessons, saveLesson, deleteLesson, sendClassRefresh,
   listWorksheets, saveWorksheet, countWorksheetAnswers,
   getAwayStats,
 } from '../db.js';
+/* nogame:start */
+import {
+  setOmokOpen, getOmokRules, saveOmokRules, getOmokPvpRules, saveOmokPvpRules, getOthelloRules, saveOthelloRules, getRummikubRules, saveRummikubRules, getQuoridorRules, saveQuoridorRules, getYutRules, saveYutRules, getMoonRpgRules, saveMoonRpgRules, getMoonRpgClass,
+} from '../db.js';
 import { EVENTS as MR_EVENTS, ENDINGS as MR_ENDINGS } from '../rpg-moon-data.js';
+/* nogame:end */
 import { PARTS, SLOTS, SLOT_NAMES } from '../avatar-parts.js';
 import { teacherGate, errMsg } from '../gate.js';
 import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../worksheet.js';
@@ -29,12 +34,14 @@ initUI();
 const $ = (id) => document.getElementById(id);
 
 let classes = [];
+/* nogame:start */
 let omokRules = null;   // settings.omok
 let rkRules = null;     // settings.rummikub
 let ompRules = null;    // settings.omok_pvp
 let otRules = null;     // settings.othello
 let qdRules = null;     // settings.quoridor
 let ytRules = null;     // settings.yut
+/* nogame:end */
 let boards = [];
 let lessonMeta = [];   // 보드 화면 진도(쪽 수)·차시 제목
 let students = [];
@@ -1006,12 +1013,14 @@ async function refreshPoints() {
   const ws = (await getWorksheetRules()) ?? {};
   const wf = (await getWsFirstRules()) ?? {};
   quizRules = (await getQuizRules()) ?? {};
+/* nogame:start */
   omokRules = (await getOmokRules()) ?? { xp: 2, silver: 0, daily: 7 };
   rkRules = { ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}) };
   qdRules = { ...QD_DEFAULT, ...((await getQuoridorRules()) ?? {}) };
   otRules = { ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}) };
   ytRules = { ...YT_DEFAULT, ...((await getYutRules()) ?? {}) };
   const mrRules = (await getMoonRpgRules()) ?? { silver: 5 };
+/* nogame:end */
   const r = (await getPointRules()) ?? {};
   const bx = r.rank_bonus ?? [10, 6, 3];
   const bc = r.rank_bonus_coins ?? bx;
@@ -1027,12 +1036,14 @@ async function refreshPoints() {
   f.wf_draw.value = wf.draw ?? 50;
   f.qb_xp.value = quizRules.xp ?? 4;
   f.qb_coins.value = quizRules.coins ?? 4;
+/* nogame:start */
   f.om_silver.value = omokRules.silver ?? 0;
   f.rk_silver.value = rkRules.silver ?? 0;
   f.qd_silver.value = qdRules.silver ?? 0;
   f.ot_silver.value = otRules.silver ?? 0;
   f.yt_silver.value = ytRules.silver ?? 0;
   f.mr_silver.value = mrRules.silver ?? 5;
+/* nogame:end */
   const qs = (await getQuizShowRules()) ?? {};
   [0, 1, 2].forEach((i) => { f['qs_xp' + i].value = qs.xp?.[i] ?? [10, 6, 3][i]; f['qs_coins' + i].value = qs.coins?.[i] ?? [10, 6, 3][i]; });
   renderPointsSum();
@@ -1062,6 +1073,7 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveWorksheetRules({ xp: q('ws_xp'), coins: q('ws_coins') });
     await saveWsFirstRules({ xp: q('wf_xp'), coins: q('wf_coins'), draw: Math.min(600, q('wf_draw')) });
     await saveQuizRules({ ...quizRules, xp: q('qb_xp'), coins: q('qb_coins') }); // 문제 시간은 그대로
+/* nogame:start */
     // 오목·루미큐브·쿼리도·오델로는 판 수 등 나머지 값을 서버에서 다시 읽어 그대로 둔다
     await saveOmokRules({ xp: 2, daily: 7, ...((await getOmokRules()) ?? {}), xp: 0, silver: q('om_silver') });
     await saveRummikubRules({ ...RK_DEFAULT, ...((await getRummikubRules()) ?? {}), xp: 0, silver: q('rk_silver') });
@@ -1069,10 +1081,11 @@ $('points-form').addEventListener('submit', async (e) => {
     await saveOthelloRules({ ...OT_DEFAULT, ...((await getOthelloRules()) ?? {}), xp: 0, silver: q('ot_silver') });
     await saveYutRules({ ...YT_DEFAULT, ...((await getYutRules()) ?? {}), xp: 0, silver: q('yt_silver') });
     await saveMoonRpgRules({ silver: q('mr_silver') });
+/* nogame:end */
     await saveQuizShowRules({ xp: [0, 1, 2].map((i) => q('qs_xp' + i)), coins: [0, 1, 2].map((i) => q('qs_coins' + i)) });
     if (levels.join() !== savedLevels.join()) await saveLevelThresholds(levels);
     await refreshPoints();
-    await Promise.all([refreshOmokRules(), refreshRkRules(), refreshQdRules(), refreshOtRules(), refreshYtRules()]);
+    await Promise.all([refreshOmokRules(), refreshRkRules(), refreshQdRules(), refreshOtRules(), refreshYtRules()]); // nogame
     toast('저장했어요', 'ok');
   } catch (err) {
     toast(errMsg(err), 'error');
@@ -1114,6 +1127,7 @@ function eventKind(e) {
   if (e.qs_game_id || (e.reason || '').startsWith('퀴즈 쇼')) return '퀴즈 쇼';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   if ((e.reason || '').startsWith('닉네임 ')) return '닉네임';
+/* nogame:start */
   if (e.reason === '오목 승리') return '오목';
   if (e.reason === '루미큐브 승리') return '루미큐브';
   if (e.reason === '쿼리도 승리') return '쿼리도';
@@ -1121,6 +1135,7 @@ function eventKind(e) {
   if (e.reason === '윷놀이 승리') return '윷놀이';
   if ((e.reason || '').startsWith('달 자원 RPG')) return 'RPG'; // 완료 · 은화 회수
   if (e.reason === '게임 XP 회수') return '게임 XP 회수';
+/* nogame:end */
   return '직접 줌';
 }
 
@@ -1544,6 +1559,7 @@ $('lock-list').addEventListener('click', async (e) => {
   }
 });
 
+/* nogame:start */
 /* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
 // 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·silver는 '포인트 규칙'에서)
 async function refreshOmokRules() {
@@ -1880,6 +1896,7 @@ async function refreshMoonRpg() {
     </div>`;
 }
 
+/* nogame:end */
 /* ---------- 첫 화면 항목 ---------- */
 function updateHub() {
   const set = (id, text) => { const el = $(id); if (el) el.textContent = text; };
@@ -1894,8 +1911,10 @@ function updateHub() {
   $('hub-nick-badge').classList.toggle('hidden', !nickReqs.length);
   const locked = classes.filter((c) => c.locked).map((c) => `${clsName(c.id)}반`);
   if (classes.length) set('hub-lock', locked.length ? `잠김: ${locked.join(', ')}` : '모두 열림');
+/* nogame:start */
   const omok = classes.filter((c) => c.omok_open).map((c) => `${clsName(c.id)}반`);
-  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (otRules ? ` · 오델로 ${otRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : '') + (qdRules ? ` · 쿼리도 ${qdRules.daily}판` : '') + (ytRules ? ` · 윷놀이 ${ytRules.daily}판` : ''));
+/* nogame:end */
+  if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (otRules ? ` · 오델로 ${otRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : '') + (qdRules ? ` · 쿼리도 ${qdRules.daily}판` : '') + (ytRules ? ` · 윷놀이 ${ytRules.daily}판` : '')); // nogame
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -1930,12 +1949,12 @@ function loadPanel(key) {
   if (key === 'grant') { renderGrant(); refreshGrants().catch(() => {}); }
   if (key === 'coins') refreshCoins().catch(() => {});
   if (key === 'points') refreshPoints().catch(() => {});
-  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshOmpRules().catch(() => {}); refreshOtRules().catch(() => {}); refreshRkRules().catch(() => {}); refreshQdRules().catch(() => {}); refreshYtRules().catch(() => {}); }
+  if (key === 'omok') { refreshOmokRules().catch(() => {}); refreshOmpRules().catch(() => {}); refreshOtRules().catch(() => {}); refreshRkRules().catch(() => {}); refreshQdRules().catch(() => {}); refreshYtRules().catch(() => {}); } // nogame
   if (key === 'data') refreshArchive().catch(() => {});
   if (key === 'mats') refreshMats().catch(() => {});
   if (key === 'progress') refreshProgress().catch(() => {});
   if (key === 'ai') refreshAi().catch(() => {});
-  if (key === 'moon-rpg') refreshMoonRpg().catch(() => {});
+  if (key === 'moon-rpg') refreshMoonRpg().catch(() => {}); // nogame
 }
 initSide();
 addEventListener('hashchange', route);
@@ -1947,7 +1966,7 @@ async function refresh() {
   renderToday();
   renderBoards();
   renderLocks();
-  renderOmok();
+  renderOmok(); // nogame
   renderLessons();
   if (location.hash === '#data') renderArchive();
   // 모둠 게시판 사진은 그 차시가 끝나면(어느 반의 오늘 보드도 아니면) 지운다
@@ -1957,6 +1976,7 @@ async function refresh() {
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
-  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons(), refreshOmokRules(), refreshOmpRules(), refreshOtRules(), refreshRkRules(), refreshQdRules(), refreshYtRules()]).catch((err) => toast(errMsg(err), 'error'));
+  await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons()]).catch((err) => toast(errMsg(err), 'error'));
+  Promise.all([refreshOmokRules(), refreshOmpRules(), refreshOtRules(), refreshRkRules(), refreshQdRules(), refreshYtRules()]).catch((err) => toast(errMsg(err), 'error')); // nogame
   loadPanel(location.hash.slice(1));
 });

@@ -4,12 +4,13 @@
 import { TEACHER_CLASSES, GRADE, clsName } from '../config.js';
 import { toast, esc, groupName } from '../ui.js';
 import {
-  getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh, setOmokOpen,
+  getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount, updateBoard,
   onRemote, sendRemote, watchBoard, getAwayStats,
 } from '../db.js';
+import { setOmokOpen } from '../db.js'; // nogame
 import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
 import { avatarSVG, react, setWaiting } from '../avatar.js';
@@ -1352,10 +1353,12 @@ teacherGate($('app'), async () => {
   $('cover-title').textContent = title;
   document.title = `${clsName(classId)}반 ${code}차시 수업`;
 
+/* nogame:start */
   // 수업 중에는 이 반 오목을 끈다 (보드가 없어도)
   if (classes.find((x) => x.id === classId)?.omok_open) {
     setOmokOpen(classId, false).then(() => sendClassRefresh(classId)).catch((err) => toast(errMsg(err), 'error'));
   }
+/* nogame:end */
 
   // 진도 관리: 오늘 이 반 수업 줄에 이 차시를 적고 다음 차시를 넘긴다(오늘 이 반 수업이 없으면 그대로)
   recordLessonTaught(classId, code).catch((err) => console.warn('진도 기록', err));

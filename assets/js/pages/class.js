@@ -385,6 +385,7 @@ const ws = {
   simProg: new Map(), // '쪽|주소' → { n, total } 시뮬레이션이 알려 준 진행(잠긴 쪽 안내 띠에 표시)
   simFill: new Map(), // 칸 키 → 시뮬레이션이 보낸 답(sim:answer). 아직 쓸 수 없으면 여기 두었다가 쪽을 다시 그릴 때 넣는다
   unlocked: null,     // 방금 시뮬레이션을 끝내 칸이 열린 쪽(안내 띠를 '완료'로 한 번 보여 줌)
+  blank: null,        // 수업 따라가기 중 학습지에 쓸 칸이 없는 수업자료 쪽(번호). 그 쪽 제목 카드를 띄운다
   meta: null,       // get_class_page의 worksheet
   boardId: null,
   ver: null,        // 받아 둔 본문의 '보드|버전'
@@ -416,7 +417,30 @@ const hasFields = (p) => (p?.fields?.length ?? 0) > 0;
 const isClosed = (p) => !!p?.locked; // 아직 수업에서 안 나간 쪽(본문이 오지 않음)
 const pageDone = (p) => ws.done || (hasFields(p) && p.fields.every((f) => ws.passed.has(f.key)));
 const isShut = (p, i) => hasFields(p) && !ws.opened.has(i); // 선생님이 아직 안 열었거나 잠근 쪽
-const locked = () => !login || ws.done || pageDone(pages()[ws.idx]) || isShut(pages()[ws.idx], ws.idx);
+const locked = () => !login || ws.done || ws.blank != null || pageDone(pages()[ws.idx]) || isShut(pages()[ws.idx], ws.idx);
+
+/* ---------- 수업 따라가기 (2026-11-05) ----------
+   수업 모드가 열려 있는 동안(worksheet.now가 있고 free가 아님) 학습지는 수업자료의 지금 쪽을 저절로 보여 주고,
+   학생은 앞뒤로 넘기지 못한다. 학습지에 없는 쪽(표지·정리 등)은 제목 카드. 수업자료가 마지막 쪽에 가면(free) 마음대로 넘김 */
+const following = () => !!(ws.sheet && ws.meta?.now && !ws.meta?.free);
+function applyFollow() {
+  const on = following();
+  const flip = on !== $('sheet').classList.contains('is-follow');
+  $('sheet').classList.toggle('is-follow', on);
+  if (!on) {
+    if (ws.blank == null) return flip; // 수업이 끝나 다시 넘길 수 있게 되면 단추를 다시 그린다
+    ws.blank = null;
+    return true;
+  }
+  const now = Number(ws.meta.now);
+  const i = pages().findIndex((p) => p.slide === now);
+  const blank = i < 0 ? now : null;
+  if (!flip && blank === ws.blank && (i < 0 || i === ws.idx)) return false;
+  ws.blank = blank;
+  if (i >= 0) ws.idx = i;
+  ws.unlocked = null;
+  return true;
+}
 
 /* ---------- 시뮬레이션을 끝까지 해야 쓰기 (2026-11-02) ----------
    시뮬레이션이 있는 쪽은 그 쪽 시뮬레이션이 모두 {type:'sim:done'}을 보낼 때까지 칸을 잠근다.
@@ -476,6 +500,7 @@ function syncSheet(data) {
   ws.meta = meta;
   noteFirsts(meta, data?.board?.id);
   setOpened(meta?.opened);
+  if (applyFollow() && ws.sheet) { renderSheet(); if ($('sheet').getBoundingClientRect().top < 0) $('sheet').scrollIntoView({ block: 'start' }); }
   showGroupSheet(meta?.group);
   if (!meta) {
     ws.ver = null;
@@ -565,7 +590,9 @@ async function fetchSheet() {
       ws.idx = Number.isInteger(saved) && saved >= 0 && saved < pages().length ? saved : 0;
       ws.bad = {};
       ws.badPts = {};
+      ws.blank = null;
     }
+    applyFollow();
     renderSheet();
     if (ws.dirty) saveSheet();
   } catch (err) {
@@ -587,7 +614,24 @@ function renderSheet() {
 const wideSheet = matchMedia('(min-width: 1100px)');
 wideSheet.addEventListener('change', () => { if (ws.sheet) renderWsPage(); });
 
+function renderBlank() {
+  const n = ws.blank;
+  const title = ws.sheet?.slides?.[n - 1] ?? '';
+  $('ws-slide').textContent = `수업자료 ${n}쪽`;
+  $('ws-h').textContent = title;
+  $('ws-chip').classList.add('hidden');
+  $('ws-page').innerHTML = `<div class="empty ws-blank"><strong>이 쪽은 학습지에 쓸 칸이 없어요</strong><span>앞 화면을 보세요. 수업이 넘어가면 학습지도 같이 넘어가요</span></div>`;
+  showSide($('ws-side'), []);
+  $('ws-side').classList.add('hidden');
+  $('sheet').classList.remove('has-side', 'sim-only');
+  document.querySelector('.class-wrap').classList.remove('is-wide');
+  $('ws-prev').disabled = true;
+  $('ws-next').disabled = true;
+  renderDots();
+}
+
 function renderWsPage() {
+  if (ws.blank != null) { renderBlank(); return; }
   const list = pages();
   const page = list[ws.idx];
   $('ws-slide').textContent = page ? `수업자료 ${page.slide}쪽` : '';
@@ -609,8 +653,8 @@ function renderWsPage() {
   $('sheet').classList.toggle('sim-only', hasSide && (page?.fields ?? []).every((f) => f.sim));
   document.querySelector('.class-wrap').classList.toggle('is-wide', hasSide && tab === 'sheet');
   markFields($('ws-page'), ws.bad, wsMarks());
-  $('ws-prev').disabled = ws.idx <= 0;
-  $('ws-next').disabled = ws.idx >= list.length - 1;
+  $('ws-prev').disabled = following() || ws.idx <= 0;
+  $('ws-next').disabled = following() || ws.idx >= list.length - 1;
   renderDots();
   if (!isClosed(page)) applySimFill(page);
 }
@@ -627,8 +671,9 @@ function renderDots() {
     const checking = !done && !bad && keys.some((k) => ws.bad[k] === 'checking');
     const closed = isClosed(p);
     const st = closed ? ' · 아직 수업 전' : done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : checking ? ' · 확인 중' : full ? ' · 다 씀, 제출 전' : '';
-    return `<button type="button" class="ws-dot${i === ws.idx ? ' on' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}${checking ? ' is-checking' : ''}"
-      data-i="${i}" aria-label="${p.slide}쪽${st}" ${i === ws.idx ? 'aria-current="step"' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
+    const cur = i === ws.idx && ws.blank == null;
+    return `<button type="button" class="ws-dot${cur ? ' on' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}${checking ? ' is-checking' : ''}"
+      data-i="${i}" aria-label="${p.slide}쪽${st}" ${cur ? 'aria-current="step"' : ''}${following() ? ' tabindex="-1"' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
   }).join('');
 }
 
@@ -647,7 +692,7 @@ function renderWsFoot() {
       </div>`;
     return;
   }
-  const page = pages()[ws.idx];
+  const page = ws.blank != null ? null : pages()[ws.idx];
   const pr = progress();
   const prog = `<span class="ws-prog num" aria-label="제출한 쪽 ${pr.n}개, 모두 ${pr.total}쪽">제출 <b>${pr.n}</b> / ${pr.total}쪽</span>`;
   const status = `<span class="ws-save muted" id="ws-save" role="status">${esc(ws.status)}</span>`;
@@ -658,7 +703,7 @@ function renderWsFoot() {
     const next = pages().findIndex((p) => hasFields(p) && !pageDone(p));
     foot.innerHTML = `${status}${prog}
       <span class="ws-pagedone${just ? ' pop' : ''}"><span class="ws-pagedone-ck" aria-hidden="true">${CHECK_SVG(18, just ? '.2s' : '0s')}</span>이 쪽 제출함</span>
-      ${next >= 0 ? `<button type="button" class="btn btn-line press" id="ws-left" data-i="${next}">제출 안 한 쪽으로</button>` : ''}`;
+      ${next >= 0 && !following() ? `<button type="button" class="btn btn-line press" id="ws-left" data-i="${next}">제출 안 한 쪽으로</button>` : ''}`;
     if (just) prepareDraw(foot);
     return;
   }
@@ -788,6 +833,7 @@ function setStatus(text) {
 }
 
 function goPage(i) {
+  if (following()) return; // 수업 중에는 수업자료를 따라감
   if (i < 0 || i >= pages().length || i === ws.idx) return;
   ws.idx = i;
   ws.unlocked = null;

@@ -855,7 +855,7 @@ export async function listLessons() {
 }
 
 export async function getLesson(code) {
-  return unwrap(await need().from('lessons').select('code, title, lesson_src, slide_count').eq('code', code).maybeSingle());
+  return unwrap(await need().from('lessons').select('code, title, lesson_src, slide_count, slide_titles').eq('code', code).maybeSingle());
 }
 
 // { code, title, lesson_src, sort }
@@ -1324,14 +1324,24 @@ export async function recordLessonTaught(classId, code) {
 }
 
 // 수업 모드: 보드에서 실제로 간 가장 뒤 쪽(줄지 않음)
+// 학습지 수업 따라가기: 수업 모드가 지금 보는 수업자료 쪽(학생 학습지가 이 쪽으로 넘어감)
+export async function setBoardSlideNow(boardId, slide) {
+  unwrap(await need().from('boards').update({ ws_now: slide }).eq('id', boardId));
+}
+
+// 수업 끝(수업자료 마지막 쪽·W): 학습지 모든 쪽을 열고 학생이 마음대로 넘기게
+export async function setWsFree(boardId) {
+  return unwrap(await need().rpc('set_ws_free', { p_board_id: boardId }));
+}
+
 export async function setBoardSlideMax(boardId, slide) {
   unwrap(await need().from('boards').update({ slide_max: slide }).eq('id', boardId)
     .or(`slide_max.is.null,slide_max.lt.${Number(slide)}`));
 }
 
 // 수업 모드: 수업자료 쪽 수
-export async function setLessonSlideCount(code, n) {
-  unwrap(await need().from('lessons').update({ slide_count: n }).eq('code', code));
+export async function setLessonSlideCount(code, n, titles) {
+  unwrap(await need().from('lessons').update(titles ? { slide_count: n, slide_titles: titles } : { slide_count: n }).eq('code', code));
 }
 
 // 진도 계산용 보드 (보관한 것 포함): [{ class_id, lesson_code, slide_max, status }]

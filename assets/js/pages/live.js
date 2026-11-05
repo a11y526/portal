@@ -7,7 +7,7 @@ import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
-  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setLessonSlideCount, updateBoard,
+  listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setBoardSlideNow, setWsFree, setLessonSlideCount, updateBoard,
   onRemote, sendRemote, watchBoard, getAwayStats,
 } from '../db.js';
 import { setOmokOpen } from '../db.js'; // nogame
@@ -89,6 +89,16 @@ const lessonFrame = {
   slideCount() {
     try {
       return this.el.contentWindow.document.querySelectorAll('.slide').length || null;
+    } catch {
+      return null;
+    }
+  },
+
+  // 쪽 제목(.slide의 data-title). 학생 학습지에서 쓸 칸이 없는 쪽을 제목 카드로 보여 줄 때 쓴다
+  slideTitles() {
+    try {
+      return [...this.el.contentWindow.document.querySelectorAll('.slide')]
+        .map((s, i) => (s.dataset.title || s.querySelector('h1, h2')?.textContent || `${i + 1}쪽`).trim().slice(0, 80));
     } catch {
       return null;
     }
@@ -1082,6 +1092,52 @@ $('wsf-back').addEventListener('click', () => wsFirst.back());
    학생은 그 쪽까지의 학습지만 보고 낸다. 앞 쪽으로 돌아가도 열린 쪽은 닫히지 않는다
    ========================================================= */
 const UPTO_POLL_MS = 1000;
+
+/* 학습지 수업 따라가기 (2026-11-05): 학생 학습지는 수업자료의 지금 쪽(boards.ws_now)으로 저절로 넘어가고,
+   학생이 앞뒤로 넘기지 못한다. 수업자료가 마지막 쪽에 가거나 W(모두 열기)를 누르면 수업 끝(set_ws_free):
+   모든 쪽이 열리고 학생이 마음대로 넘기며 덜 쓴 쪽을 쓴다. 같은 쪽에 0.6초 머물러야 보낸다(빨리 넘길 때 신호를 줄임) */
+const follow = {
+  sent: null,
+  want: null,
+  timer: 0,
+  ended: false,
+  start() { this.sent = board?.ws_now ?? null; this.ended = !!board?.ws_free; },
+  see(slide) {
+    if (!board || !slide || this.ended) return;
+    if (slide === this.want) return;
+    this.want = slide;
+    clearTimeout(this.timer);
+    this.timer = setTimeout(() => this.send(slide), 600);
+    const n = lessonFrame.slideCount();
+    if (n && slide >= n) this.end();
+  },
+  async send(slide) {
+    if (!board || slide === this.sent || this.ended) return;
+    try {
+      await setBoardSlideNow(board.id, slide);
+      this.sent = slide;
+      sendClassRefresh(classId);
+    } catch (err) {
+      this.want = null;
+      console.warn('지금 쪽', err);
+    }
+  },
+  async end() {
+    if (!board || this.ended) return;
+    this.ended = true;
+    clearTimeout(this.timer);
+    try {
+      await setWsFree(board.id);
+      board.ws_free = true;
+      sendClassRefresh(classId);
+      sheetBand.refresh();
+      toast('수업 끝 · 학습지를 모두 열었어요');
+    } catch (err) {
+      this.ended = false;
+      console.warn('수업 끝', err);
+    }
+  },
+};
 const ALL_PAGES = 9999;
 const sheetUpto = {
   sent: 0,
@@ -1103,7 +1159,7 @@ const sheetUpto = {
   openAll() {
     if (!board) return;
     if (this.sent >= ALL_PAGES) { toast('학습지가 이미 모두 열려 있어요'); return; }
-    this.push(ALL_PAGES).then(() => { if (this.sent >= ALL_PAGES) toast('학습지를 모두 열었어요'); });
+    this.push(ALL_PAGES).then(() => { if (this.sent >= ALL_PAGES) { follow.end(); toast('학습지를 모두 열었어요'); } });
   },
   // 지금 보이는 쪽까지만 남기고 뒤 쪽은 다시 잠근다 (미리 넘겨 봤을 때)
   async rewind() {
@@ -1123,11 +1179,13 @@ const sheetUpto = {
     }
   },
   start() {
+    follow.start();
     this.sent = board?.ws_upto ?? 0;
     const tick = () => {
       const slide = lessonFrame.currentSlide();
       sheetBand.setSlide(slide);
       this.push(slide);
+      follow.see(slide);
     };
     tick();
     setInterval(tick, UPTO_POLL_MS);
@@ -1144,7 +1202,9 @@ const progressMark = {
       const n = lessonFrame.slideCount();
       if (n && !this.counted) {
         this.counted = true;
-        if (lesson?.slide_count !== n) setLessonSlideCount(code, n).catch((err) => console.warn('쪽 수', err));
+        const titles = lessonFrame.slideTitles();
+        const same = JSON.stringify(lesson?.slide_titles ?? null) === JSON.stringify(titles);
+        if (lesson?.slide_count !== n || (titles && !same)) setLessonSlideCount(code, n, titles).catch((err) => console.warn('쪽 수', err));
       }
       const slide = lessonFrame.currentSlide();
       if (board && slide > this.max) {

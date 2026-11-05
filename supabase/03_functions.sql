@@ -647,6 +647,9 @@ begin
       'pages',       w.page_count,
       'done',        v_done is not null,
       'upto',        b.ws_upto,
+      -- 수업 따라가기(2026-11-05): 수업 모드가 보고 있는 수업자료 쪽. free면 수업이 끝나 마음대로 넘김
+      'now',         b.ws_now,
+      'free',        b.ws_free,
       'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null),
       'firsts',      coalesce(v_firsts, '[]'::jsonb),
       -- 모둠 학습지(2026-10-26): 켜져 있으면 {no: 그날 내 모둠(없으면 null), members: 함께 기록되는 인원}
@@ -2031,6 +2034,9 @@ begin
     'title',       w.title,
     'version',     w.updated_at,
     'upto',        b.ws_upto,
+    'now',         b.ws_now,
+    'free',        b.ws_free,
+    'slides',      (select l.slide_titles from public.lessons l where l.code = b.lesson_code),
     'pages',       public._ws_view(w.pages, b.ws_upto),
     'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null),
     'session',     case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
@@ -8979,3 +8985,34 @@ end;
 $$;
 revoke all on function public.exchange_silver(text, int) from public;
 grant execute on function public.exchange_silver(text, int) to anon, authenticated;
+
+
+-- 학습지 수업 따라가기(2026-11-05): 수업자료가 마지막 쪽에 가면(또는 W) 수업 끝 → 모든 쪽을 열고 학생이 마음대로 넘김.
+-- 선생님이 아직 [제출 시작]을 안 했거나 잠근 쪽도 모두 연다(덜 쓴 쪽을 수업 뒤에 쓰고 내게)
+create or replace function public.set_ws_free(p_board_id uuid)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_pages jsonb;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  update public.boards set ws_free = true, ws_upto = 9999 where id = p_board_id;
+  select w.pages into v_pages
+  from public.boards b join public.worksheets w on w.lesson_code = b.lesson_code
+  where b.id = p_board_id;
+  insert into public.ws_page_open (board_id, page, slide)
+  select p_board_id, (e.i - 1)::int, (e.p ->> 'slide')::int
+  from jsonb_array_elements(coalesce(v_pages, '[]'::jsonb)) with ordinality as e(p, i)
+  where jsonb_array_length(coalesce(e.p -> 'fields', '[]'::jsonb)) > 0
+  on conflict (board_id, page) do update set closed_at = null;
+  return jsonb_build_object('ok', true);
+end;
+$$;
+revoke all on function public.set_ws_free(uuid) from public, anon;
+grant execute on function public.set_ws_free(uuid) to authenticated;

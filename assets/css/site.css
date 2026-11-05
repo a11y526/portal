@@ -1099,6 +1099,11 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-dot.is-closed { opacity: .4; border-style: dashed; }
 .ws-dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ws-closed { gap: 10px; color: var(--ink-2); }
+/* 수업 따라가기(2026-11-05): 학습지가 수업자료 쪽을 따라감. 앞뒤 단추는 숨기고 쪽 점은 보기만 */
+.ws-card.is-follow .ws-nav .icon-btn { visibility: hidden; }
+.ws-card.is-follow .ws-dot { pointer-events: none; }
+.ws-blank { gap: 8px; min-height: 220px; }
+.ws-blank span { font-size: 15px; color: var(--ink-2); }
 .ws-wait-open { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: var(--r-pill);
   background: rgba(78,88,104,.1); color: var(--ink-2); font-weight: 700; }
 .ws-wait-open svg { width: 20px; height: 20px; flex: none; }

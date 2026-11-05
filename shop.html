@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="ko">
+<html lang="ko" class="stu">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
@@ -50,6 +50,7 @@
     <div class="cls-tabs" id="tabs" role="tablist" aria-label="상점">
       <button type="button" role="tab" class="cls-tab press on" aria-selected="true" data-tab="deco">꾸미기</button>
       <button type="button" role="tab" class="cls-tab press" aria-selected="false" data-tab="reward">보상</button>
+      <button type="button" role="tab" class="cls-tab press" aria-selected="false" data-tab="swap">은화 바꾸기</button>
     </div>
 
     <!-- 꾸미기 -->
@@ -64,6 +65,20 @@
       <div class="reward-grid" id="reward-grid"></div>
       <h2 class="reward-sub">신청 내역</h2>
       <div class="hist" id="buy-list"></div>
+    </section>
+
+    <!-- 은화 바꾸기 -->
+    <section class="glass me-card hidden" id="p-swap" aria-labelledby="swap-h">
+      <h2 id="swap-h">은화 바꾸기</h2>
+      <div class="swap-box">
+        <div class="swap-rate" id="swap-rate"></div>
+        <div class="swap-step">
+          <button type="button" class="btn btn-line press swap-pm" id="swap-minus" aria-label="줄이기">−</button>
+          <div class="swap-sum" id="swap-sum" aria-live="polite"></div>
+          <button type="button" class="btn btn-line press swap-pm" id="swap-plus" aria-label="늘리기">+</button>
+        </div>
+        <button type="button" class="btn btn-primary press swap-go" id="swap-go">바꾸기</button>
+      </div>
     </section>
   </div>
 </main>

@@ -99,7 +99,8 @@ async function logout() {
 export function refreshTop() { if (top) render(); }
 
 export function mountTop() {
-  if (top || !document.body) return;
+  // 수업 화면(반 페이지·퀴즈 배틀·퀴즈 쇼)에서는 띄우지 않는다(사용자 결정 2026-11-05)
+  if (top || !document.body || CUR === 'cls') return;
   top = document.createElement('header');
   top.className = 'stu-top lg';
   dock = document.createElement('nav');

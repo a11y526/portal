@@ -2839,3 +2839,112 @@ body.admin dialog .card .input { border-color: var(--a-line2); }
 }
 @media (max-width: 480px) { .stu-top { grid-template-columns: 1fr; padding-left: 8px; } .stu-brand { display: none; } .stu-right { justify-self: stretch; justify-content: flex-end; } }
 @media (max-width: 400px) { .stu-coin b { font-size: 13px; } .stu-coin { padding: 0 9px; gap: 4px; } }
+
+/* ===== 학생 화면 '가' 디자인 (2026-11-05 시안 mockups/student-glass.html 승인)
+   <html class="stu">인 학생 화면만. 관리 화면 '나'처럼: 흰 바탕, 연회색 둥근 큰 상자(#F7F7F7) 안에 흰 칸, 굵은 큰 제목, 알약 단추.
+   검정 = 누르는 것·고른 것만. 상태색(검사 대기·다시·통과)과 게임 말·타일 색은 그대로. 유리는 떠 있는 것(.lg)에만 ===== */
+html.stu { --bg: #fff; --ink: #0D0D0D; --ink-2: #5D5D5D; --accent: #0D0D0D; --accent-hover: #2B2B2B; --accent-tint: #F0F0F0;
+  --s-box: #F7F7F7; --s-pill: #F0F0F0; --s-line: #E6E6E6;
+  --glass-bg: #F7F7F7; --glass-strong-bg: #F7F7F7; --shadow: none; --shadow-strong: none; --idle-bg: #ECECEC; }
+html.stu body { background: #fff; }
+html.stu .bg { display: none; }
+html.stu :focus-visible { outline: 3px solid rgba(13,13,13,.28); }
+html.stu a:hover { color: inherit; }
+
+/* 큰 상자: 예전 유리 카드 → 연회색, 그림자·흐림·테두리 없음. 상자 안 상자 → 흰색 */
+html.stu :is(.glass, .glass-strong) { background: var(--s-box); border: 0; box-shadow: none; -webkit-backdrop-filter: none; backdrop-filter: none; }
+html.stu :is(.glass, .glass-strong) :is(.glass, .glass-strong) { background: #fff; }
+html.stu .glass-live::after { display: none; }
+html.stu .lift:hover { transform: translateY(-2px); box-shadow: none; }
+html.stu .main-wrap .lift:hover { transform: translateY(-2px); }
+html.stu :is(.board-card, .ws-card, .me-card, .login-box, .home-me) { border-radius: 30px; }
+html.stu dialog.sheet .card, html.stu dialog.sheet > .glass-strong, html.stu dialog .glass-strong { background: #fff; box-shadow: 0 24px 60px -12px rgba(0,0,0,.28); }
+html.stu dialog.sheet::backdrop { background: rgba(0,0,0,.32); }
+
+/* 단추: 알약. 주요 = 검정, 보조 = 연회색(상자 안에서는 흰색) */
+html.stu .btn { font-weight: 500; }
+html.stu .btn-big { font-weight: 700; }
+html.stu .btn-primary { background: #0D0D0D; color: #fff; box-shadow: none; }
+html.stu .btn-primary:hover { background: #2B2B2B; color: #fff; }
+html.stu .btn-line { background: var(--s-pill); border: 0; color: #0D0D0D; }
+html.stu .btn-line:hover { background: #E6E6E6; }
+html.stu :is(.glass, .glass-strong) .btn-line { background: #fff; }
+html.stu :is(.glass, .glass-strong) .btn-line:hover { background: #EDEDED; }
+html.stu .btn-glass, html.stu .icon-btn.glass, html.stu .nav-link.glass { background: var(--s-pill); }
+html.stu .icon-btn.glass:hover { background: #E6E6E6; }
+html.stu .chip { background: #ECECEC; color: #3D3D3D; font-weight: 500; }
+html.stu .lesson-chip { background: var(--s-pill); }
+
+/* 입력: 흰 바탕, 얇은 선 */
+html.stu :is(.input, .code-input) { background: #fff; border: 1px solid var(--s-line); }
+html.stu :is(.input, .code-input, .qb-blank-in):focus { outline: none; border-color: #0D0D0D; }
+html.stu :is(.glass, .glass-strong) :is(.input, .code-input) { border-color: transparent; }
+html.stu :is(.glass, .glass-strong) :is(.input, .code-input):focus { border-color: #0D0D0D; }
+
+/* 탭: 알약, 고른 것만 검정 */
+html.stu .class-tabs { background: var(--s-pill); }
+html.stu .class-tab.on { background: #0D0D0D; color: #fff; }
+
+/* 파랑으로 '나·고른 것'을 표시하던 곳 → 회색·검정 */
+html.stu .gs.is-mine, html.stu .qb-p.is-me { box-shadow: inset 0 0 0 1.5px #0D0D0D; }
+html.stu .xp-track, html.stu .qb-timer-track { background: #E6E6E6; }
+html.stu .wear-opt:hover { border-color: #CFCFCF; }
+html.stu .wear-opt[aria-checked="true"] { border-color: #0D0D0D; background: #fff; box-shadow: none; }
+html.stu .rank-row.is-mine { background: #ECECEC; border-color: transparent; }
+html.stu .login-cls.on { background: #0D0D0D; border-color: #0D0D0D; box-shadow: none; }
+html.stu .shop-item[aria-pressed="true"] { background-color: #fff; box-shadow: 0 0 0 2px #0D0D0D; outline: 0; }
+html.stu .reward-ic.ic-pair { background: #ECECEC; }
+html.stu .ws-group:not(.is-none), html.stu .wsdone-chip { background: #ECECEC; color: #0D0D0D; }
+html.stu .qb-seat.is-in { background: #fff; border-color: #0D0D0D; box-shadow: none; }
+html.stu .post-col.is-mine { background: #fff; box-shadow: inset 0 0 0 1.5px var(--s-line); }
+html.stu .rk-add, html.stu .rk-new { border-color: #BDBDBD; }
+
+html.stu .lv-ring circle:first-child { stroke: #E6E6E6; }
+html.stu .lv-ring .lv-arc { stroke: #0D0D0D; }
+
+/* 제목: 아주 굵게 크게 */
+html.stu :is(.class-title, .main-title) { font-weight: 900; letter-spacing: -0.035em; }
+html.stu .class-title { font-size: 40px; }
+
+/* ---------- 입구: 왼쪽 프로필, 오른쪽 2×2 칸 + 순위 한 줄 (시안과 같음) ---------- */
+html.stu .main-wrap { max-width: 1184px; padding-top: 28px; }
+html.stu .home { grid-template-columns: 360px minmax(0, 1fr); gap: 22px; }
+html.stu .home-me { padding: 34px 28px 28px; gap: 12px; justify-content: flex-start; }
+html.stu .home-av { width: 200px; height: 200px; }
+html.stu .home-nick { font-size: 28px; margin-top: 4px; }
+html.stu .home-lv { width: 100%; display: grid; gap: 8px; text-align: left; margin-top: 6px; }
+html.stu .home-lv.hidden, html.stu .home-stats.hidden { display: none; }
+html.stu .home-lv-row { display: flex; justify-content: space-between; font-size: 14px; color: #5D5D5D; }
+html.stu .home-lv-row b { color: #0D0D0D; font-size: 15px; }
+.home-bar { height: 8px; border-radius: 99px; background: rgba(0,0,0,.08); overflow: hidden; }
+.home-bar i { display: block; height: 100%; border-radius: 99px; background: #0D0D0D; transform-origin: left; transform: scaleX(0); transition: transform 1s var(--ease); }
+html.stu .home-stats { width: 100%; display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+html.stu .home-stats > div { padding: 12px 6px; border-radius: 16px; background: #fff; text-align: center; }
+html.stu .home-stats b { display: block; font-size: 22px; font-weight: 900; letter-spacing: -.02em; }
+html.stu .home-stats span { font-size: 12.5px; color: #5D5D5D; }
+html.stu .home-menu { display: grid; grid-template-columns: 1fr 1fr; grid-template-rows: 1fr 1fr; grid-auto-rows: auto; gap: 14px; }
+html.stu .home-item { min-height: 150px; flex-direction: column; align-items: flex-start; justify-content: space-between; gap: 14px; padding: 22px; border-radius: 26px; }
+html.stu .home-item:last-child { grid-column: span 2; min-height: 0; flex-direction: row; align-items: center; }
+html.stu .home-menu:has(#go-games[hidden]) .home-item:nth-child(3) { grid-column: span 2; }
+html.stu .home-ic { width: 46px; height: 46px; border-radius: 14px; background: #fff; color: #0D0D0D; }
+html.stu .home-ic svg { width: 24px; height: 24px; }
+html.stu .home-txt b { font-size: 20px; }
+html.stu .home-txt span { font-size: 14px; color: #5D5D5D; }
+html.stu .home-go { display: none; }
+html.stu .home-item:last-child .home-go { display: block; font-size: 22px; }
+html.stu #go-class.home-item { background: #0D0D0D; color: #fff; box-shadow: none; border: 0; }
+html.stu #go-class .home-ic { background: rgba(255,255,255,.14); color: #fff; }
+html.stu #go-class .home-txt b { font-size: 20px; }
+html.stu #go-class .home-txt span { color: #BDBDBD; }
+html.stu .login-cls { background: #fff; border-color: transparent; }
+html.stu .guest-link { background: var(--s-pill); }
+@media (max-width: 860px) {
+  html.stu .home { grid-template-columns: minmax(0, 1fr); }
+  html.stu .home-menu { grid-template-rows: none; }
+  html.stu .home-item { min-height: 128px; }
+  html.stu .class-title { font-size: 32px; }
+}
+@media (max-width: 480px) {
+  html.stu .home-menu { gap: 10px; }
+  html.stu .home-item { min-height: 118px; padding: 18px; }
+}

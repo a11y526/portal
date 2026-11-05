@@ -1,7 +1,7 @@
 // 관리 첫 화면(아무 항목도 안 열었을 때) 가운데 3D 장면: 별 점으로 만든 나선 은하가 화면 가운데 어두운 우주에서 돈다.
 // 우주 바탕·가장자리 흐림은 CSS(.hero canvas의 배경과 mask). 아래에 시각과 오늘 수업(showToday).
 // 라이브러리 없이 Canvas 2D로 3D 투영. 교사 PC 전용(학생 화면에는 없음).
-// 마우스를 움직이면 살짝 기울고, 누르면 점이 흩어졌다 모이며 다음 모양(은하 → 토성 → DNA → 지구)으로 바뀐다.
+// 마우스를 움직이면 살짝 기울고, 누르면 점이 흩어졌다 모이며 다음 모양(은하 → 초신성 → 지구 → 태양계)으로 바뀐다.
 // 움직임 줄이기면 멈춘 한 장면만, 화면이 숨겨지면 requestAnimationFrame이 저절로 멈춘다.
 const TAU = Math.PI * 2;
 const rnd = (a, b) => a + Math.random() * (b - a);
@@ -16,9 +16,9 @@ const C_YOUNG = [[150, 185, 255], [255, 214, 170]];
 let box = null, cv = null, ctx = null, W = 0, H = 0, raf = 0, ro = null, clock = 0, running = false;
 let far = [], N = 0;
 let mx = 0, my = 0, tmx = 0, tmy = 0, spin = 0, boost = 0, last = 0;
-// 모양: 0 은하 → 1 토성 → 2 DNA → 3 지구 → 0 … (화면을 누르면 다음 모양으로 점이 흩어졌다 모임)
+// 모양: 0 은하 → 1 초신성 → 2 지구 → 3 태양계 → 0 … (화면을 누르면 다음 모양으로 점이 흩어졌다 모임)
 // 점마다 8칸: x, y, z, r, g, b, 투명도, 크기
-const K = 8, VIEW = [0.72, 0.34, 0.12, 0.42];
+const K = 8, VIEW = [0.72, 0.2, 0.42, 0.46];
 let shapes = [], cur = null, from = null, delay = null, shape = 0, morphAt = -1, pitchFrom = VIEW[0];
 const MORPH = 1.5, STAGGER = 0.45;
 
@@ -56,45 +56,83 @@ function galaxy() {
   return A;
 }
 
-const C_SAT = [[236, 208, 158], [214, 182, 130], [248, 228, 190], [200, 166, 118]];
-const C_RING = [[226, 212, 182], [196, 186, 166], [255, 242, 214]];
-function saturn() {
+// 태양계: 가운데 태양, 행성 8개(크기·색), 옅은 궤도
+const PLANETS = [ // 궤도 반지름, 크기, 색
+  [200, 16, [190, 180, 170]], [265, 26, [240, 210, 160]], [335, 28, [110, 165, 255]], [400, 21, [235, 130, 95]],
+  [530, 66, [230, 195, 150]], [675, 56, [240, 220, 170]], [800, 38, [160, 225, 235]], [910, 37, [110, 140, 255]],
+];
+function ball(A, i, n, ox, oy, oz, R, c, o) {
+  for (let k = 0; k < n; k++, i++) {
+    const u = rnd(-1, 1), a = rnd(0, TAU), q = Math.sqrt(1 - u * u), r = R * Math.cbrt(0.55 + Math.random() * 0.45);
+    put(A, i, ox + r * q * Math.cos(a), oy + r * u, oz + r * q * Math.sin(a), c, rnd(o * 0.6, o), rnd(1, 1.9));
+  }
+  return i;
+}
+function solar() {
   const A = new Float32Array(N * K); let i = 0;
-  // 본체: 표면에 줄무늬 색
-  for (let n = 0; n < 5200; n++, i++) {
-    const u = rnd(-1, 1), a = rnd(0, TAU), q = Math.sqrt(1 - u * u), R = 360 * (0.97 + Math.random() * 0.03);
-    const band = Math.floor((u + 1) * 7) % C_SAT.length;
-    put(A, i, R * q * Math.cos(a), R * u * 0.92, R * q * Math.sin(a), C_SAT[band], rnd(0.55, 0.95), rnd(1, 1.9));
+  // 태양
+  for (let n = 0; n < 2600; n++, i++) {
+    const u = rnd(-1, 1), a = rnd(0, TAU), q = Math.sqrt(1 - u * u), r = 130 * Math.cbrt(Math.random());
+    put(A, i, r * q * Math.cos(a), r * u, r * q * Math.sin(a), pick([[255, 214, 120], [255, 180, 80], [255, 240, 190]]), rnd(0.6, 1), rnd(1.2, 2.3));
   }
-  // 고리 3겹(가운데 틈)
-  for (let n = 0; n < 8200; n++, i++) {
-    const band = Math.random();
-    const r = band < 0.55 ? rnd(520, 760) : band < 0.6 ? rnd(770, 800) : rnd(810, 980);
-    const a = rnd(0, TAU);
-    put(A, i, r * Math.cos(a), gauss() * 5, r * Math.sin(a), pick(C_RING), band < 0.6 ? rnd(0.45, 0.9) : rnd(0.25, 0.6), rnd(0.8, 1.6));
+  // 궤도(옅은 점선)
+  for (let n = 0; n < 5600; n++, i++) {
+    const p = PLANETS[n % 8], a = rnd(0, TAU), r = p[0] + gauss() * 3;
+    put(A, i, r * Math.cos(a), gauss() * 2, r * Math.sin(a), [200, 210, 240], rnd(0.12, 0.3), rnd(0.6, 1.1));
   }
+  // 행성(큰 행성일수록 점 많이)
+  const tot = PLANETS.reduce((t, p) => t + p[1] * p[1], 0);
+  PLANETS.forEach((p, k) => {
+    const a = k * 2.35 + 0.6, ox = p[0] * Math.cos(a), oz = p[0] * Math.sin(a);
+    i = ball(A, i, Math.round(4200 * p[1] * p[1] / tot) + 60, ox, 0, oz, p[1], p[2], 1);
+    if (k === 5) for (let n = 0; n < 700; n++, i++) { // 토성 고리
+      const r = rnd(76, 118), b = rnd(0, TAU);
+      put(A, i, ox + r * Math.cos(b), gauss() * 2, oz + r * Math.sin(b), [230, 215, 180], rnd(0.35, 0.75), rnd(0.8, 1.4));
+    }
+  });
   for (; i < N; i++) dust(A, i);
   return A;
 }
 
-const C_DNA1 = [[150, 190, 255], [180, 210, 255]], C_DNA2 = [[255, 196, 160], [255, 220, 190]];
-function dna() {
+const C_NOVA = [[120, 140, 255], [160, 175, 255], [200, 210, 255], [100, 110, 235]], C_FIL = [[255, 170, 225], [240, 150, 215], [255, 205, 240]];
+function dir() { const u = rnd(-1, 1), a = rnd(0, TAU), q = Math.sqrt(1 - u * u); return [q * Math.cos(a), u, q * Math.sin(a)]; }
+function supernova() {
   const A = new Float32Array(N * K); let i = 0;
-  const L = 520, R = 230, TURN = 3.2;
-  // 두 가닥(이중 나선)
-  for (let n = 0; n < 9000; n++, i++) {
-    const t = Math.random(), side = n % 2, a = t * TURN * TAU + side * Math.PI;
-    const w = 22;
-    put(A, i, R * Math.cos(a) + gauss() * w, -L + 2 * L * t + gauss() * w, R * Math.sin(a) + gauss() * w,
-      side ? pick(C_DNA2) : pick(C_DNA1), rnd(0.55, 1), rnd(1, 2));
+  // 가운데 하얗게 빛나는 핵
+  for (let n = 0; n < 1500; n++, i++) {
+    const d = dir(), r = Math.abs(gauss()) * 70;
+    put(A, i, d[0] * r, d[1] * r, d[2] * r, [240, 244, 255], rnd(0.7, 1), rnd(1.2, 2.4));
   }
-  // 염기쌍: 두 가닥을 잇는 가로대
-  const RUNG = 34;
-  for (let n = 0; n < 3800; n++, i++) {
-    const k = Math.floor(Math.random() * RUNG), t = (k + 0.5) / RUNG, a = t * TURN * TAU;
-    const m = rnd(-1, 1);
-    put(A, i, R * Math.cos(a) * m + gauss() * 6, -L + 2 * L * t + gauss() * 6, R * Math.sin(a) * m + gauss() * 6,
-      m < 0 ? [235, 240, 255] : [255, 236, 220], rnd(0.3, 0.65), rnd(0.8, 1.5));
+  // 안쪽: 옅은 파란 기체
+  for (let n = 0; n < 2000; n++, i++) {
+    const d = dir(), r = Math.sqrt(Math.random()) * 380;
+    put(A, i, d[0] * r, d[1] * r, d[2] * r, pick(C_NOVA), rnd(0.25, 0.55), rnd(0.8, 1.5));
+  }
+  // 퍼져 나가는 껍질: 빽빽한 파란·흰 점
+  for (let n = 0; n < 6500; n++, i++) {
+    const d = dir(), r = 430 + gauss() * 130;
+    put(A, i, d[0] * r, d[1] * r, d[2] * r, Math.random() < 0.2 ? [235, 240, 255] : pick(C_NOVA), rnd(0.55, 1), rnd(1.1, 2.1));
+  }
+  // 바깥 분홍 실 무늬(껍질 위를 구불구불 걷는 줄)
+  for (let f = 0; f < 46; f++) {
+    let d = dir(), t = dir();
+    for (let n = 0; n < 61 && i < N; n++, i++) {
+      // d에 수직인 방향으로 조금씩 걸으며 방향을 비틂
+      t = [t[0] + gauss() * 0.6, t[1] + gauss() * 0.6, t[2] + gauss() * 0.6];
+      const dot = t[0] * d[0] + t[1] * d[1] + t[2] * d[2];
+      t = [t[0] - dot * d[0], t[1] - dot * d[1], t[2] - dot * d[2]];
+      const tl = Math.hypot(t[0], t[1], t[2]) || 1; t = [t[0] / tl, t[1] / tl, t[2] / tl];
+      d = [d[0] + t[0] * 0.035, d[1] + t[1] * 0.035, d[2] + t[2] * 0.035];
+      const dl = Math.hypot(d[0], d[1], d[2]); d = [d[0] / dl, d[1] / dl, d[2] / dl];
+      const r = 600 + Math.sin(n * 0.3 + f) * 40 + gauss() * 10;
+      put(A, i, d[0] * r, d[1] * r, d[2] * r, pick(C_FIL), rnd(0.7, 1), rnd(1.3, 2.3));
+    }
+  }
+  // 바깥으로 뻗는 빛줄기
+  for (let n = 0; n < 2000 && i < N; n++, i++) {
+    const ray = Math.floor(n / 40), d = [Math.cos(ray * 2.4) * Math.sin(ray * 1.3 + 0.4), Math.cos(ray * 1.3 + 0.4), Math.sin(ray * 2.4) * Math.sin(ray * 1.3 + 0.4)];
+    const dl = Math.hypot(d[0], d[1], d[2]), r = 150 + Math.pow(Math.random(), 0.7) * 1100;
+    put(A, i, d[0] / dl * r + gauss() * 8, d[1] / dl * r + gauss() * 8, d[2] / dl * r + gauss() * 8, [190, 205, 255], rnd(0.2, 0.55) * (1 - r / 1400), rnd(0.7, 1.4));
   }
   for (; i < N; i++) dust(A, i);
   return A;
@@ -124,7 +162,7 @@ function earth() {
 
 function build() {
   N = 2600 + 10000 + 3200;
-  shapes = [galaxy(), saturn(), dna(), earth()];
+  shapes = [galaxy(), supernova(), earth(), solar()];
   cur = shapes[0].slice();
   from = new Float32Array(N * K);
   delay = new Float32Array(N).map(() => Math.random() * STAGGER);
@@ -202,6 +240,17 @@ function draw(t) {
     ctx.fillStyle = glow;
     ctx.fillRect(0, 0, W, H);
   }
+  // 초신성: 파란 빛무리, 점은 겹칠수록 밝게
+  const nova = shape === 1 ? (morphAt < 0 ? 1 : ease(Math.min(1, (t - morphAt) / (MORPH + STAGGER)))) : 0;
+  if (nova > 0) {
+    const R = f * 0.13, glow = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    glow.addColorStop(0, `rgba(120,130,255,${0.42 * nova})`);
+    glow.addColorStop(0.6, `rgba(90,90,220,${0.16 * nova})`);
+    glow.addColorStop(1, 'rgba(80,80,200,0)');
+    ctx.fillStyle = glow;
+    ctx.fillRect(0, 0, W, H);
+    ctx.globalCompositeOperation = 'lighter';
+  }
 
   const A = cur;
   for (let i = 0, j = 0; i < N; i++, j += K) {
@@ -218,6 +267,24 @@ function draw(t) {
     const s = A[j + 7] * (0.55 + k * 0.75);
     ctx.fillStyle = `rgba(${A[j + 3] | 0},${A[j + 4] | 0},${A[j + 5] | 0},${Math.min(1, A[j + 6] * depth * 1.15)})`;
     ctx.fillRect(sx - s / 2, sy - s / 2, s, s);
+  }
+  if (nova > 0) {
+    // 가운데 섬광 + 가로로 긴 빛
+    const R = f * 0.022, core = ctx.createRadialGradient(cx, cy, 0, cx, cy, R);
+    core.addColorStop(0, `rgba(255,255,255,${0.95 * nova})`);
+    core.addColorStop(0.35, `rgba(210,215,255,${0.6 * nova})`);
+    core.addColorStop(1, 'rgba(150,160,255,0)');
+    ctx.fillStyle = core;
+    ctx.fillRect(cx - R, cy - R, R * 2, R * 2);
+    ctx.save();
+    ctx.translate(cx, cy); ctx.scale(1, 0.06);
+    const L = f * 0.05, flare = ctx.createRadialGradient(0, 0, 0, 0, 0, L);
+    flare.addColorStop(0, `rgba(255,255,255,${0.85 * nova})`);
+    flare.addColorStop(1, 'rgba(190,200,255,0)');
+    ctx.fillStyle = flare;
+    ctx.fillRect(-L, -L, L * 2, L * 2);
+    ctx.restore();
+    ctx.globalCompositeOperation = 'source-over';
   }
 }
 

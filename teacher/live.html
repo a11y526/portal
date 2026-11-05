@@ -21,11 +21,13 @@
     <button type="button" class="btn btn-primary press" id="corner-btn">모둠활동</button>
   </div>
 
-  <!-- 학습지: 오른쪽 아래 작은 띠 (완료 수만. 학생 답·이름은 보이지 않는다) -->
-  <div class="ws-band hidden" id="ws-band" aria-live="polite"></div>
-
-  <!-- 딴 화면: 왼쪽 아래 지금 벗어난 학생 수 (숫자만. 이름은 휴대폰 리모컨에서) -->
-  <div class="away-chip hidden" id="away-chip"><span>딴 화면</span><b class="num" id="away-n">0</b><span>명</span></div>
+  <!-- 위 띠: 수업자료 위 메뉴(.nav)가 있으면 그 오른쪽 끝에 붙고, 없으면 오른쪽 위에 뜬다 -->
+  <div class="live-bar hidden" id="live-bar">
+    <!-- 딴 화면: 지금 벗어난 학생 수 (숫자만. 이름은 휴대폰 리모컨에서) -->
+    <div class="away-chip hidden" id="away-chip"><span>딴 화면</span><b class="num" id="away-n">0</b><span>명</span></div>
+    <!-- 학습지: 완료 수와 S·V 단추 (학생 답·이름은 보이지 않는다) -->
+    <div class="ws-band hidden" id="ws-band" aria-live="polite"></div>
+  </div>
 
   <!-- 쪽별 첫 답: 학생 한 명이 낸 쪽을 띄우고 [인정]/[넘기기] (덮개가 닫혀 있을 때만) -->
   <section class="wsf hidden" id="wsf" role="dialog" aria-modal="true" aria-labelledby="wsf-name">

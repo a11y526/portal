@@ -56,6 +56,7 @@ const lessonFrame = {
       // 같은 출처면 키를 capture 단계에서 먼저 받는다. 막히면 구석 버튼으로
       if (!this.hookKeys()) showCorner();
       if (!coverOpen) this.focus();
+      liveBar.sync();
     });
     $('lesson-slot').replaceChildren(f);
     this.el = f;
@@ -714,7 +715,53 @@ $('timer-minus').addEventListener('click', () => timer.step(-1));
 $('timer-plus').addEventListener('click', () => timer.step(1));
 
 /* =========================================================
-   학습지 띠: 오른쪽 아래 "학습지 완료 18 / 28" (5초마다). 학생 답·이름은 보이지 않는다
+   위 띠(#live-bar): 딴 화면 수 + 학습지 띠를 한 줄로.
+   같은 출처 수업자료에 떠 있는 위 메뉴(header.nav, 721 같은 스크롤형)가 있으면
+   그 메뉴를 화면 너비로 넓히고 오른쪽을 띠 너비만큼 비워, 띠를 그 자리에 겹쳐 한 줄처럼 보이게 한다.
+   메뉴가 없는 수업자료(넘기는 슬라이드)는 오른쪽 위에 떠 있는 알약
+   ========================================================= */
+const DOCK_CSS = `html.live-docked .nav{left:10px!important;transform:none!important;width:calc(100% - 20px)!important;box-sizing:border-box;padding-right:calc(var(--live-bar, 0px) + 8px)!important}
+@media (max-width:1500px){html.live-docked .nav .t span{display:none}}
+@media (max-width:1280px){html.live-docked .nav .ws{display:none}}
+html.live-docked .nav .links a{white-space:nowrap}
+@media (max-width:1100px){html.live-docked .nav .links{display:none}}`;
+const liveBar = {
+  sync() {
+    const bar = $('live-bar');
+    const show = !$('ws-band').classList.contains('hidden') || !$('away-chip').classList.contains('hidden');
+    bar.classList.toggle('hidden', !show);
+    let doc = null;
+    let nav = null;
+    try {
+      doc = lessonFrame.el?.contentDocument ?? null;
+      nav = doc?.querySelector('header.nav') ?? null;
+    } catch { doc = null; }
+    if (nav && !doc.getElementById('live-dock-css')) {
+      const st = doc.createElement('style');
+      st.id = 'live-dock-css';
+      st.textContent = DOCK_CSS;
+      doc.head.append(st);
+    }
+    const docked = !!(show && nav && doc.defaultView.getComputedStyle(nav).display !== 'none');
+    doc?.documentElement.classList.toggle('live-docked', docked);
+    bar.classList.toggle('is-docked', docked);
+    if (!docked) {
+      bar.style.top = bar.style.right = bar.style.height = '';
+      return;
+    }
+    doc.documentElement.style.setProperty('--live-bar', `${Math.ceil(bar.offsetWidth)}px`);
+    const f = lessonFrame.el.getBoundingClientRect();
+    const r = nav.getBoundingClientRect();
+    bar.style.top = `${f.top + r.top}px`;
+    bar.style.height = `${r.height}px`;
+    bar.style.right = `${Math.max(0, window.innerWidth - (f.left + r.right))}px`;
+  },
+};
+window.addEventListener('resize', () => liveBar.sync());
+setInterval(() => { if (!document.hidden) liveBar.sync(); }, 1000);
+
+/* =========================================================
+   학습지 띠: 위 띠 안 "학습지 완료 18 / 28" (5초마다). 학생 답·이름은 보이지 않는다
    이 차시에 학습지가 없으면 띄우지 않는다
    ========================================================= */
 const SHEET_POLL_MS = 5000;
@@ -743,7 +790,7 @@ const sheetBand = {
     const st = this.st;
     const band = $('ws-band');
     band.classList.toggle('hidden', !st?.has_sheet);
-    if (!st?.has_sheet) return;
+    if (!st?.has_sheet) { liveBar.sync(); return; }
     const upto = sheetUpto.sent >= ALL_PAGES ? '모두 열림' : sheetUpto.sent > 0 ? `${sheetUpto.sent}쪽까지` : '';
     const here = (st.pages ?? []).filter((p) => p.slide === this.slide);
     const opened = new Set(st.opened ?? []);
@@ -774,6 +821,7 @@ const sheetBand = {
     if (html !== this.html) band.innerHTML = this.html = html;
     band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
     band.classList.toggle('has-act', !!(start || view || back || undo));
+    liveBar.sync();
   },
 
   // [모둠 학습지 켬/끔]: 과학실처럼 모둠마다 기기 하나로 쓸 때 켠다. 학생 기기는 반 새로고침 신호로 바로 바뀜
@@ -1243,6 +1291,7 @@ const away = {
     const chip = $('away-chip');
     chip.classList.toggle('hidden', !this.now);
     $('away-n').textContent = this.now;
+    liveBar.sync();
   },
 };
 

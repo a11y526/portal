@@ -2470,12 +2470,12 @@ body.admin .side-ext, body.admin .side-ext svg { width: 12px; height: 12px; }
 body.admin .side-badge { min-width: 18px; height: 18px; padding: 0 5px; font-size: 11px; font-weight: 700; }
 body.admin .side-out { margin-top: 10px; color: var(--a-ink2); }
 
-/* 첫 화면 3D 장면 */
-body.admin .hero { position: relative; height: calc(100vh - 140px); height: calc(100dvh - 140px); min-height: 420px; border-radius: 14px; overflow: hidden; background: #05070F; touch-action: none; }
-body.admin .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; cursor: pointer; }
-body.admin .hero-time { position: absolute; left: 24px; bottom: 20px; color: rgba(255,255,255,.88); pointer-events: none; }
+/* 첫 화면 3D 장면: 흰 바탕 위 별 점 은하 */
+body.admin .hero { position: relative; height: calc(100vh - 140px); height: calc(100dvh - 140px); min-height: 420px; overflow: hidden; background: #fff; touch-action: none; }
+body.admin .hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+body.admin .hero-time { position: absolute; left: 24px; bottom: 20px; color: var(--a-ink); pointer-events: none; }
 body.admin .hero-time b { display: block; font-size: 40px; font-weight: 700; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; line-height: 1.1; }
-body.admin .hero-time span { font-size: 13.5px; color: rgba(255,255,255,.55); }
+body.admin .hero-time span { font-size: 13.5px; color: var(--a-ink2); }
 @media (min-width: 961px) {
   body.admin.hero-on .admin-wrap { max-width: none; padding: 16px; }
   html:not(.side-closed) body.admin.hero-on .admin-top { display: none; }

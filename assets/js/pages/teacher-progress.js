@@ -203,7 +203,7 @@ function nowHTML(a) {
   const pct = total ? Math.min(100, Math.round((slide / total) * 100)) : 0;
   const pages = total ? `${Math.min(slide, total)}/${total}쪽` : (slide ? `${slide}쪽까지` : '');
   return `${total ? `<span class="nd-bar-in${done ? ' done' : ''}" title="${done ? '이 차시 끝' : ''}"><i style="width:${pct}%"></i></span>` : ''}${esc(lesson.code)} ${pages}${
-    revealed ? ' <span class="nd-tag purple">모둠활동 완료</span>' : ''}`;
+    revealed ? ' <span class="nd-tag green">모둠활동 완료</span>' : ''}`;
 }
 
 function classesHTML() {

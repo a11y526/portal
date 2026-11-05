@@ -2623,3 +2623,158 @@ body.admin .hero-chip.off { color: #6e6e6e; }
   body.admin .hero-today { justify-content: flex-start; }
   body.admin .hero-chip { min-width: 0; }
 }
+
+/* ===== 관리 화면 '나' 디자인 (2026-11-05 시안 mockups/admin-pages.html 승인)
+   흰 바탕 + 연회색 둥근 큰 상자(#F7F7F7, 28px) 안에 흰 표·입력. 아주 굵은 큰 제목.
+   색 규칙: 검정 = 누르는 것(알약 단추·고른 탭)만, 초록 = 끝남, 그 밖의 표시는 회색 ===== */
+body.admin { --b-bg: #F7F7F7; --b-ink: #0D0D0D; --b-ink2: #5D5D5D; --b-ink3: #8A8A8A; --b-line: #ECECEC; --b-pill: #F2F2F2;
+  --a-ink: #0D0D0D; --a-ink2: #5D5D5D; --a-ink3: #8A8A8A; --a-line: #ECECEC; --a-line2: #E3E3E3; --a-hover: #F4F4F4; }
+body.admin .admin-wrap { max-width: 1200px; padding: 44px 48px 96px; }
+body.admin #v-admin { gap: 24px !important; }
+body.admin .admin-top h1 { font-size: 40px; font-weight: 900; letter-spacing: -0.035em; line-height: 1.1; color: var(--b-ink); }
+body.admin .panel { gap: 16px; }
+body.admin .panel.nd { max-width: none; --nd-ink: #0D0D0D; --nd-ink2: #5D5D5D; --nd-ink3: #8A8A8A; --nd-line: #ECECEC; --nd-hover: #F4F4F4; }
+
+/* 큰 상자: 항목 안 카드 하나하나, 카드 하나짜리 항목, 노션식 표 칸 */
+body.admin :is(.panel > .card, .card.panel, .panel.nd > .nd-scroll, .panel.nd > .nd-more, .lesson-add) {
+  background: var(--b-bg); border-radius: 28px; padding: 28px 32px; gap: 14px; }
+body.admin .panel.nd > .nd-scroll:empty { display: none; }
+body.admin .card h2 { font-size: 20px; font-weight: 700; letter-spacing: -0.02em; color: var(--b-ink); }
+body.admin .card > h2:first-child, body.admin .card > .card-head:first-child { padding-bottom: 0; border-bottom: 0; margin-bottom: 2px; }
+body.admin .card p { color: var(--b-ink2); }
+body.admin .muted { color: var(--b-ink2); }
+
+/* 단추: 알약. 주요 = 검정, 보조 = 연회색(상자 안에서는 흰색) */
+body.admin .btn { min-height: 36px; padding: 0 16px; border-radius: 999px; font-size: 14px; font-weight: 500; }
+body.admin .btn-small { min-height: 32px; padding: 0 13px; font-size: 13.5px; }
+body.admin .btn-big { min-height: 44px; padding: 0 22px; font-size: 15px; }
+body.admin .btn-primary, body.admin .nd-btn.primary { background: var(--b-ink); color: #fff; border: 0; }
+body.admin .btn-primary:hover, body.admin .nd-btn.primary:hover { background: #2B2B2B; color: #fff; }
+body.admin .btn-line { background: var(--b-pill); border: 0; color: var(--b-ink); }
+body.admin .btn-line:hover { background: #E8E8E8; }
+body.admin :is(.panel > .card, .card.panel, .nd-scroll, .nd-more, .lesson-win, .lesson-add) .btn-line { background: #fff; }
+body.admin :is(.panel > .card, .card.panel, .nd-scroll, .nd-more, .lesson-win, .lesson-add) .btn-line:hover { background: #EDEDED; }
+body.admin .btn-danger { background: #fff; border: 0; color: #A6321A; box-shadow: inset 0 0 0 1px #F3D3CB; }
+body.admin .nd-btn { border-radius: 999px; min-height: 34px; padding: 0 14px; color: var(--b-ink2); }
+body.admin .nd-btn:hover { background: var(--b-pill); color: var(--b-ink); }
+body.admin .nd-btn.primary { font-weight: 500; padding: 0 16px; }
+
+/* 입력: 흰 바탕, 상자 안에서는 테두리 없이 */
+body.admin .input { height: 36px; border-radius: 10px; border: 1px solid var(--a-line2); background: #fff; padding: 0 11px; }
+body.admin :is(.panel > .card, .card.panel, .nd-more, .lesson-add) .input { border-color: transparent; }
+body.admin .input:focus { outline: none; border-color: var(--b-ink); }
+body.admin .class-pick { min-height: 36px; border: 0; border-radius: 999px; background: #fff; box-shadow: inset 0 0 0 1px var(--a-line2); }
+body.admin .class-pick select { min-height: 36px; border-radius: 999px; padding: 0 32px 0 14px; }
+body.admin .field > span { font-size: 13px; color: var(--b-ink2); }
+
+/* 탭: 알약, 고른 것만 검정 */
+body.admin .cls-tab { min-height: 34px; padding: 0 14px; border-radius: 999px; color: var(--b-ink2); }
+body.admin .cls-tab:hover { background: var(--b-pill); }
+body.admin .cls-tab.on { background: var(--b-ink); color: #fff; }
+body.admin .nd-views { border-bottom: 0; gap: 4px; margin-bottom: 4px; }
+body.admin .nd-views [role="tab"] { height: 36px; padding: 0 16px; border: 0; border-radius: 999px; color: var(--b-ink2); font-size: 14px; margin: 0; }
+body.admin .nd-views [role="tab"]:hover { background: var(--b-pill); color: var(--b-ink); }
+body.admin .nd-views [role="tab"][aria-selected="true"] { background: var(--b-ink); color: #fff; font-weight: 500; border: 0; }
+body.admin .nd-props { margin: 0 0 8px; }
+
+/* 표시(태그): 알약. 회색이 기본, 끝남만 초록 */
+body.admin .tag, body.admin .chip { border-radius: 999px; padding: 2px 10px; font-size: 12.5px; font-weight: 500; }
+body.admin .tag-off { background: transparent; color: #8A8A8A; box-shadow: inset 0 0 0 1px #E0E0E0; }
+body.admin .tag-today { background: #ECECEC; color: #3D3D3D; }
+body.admin .nd-tag { border-radius: 999px; padding: 1px 10px; font-weight: 500; }
+body.admin .nd-tag.gray { background: #ECECEC; color: #3D3D3D; }
+body.admin .nd-tag.line { background: transparent; color: #6E6E6E; box-shadow: inset 0 0 0 1px #E0E0E0; }
+body.admin .nd-tag.green { background: rgba(34,197,130,.14); color: #0B6B47; }
+body.admin .nd-bar-in { width: 88px; height: 6px; border-radius: 99px; background: #ECECEC; }
+body.admin .nd-bar-in i { background: #9A9A9A; border-radius: 99px; }
+body.admin .nd-bar-in.done i { background: #22A36D; }
+
+/* 표: 상자 안 흰 표, 얇은 선 */
+body.admin :is(.nd-table, .coins-table) { border-collapse: separate; border-spacing: 0; background: #fff; border-radius: 18px; }
+body.admin :is(.nd-table, .coins-table) th { font-size: 13px; color: #6E6E6E; padding: 12px 12px 10px; border-bottom: 1px solid var(--b-line); }
+body.admin :is(.nd-table, .coins-table) td { border-bottom: 1px solid #F0F0F0; padding: 6px 12px; height: 46px; }
+body.admin :is(.nd-table, .coins-table) tbody tr:last-child td { border-bottom: 0; }
+body.admin :is(.nd-table, .coins-table) tbody tr:last-child td:first-child { border-bottom-left-radius: 18px; }
+body.admin :is(.nd-table, .coins-table) tbody tr:last-child td:last-child { border-bottom-right-radius: 18px; }
+body.admin .nd-table tbody tr:hover td, body.admin .coins-table tbody tr:hover td { background: #FAFAFA; }
+body.admin .nd-table tr.nd-group td, body.admin .nd-table tr.nd-group:hover td { background: #fff; font-size: 15px; height: 52px; border-bottom-color: var(--b-line); }
+body.admin .nd-table tr.nd-now td { background: #F4F4F4; }
+body.admin .nd-menu > summary { border-radius: 8px; color: var(--b-ink3); }
+body.admin .nd-menu > summary:hover, body.admin .nd-menu[open] > summary { background: var(--b-pill); color: var(--b-ink); }
+body.admin .nd-menu-list { border-radius: 14px; padding: 6px; }
+body.admin .nd-menu-list .nd-btn { border-radius: 8px; }
+body.admin .nd-more > summary { padding: 0; font-size: 15px; font-weight: 700; color: var(--b-ink); }
+body.admin .nd-more { margin-top: 0; border-top: 0; }
+body.admin .nd-more[open] > summary { margin-bottom: 18px; }
+body.admin .nd-sec .nd-scroll { background: #fff; border-radius: 18px; }
+body.admin .nd-url { background: #fff; border-radius: 10px; }
+body.admin .nd-empty { color: var(--b-ink3); }
+
+/* 목록 줄: 상자 안 얇은 선 */
+body.admin :is(.nick-row, .set-row, .roster-row, .today-row) { border-bottom-color: #E8E8E8; min-height: 46px; padding: 6px 4px; }
+body.admin :is(.nick-row, .set-row, .roster-row, .today-row):hover { background: transparent; }
+body.admin .roster { border-top-color: #E8E8E8; }
+
+/* 상자 안 작은 상자: 흰색, 테두리 없음 */
+body.admin :is(.lock-row, .board-group, .ai-field, .roster-size, .preset-item) { background: #fff; border: 0; border-radius: 14px; }
+body.admin .lock-row.is-locked { background: #FDF3F0; }
+body.admin .lock-row.is-open { background: #F0FAF5; }
+body.admin .roll-chip { border-radius: 999px; }
+body.admin .post-col, body.admin .mat-col { background: #fff; border: 0; border-radius: 18px; }
+
+/* 수업 시작 차시 카드 */
+body.admin .lesson-list { gap: 14px; grid-template-columns: repeat(auto-fill, minmax(320px, 1fr)); }
+body.admin .card.lesson-win { background: var(--b-bg); border: 0; border-radius: 24px; padding: 22px 22px 20px; gap: 12px; box-shadow: none; }
+body.admin .card.lesson-win.is-open { background: #fff; box-shadow: inset 0 0 0 1.5px #D4D4D4; }
+body.admin .lesson-code { font-size: 34px; font-weight: 900; letter-spacing: -0.03em; line-height: 1; }
+body.admin .lesson-title { height: 34px; font-size: 15px; font-weight: 500; background: transparent !important; border-color: transparent !important; padding: 0 6px; }
+body.admin .lesson-title:hover { background: #fff !important; }
+body.admin .lesson-title:focus { background: #fff !important; border-color: var(--b-ink) !important; }
+body.admin .card.lesson-win .lesson-src { border-color: transparent; }
+body.admin .card.lesson-win.is-open :is(.lesson-src, .btn-line) { background: #F4F4F4; }
+body.admin .lesson-sheet .tag-done { background: transparent; color: var(--b-ink2); padding: 0; box-shadow: none; }
+body.admin .lesson-chips { gap: 4px; }
+body.admin .lc-chip { min-width: 34px; height: 24px; display: inline-grid; place-items: center; padding: 0 6px; font-size: 12px; }
+body.admin .lc-chip.tag-done { background: #fff; color: var(--b-ink); }
+body.admin .card.lesson-win.is-open .lc-chip.tag-done { background: #F2F2F2; }
+body.admin .lesson-cls { min-height: 44px; border: 0; border-radius: 999px; background: #F2F2F2; font-size: 16px; font-weight: 500; }
+body.admin .lesson-cls:hover { background: #E8E8E8; color: var(--b-ink); }
+body.admin .lesson-cls.is-last { background: var(--b-ink); color: #fff; }
+body.admin .lesson-add { max-width: none; }
+
+/* 포인트 규칙: 왼쪽 목록 + 오른쪽 칸 (상자 대신 칸마다 상자) */
+body.admin .card.panel.pt-form { background: none; padding: 0; display: grid; grid-template-columns: 240px minmax(0, 1fr); gap: 40px; align-items: start; }
+body.admin .pt-nav { position: sticky; top: 96px; display: flex; flex-direction: column; }
+body.admin .pt-nav button { text-align: left; border: 0; background: none; font: inherit; font-size: 16px; color: var(--b-ink2); padding: 16px 2px; border-bottom: 1px solid #E6E6E6; cursor: pointer; }
+body.admin .pt-nav button:hover { color: var(--b-ink); }
+body.admin .pt-nav button.on { color: var(--b-ink); font-weight: 700; border-bottom-color: var(--b-ink); }
+body.admin .pt-body { display: flex; flex-direction: column; gap: 16px; min-width: 0; }
+body.admin .pt-sec { background: var(--b-bg); border-radius: 28px; padding: 28px 32px; display: flex; flex-direction: column; gap: 14px; scroll-margin-top: 88px; }
+body.admin .pt-sec .input { border-color: transparent; }
+body.admin .pt-sec .points-grid { grid-template-columns: minmax(0, 1fr) 120px 120px; grid-template-rows: 34px; grid-auto-rows: 50px; gap: 0; justify-content: stretch; align-items: center;
+  background: linear-gradient(#E8E8E8, #E8E8E8) 0 33px / 100% 1px no-repeat, repeating-linear-gradient(to bottom, transparent 0 49px, #E8E8E8 49px 50px) 0 34px / 100% calc(100% - 34px) no-repeat; }
+body.admin .pt-sec .points-grid.pt-one { grid-template-columns: minmax(0, 1fr) 120px; }
+body.admin .pt-sec .points-grid > b { justify-self: end; color: #6E6E6E; font-weight: 400; font-size: 13px; }
+body.admin .pt-sec .points-grid > .input { justify-self: end; width: 96px; height: 36px; text-align: right; }
+body.admin .pt-sec .points-grid > span { font-weight: 400; font-size: 14.5px; }
+body.admin .pt-save { display: flex; align-items: center; justify-content: flex-end; gap: 16px; }
+
+/* 카드 하나짜리 항목의 첫 줄 제목은 페이지 제목과 같으므로 숨김(옆 단추·반 고르기는 남김) */
+body.admin .card.panel > .card-head:first-child > h2:first-child { display: none; }
+body.admin .card.panel > .card-head:first-child { justify-content: flex-end; }
+
+/* 창(대화 상자) */
+body.admin dialog .card { border-radius: 24px; padding: 26px 28px; background: #fff; }
+body.admin dialog .card .input { border-color: var(--a-line2); }
+
+@media (max-width: 960px) {
+  body.admin .admin-wrap { padding: 20px 16px 64px; }
+  body.admin .admin-top h1 { font-size: 30px; }
+  body.admin :is(.panel > .card, .card.panel, .panel.nd > .nd-scroll, .panel.nd > .nd-more, .lesson-add, .pt-sec) { padding: 20px 18px; border-radius: 22px; }
+  body.admin .card.panel.pt-form { grid-template-columns: 1fr; gap: 12px; padding: 0; }
+  body.admin .pt-nav { position: static; flex-direction: row; overflow-x: auto; gap: 4px; }
+  body.admin .pt-nav button { border: 0; border-radius: 999px; padding: 8px 14px; white-space: nowrap; font-size: 14px; }
+  body.admin .pt-nav button.on { background: var(--b-ink); color: #fff; }
+  body.admin .btn { min-height: 40px; }
+  body.admin .input { height: 40px; }
+}

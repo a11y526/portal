@@ -418,3 +418,7 @@ on conflict (key) do nothing;
 insert into public.settings (key, value) values
   ('yut', '{"xp": 0, "silver": 3, "daily": 5, "reward_daily": 1, "turn": 20}'::jsonb)
 on conflict (key) do nothing;
+
+-- 금화 → 은화 바꾸기 (2026-11-05): 금화 10개 → 은화 12개
+insert into public.settings (key, value) values ('exchange', '{"gold": 10, "silver": 12}'::jsonb)
+on conflict (key) do nothing;

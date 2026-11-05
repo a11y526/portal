@@ -1787,6 +1787,7 @@ begin
     'level',      v_lv,
     'coins',      public._coin_balance(v_sid),
     'silver',     public._silver_balance(v_sid),
+    'exchange',   public._exchange_rate(),
     'items',      v_items,
     'wardrobe',   v_wear,
     'rewards',    v_rew,
@@ -8922,3 +8923,59 @@ end;
 $$;
 revoke all on function public.yt_play(text, uuid, text, int, int) from public;
 grant execute on function public.yt_play(text, uuid, text, int, int) to anon, authenticated;
+
+-- =========================================================
+-- 금화 → 은화 바꾸기 (2026-11-05). settings.exchange {gold 10, silver 12}: 금화 gold개마다 은화 silver개
+-- point_events에 coins = −금화, silver = +은화, 사유 '은화 바꾸기'
+-- =========================================================
+create or replace function public._exchange_rate()
+returns jsonb
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select jsonb_build_object(
+    'gold',   greatest(1, coalesce((select (value ->> 'gold')::int   from public.settings where key = 'exchange'), 10)),
+    'silver', greatest(1, coalesce((select (value ->> 'silver')::int from public.settings where key = 'exchange'), 12)));
+$$;
+revoke all on function public._exchange_rate() from public, anon, authenticated;
+
+-- 학생: 몇 묶음(1~100) 바꿀지. 결과 {ok, coins, silver, gold_spent, silver_got} 또는 NO_SESSION·BAD_COUNT·NO_COINS
+create or replace function public.exchange_silver(p_token text, p_count int)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  v_sid  uuid;
+  v_rate jsonb := public._exchange_rate();
+  v_gold int;
+  v_silv int;
+begin
+  v_sid := public._session_student(p_token);
+  if v_sid is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_SESSION');
+  end if;
+  if p_count is null or p_count < 1 or p_count > 100 then
+    return jsonb_build_object('ok', false, 'error', 'BAD_COUNT');
+  end if;
+  perform 1 from public.students where id = v_sid for update;
+
+  v_gold := p_count * (v_rate ->> 'gold')::int;
+  v_silv := p_count * (v_rate ->> 'silver')::int;
+  if public._coin_balance(v_sid) < v_gold then
+    return jsonb_build_object('ok', false, 'error', 'NO_COINS');
+  end if;
+
+  insert into public.point_events (student_id, xp, coins, silver, reason)
+  values (v_sid, 0, -v_gold, v_silv, '은화 바꾸기');
+
+  return jsonb_build_object('ok', true, 'coins', public._coin_balance(v_sid), 'silver', public._silver_balance(v_sid),
+                            'gold_spent', v_gold, 'silver_got', v_silv);
+end;
+$$;
+revoke all on function public.exchange_silver(text, int) from public;
+grant execute on function public.exchange_silver(text, int) to anon, authenticated;

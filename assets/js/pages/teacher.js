@@ -1134,6 +1134,7 @@ function eventKind(e) {
   if (e.qs_game_id || (e.reason || '').startsWith('퀴즈 쇼')) return '퀴즈 쇼';
   if ((e.reason || '').startsWith('아이템:')) return '아이템 구매';
   if ((e.reason || '').startsWith('닉네임 ')) return '닉네임';
+  if (e.reason === '은화 바꾸기') return '은화 바꾸기';
 /* nogame:start */
   if (e.reason === '오목 승리') return '오목';
   if (e.reason === '루미큐브 승리') return '루미큐브';

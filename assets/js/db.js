@@ -105,6 +105,11 @@ export async function buyAvatarItem(token, itemId) {
   return unwrap(await need().rpc('buy_avatar_item', { p_token: token, p_item_id: itemId }));
 }
 
+// 금화 → 은화 바꾸기(count 묶음): { ok: true, coins, silver, gold_spent, silver_got } 또는 error = 'BAD_COUNT' | 'NO_COINS'
+export async function exchangeSilver(token, count) {
+  return unwrap(await need().rpc('exchange_silver', { p_token: token, p_count: count }));
+}
+
 // 보상 신청: { ok: true, coins, purchases } 또는 error = 'NOT_FOR_SALE' | 'BAD_PARTNER' | 'NO_COINS'
 export async function requestPurchase(token, itemId, partner = null) {
   return unwrap(await need().rpc('request_purchase', { p_token: token, p_item_id: itemId, p_partner: partner }));
@@ -671,7 +676,7 @@ export async function grantPoints(studentIds, xp, coins, reason) {
 export async function listGrants(limit = 40) {
   let q = need().from('point_events')
     .select('id, xp, coins, reason, created_at, student:students(class_id, number, nickname)')
-    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%');
+    .is('board_id', null).is('worksheet_board_id', null).is('ws_first_id', null).is('qb_game_id', null).is('qs_game_id', null).not('reason', 'like', '아이템:%').not('reason', 'like', '닉네임%').neq('reason', '은화 바꾸기');
   q = q.not('reason', 'in', '("오목 승리","루미큐브 승리","쿼리도 승리","오델로 승리","윷놀이 승리","달 자원 RPG 완료","게임 XP 회수")'); // nogame
   return unwrap(await q.order('created_at', { ascending: false }).limit(limit));
 }

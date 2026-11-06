@@ -49,9 +49,10 @@ async function gh(method, path, body) {
 }
 const okc = (r) => r.code >= 200 && r.code < 300;
 const need = (r, what) => { if (!okc(r)) fail(`${what}이(가) 안 됐어요 (${r.code}) ${String(r.data?.message || r.text || '').slice(0, 200)}`); return r.data; };
+let rawBase = C.raw;
 async function download(path) {
   let r;
-  try { r = await fetch(`${C.raw}${path}?t=${Date.now()}`, { cache: 'no-store' }); } catch { r = null; }
+  try { r = await fetch(`${rawBase}${path}?t=${Date.now()}`, { cache: 'no-store' }); } catch { r = null; }
   if (!r || !r.ok) fail(`설치 파일 ${path}을 받지 못했어요.`);
   return (await r.text()).replace(/^﻿/, '');
 }
@@ -228,6 +229,9 @@ async function install(f) {
       }
     };
     const list = f.classes.join(', ');
+    // 원래 저장소의 지금 커밋으로 받는다(raw 주소의 main은 몇 분 예전 것이 나올 수 있음)
+    const head = await gh('GET', `/repos/${C.srcOwner}/${C.repo}/commits/main`);
+    if (okc(head) && /^[0-9a-f]{40}$/.test(head.data?.sha || '')) rawBase = C.raw.replace('/main/', `/${head.data.sha}/`);
     for (const file of ['01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql']) {
       note(file);
       let t = (await download('supabase/' + file)).split(C.originalUrl).join(sbUrl);

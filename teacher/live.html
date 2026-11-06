@@ -54,13 +54,20 @@
   <section class="cover" id="cover" tabindex="-1" aria-hidden="true" aria-labelledby="cover-title">
     <header class="cover-top">
       <h1 class="cover-title" id="cover-title"></h1>
-      <div class="timer glass-strong" id="timer" aria-label="타이머">
+      <div class="timer glass-strong" id="timer" aria-label="타이머" hidden>
         <button type="button" class="timer-step press" id="timer-minus" aria-label="1분 줄이기">−</button>
         <span class="timer-num num" id="timer-num" role="timer">10:00</span>
         <button type="button" class="timer-step press" id="timer-plus" aria-label="1분 늘리기">+</button>
         <button type="button" class="btn btn-primary btn-small" id="timer-go">시작</button>
         <button type="button" class="btn btn-line btn-small" id="timer-reset">초기화</button>
       </div>
+      <nav class="cover-tabs glass-strong" aria-label="모둠활동">
+        <button type="button" class="cover-tab press" data-tab="groups"><span>모둠</span><kbd>1</kbd></button>
+        <button type="button" class="cover-tab press" data-tab="board"><span>게시판</span><kbd>2</kbd></button>
+        <button type="button" class="cover-tab press" data-tab="reveal"><span>순위 발표</span><kbd>3</kbd></button>
+        <button type="button" class="cover-tab press" data-tab="quizshow"><span>퀴즈 쇼</span><kbd>4</kbd></button>
+        <button type="button" class="cover-tab cover-close press" id="cover-close"><span>수업자료로</span><kbd>G</kbd></button>
+      </nav>
     </header>
 
     <div class="cover-body">
@@ -87,13 +94,6 @@
       </div>
     </div>
 
-    <nav class="cover-tabs glass-strong" aria-label="모둠활동">
-      <button type="button" class="cover-tab press" data-tab="groups"><span>모둠</span><kbd>1</kbd></button>
-      <button type="button" class="cover-tab press" data-tab="board"><span>게시판</span><kbd>2</kbd></button>
-      <button type="button" class="cover-tab press" data-tab="reveal"><span>순위 발표</span><kbd>3</kbd></button>
-      <button type="button" class="cover-tab press" data-tab="quizshow"><span>퀴즈 쇼</span><kbd>4</kbd></button>
-      <button type="button" class="cover-tab cover-close press" id="cover-close"><span>수업자료로</span><kbd>G</kbd></button>
-    </nav>
   </section>
 </div>
 <script type="module" src="../assets/js/pages/live.js"></script>

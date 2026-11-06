@@ -989,8 +989,9 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .cover-empty { flex: 1; }
 .cover-empty strong { font-size: clamp(20px, 3vh, 30px); }
 
-/* 탭: 아래쪽 가운데 */
-.cover-tabs { align-self: center; display: flex; gap: 6px; padding: 6px; border-radius: var(--r-pill); }
+/* 탭: 위쪽 오른쪽 (수업자료 위 메뉴처럼). 타이머는 2026-11-06 덮개에서 뺌(리모컨 타이머는 그대로) */
+.cover .timer[hidden] { display: none; }
+.cover-tabs { margin-left: auto; display: flex; gap: 6px; padding: 6px; border-radius: var(--r-pill); }
 .cover-tab { display: inline-flex; align-items: center; gap: 10px; min-height: 48px; padding: 0 22px; border: 0; border-radius: var(--r-pill);
   background: transparent; font: inherit; font-size: 17px; font-weight: 700; color: var(--ink-2); cursor: pointer; }
 .cover-tab:hover { color: var(--ink); }

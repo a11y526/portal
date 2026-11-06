@@ -158,7 +158,6 @@ function handleKey(e) {
     case 'Digit2': case 'Numpad2': setTab('board'); return true;
     case 'Digit3': case 'Numpad3': setTab('reveal'); return true;
     case 'Digit4': case 'Numpad4': setTab('quizshow'); return true;
-    case 'KeyT': if (!e.repeat) timer.toggle(); return true;
   }
   return false;
 }

@@ -232,7 +232,7 @@ async function install(f) {
     // 원래 저장소의 지금 커밋으로 받는다(raw 주소의 main은 몇 분 예전 것이 나올 수 있음)
     const head = await gh('GET', `/repos/${C.srcOwner}/${C.repo}/commits/main`);
     if (okc(head) && /^[0-9a-f]{40}$/.test(head.data?.sha || '')) rawBase = C.raw.replace('/main/', `/${head.data.sha}/`);
-    for (const file of ['01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql']) {
+    for (const file of ['01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql', '07_lessons.sql']) {
       note(file);
       let t = (await download('supabase/' + file)).split(C.originalUrl).join(sbUrl);
       if (file === '04_seed.sql') {

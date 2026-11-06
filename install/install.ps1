@@ -195,7 +195,7 @@ function RunSql([string]$sql, [string]$what) {
   return Need (Call POST "$SB_API/v1/projects/$ref/database/query" $SBH @{ query = $sql }) $what
 }
 $classList = ($classes -join ', ')
-foreach ($f in @('01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql')) {
+foreach ($f in @('01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql', '07_lessons.sql')) {
   Say "  $f …"
   $t = Download ($RAW + 'supabase/' + $f)
   $t = $t.Replace($ORIGINAL_URL, $sbUrl)

@@ -417,6 +417,8 @@ const hasFields = (p) => (p?.fields?.length ?? 0) > 0;
 const isClosed = (p) => !!p?.locked; // 아직 수업에서 안 나간 쪽(본문이 오지 않음)
 const pageDone = (p) => ws.done || (hasFields(p) && p.fields.every((f) => ws.passed.has(f.key)));
 const isShut = (p, i) => hasFields(p) && !ws.opened.has(i); // 선생님이 아직 안 열었거나 잠근 쪽
+// 선생님이 S를 누르기 전(또는 잠근 동안)에는 그 쪽 시뮬레이션도 흐리게 잠근다 (2026-11-06)
+const simShut = (p, i = ws.idx) => hasFields(p) && !pageDone(p) && isShut(p, i);
 const locked = () => !login || ws.done || ws.blank != null || pageDone(pages()[ws.idx]) || isShut(pages()[ws.idx], ws.idx);
 
 /* ---------- 수업 따라가기 (2026-11-05) ----------
@@ -646,6 +648,7 @@ function renderWsPage() {
   else renderPage($('ws-page'), page, ws.answers, { locked: locked() || gated(), side, hideSim: true });
   if (!side) showSide($('ws-side'), []);
   if (!isClosed(page)) { if (gated(page)) openParts(page); renderGate(page, !!side); }
+  shutSims(!isClosed(page) && simShut(page));
   const hasSide = !!$('ws-side').dataset.id;
   $('ws-side').classList.toggle('hidden', !hasSide);
   $('sheet').classList.toggle('has-side', hasSide);
@@ -727,7 +730,7 @@ function renderWsFoot() {
 const PLAY_SVG = '<svg width="22" height="22" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg>';
 function renderGate(page, wide) {
   const box = $('ws-page');
-  const on = gated(page);
+  const on = gated(page) && !simShut(page);
   box.classList.toggle('is-gated', on);
   $('ws-side').classList.toggle('is-need', on);
   box.querySelectorAll('.ws-sim').forEach((c) => c.classList.toggle('is-need', on));
@@ -746,6 +749,15 @@ function renderGate(page, wide) {
        ${prog ? `<span class="ws-gate-prog num">진행 ${prog.n} / ${prog.total}</span>` : ''}`
     : `<span class="ws-gate-ic">${CHECK_SVG(22, '0s')}</span><span class="ws-gate-txt"><b>시뮬레이션 완료 · ${isShut(page, ws.idx) ? '선생님이 열면 쓸 수 있어요' : '이제 답을 쓸 수 있어요'}</b></span>`;
   box.prepend(el);
+}
+
+// S 전: 오른쪽 칸·쪽 안 카드를 흐리게 하고 누르지 못하게(열린 카드도 그대로 덮음)
+function shutSims(on) {
+  const cards = [$('ws-side'), ...$('ws-page').querySelectorAll('.ws-sim')];
+  cards.forEach((c) => {
+    c.classList.toggle('is-shut', on);
+    c.querySelectorAll('[data-sim-act="open"]').forEach((b) => { b.disabled = on; });
+  });
 }
 
 // 잠긴 칸을 누르면: 알림 + 시뮬레이션 칸을 흔들어 보여 준다
@@ -873,6 +885,7 @@ $('ws-page').addEventListener('input', (e) => {
 });
 
 $('ws-page').addEventListener('click', (e) => {
+  if (simShut(pages()[ws.idx])) return;
   if (gated() && !partOpen(e.target)) {
     if (!e.target.closest('.ws-sim, .ws-gate') && e.target.closest('.w-q, table, .w-fill, .ws-in, .ws-ox')) nudgeSim();
     return;

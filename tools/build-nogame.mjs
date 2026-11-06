@@ -23,6 +23,8 @@ const DROP = [
   // 이 사이트에만 쓰는 것: 작업 기록·설계 문서·시안·진도 가져오기·패치·편집기 내려받기·이 도구
   /^CLAUDE\.md$/, /^시작하기\.md$/, /^PRODUCT\.md$/, /^docs\//, /^dist\//, /^tools\//,
   /^supabase\/05_progress_import\.sql$/, /^supabase\/patch[_-]/,
+  // 웹 설치 화면·중계는 원래 사이트(a11y526.github.io/portal/install/)에서만 돈다
+  /^install\/(index\.html|install\.js|config\.js)$/, /^supabase\/functions\/setup-relay\//,
 ];
 const GAME_SQL = /\b(public\.)?(_?omok_(?!open)\w*|get_omok\w*|start_omok|submit_omok|_?om_\w+|_?ot_\w+|_?rk_\w+|_?qd_\w+|_?yt_\w+|_?moon_rpg\w*|get_moon_rpg_class)\b|'(omok|omok_pvp|rummikub|quoridor|othello|yut|moon_rpg|game_xp_off)'/;
 // 사본에 남으면 안 되는 이름(화면·스크립트). CSS는 퀴즈 화면이 오목 칸 모양(.omok-*)을 같이 써서 검사에서 뺀다

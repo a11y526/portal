@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="ko" class="tch">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<meta name="referrer" content="no-referrer">
+<title>과학 포털 만들기</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../assets/css/design.css">
+<link rel="stylesheet" href="../assets/css/site.css">
+<style>
+  .ins { max-width: 640px; margin: 0 auto; padding: 56px 16px 96px; display: flex; flex-direction: column; gap: 14px; }
+  .ins h1 { margin: 0 0 4px; font-size: 40px; font-weight: 900; letter-spacing: -0.045em; line-height: 1.15; }
+  .ins .sub { margin: 0 0 18px; color: #5D5D5D; font-size: 17px; line-height: 1.6; }
+  .box { background: #F7F7F7; border-radius: 28px; padding: 26px 28px; display: flex; flex-direction: column; gap: 16px; }
+  .ins [hidden] { display: none !important; }
+  .bhead { display: flex; align-items: center; gap: 12px; }
+  .bno { flex: none; width: 34px; height: 34px; border-radius: 50%; background: #fff; display: grid; place-items: center; font-weight: 700; font-variant-numeric: tabular-nums; }
+  .box.done .bno { background: rgba(34,197,130,.16); color: #0B6B47; }
+  .bhead h2 { margin: 0; flex: 1; font-size: 20px; font-weight: 900; letter-spacing: -0.03em; }
+  .who { font-weight: 700; color: #0B6B47; background: rgba(34,197,130,.16); border-radius: 999px; padding: 5px 14px; font-size: 15px; }
+  .oauth { display: inline-flex; align-items: center; justify-content: center; gap: 10px; min-height: 52px; padding: 0 26px;
+    border: 0; border-radius: 999px; background: #0D0D0D; color: #fff; font: inherit; font-size: 17px; font-weight: 700; cursor: pointer; align-self: flex-start; }
+  .oauth:hover { background: #2B2B2B; }
+  .oauth:disabled { background: #F0F0F0; color: #8A8A8A; cursor: default; }
+  .oauth svg { width: 20px; height: 20px; flex: none; }
+  .box.done .oauth { display: none; }
+  .fld { display: flex; flex-direction: column; gap: 8px; }
+  .fld > span { font-weight: 700; font-size: 15px; }
+  .fld small { color: #5D5D5D; font-size: 14px; }
+  .fld input { min-height: 48px; border: 0; border-radius: 14px; background: #fff; padding: 0 16px; font: inherit; font-size: 17px; }
+  .fld input:focus { outline: 2px solid #0D0D0D; outline-offset: 0; }
+  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+  @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } .box { padding: 22px 18px; } .ins h1 { font-size: 32px; } }
+  .chips { display: flex; flex-wrap: wrap; gap: 8px; }
+  .chips label { min-width: 52px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center;
+    border-radius: 999px; background: #fff; font-weight: 700; cursor: pointer; padding: 0 12px; font-variant-numeric: tabular-nums; }
+  .chips input { position: absolute; opacity: 0; pointer-events: none; }
+  .chips label:has(input:checked) { background: #0D0D0D; color: #fff; }
+  .chips label:has(input:focus-visible) { outline: 3px solid rgba(13,13,13,.28); outline-offset: 1px; }
+  select.org { min-height: 48px; border: 0; border-radius: 14px; background: #fff; padding: 0 14px; font: inherit; font-size: 17px; }
+  .go { min-height: 56px; border: 0; border-radius: 999px; background: #0D0D0D; color: #fff; font: inherit; font-size: 18px; font-weight: 900; cursor: pointer; }
+  .go:disabled { background: #F0F0F0; color: #8A8A8A; cursor: default; }
+  .err { margin: 0; color: #A23B0B; font-weight: 500; line-height: 1.6; }
+  .err:empty { display: none; }
+  .steps { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  .steps li { display: flex; align-items: center; gap: 12px; min-height: 44px; padding: 0 14px; border-radius: 14px; color: #8A8A8A; font-weight: 500; }
+  .steps li .dot { flex: none; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #D9D9D9; display: grid; place-items: center; }
+  .steps li.doing { background: #fff; color: #0D0D0D; font-weight: 700; }
+  .steps li.doing .dot { border-color: #0D0D0D; border-right-color: transparent; animation: ins-spin .9s linear infinite; }
+  .steps li.ok { color: #0D0D0D; }
+  .steps li.ok .dot { border: 0; background: #22C582; }
+  .steps li.ok .dot::after { content: ''; width: 9px; height: 5px; border: 2px solid #fff; border-top: 0; border-right: 0; transform: translateY(-1px) rotate(-45deg); }
+  .steps li.bad { background: rgba(255,122,69,.16); color: #A23B0B; font-weight: 700; }
+  .steps li.bad .dot { border-color: #A23B0B; }
+  .steps li .note { margin-left: auto; font-size: 14px; font-weight: 500; color: #8A8A8A; text-align: right; }
+  @keyframes ins-spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) { .steps li.doing .dot { animation: none; border-right-color: #0D0D0D; } }
+  .fin { display: flex; flex-direction: column; gap: 10px; }
+  .fin .line { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; background: #fff; border-radius: 14px; padding: 14px 16px; }
+  .fin .line b { flex: none; width: 92px; }
+  .fin .line a { color: #0D0D0D; font-weight: 700; word-break: break-all; }
+  .fin .row { display: flex; gap: 10px; flex-wrap: wrap; }
+  .ghost { min-height: 48px; border: 0; border-radius: 999px; background: #F0F0F0; color: #0D0D0D; font: inherit; font-weight: 700; padding: 0 22px; cursor: pointer; text-decoration: none; display: inline-flex; align-items: center; }
+  .box .go.link { display: inline-flex; align-items: center; justify-content: center; padding: 0 28px; text-decoration: none; }
+</style>
+</head>
+<body>
+<main class="ins">
+  <h1>과학 수업 포털 만들기</h1>
+  <p class="sub">GitHub와 Supabase 계정으로 내 반 전용 사이트를 만들어요. 10분쯤 걸려요.</p>
+
+  <section class="box" id="b-gh">
+    <div class="bhead"><span class="bno">1</span><h2>GitHub</h2><span class="who" id="gh-who" hidden></span></div>
+    <button class="oauth" id="gh-go" type="button">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M12 2a10 10 0 0 0-3.16 19.49c.5.09.68-.22.68-.48v-1.7c-2.78.6-3.37-1.34-3.37-1.34-.45-1.16-1.11-1.47-1.11-1.47-.91-.62.07-.6.07-.6 1 .07 1.53 1.03 1.53 1.03.9 1.52 2.34 1.08 2.91.83.09-.65.35-1.09.63-1.34-2.22-.25-4.55-1.11-4.55-4.94 0-1.09.39-1.98 1.03-2.68-.1-.25-.45-1.27.1-2.64 0 0 .84-.27 2.75 1.02a9.5 9.5 0 0 1 5 0c1.91-1.29 2.75-1.02 2.75-1.02.55 1.37.2 2.39.1 2.64.64.7 1.03 1.59 1.03 2.68 0 3.84-2.34 4.69-4.57 4.93.36.31.68.92.68 1.85v2.75c0 .27.18.58.69.48A10 10 0 0 0 12 2z"/></svg>
+      GitHub로 계속
+    </button>
+  </section>
+
+  <section class="box" id="b-sb">
+    <div class="bhead"><span class="bno">2</span><h2>Supabase</h2><span class="who" id="sb-who" hidden></span></div>
+    <button class="oauth" id="sb-go" type="button">
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true"><path d="M13.3 21.6c-.5.6-1.5.3-1.5-.5v-7.6H3.4c-1 0-1.5-1.2-.9-1.9l8.2-9.3c.5-.6 1.5-.3 1.5.5v7.6h8.4c1 0 1.5 1.2.9 1.9z"/></svg>
+      Supabase로 계속
+    </button>
+    <label class="fld" id="org-wrap" hidden><span>조직</span><select class="org" id="org"></select></label>
+  </section>
+
+  <section class="box" id="b-form">
+    <div class="bhead"><span class="bno">3</span><h2>내 반과 관리 화면 계정</h2></div>
+    <div class="fld"><span>담당 반</span><div class="chips" id="classes"></div></div>
+    <label class="fld"><span>선생님 체험 코드</span><input id="code" inputmode="numeric" maxlength="6" autocomplete="off" placeholder="숫자 6자리"><small>반마다 0번 계정으로 학생 화면을 볼 때 써요</small></label>
+    <div class="grid2">
+      <label class="fld"><span>관리 화면 이메일</span><input id="email" type="email" autocomplete="username"></label>
+      <label class="fld"><span>비밀번호</span><input id="pw" type="password" autocomplete="new-password" placeholder="8자 이상"></label>
+    </div>
+    <button class="go" id="go" type="button" disabled>설치 시작</button>
+    <p class="err" id="form-err"></p>
+  </section>
+
+  <section class="box" id="b-run" hidden>
+    <div class="bhead"><span class="bno">4</span><h2 id="run-title">설치하는 중</h2></div>
+    <ol class="steps" id="steps"></ol>
+    <p class="err" id="run-err"></p>
+    <button class="go" id="retry" type="button" hidden>이어서 다시 하기</button>
+    <div class="fin" id="fin" hidden></div>
+  </section>
+</main>
+<script type="module" src="install.js"></script>
+</body>
+</html>

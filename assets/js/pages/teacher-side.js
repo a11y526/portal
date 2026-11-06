@@ -49,6 +49,16 @@ function initTop() {
     });
     nav.append(menu);
   });
+  // 맥 앱 '과학 관리'에서 열었을 때만: '기타' 옆 [배포] → 앱이 배포 창을 띄움
+  const app = window.webkit?.messageHandlers?.scienceApp;
+  if (app) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'tn-btn tn-app';
+    b.textContent = '배포';
+    b.addEventListener('click', () => app.postMessage({ cmd: 'deploy' }));
+    nav.append(b);
+  }
   // 항목을 누르면 창을 닫는다(마우스가 메뉴를 벗어날 때까지)
   nav.addEventListener('click', (e) => {
     const m = e.target.closest('.tn-menu');

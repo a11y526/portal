@@ -23,3 +23,14 @@ if command -v gh >/dev/null; then
   gh release create "v$new" --title "v$new" --notes "$msg" >/dev/null || echo "(릴리스 페이지는 못 만듦, 태그는 올라감)"
 fi
 echo "v$old → v$new 배포함"
+
+# 윈도우 앱(과학1/science-app)도 같은 번호로: 태그를 올리면 GitHub Actions가 설치 파일을 만들고,
+# 설치된 앱은 켤 때 새 버전을 알려 준다. 앱 폴더나 저장소가 없으면 건너뜀(포털 배포는 그대로).
+app="../science-app"
+if [[ -d "$app/.git" ]] && git -C "$app" remote get-url origin >/dev/null 2>&1; then
+  if git -C "$app" push -q origin main && git -C "$app" tag -a "v$new" -m "$msg" && git -C "$app" push -q origin "v$new"; then
+    echo "윈도우 앱 v$new 만드는 중 (10분쯤 걸림)"
+  else
+    echo "(윈도우 앱 태그는 못 올림)"
+  fi
+fi

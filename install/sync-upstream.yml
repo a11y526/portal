@@ -1,0 +1,28 @@
+# 원래 포털(a11y526/science-portal)의 새 기능을 매일 받아 온다. 복사한 저장소(Fork)에서만 돈다.
+# 서버(Supabase)는 한국 시간 2:00~2:05에 먼저 바뀌고(06_auto_update.sql), 이 일은 2:20에 사이트 파일을 받는다.
+# site.js는 원래 저장소가 바꾸지 않으므로 이 저장소의 값(내 서버 주소·담당 반)이 그대로 남는다.
+name: 새 기능 받기
+on:
+  schedule:
+    - cron: '20 17 * * *'
+  workflow_dispatch:
+permissions:
+  contents: write
+  pages: write
+jobs:
+  sync:
+    if: github.repository != 'a11y526/science-portal'
+    runs-on: ubuntu-latest
+    steps:
+      - name: 원래 저장소와 맞추기
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          before=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          gh api -X POST "repos/$GITHUB_REPOSITORY/merge-upstream" -f branch=main
+          after=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
+          echo "before=$before after=$after"
+          # 이 일이 올린 변경은 사이트 다시 만들기를 깨우지 않으므로 직접 부탁한다
+          if [ "$before" != "$after" ]; then
+            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" || echo "사이트 다시 만들기 요청 실패(다음 변경 때 다시)"
+          fi

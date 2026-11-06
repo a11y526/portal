@@ -28,10 +28,16 @@ const GAME_SQL = /\b(public\.)?(_?omok_(?!open)\w*|get_omok\w*|start_omok|submit
 // 사본에 남으면 안 되는 이름(화면·스크립트). CSS는 퀴즈 화면이 오목 칸 모양(.omok-*)을 같이 써서 검사에서 뺀다
 const LEFTOVER = /games\.html|omok\.html|omok-online|omok-rank|othello|quoridor|rummikub|yut\.|yut\.html|rpg-moon|moon_rpg|moonRpg|MoonRpg|getOmok|setOmokOpen|OmokRules|오목|오델로|루미큐브|쿼리도|윷놀이|달 자원 RPG/;
 
-const files = execFileSync('git', ['ls-files', '-z'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean)
-  .filter((f) => existsSync(join(ROOT, f)) && !DROP.some((re) => re.test(f)));
-// 아직 git에 안 올린 설치 안내도 넣는다
-if (!files.includes('CLAUDE_INSTALL.md') && existsSync(join(ROOT, 'CLAUDE_INSTALL.md'))) files.push('CLAUDE_INSTALL.md');
+// 커밋된 파일만 쓴다(HEAD). 다른 창에서 고치는 중인 것이 다른 선생님 사이트·서버로 가지 않게
+const files = execFileSync('git', ['ls-tree', '-r', '-z', '--name-only', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean)
+  .filter((f) => !DROP.some((re) => re.test(f)));
+// 설치·자동 업데이트 파일은 이 스크립트와 같이 고치므로 폴더의 지금 파일을 쓴다(아직 커밋 전이어도)
+const LOCAL = ['CLAUDE_INSTALL.md', 'supabase/06_auto_update.sql', 'install/설치.bat', 'install/install.ps1', 'install/sync-upstream.yml', 'install/README.md'];
+for (const f of LOCAL) {
+  if (!existsSync(join(ROOT, f))) throw new Error(`${f}가 없어요`);
+  if (!files.includes(f)) files.push(f);
+}
+const fromHead = (f) => LOCAL.includes(f) ? readFileSync(join(ROOT, f)) : execFileSync('git', ['show', `HEAD:${f}`], { cwd: ROOT, maxBuffer: 64 * 1024 * 1024 });
 
 function stripMarked(text, path) {
   const html = /\.html?$/.test(path);
@@ -69,10 +75,10 @@ for (const e of readdirSync(OUT)) if (e !== '.git') rmSync(join(OUT, e), { recur
 
 let marked = 0;
 for (const f of files) {
-  const src = join(ROOT, f), dst = join(OUT, f);
+  const src = join(ROOT, f), dst = join(OUT, f === 'install/sync-upstream.yml' ? '.github/workflows/sync-upstream.yml' : f === 'install/README.md' ? 'README.md' : f);
   mkdirSync(dirname(dst), { recursive: true });
   if (/\.(html?|js|mjs)$/.test(f)) {
-    const t = readFileSync(src, 'utf8');
+    const t = fromHead(f).toString('utf8');
     let s = stripMarked(t, f);
     if (f === 'assets/js/site.js') s = s.replace(/export const SUPABASE_URL = .*/, "export const SUPABASE_URL = 'YOUR-PROJECT-URL';")
       .replace(/export const SUPABASE_ANON_KEY = .*/, "export const SUPABASE_ANON_KEY = 'YOUR-PUBLISHABLE-KEY';")
@@ -80,11 +86,11 @@ for (const f of files) {
     if (s !== t) marked++;
     writeFileSync(dst, s);
   } else if (/^supabase\/0[1-4]_\w+\.sql$/.test(f)) {
-    writeFileSync(dst, stripSql(readFileSync(src, 'utf8')));
+    writeFileSync(dst, stripSql(fromHead(f).toString('utf8')));
   } else if (f === 'CLAUDE_INSTALL.md') {
-    writeFileSync(dst, fixInstallDoc(readFileSync(src, 'utf8')));
+    writeFileSync(dst, fixInstallDoc(fromHead(f).toString('utf8')));
   } else {
-    copyFileSync(src, dst);
+    writeFileSync(dst, fromHead(f));
   }
 }
 

@@ -3,6 +3,9 @@
 이 파일은 **다른 선생님 컴퓨터의 Claude**가 읽고 그대로 따라 하는 설치 순서다.
 원래 포털(`a11y526/portal`)을 선생님 계정으로 복사하고, 선생님의 새 Supabase 서버에 설치해서, 선생님 반 전용 사이트를 만든다.
 원래 사이트와 학생·점수·순위가 섞이지 않는다(서버가 따로).
+설치가 끝나면 원래 포털의 새 기능이 매일 새벽 저절로 들어온다(서버는 `06_auto_update.sql`, 사이트는 GitHub Actions `새 기능 받기`).
+
+> Claude 없이 설치하려면: 윈도우에서 `install/설치.bat`을 내려받아 두 번 누르면 이 순서를 모두 자동으로 한다.
 
 ## Claude가 지킬 것
 
@@ -100,6 +103,19 @@ update public.students set code_hash = extensions.crypt('<코드>', extensions.g
 where number = 0 or class_id = 20;
 ```
 
+**3-3b. 자동 업데이트** — `06_auto_update.sql`을 3-1처럼 받아(`net.http_get(…/supabase/06_auto_update.sql…)`) 3-2의 01·02·03 방식으로 실행한 뒤, 설정을 넣는다(`<계정>`·`<REF>`·담당 반을 채움):
+
+```sql
+insert into public.settings (key, value) values ('auto_update', jsonb_build_object(
+  'on', true,
+  'source', 'https://raw.githubusercontent.com/a11y526/portal/main/supabase/',
+  'url', 'https://<REF>.supabase.co',
+  'classes', '[1, 2, 3, 4, 5, 6]'::jsonb))
+on conflict (key) do update set value = public.settings.value || excluded.value;
+```
+
+매일 한국 시간 2:00에 원래 저장소의 01~04를 받고 2:05에 달라졌으면 다시 실행한다(오류가 나면 모두 되돌리고 `settings.auto_update.error`에 적음).
+
 **3-4. 확인** — `installed`, `seeded`가 true이고 `classes`가 담당 반과 같아야 한다.
 
 ```sql
@@ -121,6 +137,10 @@ export const CLASSES = [1, 2, 3, 4, 5, 6];
 ```
 
 `site.js` 말고 다른 파일은 고치지 않는다(그래야 나중에 원래 사이트의 새 기능을 그대로 받을 수 있다).
+
+사이트 자동 업데이트 켜기: 내 저장소의 Actions를 켜고 `새 기능 받기`(`sync-upstream.yml`)를 켠다. `gh`가 있으면
+`gh api -X PUT repos/<계정>/portal/actions/permissions -F enabled=true -f allowed_actions=all` 와 `gh workflow enable sync-upstream.yml -R <계정>/portal`.
+없으면 선생님께: 내 저장소 → **Actions** 탭 → 초록 단추(**I understand my workflows, go ahead and enable them**) → 왼쪽 **새 기능 받기** → **Enable workflow**
 
 ## 5. 교사 계정
 
@@ -146,7 +166,9 @@ select count(*) as teachers from public.teachers;
    - 관리 화면 → **수업 시작**: 차시를 추가하고 수업자료 주소(`lessons/611.html` 등)와 학습지를 올림
    - 선생님 체험 계정: 각 반 번호 **0** + 체험 코드
 
-## 나중에: 새 기능 받기 (선생님이 "포털 업데이트해 줘"라고 할 때)
+## 나중에: 새 기능 받기
+
+평소에는 저절로 된다(매일 새벽). 선생님이 "지금 바로 포털 업데이트해 줘"라고 하면:
 
 1. 선생님 저장소를 원래 저장소와 맞춘다: `gh repo sync <계정>/portal --source a11y526/portal --branch main`, 도구가 없으면 선생님께: 내 저장소 첫 화면 → **Sync fork** → **Update branch**. `site.js`가 충돌하면 **선생님 것(새 서버 주소)을 남긴다**
 2. 3-1·3-2를 다시 한다(01~04는 다시 실행해도 안전. 3-3·5는 다시 하지 않음)

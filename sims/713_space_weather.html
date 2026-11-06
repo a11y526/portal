@@ -144,6 +144,11 @@ textarea:focus{box-shadow:0 0 0 3px #CFE3F8}
 .made{display:flex;flex-direction:column;gap:6px}
 .made .chain{background:#EAF8EE;border-radius:10px;padding:6px 8px}
 .made .chain .c{background:#fff;color:var(--ink)}
+.dmg button.bad{opacity:.55}
+.made .row1{display:flex;align-items:center;gap:6px}
+.made .row1 .chain{flex:1}
+.made .del{font-size:13.5px;min-height:34px;padding:2px 10px;border-color:#C7C7CC;color:var(--mut);flex:none}
+.sub .msg.bad{color:#A23B0B}
 .small{font-size:14px;min-height:34px;padding:2px 12px;align-self:flex-start}
 </style>
 </head>
@@ -160,6 +165,7 @@ textarea:focus{box-shadow:0 0 0 3px #CFE3F8}
       <p class="hint" id="hi"></p>
       <textarea id="tx" rows="2" maxlength="60" hidden aria-label="우리 생활에 생길 불편"></textarea>
       <button id="ok" hidden>도미노 완성</button>
+      <button id="back" class="small" type="button" hidden>← 다른 대상 고르기</button>
     </div>
     <div class="made" id="made"></div>
     <div class="sub"><button id="sb" type="button" disabled>제출</button><div class="msg" id="msg"></div></div>
@@ -253,6 +259,10 @@ const INFO={
   ship:{n:'먼바다의 배',at:SH,ok:'장거리 무선 통신 두절',a:'멀리 보내는 무선 전파가 끊겨 육지와 교신할 수 없다.'},
   pow:{n:'송전탑',at:[1080,775],ok:'대규모 정전',a:'전선에 강한 전류가 흘러 전력 시설이 고장 나고 정전이 된다.'}};
 const KEYS=Object.keys(INFO);
+/* 틀린 피해를 골랐을 때: 그 피해가 어디에 생기는지 알려 줌(두 번째부터는 그림 설명도) */
+const WHY={'방사선 노출':'높은 하늘이나 우주에 있는 사람에게 생기는 일','인공위성 고장·궤도 이탈':'우주에 떠 있는 인공위성에 생기는 일','GPS 오류':'위성 신호로 위치를 찾는 기기에 생기는 일','장거리 무선 통신 두절':'먼 곳과 전파로 교신할 때 생기는 일','대규모 정전':'전선과 전력 시설에 생기는 일'};
+const HINT={plane:'비행기는 아주 높은 하늘을 날아요. 그곳은 태양에서 온 입자를 막아 줄 공기가 적어요.',astro:'우주에는 태양에서 온 입자를 막아 줄 대기가 없어요.',sat:'인공위성은 우주에서 강한 입자를 그대로 맞아요.',nav:'내비게이션은 인공위성이 보내는 신호로 내 위치를 찾아요.',ship:'먼바다의 배는 멀리 보내는 전파로 육지와 연락해요.',pow:'송전탑은 긴 전선으로 전기를 멀리 보내요.'};
+let miss=0,note='',noteBad=false;
 const HS={};
 KEYS.forEach(k=>{const [x,y]=INFO[k].at;const g=el('g',{class:'hs',tabindex:0,role:'button','aria-label':INFO[k].n},hot);
   el('circle',{cx:x,cy:y,r:84,fill:'transparent'},g);
@@ -270,29 +280,40 @@ function ui(){
   $('dh').textContent=made.length>=NEED?'도미노 완성 '+made.length+'개':'도미노 '+(made.length+1)+' / '+NEED;
   chain();
   $('dm').style.display=stage===1?'flex':'none';
-  $('tx').hidden=stage!==2;$('ok').hidden=stage!==2;
+  $('tx').hidden=stage!==2;$('ok').hidden=stage!==2;$('back').hidden=stage===0;
   $('sp').textContent=made.length>=NEED&&stage===0?'다른 대상으로 더 만들어도 돼요.':stage===0?'① 그림에서 깜빡이는 대상 하나를 누르세요.':stage===1?'② '+INFO[cur.k].n+'에는 무엇이 고장 날까?':'③ 그래서 우리 생활에는 어떤 불편이 생길까?';
   KEYS.forEach(k=>{HS[k].classList.toggle('used',made.some(m=>m.k===k));HS[k].classList.toggle('off',stage!==0||made.some(m=>m.k===k));});
   $('made').innerHTML='';
-  made.forEach((m,i)=>{const w=document.createElement('div');w.className='chain';w.innerHTML=`<span class="c">${INFO[m.k].n}</span><i>→</i><span class="c">${m.d}</span><i>→</i><span class="c">${m.t.replace(/[<>&]/g,'')}</span>`;$('made').appendChild(w);});
-  if(made.length){const b=document.createElement('button');b.className='small';b.textContent='처음부터 다시';b.onclick=()=>{made=[];cur=null;stage=0;sel=null;sent=false;H.done(0,false);H.done(1,false);H.done(2,false);H.done(3,false);render(0);ui();};$('made').appendChild(b);}
+  made.forEach((m,i)=>{const r=document.createElement('div');r.className='row1';
+    const w=document.createElement('div');w.className='chain';w.innerHTML=`<span class="c">${INFO[m.k].n}</span><i>→</i><span class="c">${m.d}</span><i>→</i><span class="c">${m.t.replace(/[<>&]/g,'')}</span>`;
+    const x=document.createElement('button');x.type='button';x.className='del';x.textContent='지우기';x.setAttribute('aria-label',INFO[m.k].n+' 도미노 지우기');
+    x.onclick=()=>{x.blur();made.splice(i,1);sent=false;note='';if(made.length<NEED){H.done(2,false);H.done(3,false);}if(!made.length&&stage===0)H.done(0,false),H.done(1,false);ui();};
+    r.append(w,x);$('made').appendChild(r);});
   $('sb').disabled=made.length<NEED;
   const m=$('msg');m.className='msg'+(sent?' ok':'');
-  m.textContent=sent?(Q.WS?'학습지로 보냈어요':'제출했어요'):made.length<NEED?'도미노 '+NEED+'개를 만들면 제출할 수 있어요':'';}
+  if(sent&&noteBad)m.className='msg bad';
+  m.textContent=sent?(note||(Q.WS?'학습지로 보냈어요':'제출했어요')):made.length<NEED?'도미노 '+NEED+'개를 만들면 제출할 수 있어요':'';}
 function pick(k){if(stage!==0||made.some(m=>m.k===k))return;cur={k};stage=1;sel=k;phaseB=false;$('hi').textContent='';
-  [...$('dm').children].forEach(b=>b.classList.remove('bad'));
+  [...$('dm').children].forEach(b=>{b.classList.remove('bad');b.disabled=false;});miss=0;
   H.done(0);play();ui();}
 function choose(b,t){if(stage!==1)return;
-  if(t!==INFO[cur.k].ok){b.classList.remove('bad');void b.offsetWidth;b.classList.add('bad');$('hi').textContent='이 대상에 생기는 일이 아니에요. 그림 속 '+INFO[cur.k].n+'을(를) 다시 보세요.';return;}
+  if(t!==INFO[cur.k].ok){miss++;b.classList.remove('bad');void b.offsetWidth;b.classList.add('bad');b.disabled=true;
+    $('hi').textContent=`'${t}'은(는) ${WHY[t]}이에요.`+(miss>=2?' 힌트: '+HINT[cur.k]:` 그림 속 ${INFO[cur.k].n}을(를) 다시 보세요.`);return;}
   cur.d=t;stage=2;$('hi').textContent='';phaseB=true;H.done(1);play();ui();
   $('tx').value='';setTimeout(()=>$('tx').focus(),50);}
+/* 대상을 잘못 골랐으면 다른 대상으로(만든 도미노는 그대로) */
+$('back').onclick=()=>{$('back').blur();cur=null;stage=0;sel=null;phaseB=false;$('hi').textContent='';cancelAnimationFrame(raf);H.done(1,false);if(!made.length)H.done(0,false);render(0);ui();};
+/* 학습지 채점 결과(서술 칸 1개) */
+addEventListener('message',e=>{const r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:result')return;
+  const bad=[].concat(r.bad||[],r.empty||[]);sent=true;noteBad=!r.ok&&!(r.checking||[]).length;
+  note=r.ok?'맞았어요! 학습지에 제출했어요':(r.checking||[]).length?'답을 확인하고 있어요':bad.length?'도미노를 고쳐 다시 [제출]해 보세요':'학습지의 다른 칸을 확인해 보세요';ui();});
 $('tx').addEventListener('input',()=>{cur.t=$('tx').value.trim();chain();});
 $('ok').onclick=()=>{$('ok').blur();const t=$('tx').value.trim();if(t.length<4){$('hi').textContent='우리 생활의 불편을 조금 더 써 보세요.';$('tx').focus();return;}
-  cur.t=t;made.push(cur);cur=null;stage=0;sel=null;sent=false;render(0);
+  cur.t=t;made.push(cur);cur=null;stage=0;sel=null;sent=false;note='';render(0);
   if(made.length>=NEED)H.done(2);
   Q.tell({type:'sim:progress',n:Math.min(made.length,NEED),total:NEED});ui();};
 $('sb').onclick=()=>{$('sb').blur();if(made.length<NEED)return;
-  Q.tell({type:'sim:answer',n:1,value:made.map(m=>`${INFO[m.k].n} → ${m.d} → ${m.t}`).join(' / ')});Q.tell({type:'sim:done'});sent=true;H.done(3);ui();};
+  Q.tell({type:'sim:answer',n:1,value:made.map(m=>`${INFO[m.k].n} → ${m.d} → ${m.t}`).join(' / ')});Q.tell({type:'sim:done'});sent=true;note='';noteBad=false;H.done(3);ui();};
 /* 움직임: 고르기 전에는 입자가 대상까지만(0~0.35), 맞히면 피해가 일어남 */
 function play(){t0=performance.now();cancelAnimationFrame(raf);
   const DUR=phaseB?3600:1500;

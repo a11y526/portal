@@ -92,7 +92,7 @@ function panel(list,o){
     d.innerHTML='<p>'+q.html+'</p><div class="opts"></div><div class="lock">'+(q.lock||'')+'</div>';
     var ob=d.querySelector('.opts'),s={el:d,val:'',open:!q.lock,btns:[]};
     q.opts.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
-      b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);sent=false;sync();if(o.onPick)o.onPick(i,s.val);};
+      b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);d.classList.remove('bad','good');sent=false;note='';noteBad=false;sync();if(o.onPick)o.onPick(i,s.val);};
       ob.appendChild(b);s.btns.push(b);});
     box.appendChild(d);return s;});
   var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
@@ -100,14 +100,25 @@ function panel(list,o){
   function sync(){
     var ready=st.every(function(s){return s.open&&s.val;});
     sb.disabled=!ready;msg.classList.toggle('ok',sent);
-    if(sent){msg.textContent=WS?'학습지로 보냈어요':'제출했어요';return;}
+    if(sent){msg.textContent=note||(WS?'학습지로 보냈어요':'제출했어요');msg.classList.toggle('ok',!noteBad);msg.classList.toggle('bad',noteBad);return;}msg.classList.remove('bad');
     if(ready){msg.textContent='';return;}
     var k=Hw?Hw.first():-1;
     if(k>=0&&st.some(function(s){return !s.open;}))msg.textContent=(Hw.steps[k].match(/^[①-⑨]/)||[''])[0]+'부터 해 보세요';
     else msg.textContent='모든 문항을 골라 보세요';}
   sb.onclick=function(){sb.blur();if(sb.disabled)return;
-    st.forEach(function(s,i){tell({type:'sim:answer',n:i+1,value:s.val});});tell({type:'sim:done'});sent=true;
+    st.forEach(function(s,i){tell({type:'sim:answer',n:i+1,value:s.val});});tell({type:'sim:done'});sent=true;note='';noteBad=false;
     if(Hw)Hw.done(Hw.steps.length-1);sync();};
+  /* 학습지 채점 결과 {type:'sim:result', ok, bad, empty, checking}(.sim-in 순서, 1부터): 틀린 문항만 빨강, 맞은 문항·고른 답은 그대로 → 그 문항만 고쳐 다시 [제출] */
+  var note='',noteBad=false;
+  if(!document.getElementById('sim-res-css')){var cs=document.createElement('style');cs.id='sim-res-css';
+    cs.textContent=".q.bad{border-color:#E0471A!important;background:#FFF4F0}.q.bad::after{content:'틀렸어요 · 이 문항만 다시 골라 [제출]';font-size:14px;font-weight:800;color:#A23B0B}.q.good{border-color:#22C582!important}.q.good::after{content:'맞았어요';font-size:14px;font-weight:800;color:#0B6B47}.sub .msg.bad{color:#A23B0B}";
+    document.head.appendChild(cs);}
+  addEventListener('message',function(e){var r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:result')return;
+    var bad=[].concat(r.bad||[],r.empty||[]),chk=r.checking||[];
+    st.forEach(function(s,i){var n=i+1;s.el.classList.toggle('bad',bad.indexOf(n)>=0);s.el.classList.toggle('good',bad.indexOf(n)<0&&chk.indexOf(n)<0&&!!s.val);});
+    sent=true;noteBad=!r.ok&&!chk.length;
+    note=r.ok?'맞았어요! 학습지에 제출했어요':chk.length?'답을 확인하고 있어요':bad.length?'빨간 문항 '+bad.length+'개만 다시 골라 [제출]':'시뮬레이션 답은 맞았어요. 학습지의 다른 칸을 확인해 보세요';
+    sync();});
   sync();
   return {open:function(i){var s=st[i];if(s.open)return;s.open=true;s.el.classList.remove('locked');sync();},
     val:function(i){return st[i].val;},sync:sync};}

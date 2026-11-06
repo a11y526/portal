@@ -824,6 +824,17 @@ function simSubmit(pg) {
   if (empty) { toast(`남은 칸 ${empty}개를 쓰고 [이 쪽 제출]을 눌러 주세요`); return; }
   submitPage($('ws-submit'));
 }
+// 쪽 채점 결과를 그 쪽 시뮬레이션에 돌려준다(2026-11-06): {type:'sim:result', ok, bad, empty, checking}은 .sim-in 순서(1부터).
+// 시뮬레이션은 틀린 문항만 빨갛게 하고 나머지 답은 그대로 둬서, 처음부터 다시 하지 않고 그 문항만 고쳐 다시 [제출]
+function simReport(pg, res) {
+  const keys = (pg?.fields ?? []).filter((f) => f.sim).map((f) => f.key);
+  if (!keys.length) return;
+  const nums = (list) => (list ?? []).map((k) => keys.indexOf(k) + 1).filter((n) => n > 0);
+  const msg = { type: 'sim:result', ok: !!res?.ok, bad: nums(res?.wrong), empty: nums(res?.empty), checking: nums(res?.checking) };
+  document.querySelectorAll('iframe.ws-sim-frame').forEach((f) => {
+    if (f.dataset.pg === String(pg.slide)) f.contentWindow?.postMessage(msg, '*');
+  });
+}
 function applySimFill(page) {
   if (!page || locked() || gated(page)) return;
   (page.fields ?? []).forEach((f) => {
@@ -979,6 +990,7 @@ async function submitPage(btn, idx = ws.idx, auto = false) {
     return;
   }
   ws.submitting = false;
+  if (res?.ok || res?.error === 'NOT_YET') simReport(pg, res);
 
   if (res?.ok) {
     // 답은 서버에 저장됐다

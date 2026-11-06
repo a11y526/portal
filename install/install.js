@@ -238,6 +238,14 @@ async function install(f) {
       }
       await runSql(t, file);
     }
+    // 새 서버는 realtime.messages가 늦게 생김 → 생기면 02를 한 번 더(리모컨 정책)
+    let rt = false;
+    for (let i = 0; i < 12 && !rt; i++) {
+      const q = await runSql("select to_regclass('realtime.messages') is not null as ok;", '실시간 확인');
+      rt = !!q?.[0]?.ok;
+      if (!rt) { note('실시간 기능 기다리는 중'); await sleep(C.wait); }
+    }
+    if (rt) await runSql((await download('supabase/02_policies.sql')).split(C.originalUrl).join(sbUrl), '02_policies.sql');
     note('');
 
     // 5) 체험 코드·자동 업데이트

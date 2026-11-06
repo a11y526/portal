@@ -377,15 +377,23 @@ create policy ws_ai_off_teacher_all on public.ws_ai_off
 
 -- 휴대폰 리모컨 (2026-10-27): 비공개 Broadcast 채널 'remote'는 교사만 보내고 받는다.
 -- 공개 채널(class-<반> 등)은 이 정책과 상관없이 그대로
-drop policy if exists remote_teacher_read on realtime.messages;
-create policy remote_teacher_read on realtime.messages
-  for select to authenticated
-  using (realtime.topic() = 'remote' and public.is_teacher());
-
-drop policy if exists remote_teacher_send on realtime.messages;
-create policy remote_teacher_send on realtime.messages
-  for insert to authenticated
-  with check (realtime.topic() = 'remote' and public.is_teacher());
+-- 새 프로젝트는 Realtime이 realtime.messages를 조금 늦게 만든다 → 없으면 건너뛰고, 설치 화면이 생긴 뒤 02를 다시 실행
+do $$
+begin
+  if to_regclass('realtime.messages') is null then
+    raise notice 'realtime.messages 없음: 리모컨 정책은 나중에';
+    return;
+  end if;
+  execute 'drop policy if exists remote_teacher_read on realtime.messages';
+  execute $p$create policy remote_teacher_read on realtime.messages
+    for select to authenticated
+    using (realtime.topic() = 'remote' and public.is_teacher())$p$;
+  execute 'drop policy if exists remote_teacher_send on realtime.messages';
+  execute $p$create policy remote_teacher_send on realtime.messages
+    for insert to authenticated
+    with check (realtime.topic() = 'remote' and public.is_teacher())$p$;
+end
+$$;
 
 -- 딴 화면 기록: 교사만 (학생은 away_mark로만 적는다)
 alter table public.away_log enable row level security;

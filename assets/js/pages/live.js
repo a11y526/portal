@@ -1141,10 +1141,12 @@ $('wsf-back').addEventListener('click', () => wsFirst.back());
 const UPTO_POLL_MS = 1000;
 
 /* 학습지 수업 따라가기 (2026-11-05): 학생 학습지는 수업자료의 지금 쪽(boards.ws_now)으로 저절로 넘어가고,
-   학생이 앞뒤로 넘기지 못한다. 수업자료가 마지막 쪽에 가거나 W(모두 열기)를 누르면 수업 끝(set_ws_free):
+   학생이 앞뒤로 넘기지 못한다. 수업자료가 마지막 쪽에 5초 머물거나 W(모두 열기)를 누르면 수업 끝(set_ws_free, Shift+W로 되돌림):
    모든 쪽이 열리고 학생이 마음대로 넘기며 덜 쓴 쪽을 쓴다. 같은 쪽에 0.6초 머물러야 보낸다(빨리 넘길 때 신호를 줄임) */
+const END_DWELL_MS = 5000;
 const follow = {
   sent: null,
+  endTimer: 0,
   want: null,
   timer: 0,
   ended: false,
@@ -1155,8 +1157,17 @@ const follow = {
     this.want = slide;
     clearTimeout(this.timer);
     this.timer = setTimeout(() => this.send(slide), 600);
+    // 마지막 쪽에 5초 머물러야 수업 끝(스크롤 수업자료에서 끝까지 훑어 내리거나 End로 지나가면 다 열리던 것 막음)
+    clearTimeout(this.endTimer);
     const n = lessonFrame.slideCount();
-    if (n && slide >= n) this.end();
+    if (n && slide >= n) this.endTimer = setTimeout(() => { if (this.want === slide) this.end(); }, END_DWELL_MS);
+  },
+  // Shift+W로 되돌리면 수업 끝도 풀고 다시 따라가게
+  reopen() {
+    this.ended = false;
+    this.want = null;
+    this.sent = null;
+    if (board) board.ws_free = false;
   },
   async send(slide) {
     if (!board || slide === this.sent || this.ended) return;
@@ -1215,6 +1226,7 @@ const sheetUpto = {
     this.busy = true;
     try {
       this.sent = await resetWorksheetUpto(board.id, slide) ?? slide;
+      follow.reopen();
       sendClassRefresh(classId);
       sheetBand.refresh();
       toast(`학습지를 ${this.sent}쪽까지로 되돌렸어요`);

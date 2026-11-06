@@ -2966,12 +2966,15 @@ begin
   if p_slide is null or p_slide < 1 then
     raise exception 'BAD_SLIDE';
   end if;
-  update public.boards set ws_upto = p_slide
+  -- 수업 끝(ws_free)도 풀고, 수업 끝이 연 뒤 쪽 [제출 시작]은 닫는다(2026-11-06)
+  update public.boards set ws_upto = p_slide, ws_free = false
   where id = p_board_id
   returning ws_upto into v_upto;
   if v_upto is null then
     raise exception 'NOT_FOUND';
   end if;
+  update public.ws_page_open set closed_at = now()
+  where board_id = p_board_id and slide > p_slide and closed_at is null;
   return v_upto;
 end;
 $$;

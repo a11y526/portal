@@ -484,17 +484,6 @@ revoke all on function public._ws_ai_kind(text, text, jsonb) from public, anon, 
 revoke all on function public._ws_ai_enqueue(text, jsonb, jsonb, jsonb, smallint) from public, anon, authenticated;
 revoke all on function public._ws_plot(jsonb, text) from public, anon, authenticated;
 
--- 학습지는 수업 날에만 (2026-11-06): 수업 모드가 그 보드를 오늘(KST) 열었는지 (boards.ws_day, watch_board가 적음)
-create or replace function public._ws_live_today(p_day date)
-returns boolean
-language sql
-stable
-set search_path = public
-as $$
-  select p_day is not null and p_day = (now() at time zone 'Asia/Seoul')::date;
-$$;
-revoke all on function public._ws_live_today(date) from public, anon, authenticated;
-
 -- 학생에게 보낼 쪽 목록: 진도(p_upto)보다 뒤 쪽은 본문·칸을 빼고 {slide, locked, has_fields}만.
 -- p_upto가 null(수업 모드를 아직 안 연 보드)이면 모든 쪽을 잠근다(2026-11-06, 예전에는 전부 열림)
 create or replace function public._ws_view(p_pages jsonb, p_upto int)
@@ -662,7 +651,7 @@ begin
       -- 수업 따라가기(2026-11-05): 수업 모드가 보고 있는 수업자료 쪽. free면 수업이 끝나 마음대로 넘김
       'now',         b.ws_now,
       'free',        b.ws_free,
-      'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null and public._ws_live_today(b.ws_day)),
+      'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null and public._away_watching(b.watch_at)),
       'firsts',      coalesce(v_firsts, '[]'::jsonb),
       -- 모둠 학습지(2026-10-26): 켜져 있으면 {no: 그날 내 모둠(없으면 null), members: 함께 기록되는 인원}
       'group',       case when b.ws_group then jsonb_build_object(
@@ -2050,7 +2039,7 @@ begin
     'free',        b.ws_free,
     'slides',      (select l.slide_titles from public.lessons l where l.code = b.lesson_code),
     'pages',       public._ws_view(w.pages, b.ws_upto),
-    'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null and public._ws_live_today(b.ws_day)),
+    'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null and public._away_watching(b.watch_at)),
     'session',     case when p_token is null then null when v_sid is null then 'none' else 'ok' end,
     'mine',        case when a.board_id is null then null else jsonb_build_object(
                      'answers', a.answers,
@@ -2094,8 +2083,8 @@ begin
   if w.lesson_code is null then
     return jsonb_build_object('error', 'NO_SHEET');
   end if;
-  -- 수업 모드가 오늘 연 보드만 쓰고 낼 수 있다(지난 차시를 다른 날 이어 쓰기 막기, 2026-11-06)
-  if not public._ws_live_today(b.ws_day) then
+  -- 수업 모드가 지금 켜져 있을 때만(boards.watch_at 3분 안, _away_watching) 쓰고 낼 수 있다 (2026-11-06)
+  if not public._away_watching(b.watch_at) then
     return jsonb_build_object('error', 'NOT_OPEN');
   end if;
   -- 진도 기록이 없으면 0쪽까지(모든 쪽 잠김)
@@ -7408,9 +7397,7 @@ begin
   if not public.is_teacher() then
     raise exception 'NOT_TEACHER';
   end if;
-  update public.boards set watch_at = case when p_on then now() else null end,
-    ws_day = case when p_on then (now() at time zone 'Asia/Seoul')::date else ws_day end
-  where id = p_board_id;
+  update public.boards set watch_at = case when p_on then now() else null end where id = p_board_id;
 end;
 $$;
 revoke all on function public.watch_board(uuid, boolean) from public;

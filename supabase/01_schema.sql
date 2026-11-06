@@ -969,7 +969,3 @@ create index if not exists yt_players_student_idx on public.yt_players (student_
 alter table public.boards add column if not exists ws_now int null;
 alter table public.boards add column if not exists ws_free boolean not null default false;
 alter table public.lessons add column if not exists slide_titles jsonb null;
-
--- 학습지는 수업 날에만 (2026-11-06): 수업 모드가 이 보드를 연 날(KST). 그날이 아니면 학생 화면에 연 쪽이 없고 쓰거나 낼 수 없다
-alter table public.boards add column if not exists ws_day date null;
-update public.boards set ws_day = (watch_at at time zone 'Asia/Seoul')::date where ws_day is null and watch_at is not null;

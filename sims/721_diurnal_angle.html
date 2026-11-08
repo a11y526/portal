@@ -101,8 +101,23 @@ function how(steps){
   return {done:function(i,v){done[i]=v!==false;draw();},is:function(i){return done[i];},first:function(){return done.indexOf(false);},steps:steps};}
 /* 잠깐 뜨는 알림 (예: ①부터 해 보세요) */
 var tt=0;
-function toast(msg){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
-  t.textContent=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},1600);}
+function toast(msg,ms){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
+  t.innerHTML=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},ms||1600);}
+/* 잠긴 문항을 누르면: 문항이 흔들리고 '지금 먼저 할 일'을 문항 안·안내 줄·시뮬레이션 위에 함께 보여 주고, 눌러야 할 단추를 반짝인다 */
+function nudge(qel,h){
+  var k=h?h.first():-1,step=k>=0?h.steps[k]:'',txt=step.replace(/<[^>]+>/g,'');
+  toast(k>=0?'🔒 아직 잠겨 있어요 · 먼저 <b>'+mark(h)+'</b>부터 해 보세요':'🔒 시뮬레이션부터 해 보세요',3200);
+  qel.classList.remove('nudge');void qel.offsetWidth;qel.classList.add('nudge');
+  var lk=qel.querySelector('.lock');
+  if(lk){if(lk.dataset.t==null)lk.dataset.t=lk.innerHTML;lk.classList.add('warn');
+    lk.innerHTML=lk.dataset.t+(step?'<br>지금 할 일 → '+step:'');clearTimeout(lk._t);
+    lk._t=setTimeout(function(){lk.classList.remove('warn');lk.innerHTML=lk.dataset.t;},4500);}
+  var hs=document.querySelectorAll('#how span');if(k>=0&&hs[k]){var s=hs[k];s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash');}
+  var m=txt.match(/\[([^\]]+)\]/),norm=function(x){return x.replace(/[^가-힣A-Za-z0-9]/g,'');},go=null;
+  if(m){var want=norm(m[1]);[].some.call(document.querySelectorAll('button'),function(b){
+    if(b.closest('#qs')||!want)return false;var bt=norm(b.textContent);if(bt&&(bt.indexOf(want)>=0||want.indexOf(bt)>=0)){go=b;return true;}return false;});}
+  go=go||document.querySelector('.stage');
+  if(go){go.classList.remove('gohere');void go.offsetWidth;go.classList.add('gohere');clearTimeout(go._g);go._g=setTimeout(function(){go.classList.remove('gohere');},3200);}}
 function mark(h){return (h.steps[h.first()]||'').match(/^[①-⑨]/)||[''];}
 /* 문항: list = [{html, opts:[…] | input:'short'|'long', lock:'…'}], 고른 값·쓴 값을 보낸다 */
 function panel(list,o){
@@ -122,7 +137,7 @@ function panel(list,o){
       q.opts.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
         b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);d.classList.remove('bad','good');sent=false;note='';noteBad=false;sync();if(o.onPick)o.onPick(i,s.val);};
         ob.appendChild(b);s.btns.push(b);});}
-    d.addEventListener('click',function(){if(!s.open&&Hw)toast(mark(Hw)+'부터 해 보세요');});
+    d.addEventListener('click',function(){if(!s.open)nudge(d,Hw);});
     box.appendChild(d);return s;});
   var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
   var sb=sub.querySelector('button'),msg=sub.querySelector('.msg');
@@ -206,6 +221,22 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 .toast{background:rgba(13,13,13,.9)}
 [fill="#0066CC"],[fill="#0066cc"]{fill:#0D0D0D}
 [stroke="#0066CC"],[stroke="#0066cc"]{stroke:#0D0D0D}
+/* 잠긴 문항을 눌렀을 때 알려 주기 */
+.q .lock::before{content:"🔒 "}
+.q.locked{cursor:pointer}
+.q .lock.warn{color:#8A3A00;background:#FFF1D6;border-radius:10px;padding:6px 9px;opacity:1}
+.q .lock.warn::before{content:""}
+.q.locked:has(.lock.warn){opacity:1;box-shadow:inset 0 0 0 2px #F5A524}
+.q.nudge{animation:qshake .42s}
+@keyframes qshake{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.how span.flash{animation:howflash .8s 3;border-radius:6px}
+@keyframes howflash{0%,100%{background:transparent}50%{background:#FFE08A}}
+.gohere{animation:gohere .9s 3;position:relative;z-index:4}
+.stage.gohere{border-radius:16px}
+@keyframes gohere{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,0)}50%{box-shadow:0 0 0 6px rgba(245,165,36,.85)}}
+.toast{white-space:normal;width:max-content;max-width:92%;text-align:center;line-height:1.45;border-radius:16px;font-size:17px}
+.toast b{color:#FFD65A}
+@media (prefers-reduced-motion:reduce){.q.nudge,.how span.flash,.gohere{animation:none}}
 </style>
 </head>
 <body>
@@ -218,7 +249,7 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
   <aside id="qs"></aside>
 </div>
 <script>
-/* 721 5쪽: ① 천구에서 자전축을 늘인 선과 만나는 별(북극성) 누르기 ② 시간 막대로 북쪽 하늘의 별이 북극성을 중심으로 회전한 각도 보기 (1시간 15°, 24시간 360°) */
+/* 721 5쪽: ① 천구에서 자전축을 늘인 선과 만나는 별(북극성) 누르기 ② 시간 막대로 천구(밖에서 본 모습)와 북쪽 하늘(지구에서 본 모습)의 별이 함께 돌며 자취를 그리는 것과 회전한 각도 보기 (1시간 15°, 24시간 360°) */
 (function(){
 'use strict';
 const {el,T}=Q;
@@ -230,33 +261,50 @@ const P=Q.panel([
 const svg=document.getElementById('s'),defs=el('defs',{},svg);
 el('marker',{id:'ay',viewBox:'0 0 10 10',refX:5,refY:5,markerWidth:4,markerHeight:4,orient:'auto-start-reverse'},defs).appendChild(el('path',{d:'M0 0L10 5L0 10z',fill:'#FFD60A'}));
 /* ---- 왼쪽: 천구 ---- */
-const C=[218,262],R=180,TILT=58;   /* 자전축이 지평면과 이루는 기울기(그림용) */
+const C=[218,262],R=180,TILT=58,LEAN=24,RAD=Math.PI/180;   /* TILT: 자전축이 지평면과 이루는 기울기(그림용), LEAN: 축을 보는 쪽으로 기울인 각도 — 0이면 별의 자취가 직선으로 보인다 */
+/* 화면 좌표 (오른쪽, 위, 보는 쪽). A: 자전축, E1·E2: 축에 수직인 두 방향 */
+const A=[Math.cos(LEAN*RAD)*Math.cos(TILT*RAD),Math.cos(LEAN*RAD)*Math.sin(TILT*RAD),Math.sin(LEAN*RAD)];
+const An=Math.hypot(A[0],A[1]),E1=[A[1]/An,-A[0]/An,0],E2=[A[1]*E1[2]-A[2]*E1[1],A[2]*E1[0]-A[0]*E1[2],A[0]*E1[1]-A[1]*E1[0]];
+/* 적위 dec, 시간각 ha인 천구 위 점 → 화면 x, y와 앞뒤 z(0보다 작으면 천구 뒤쪽) */
+function sky(dec,ha){const s=Math.sin(dec*RAD),c=Math.cos(dec*RAD),ch=Math.cos(ha*RAD),sh=Math.sin(ha*RAD),w=[0,1,2].map(i=>R*(s*A[i]+c*(ch*E1[i]+sh*E2[i])));return {x:C[0]+w[0],y:C[1]-w[1],z:w[2]};}
 el('rect',{x:0,y:0,width:436,height:500,rx:16,fill:'#0B1630'},svg);
 T(svg,16,30,'천구',{'font-size':19,fill:'#C9D6EE'});
+T(svg,58,30,'밖에서 본 모습',{'font-size':14,fill:'#8FA3C7','font-weight':500});
 const sg=el('radialGradient',{id:'sg',cx:.4,cy:.35,r:.8},defs);[['0','#24417A'],['1','#0F1D3D']].forEach(a=>el('stop',{offset:a[0],'stop-color':a[1]},sg));
 el('circle',{cx:C[0],cy:C[1],r:R,fill:'url(#sg)',stroke:'#5D7FBF','stroke-width':2},svg);
 el('ellipse',{cx:C[0],cy:C[1],rx:R,ry:R*.28,fill:'rgba(120,170,255,.12)',stroke:'#5D7FBF','stroke-width':1.5},svg);
-const ax=Math.cos(TILT*Math.PI/180),ay=Math.sin(TILT*Math.PI/180);
+const ax=A[0],ay=A[1];
 const NP=[C[0]+R*ax,C[1]-R*ay];
+const cTrails=el('g',{fill:'none','stroke-linecap':'round','pointer-events':'none'},svg);   /* 천구 위 별의 자취: 자전축·지구 아래에 그린다 */
 const axisIn=el('line',{x1:C[0]-30*ax,y1:C[1]+30*ay,x2:C[0]+30*ax,y2:C[1]-30*ay,stroke:'#FFD60A','stroke-width':4},svg);
 const axisOut=el('line',{x1:C[0]+30*ax,y1:C[1]-30*ay,x2:NP[0],y2:NP[1],stroke:'#FFD60A','stroke-width':2.5,'stroke-dasharray':'7 6',opacity:.9},svg);
 el('circle',{cx:C[0],cy:C[1],r:22,fill:'#2C6FB5',stroke:'#9CC8F0','stroke-width':2},svg);
 el('path',{d:`M${C[0]-12} ${C[1]-6} q6 -10 14 -4 q8 6 6 14 q-10 4 -20 -10z`,fill:'#5FA85A'},svg);
 T(svg,C[0]-30*ax-10,C[1]+30*ay+22,'지구 자전축',{'font-size':14,fill:'#FFD60A','text-anchor':'end'});
-/* 천구 위의 별들 (북극성만 축 연장선 위) */
-const STARS=[[NP[0],NP[1],true],[C[0]-110,C[1]-110],[C[0]-40,C[1]-158],[C[0]+150,C[1]+40],[C[0]-150,C[1]+30],[C[0]+70,C[1]+130],[C[0]-80,C[1]+120],[C[0]+30,C[1]-70]];
+/* 천구 위의 별들: [적위, 처음 시간각, 오른쪽 '북쪽 하늘'의 노란 별과 같은 별인지]. 북극성만 축 연장선 위 */
+const SKY=[[68,180],[45,240],[25,210,true],[5,300],[-15,240],[-35,300],[-55,280]];
 let found=false;
-const npLab=el('g',{},svg);
-el('rect',{x:NP[0]-150,y:NP[1]-62,width:166,height:46,rx:10,fill:'#fff'},npLab);
-T(npLab,NP[0]-67,NP[1]-42,'천구의 북극',{'text-anchor':'middle','font-size':15,fill:'#0066CC'});
-const npSub=T(npLab,NP[0]-67,NP[1]-23,'여기 있는 별은?',{'text-anchor':'middle','font-size':14,fill:'#1D1D1F'});
-STARS.forEach(([x,y,np])=>{const g=el('g',{style:'cursor:pointer'},svg);
-  el('circle',{cx:x,cy:y,r:24,fill:'rgba(0,0,0,0)'},g);
-  const s=el('path',{d:star(x,y,np?11:8),fill:np?'#FFF3B0':'#E6ECFF'},g);
-  if(np){const ring=el('circle',{cx:x,cy:y,r:18,fill:'none',stroke:'#FFD60A','stroke-width':2,opacity:0},g);g._ring=ring;}
-  g.addEventListener('click',()=>{if(np){if(!found){found=true;npSub.textContent='(북극성 근처)';g._ring.setAttribute('opacity',1);axisOut.setAttribute('stroke-width',4);H.done(0);P.open(0);
-      document.getElementById('tm').disabled=false;draw();}}
-    else Q.toast('자전축을 곧게 늘인 선 위의 별을 찾아보자');});});
+const CKEY='#FFD60A',CSTAR='#E6ECFF';
+const cs=SKY.map(([dec,ha,key])=>{
+  const front=el('path',{stroke:key?CKEY:'#9DB6E8','stroke-width':key?3.5:2,opacity:key?1:.75},cTrails);
+  const back=el('path',{stroke:key?CKEY:'#9DB6E8','stroke-width':key?2.5:1.5,'stroke-dasharray':'2 6',opacity:key?.75:.45},cTrails);
+  const g=el('g',{style:'cursor:pointer'},svg);
+  el('circle',{r:22,fill:'rgba(0,0,0,0)'},g);
+  const s=el('path',{d:star(0,0,8),fill:CSTAR},g);
+  g.addEventListener('click',()=>{if(!found)Q.toast('자전축을 곧게 늘인 선 위의 별을 찾아보자');});
+  return {dec,ha,key,front,back,g,s};});
+/* 북극성은 맨 위에 그려서 다른 별에 가려 눌리지 않는 일이 없게 한다 */
+{const g=el('g',{style:'cursor:pointer'},svg);
+  el('circle',{cx:NP[0],cy:NP[1],r:24,fill:'rgba(0,0,0,0)'},g);
+  el('path',{d:star(NP[0],NP[1],11),fill:'#FFF3B0'},g);
+  const ring=el('circle',{cx:NP[0],cy:NP[1],r:18,fill:'none',stroke:'#FFD60A','stroke-width':2,opacity:0},g);
+  g.addEventListener('click',()=>{if(found)return;found=true;npSub.textContent='(북극성 근처)';ring.setAttribute('opacity',1);axisOut.setAttribute('stroke-width',4);H.done(0);P.open(0);
+    document.getElementById('tm').disabled=false;draw();});}
+const npLab=el('g',{'pointer-events':'none'},svg);
+el('line',{x1:NP[0],y1:78,x2:NP[0],y2:NP[1]-20,stroke:'#fff','stroke-width':1.5},npLab);
+el('rect',{x:NP[0]-83,y:36,width:166,height:44,rx:10,fill:'#fff'},npLab);
+T(npLab,NP[0],54,'천구의 북극',{'text-anchor':'middle','font-size':15,fill:'#0066CC'});
+const npSub=T(npLab,NP[0],72,'여기 있는 별은?',{'text-anchor':'middle','font-size':14,fill:'#1D1D1F'});
 function star(x,y,r){let d='';for(let i=0;i<10;i++){const a=-Math.PI/2+i*Math.PI/5,rr=i%2?r*.45:r;d+=(i?'L':'M')+(x+rr*Math.cos(a)).toFixed(1)+' '+(y+rr*Math.sin(a)).toFixed(1);}return d+'Z';}
 /* ---- 오른쪽: 북쪽 하늘 ---- */
 const VX=446,VW=454,PC=[VX+VW/2,232];
@@ -264,6 +312,7 @@ const vc=el('clipPath',{id:'vc'},defs);el('rect',{x:VX,y:0,width:VW,height:500,r
 const view=el('g',{'clip-path':'url(#vc)'},svg);
 el('rect',{x:VX,y:0,width:VW,height:500,fill:'#070D20'},view);
 T(view,VX+16,30,'북쪽 하늘',{'font-size':19,fill:'#C9D6EE'});
+T(view,VX+96,30,'지구에서 본 모습',{'font-size':14,fill:'#8FA3C7','font-weight':500});
 const trails=el('g',{},view),sect=el('g',{},view),dots=el('g',{},view);
 el('path',{d:`M${VX} 462 Q${PC[0]-120} 446 ${PC[0]} 456 T${VX+VW} 452 L${VX+VW} 500 L${VX} 500Z`,fill:'#111A11'},view);
 T(view,PC[0],488,'북',{'text-anchor':'middle','font-size':20,fill:'#fff'});
@@ -283,8 +332,23 @@ let seen1=false,seen24=false;
 const P2=(r,a)=>[PC[0]+r*Math.cos(a*Math.PI/180),PC[1]-r*Math.sin(a*Math.PI/180)];
 function arcPath(r,a0,a1){if(a1-a0<.01)return '';if(a1-a0>=359.9){const [x,y]=P2(r,a0),[x2,y2]=P2(r,a0+180);return `M${x} ${y} A${r} ${r} 0 1 0 ${x2} ${y2} A${r} ${r} 0 1 0 ${x} ${y}`;}
   const [x0,y0]=P2(r,a0),[x1,y1]=P2(r,a1);return `M${x0} ${y0} A${r} ${r} 0 ${a1-a0>180?1:0} 0 ${x1} ${y1}`;}
+/* 천구 위 별: 동→서로 돌아 시간각이 줄어든다. 자취는 앞쪽(실선)과 뒤쪽(점선)을 나눠 그린다 */
+function drawSphere(da){
+  cs.forEach(o=>{
+    const p=sky(o.dec,o.ha-da);
+    o.g.setAttribute('transform',`translate(${p.x.toFixed(1)} ${p.y.toFixed(1)})`);
+    o.g.setAttribute('opacity',p.z<0?.5:1);
+    o.s.setAttribute('fill',found&&o.key?CKEY:CSTAR);
+    let f='',b='',prev=null;
+    if(da>0)for(let a=0;a<=da;a+=5){
+      const q=sky(o.dec,o.ha-a),xy=`${q.x.toFixed(1)} ${q.y.toFixed(1)}`,isF=q.z>=0;
+      if(prev){const seg=(prev.isF===isF?'':`M${prev.xy}`)+`L${xy}`;if(isF)f+=seg;else b+=seg;}
+      else if(isF)f=`M${xy}`;else b=`M${xy}`;
+      prev={xy,isF};}
+    o.front.setAttribute('d',f);o.back.setAttribute('d',b);});}
 function draw(){
   const t=+tm.value,da=15*t;   /* 북쪽 하늘에서 별은 북극성을 중심으로 시계 반대 방향으로 돈다 */
+  drawSphere(da);
   vs.forEach(o=>{const [x,y]=P2(o.r,o.a+da);o.d.setAttribute('cx',x);o.d.setAttribute('cy',y);o.tr.setAttribute('d',arcPath(o.r,o.a,o.a+da));});
   const k=vs[KEY];
   if(da>0&&da<360){const [x0,y0]=P2(k.r,k.a),[x1,y1]=P2(k.r,k.a+da);sec.setAttribute('d',`M${PC[0]} ${PC[1]} L${x0} ${y0} A${k.r} ${k.r} 0 ${da>180?1:0} 0 ${x1} ${y1}Z`);}

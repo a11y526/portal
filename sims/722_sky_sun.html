@@ -108,8 +108,23 @@ function how(steps){
   return {done:function(i,v){done[i]=v!==false;draw();},is:function(i){return done[i];},first:function(){return done.indexOf(false);},steps:steps};}
 /* 잠깐 뜨는 알림 (예: ①부터 해 보세요) */
 var tt=0;
-function toast(msg){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
-  t.textContent=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},1600);}
+function toast(msg,ms){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
+  t.innerHTML=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},ms||1600);}
+/* 잠긴 문항을 누르면: 문항이 흔들리고 '지금 먼저 할 일'을 문항 안·안내 줄·시뮬레이션 위에 함께 보여 주고, 눌러야 할 단추를 반짝인다 */
+function nudge(qel,h){
+  var k=h?h.first():-1,step=k>=0?h.steps[k]:'',txt=step.replace(/<[^>]+>/g,'');
+  toast(k>=0?'🔒 아직 잠겨 있어요 · 먼저 <b>'+mark(h)+'</b>부터 해 보세요':'🔒 시뮬레이션부터 해 보세요',3200);
+  qel.classList.remove('nudge');void qel.offsetWidth;qel.classList.add('nudge');
+  var lk=qel.querySelector('.lock');
+  if(lk){if(lk.dataset.t==null)lk.dataset.t=lk.innerHTML;lk.classList.add('warn');
+    lk.innerHTML=lk.dataset.t+(step?'<br>지금 할 일 → '+step:'');clearTimeout(lk._t);
+    lk._t=setTimeout(function(){lk.classList.remove('warn');lk.innerHTML=lk.dataset.t;},4500);}
+  var hs=document.querySelectorAll('#how span');if(k>=0&&hs[k]){var s=hs[k];s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash');}
+  var m=txt.match(/\[([^\]]+)\]/),norm=function(x){return x.replace(/[^가-힣A-Za-z0-9]/g,'');},go=null;
+  if(m){var want=norm(m[1]);[].some.call(document.querySelectorAll('button'),function(b){
+    if(b.closest('#qs')||!want)return false;var bt=norm(b.textContent);if(bt&&(bt.indexOf(want)>=0||want.indexOf(bt)>=0)){go=b;return true;}return false;});}
+  go=go||document.querySelector('.stage');
+  if(go){go.classList.remove('gohere');void go.offsetWidth;go.classList.add('gohere');clearTimeout(go._g);go._g=setTimeout(function(){go.classList.remove('gohere');},3200);}}
 function mark(h){return (h.steps[h.first()]||'').match(/^[①-⑨]/)||[''];}
 /* 문항: list = [{html, opts:[…] | input:'short'|'long', lock:'…'}], 고른 값·쓴 값을 보낸다 */
 function panel(list,o){
@@ -129,7 +144,7 @@ function panel(list,o){
       q.opts.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
         b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);d.classList.remove('bad','good');sent=false;note='';noteBad=false;sync();if(o.onPick)o.onPick(i,s.val);};
         ob.appendChild(b);s.btns.push(b);});}
-    d.addEventListener('click',function(){if(!s.open&&Hw)toast(mark(Hw)+'부터 해 보세요');});
+    d.addEventListener('click',function(){if(!s.open)nudge(d,Hw);});
     box.appendChild(d);return s;});
   var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
   var sb=sub.querySelector('button'),msg=sub.querySelector('.msg');
@@ -386,6 +401,22 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 .toast{background:rgba(13,13,13,.9)}
 [fill="#0066CC"],[fill="#0066cc"]{fill:#0D0D0D}
 [stroke="#0066CC"],[stroke="#0066cc"]{stroke:#0D0D0D}
+/* 잠긴 문항을 눌렀을 때 알려 주기 */
+.q .lock::before{content:"🔒 "}
+.q.locked{cursor:pointer}
+.q .lock.warn{color:#8A3A00;background:#FFF1D6;border-radius:10px;padding:6px 9px;opacity:1}
+.q .lock.warn::before{content:""}
+.q.locked:has(.lock.warn){opacity:1;box-shadow:inset 0 0 0 2px #F5A524}
+.q.nudge{animation:qshake .42s}
+@keyframes qshake{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.how span.flash{animation:howflash .8s 3;border-radius:6px}
+@keyframes howflash{0%,100%{background:transparent}50%{background:#FFE08A}}
+.gohere{animation:gohere .9s 3;position:relative;z-index:4}
+.stage.gohere{border-radius:16px}
+@keyframes gohere{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,0)}50%{box-shadow:0 0 0 6px rgba(245,165,36,.85)}}
+.toast{white-space:normal;width:max-content;max-width:92%;text-align:center;line-height:1.45;border-radius:16px;font-size:17px}
+.toast b{color:#FFD65A}
+@media (prefers-reduced-motion:reduce){.q.nudge,.how span.flash,.gohere{animation:none}}
 </style>
 </head>
 <body>

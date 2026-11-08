@@ -101,8 +101,23 @@ function how(steps){
   return {done:function(i,v){done[i]=v!==false;draw();},is:function(i){return done[i];},first:function(){return done.indexOf(false);},steps:steps};}
 /* 잠깐 뜨는 알림 (예: ①부터 해 보세요) */
 var tt=0;
-function toast(msg){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
-  t.textContent=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},1600);}
+function toast(msg,ms){var t=document.querySelector('.toast');if(!t){t=document.createElement('div');t.className='toast';(document.querySelector('.stage')||document.body).appendChild(t);}
+  t.innerHTML=msg;t.classList.add('on');clearTimeout(tt);tt=setTimeout(function(){t.classList.remove('on');},ms||1600);}
+/* 잠긴 문항을 누르면: 문항이 흔들리고 '지금 먼저 할 일'을 문항 안·안내 줄·시뮬레이션 위에 함께 보여 주고, 눌러야 할 단추를 반짝인다 */
+function nudge(qel,h){
+  var k=h?h.first():-1,step=k>=0?h.steps[k]:'',txt=step.replace(/<[^>]+>/g,'');
+  toast(k>=0?'🔒 아직 잠겨 있어요 · 먼저 <b>'+mark(h)+'</b>부터 해 보세요':'🔒 시뮬레이션부터 해 보세요',3200);
+  qel.classList.remove('nudge');void qel.offsetWidth;qel.classList.add('nudge');
+  var lk=qel.querySelector('.lock');
+  if(lk){if(lk.dataset.t==null)lk.dataset.t=lk.innerHTML;lk.classList.add('warn');
+    lk.innerHTML=lk.dataset.t+(step?'<br>지금 할 일 → '+step:'');clearTimeout(lk._t);
+    lk._t=setTimeout(function(){lk.classList.remove('warn');lk.innerHTML=lk.dataset.t;},4500);}
+  var hs=document.querySelectorAll('#how span');if(k>=0&&hs[k]){var s=hs[k];s.classList.remove('flash');void s.offsetWidth;s.classList.add('flash');}
+  var m=txt.match(/\[([^\]]+)\]/),norm=function(x){return x.replace(/[^가-힣A-Za-z0-9]/g,'');},go=null;
+  if(m){var want=norm(m[1]);[].some.call(document.querySelectorAll('button'),function(b){
+    if(b.closest('#qs')||!want)return false;var bt=norm(b.textContent);if(bt&&(bt.indexOf(want)>=0||want.indexOf(bt)>=0)){go=b;return true;}return false;});}
+  go=go||document.querySelector('.stage');
+  if(go){go.classList.remove('gohere');void go.offsetWidth;go.classList.add('gohere');clearTimeout(go._g);go._g=setTimeout(function(){go.classList.remove('gohere');},3200);}}
 function mark(h){return (h.steps[h.first()]||'').match(/^[①-⑨]/)||[''];}
 /* 문항: list = [{html, opts:[…] | input:'short'|'long', lock:'…'}], 고른 값·쓴 값을 보낸다 */
 function panel(list,o){
@@ -122,7 +137,7 @@ function panel(list,o){
       q.opts.forEach(function(t){var b=document.createElement('button');b.type='button';b.textContent=t;
         b.onclick=function(){b.blur();if(!s.open)return;s.val=s.val===t?'':t;s.btns.forEach(function(x){x.classList.toggle('on',x.textContent===s.val);});d.classList.toggle('picked',!!s.val);d.classList.remove('bad','good');sent=false;note='';noteBad=false;sync();if(o.onPick)o.onPick(i,s.val);};
         ob.appendChild(b);s.btns.push(b);});}
-    d.addEventListener('click',function(){if(!s.open&&Hw)toast(mark(Hw)+'부터 해 보세요');});
+    d.addEventListener('click',function(){if(!s.open)nudge(d,Hw);});
     box.appendChild(d);return s;});
   var sub=document.createElement('div');sub.className='sub';sub.innerHTML='<button type="button">제출</button><div class="msg"></div>';box.appendChild(sub);
   var sb=sub.querySelector('button'),msg=sub.querySelector('.msg');
@@ -206,6 +221,22 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 .toast{background:rgba(13,13,13,.9)}
 [fill="#0066CC"],[fill="#0066cc"]{fill:#0D0D0D}
 [stroke="#0066CC"],[stroke="#0066cc"]{stroke:#0D0D0D}
+/* 잠긴 문항을 눌렀을 때 알려 주기 */
+.q .lock::before{content:"🔒 "}
+.q.locked{cursor:pointer}
+.q .lock.warn{color:#8A3A00;background:#FFF1D6;border-radius:10px;padding:6px 9px;opacity:1}
+.q .lock.warn::before{content:""}
+.q.locked:has(.lock.warn){opacity:1;box-shadow:inset 0 0 0 2px #F5A524}
+.q.nudge{animation:qshake .42s}
+@keyframes qshake{0%,100%{transform:none}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(3px)}}
+.how span.flash{animation:howflash .8s 3;border-radius:6px}
+@keyframes howflash{0%,100%{background:transparent}50%{background:#FFE08A}}
+.gohere{animation:gohere .9s 3;position:relative;z-index:4}
+.stage.gohere{border-radius:16px}
+@keyframes gohere{0%,100%{box-shadow:0 0 0 0 rgba(245,165,36,0)}50%{box-shadow:0 0 0 6px rgba(245,165,36,.85)}}
+.toast{white-space:normal;width:max-content;max-width:92%;text-align:center;line-height:1.45;border-radius:16px;font-size:17px}
+.toast b{color:#FFD65A}
+@media (prefers-reduced-motion:reduce){.q.nudge,.how span.flash,.gohere{animation:none}}
 </style>
 </head>
 <body>
@@ -224,7 +255,7 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 const {el,T,dAng}=Q;
 const H=Q.how(['① <b>1번 예상</b>을 먼저 고르기','② <b>지구를 끌어</b> 시계 반대 방향으로 한 바퀴 돌리기 (투명한 구는 그대로)','③ 오른쪽 하늘에서 별자리가 가는 쪽을 보고 <b>2·3번 골라 [제출]</b>']);
 const P=Q.panel([
-  {html:'<span class="n">1</span><span class="tag">예상</span>투명한 구는 가만히 두고 지구만 시계 반대 방향으로 돌리면, 우리나라 관측자에게 별자리는 어느 방향으로 이동하는 것처럼 보일까?',opts:['시계 방향','시계 반대 방향','움직이지 않는다']},
+  {html:'<span class="n">1</span><span class="tag">예상</span>별자리가 그려진 투명한 구(밤하늘 모형)는 가만히 두고 지구만 시계 반대 방향으로 돌리면, 우리나라 관측자에게 별자리는 어느 방향으로 이동하는 것처럼 보일까?',opts:['시계 방향','시계 반대 방향','움직이지 않는다']},
   {html:'<span class="n">2</span>지구가 시계 반대 방향으로 자전할 때, 우리나라 관측자에게 별자리는 지구 자전과 반대 방향인 (　)으로 회전하는 것처럼 보인다.',opts:['시계 방향','시계 반대 방향'],lock:'② 지구를 한 바퀴 돌려 보세요'},
   {html:'<span class="n">3</span>하루 동안 태양, 달, 별이 하늘에서 움직이는 것처럼 보이는 까닭은?',opts:['천체들이 실제로 지구를 중심으로 돌아서','천체는 가만히 있는데 지구가 자전하기 때문에'],lock:'② 지구를 한 바퀴 돌려 보세요'}],
   {how:H,onPick:(i,v)=>{if(i===0){H.done(0,!!v);draw();}}});
@@ -241,14 +272,22 @@ const CONS=[
 const C=[222,262],RS=200,RE=74;
 el('rect',{x:0,y:0,width:445,height:520,rx:16,fill:'#0B1630'},svg);
 T(svg,16,30,'모형을 위(북극 쪽)에서 본 모습',{'font-size':17,fill:'#C9D6EE'});
-el('circle',{cx:C[0],cy:C[1],r:RS,fill:'rgba(140,196,255,.08)',stroke:'#8CC4FF','stroke-width':2.5},svg);
-const lock=el('g',{},svg);el('rect',{x:C[0]-130,y:C[1]+RS-6,width:260,height:30,rx:15,fill:'#1D2A47',stroke:'#8CC4FF'},lock);
-T(lock,C[0],C[1]+RS+15,'투명한 구(별자리): 움직이지 않음 🔒',{'text-anchor':'middle','font-size':15,fill:'#C9D6EE'});
+const glass=el('radialGradient',{id:'glass',cx:'50%',cy:'50%',r:'50%'},defs);
+el('stop',{offset:'62%','stop-color':'#8CC4FF','stop-opacity':.05},glass);el('stop',{offset:'100%','stop-color':'#8CC4FF','stop-opacity':.34},glass);
+el('circle',{cx:C[0],cy:C[1],r:RS,fill:'url(#glass)',stroke:'#BFE0FF','stroke-width':4},svg);
+[[RS*.42,RS],[RS,RS*.42]].forEach(([rx,ry])=>el('ellipse',{cx:C[0],cy:C[1],rx,ry,fill:'none',stroke:'#BFE0FF','stroke-width':1,opacity:.28},svg));
+el('path',{d:`M${C[0]-RS*.72} ${C[1]-RS*.42} A${RS*.84} ${RS*.84} 0 0 1 ${C[0]-RS*.3} ${C[1]-RS*.76}`,fill:'none',stroke:'#fff','stroke-width':7,'stroke-linecap':'round',opacity:.3},svg);
+/* 이름표: 바깥 원이 투명한 구임을 바로 알게 */
+el('line',{x1:388,y1:80,x2:366,y2:119,stroke:'#fff','stroke-width':1.5},svg);
+T(svg,436,54,'투명한 구',{'text-anchor':'end','font-size':17,'font-weight':800,fill:'#fff'});
+T(svg,436,74,'별자리가 그려진 공',{'text-anchor':'end','font-size':13.5,fill:'#C9D6EE'});
+const lock=el('g',{},svg);el('rect',{x:C[0]-150,y:C[1]+RS+16,width:300,height:30,rx:15,fill:'#1D2A47',stroke:'#8CC4FF'},lock);
+T(lock,C[0],C[1]+RS+36,'별자리가 그려진 구는 움직이지 않음 🔒',{'text-anchor':'middle','font-size':15,fill:'#C9D6EE'});
 CONS.forEach(k=>{const g=el('g',{},svg);let d='';
-  k.xy=k.p.map(([da,dr])=>{const t=(k.a+da)*Math.PI/180,r=RS-14+dr*.6;return [C[0]+r*Math.cos(t),C[1]-r*Math.sin(t)];});
-  el('path',{d:'M'+k.xy.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' L'),fill:'none',stroke:k.c,'stroke-width':1.5,opacity:.7},g);
-  k.xy.forEach(q=>el('circle',{cx:q[0],cy:q[1],r:3.6,fill:k.c},g));
-  const t=k.a*Math.PI/180;T(g,C[0]+(RS-44)*Math.cos(t),C[1]-(RS-44)*Math.sin(t)+5,k.n,{'text-anchor':'middle','font-size':13,fill:k.c});});
+  k.xy=k.p.map(([da,dr])=>{const t=(k.a+da)*Math.PI/180,r=RS+dr*.6;return [C[0]+r*Math.cos(t),C[1]-r*Math.sin(t)];});
+  el('path',{d:'M'+k.xy.map(q=>q[0].toFixed(1)+' '+q[1].toFixed(1)).join(' L'),fill:'none',stroke:k.c,'stroke-width':2.5,opacity:.95},g);
+  k.xy.forEach(q=>el('circle',{cx:q[0],cy:q[1],r:5,fill:k.c,stroke:'#0B1630','stroke-width':1.5},g));
+  const t=k.a*Math.PI/180;T(g,C[0]+(RS-40)*Math.cos(t),C[1]-(RS-40)*Math.sin(t)+5,k.n,{'text-anchor':'middle','font-size':14,'font-weight':700,fill:k.c});});
 /* 관측자가 볼 수 있는 하늘(지평선 위쪽 반) */
 const vis=el('path',{fill:'rgba(255,255,255,.07)'},svg);
 const earth=el('g',{style:'cursor:grab'},svg);
@@ -265,7 +304,7 @@ el('circle',{cx:C[0],cy:C[1],r:4,fill:'#FFD60A'},svg);
 const aE=el('path',{d:arcD(RE+16,200,330),fill:'none',stroke:'#5AB0FF','stroke-width':5,'marker-end':'url(#ah)',opacity:.9},svg);
 T(svg,C[0],C[1]+RE+40,'지구: 시계 반대 방향',{'text-anchor':'middle','font-size':15,fill:'#8CC4FF'});
 function arcD(r,a,b){const p=t=>[C[0]+r*Math.cos(t*Math.PI/180),C[1]-r*Math.sin(t*Math.PI/180)];const [x0,y0]=p(a),[x1,y1]=p(b);return `M${x0} ${y0} A${r} ${r} 0 0 0 ${x1} ${y1}`;}
-const hint=T(svg,C[0],C[1]+5,'끌어서 돌리기',{'text-anchor':'middle','font-size':14,fill:'#fff','pointer-events':'none'});
+const hint=T(svg,C[0],C[1]+26,'끌어서 돌리기',{'text-anchor':'middle','font-size':14,fill:'#fff','pointer-events':'none'});
 /* ---- 오른쪽: 우리나라 관측자가 남쪽 하늘을 볼 때 ---- */
 const VX=455,VW=445,VC=VX+VW/2,HZ=430;
 const vc=el('clipPath',{id:'vc'},defs);el('rect',{x:VX,y:0,width:VW,height:520,rx:16},vc);
@@ -300,10 +339,12 @@ function draw(){
     else{o.hist=[];o.tr.setAttribute('d','');}});
   document.getElementById('turn').textContent=(Math.floor(Math.max(0,net)/36)/10).toFixed(1)+'바퀴';
   if(net>=360&&H.is(0)&&!H.is(1)){H.done(1);P.open(1);P.open(2);cw.setAttribute('opacity',1);}
-  document.getElementById('st').textContent=H.is(0)&&net<0?'시계 반대 방향으로 돌려 보자':'';
-  hint.setAttribute('opacity',Math.abs(net)>15?0:1);}
+  hint.setAttribute('opacity',net>15?0:1);}
 let la=null;
-Q.drag(svg,earth,p=>{const a=Math.atan2(C[1]-p.y,p.x-C[0])*180/Math.PI;if(la===null){la=a;return;}const d=dAng(a,la);la=a;phi+=d;net+=d;draw();},
+Q.drag(svg,earth,p=>{const a=Math.atan2(C[1]-p.y,p.x-C[0])*180/Math.PI;if(la===null){la=a;return;}const d=dAng(a,la);la=a;
+  /* 지구는 시계 반대 방향(각도가 커지는 쪽)으로만 돈다. 거꾸로 끌면 멈춰 있고, 다시 앞으로 끌면 그 자리에서 이어서 돈다 */
+  if(d<0){if(d<-.5)Q.toast('지구는 <b>시계 반대 방향</b>으로만 돌아요');return;}
+  phi+=d;net+=d;draw();},
   ()=>{if(!H.is(0)){Q.toast('①부터 해 보세요');return false;}la=null;},()=>{la=null;});
 document.getElementById('rs').onclick=e=>{e.target.blur();phi=90;SV.forEach(o=>o.hist=[]);draw();};
 draw();

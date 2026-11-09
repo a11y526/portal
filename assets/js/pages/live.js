@@ -148,6 +148,7 @@ function handleKey(e) {
   if (!coverOpen) {
     switch (e.code) {
       case 'KeyS': if (!e.repeat) sheetBand.togglePage(); return true;
+      case 'KeyO': if (!e.repeat) sheetBand.togglePin(); return true;
       case 'KeyV': if (!e.repeat) wsFirst.view(); return true;
       case 'KeyB': if (!e.repeat) wsFirst.back(); return true;
     }
@@ -816,7 +817,13 @@ const sheetBand = {
       ? `<button type="button" class="btn btn-line btn-small press" data-act="back">넘긴 답 되돌리기 <b class="num">${skipped}</b><kbd>B</kbd></button>` : '';
     // 모둠 학습지: 켜면 모둠 대표가 쓰고 낸 것이 모둠원 모두에게 기록된다
     const grp = `<button type="button" class="btn ${st.group ? 'btn-primary' : 'btn-line'} btn-small press" data-act="group" aria-pressed="${!!st.group}"${this.grouping ? ' disabled' : ''}>모둠 학습지 ${st.group ? '켬' : '끔'}</button>`;
-    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${grp}${start}${view}${back}${undo}`;
+    // 열어 두기(2026-11-10): 이 쪽은 수업자료가 넘어가도 학생이 넘겨 와서 볼 수 있게. 수업 끝(모두 열림)이면 필요 없음
+    const pinned = (board?.ws_pins ?? []).includes(this.slide);
+    const pin = here.length && !board?.ws_free && sheetUpto.sent < ALL_PAGES
+      ? `<button type="button" class="btn ${pinned ? 'btn-primary' : 'btn-line'} btn-small press" data-act="pin" aria-pressed="${pinned}"${this.pinning ? ' disabled' : ''}>${pinned ? '열어 둠' : '열어 두기'}<kbd>O</kbd></button>` : '';
+    const pinList = (board?.ws_pins ?? []).length && !board?.ws_free && sheetUpto.sent < ALL_PAGES
+      ? `<span class="ws-band-h num ws-pinlist">열어 둔 쪽 ${[...board.ws_pins].sort((a, b) => a - b).join('·')}</span>` : '';
+    const html = `<span class="ws-band-h">학습지 완료</span><b class="num">${st.done}</b><span class="num">/ ${st.total}</span>${upto ? `<span class="ws-band-h num">· ${upto}</span>` : ''}${pinList}${grp}${pin}${start}${view}${back}${undo}`;
     if (html !== this.html) band.innerHTML = this.html = html;
     band.classList.toggle('is-all', st.total > 0 && st.done >= st.total);
     band.classList.toggle('has-act', !!(start || view || back || undo));
@@ -840,6 +847,29 @@ const sheetBand = {
     } finally {
       this.grouping = false;
       this.refresh();
+    }
+  },
+
+  // O: 지금 수업자료 쪽을 열어 두기/닫기. 열어 둔 쪽은 수업자료가 넘어가도 학생이 넘겨 와서 볼 수 있다
+  async togglePin() {
+    const slide = lessonFrame.currentSlide();
+    if (!board || this.pinning || !slide) return;
+    if (!(this.st?.pages ?? []).some((p) => p.slide === slide)) { toast('이 쪽은 학습지에 없어요'); return; }
+    const cur = board.ws_pins ?? [];
+    const on = !cur.includes(slide);
+    const next = on ? [...cur, slide].sort((a, b) => a - b) : cur.filter((n) => n !== slide);
+    this.pinning = true;
+    this.render();
+    try {
+      board = await updateBoard(board.id, { ws_pins: next });
+      sendClassRefresh(classId);
+      toast(on ? `${slide}쪽 열어 둠 · 학생이 넘겨 볼 수 있어요` : `${slide}쪽 열어 두기 끔`, 'ok');
+    } catch (err) {
+      console.error(err);
+      toast(errMsg(err), 'error');
+    } finally {
+      this.pinning = false;
+      this.render();
     }
   },
 
@@ -928,6 +958,7 @@ $('ws-band').addEventListener('click', (e) => {
   const b = e.target.closest('[data-act]');
   if (b?.dataset.act === 'toggle') sheetBand.togglePage();
   if (b?.dataset.act === 'group') sheetBand.toggleGroup();
+  if (b?.dataset.act === 'pin') sheetBand.togglePin();
   if (b?.dataset.act === 'undo') sheetBand.undoAccept();
   if (b?.dataset.act === 'review') wsFirst.view(true);
   if (b?.dataset.act === 'view') wsFirst.view();

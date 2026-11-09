@@ -1044,6 +1044,7 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-band > b { font-size: 17px; font-weight: 900; color: #0D0D0D; margin-left: 2px; }
 .ws-band > .num { font-size: 14px; font-weight: 700; color: #8A8A8A; }
 .ws-band > .ws-band-h.num { font-size: 13.5px; font-weight: 500; color: #8A8A8A; }
+@media (max-width: 1500px) { .ws-band > .ws-pinlist { display: none; } }
 .ws-band.is-all > b { color: #0F8A5F; }
 .live-bar .btn { min-height: 40px; padding: 0 16px; gap: 8px; border: 0; border-radius: 999px; font-size: 14px; font-weight: 700; box-shadow: none; }
 .live-bar .btn-primary { background: #0D0D0D; color: #fff; }
@@ -1133,8 +1134,11 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-dot.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ws-closed { gap: 10px; color: var(--ink-2); }
 /* 수업 따라가기(2026-11-05): 학습지가 수업자료 쪽을 따라감. 앞뒤 단추는 숨기고 쪽 점은 보기만 */
-.ws-card.is-follow .ws-nav .icon-btn { visibility: hidden; }
-.ws-card.is-follow .ws-dot { pointer-events: none; }
+.ws-card.is-follow:not(.can-move) .ws-nav .icon-btn { visibility: hidden; }
+.ws-card.is-follow .ws-dot.is-off { pointer-events: none; opacity: .45; }
+/* 선생님이 열어 둔 쪽(2026-11-10): 그 쪽 점만 누를 수 있고, 지금 수업 쪽이 아니면 [지금 수업 쪽으로] */
+.ws-card.is-follow .ws-dot.is-off.is-done { opacity: .6; }
+.ws-gonow { margin-left: 6px; }
 .ws-blank { gap: 8px; min-height: 220px; }
 .ws-blank span { font-size: 15px; color: var(--ink-2); }
 .ws-wait-open { display: inline-flex; align-items: center; gap: 8px; min-height: 48px; padding: 0 18px; border-radius: var(--r-pill);

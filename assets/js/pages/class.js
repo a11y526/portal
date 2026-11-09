@@ -425,23 +425,66 @@ const locked = () => !login || ws.done || ws.blank != null || pageDone(pages()[w
    수업 모드가 열려 있는 동안(worksheet.now가 있고 free가 아님) 학습지는 수업자료의 지금 쪽을 저절로 보여 주고,
    학생은 앞뒤로 넘기지 못한다. 학습지에 없는 쪽(표지·정리 등)은 제목 카드. 수업자료가 마지막 쪽에 가면(free) 마음대로 넘김 */
 const following = () => !!(ws.sheet && ws.meta?.now && !ws.meta?.free);
+/* 선생님이 열어 둔 쪽(2026-11-10): 따라가는 중에도 수업 모드에서 [열어 두기]한 수업자료 쪽(worksheet.pins)으로는
+   학생이 넘겨 볼 수 있다. 수업자료가 다른 쪽으로 넘어가면 그때 지금 쪽으로 데려온다 */
+const pins = () => new Set((ws.meta?.pins ?? []).map(Number));
+const nowIdx = () => pages().findIndex((p) => p.slide === Number(ws.meta?.now));
+const canGo = (i) => {
+  if (!following()) return true;
+  const s = pages()[i]?.slide;
+  return s != null && (s === Number(ws.meta.now) || pins().has(s));
+};
+const atNow = () => !following() || (nowIdx() < 0 ? ws.blank != null : ws.blank == null && ws.idx === nowIdx());
 function applyFollow() {
   const on = following();
   const flip = on !== $('sheet').classList.contains('is-follow');
   $('sheet').classList.toggle('is-follow', on);
+  const pinKey = [...pins()].sort((a, b) => a - b).join(',');
+  const pinFlip = pinKey !== ws.pinKey;
+  ws.pinKey = pinKey;
   if (!on) {
-    if (ws.blank == null) return flip; // 수업이 끝나 다시 넘길 수 있게 되면 단추를 다시 그린다
+    ws.nowSeen = null;
+    if (ws.blank == null) return flip || pinFlip; // 수업이 끝나 다시 넘길 수 있게 되면 단추를 다시 그린다
     ws.blank = null;
     return true;
   }
   const now = Number(ws.meta.now);
-  const i = pages().findIndex((p) => p.slide === now);
-  const blank = i < 0 ? now : null;
-  if (!flip && blank === ws.blank && (i < 0 || i === ws.idx)) return false;
-  ws.blank = blank;
-  if (i >= 0) ws.idx = i;
+  const i = nowIdx();
+  const moved = flip || now !== ws.nowSeen;
+  ws.nowSeen = now;
+  // 수업자료가 넘어갔거나, 보던 쪽을 선생님이 닫았으면 지금 쪽으로
+  if (moved || (ws.blank == null && !canGo(ws.idx))) {
+    const blank = i < 0 ? now : null;
+    const same = blank === ws.blank && (i < 0 || i === ws.idx);
+    ws.blank = blank;
+    if (i >= 0) ws.idx = i;
+    if (!same) ws.unlocked = null;
+    return !same || pinFlip;
+  }
+  return pinFlip;
+}
+// 따라가는 중 ◀ ▶: 갈 수 있는 쪽(지금 수업 쪽·열어 둔 쪽) 중 가까운 쪽. 지금 쪽이 학습지에 없으면 그 자리(제목 카드)도 한 칸
+function followStops() {
+  const now = Number(ws.meta.now);
+  const stops = pages().map((p, i) => ({ slide: p.slide, i })).filter((x) => canGo(x.i));
+  if (nowIdx() < 0) stops.push({ slide: now, i: null });
+  return stops.sort((a, b) => a.slide - b.slide);
+}
+function followStep(dir) {
+  const stops = followStops();
+  const cur = ws.blank != null ? ws.blank : pages()[ws.idx]?.slide;
+  const at = stops.findIndex((x) => x.slide === cur);
+  const to = stops[at + dir];
+  if (!to) return;
+  if (to.i == null) goNow(); else goPage(to.i);
+}
+function goNow() {
+  const i = nowIdx();
+  if (i >= 0) { goPage(i); return; }
+  ws.blank = Number(ws.meta.now);
   ws.unlocked = null;
-  return true;
+  renderWsPage();
+  renderWsFoot();
 }
 
 /* ---------- 시뮬레이션을 끝까지 해야 쓰기 (2026-11-02) ----------
@@ -502,7 +545,12 @@ function syncSheet(data) {
   ws.meta = meta;
   noteFirsts(meta, data?.board?.id);
   setOpened(meta?.opened);
-  if (applyFollow() && ws.sheet) { renderSheet(); if ($('sheet').getBoundingClientRect().top < 0) $('sheet').scrollIntoView({ block: 'start' }); }
+  const was = `${ws.blank}|${ws.idx}`;
+  if (applyFollow() && ws.sheet) {
+    renderSheet();
+    // 쪽이 바뀌었을 때만 학습지 맨 위로(열어 둔 쪽 목록만 바뀌면 그대로)
+    if (`${ws.blank}|${ws.idx}` !== was && $('sheet').getBoundingClientRect().top < 0) $('sheet').scrollIntoView({ block: 'start' });
+  }
   showGroupSheet(meta?.group);
   if (!meta) {
     ws.ver = null;
@@ -627,9 +675,22 @@ function renderBlank() {
   $('ws-side').classList.add('hidden');
   $('sheet').classList.remove('has-side', 'sim-only');
   document.querySelector('.class-wrap').classList.remove('is-wide');
-  $('ws-prev').disabled = true;
-  $('ws-next').disabled = true;
+  navButtons();
   renderDots();
+}
+function navButtons() {
+  if (following()) {
+    const stops = followStops();
+    const cur = ws.blank != null ? ws.blank : pages()[ws.idx]?.slide;
+    const at = stops.findIndex((x) => x.slide === cur);
+    $('ws-prev').disabled = at <= 0;
+    $('ws-next').disabled = at < 0 || at >= stops.length - 1;
+    $('sheet').classList.toggle('can-move', stops.length > 1);
+  } else {
+    $('ws-prev').disabled = ws.idx <= 0;
+    $('ws-next').disabled = ws.idx >= pages().length - 1;
+    $('sheet').classList.remove('can-move');
+  }
 }
 
 function renderWsPage() {
@@ -656,8 +717,7 @@ function renderWsPage() {
   $('sheet').classList.toggle('sim-only', hasSide && (page?.fields ?? []).every((f) => f.sim));
   document.querySelector('.class-wrap').classList.toggle('is-wide', hasSide && tab === 'sheet');
   markFields($('ws-page'), ws.bad, wsMarks());
-  $('ws-prev').disabled = following() || ws.idx <= 0;
-  $('ws-next').disabled = following() || ws.idx >= list.length - 1;
+  navButtons();
   renderDots();
   if (!isClosed(page)) applySimFill(page);
 }
@@ -675,9 +735,10 @@ function renderDots() {
     const closed = isClosed(p);
     const st = closed ? ' · 아직 수업 전' : done ? ' · 제출함' : bad ? ' · 고칠 칸 있음' : checking ? ' · 확인 중' : full ? ' · 다 씀, 제출 전' : '';
     const cur = i === ws.idx && ws.blank == null;
-    return `<button type="button" class="ws-dot${cur ? ' on' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}${checking ? ' is-checking' : ''}"
-      data-i="${i}" aria-label="${p.slide}쪽${st}" ${cur ? 'aria-current="step"' : ''}${following() ? ' tabindex="-1"' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
-  }).join('');
+    const off = !canGo(i);
+    return `<button type="button" class="ws-dot${cur ? ' on' : ''}${off ? ' is-off' : ''}${closed ? ' is-closed' : ''}${done ? ' is-done' : ''}${full ? ' is-full' : ''}${bad ? ' is-bad' : ''}${checking ? ' is-checking' : ''}"
+      data-i="${i}" aria-label="${p.slide}쪽${st}" ${cur ? 'aria-current="step"' : ''}${off ? ' tabindex="-1" disabled' : ''}>${done ? DOT_CHECK : ''}<span class="num">${p.slide}</span></button>`;
+  }).join('') + (following() && !atNow() ? '<button type="button" class="btn btn-line btn-small press ws-gonow" id="ws-gonow">지금 수업 쪽으로</button>' : '');
 }
 
 const CHECK_SVG = (w, d = '.35s') => `<svg class="draw" style="--d:${d}" width="${w}" height="${w}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg>`;
@@ -856,8 +917,9 @@ function setStatus(text) {
 }
 
 function goPage(i) {
-  if (following()) return; // 수업 중에는 수업자료를 따라감
-  if (i < 0 || i >= pages().length || i === ws.idx) return;
+  if (!canGo(i)) return; // 수업 중에는 수업자료를 따라감(열어 둔 쪽만 넘겨 볼 수 있음)
+  if (i < 0 || i >= pages().length || (i === ws.idx && ws.blank == null)) return;
+  ws.blank = null;
   ws.idx = i;
   ws.unlocked = null;
   store.set(pageKey(), i);
@@ -865,9 +927,10 @@ function goPage(i) {
   renderWsFoot();
   if ($('sheet').getBoundingClientRect().top < 0) $('sheet').scrollIntoView({ block: 'start', behavior: reduceMotion ? 'auto' : 'smooth' });
 }
-$('ws-prev').addEventListener('click', () => goPage(ws.idx - 1));
-$('ws-next').addEventListener('click', () => goPage(ws.idx + 1));
+$('ws-prev').addEventListener('click', () => { if (following()) followStep(-1); else goPage(ws.idx - 1); });
+$('ws-next').addEventListener('click', () => { if (following()) followStep(1); else goPage(ws.idx + 1); });
 $('ws-dots').addEventListener('click', (e) => {
+  if (e.target.closest('#ws-gonow')) { goNow(); return; }
   const d = e.target.closest('.ws-dot');
   if (d) goPage(Number(d.dataset.i));
 });

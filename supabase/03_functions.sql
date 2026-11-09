@@ -651,6 +651,8 @@ begin
       -- 수업 따라가기(2026-11-05): 수업 모드가 보고 있는 수업자료 쪽. free면 수업이 끝나 마음대로 넘김
       'now',         b.ws_now,
       'free',        b.ws_free,
+      -- 선생님이 열어 둔 쪽(2026-11-10): 따라가는 중에도 학생이 이 수업자료 쪽으로는 넘겨 볼 수 있다
+      'pins',        to_jsonb(b.ws_pins),
       'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null and public._away_watching(b.watch_at)),
       'firsts',      coalesce(v_firsts, '[]'::jsonb),
       -- 모둠 학습지(2026-10-26): 켜져 있으면 {no: 그날 내 모둠(없으면 null), members: 함께 기록되는 인원}
@@ -2037,6 +2039,7 @@ begin
     'upto',        b.ws_upto,
     'now',         b.ws_now,
     'free',        b.ws_free,
+    'pins',        to_jsonb(b.ws_pins),
     'slides',      (select l.slide_titles from public.lessons l where l.code = b.lesson_code),
     'pages',       public._ws_view(w.pages, b.ws_upto),
     'opened',      (select coalesce(jsonb_agg(o.page order by o.page), '[]'::jsonb) from public.ws_page_open o where o.board_id = b.id and o.closed_at is null and public._away_watching(b.watch_at)),

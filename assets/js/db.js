@@ -31,6 +31,21 @@ export async function studentLogin(classId, number, code) {
   return unwrap(await need().rpc('student_login', { p_class_id: classId, p_number: number, p_code: code }));
 }
 
+// 학번으로 첫 가입: student_login과 같은 결과 또는 error = 'SIGNUP_CLOSED' | 'CLASS_LOCKED' | 'NO_STUDENT' | 'TAKEN' | 'WEAK' | 'BAD_CODE'
+export async function studentSignup(classId, number, code) {
+  return unwrap(await need().rpc('student_signup', { p_class_id: classId, p_number: number, p_code: code }));
+}
+
+// 가입 열기·닫기(교사). 열면 오늘 밤 12시까지
+export async function setClassSignup(classId, open) {
+  return unwrap(await need().rpc('set_class_signup', { p_class_id: classId, p_open: open }));
+}
+
+// 반마다 가입이 열린 시각(다른 선생님 사이트만 부른다. 원래 서버에는 이 열이 없음)
+export async function listSignup() {
+  return unwrap(await need().from('classes').select('id, signup_until').order('id'));
+}
+
 export async function studentLogout(token) {
   return unwrap(await need().rpc('student_logout', { p_token: token }));
 }

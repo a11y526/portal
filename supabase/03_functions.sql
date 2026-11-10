@@ -9028,3 +9028,86 @@ end;
 $$;
 revoke all on function public.set_ws_free(uuid) from public, anon;
 grant execute on function public.set_ws_free(uuid) to authenticated;
+
+-- ---------------------------------------------------------
+-- 학번으로 첫 가입 (2026-11-10)
+-- 선생님이 [가입 열기]를 누른 반(classes.signup_until이 지나지 않음)에서, 명단에 있고 아직 코드가 없는 번호만
+-- 학생이 직접 정한 6자리 코드로 가입한다. 이름은 받지 않는다. 가입하면 바로 출입증을 준다(student_login과 같은 결과)
+--   SIGNUP_CLOSED 가입이 닫힘 · CLASS_LOCKED 반 잠김 · NO_STUDENT 명단에 없는 번호 · TAKEN 이미 코드가 있음 · WEAK 쉬운 코드
+-- ---------------------------------------------------------
+create or replace function public.student_signup(p_class_id int, p_number int, p_code text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  c       public.classes;
+  s       public.students;
+  v_code  text := coalesce(p_code, '');
+  v_token text;
+begin
+  select * into c from public.classes where id = p_class_id;
+  if not found or c.signup_until is null or c.signup_until < now() then
+    return jsonb_build_object('ok', false, 'error', 'SIGNUP_CLOSED');
+  end if;
+  if c.locked then
+    return jsonb_build_object('ok', false, 'error', 'CLASS_LOCKED');
+  end if;
+  if v_code !~ '^[0-9]{6}$' then
+    return jsonb_build_object('ok', false, 'error', 'BAD_CODE');
+  end if;
+  if v_code ~ '^(.)\1{5}$' or v_code in ('123456', '234567', '345678', '456789', '012345', '654321', '987654', '543210') then
+    return jsonb_build_object('ok', false, 'error', 'WEAK');
+  end if;
+
+  select * into s from public.students
+  where class_id = p_class_id and number = p_number and number > 0 and active
+  for update;
+  if not found then
+    return jsonb_build_object('ok', false, 'error', 'NO_STUDENT');
+  end if;
+  if s.code_hash is not null then
+    return jsonb_build_object('ok', false, 'error', 'TAKEN');
+  end if;
+
+  update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = s.id;
+  delete from public.code_attempts where student_key = p_class_id || '-' || p_number;
+
+  v_token := encode(gen_random_bytes(32), 'hex');
+  insert into public.student_sessions (token_hash, student_id)
+  values (encode(digest(v_token, 'sha256'), 'hex'), s.id);
+
+  return jsonb_build_object('ok', true, 'token', v_token, 'class_id', p_class_id, 'number', p_number);
+end;
+$$;
+revoke all on function public.student_signup(int, int, text) from public;
+grant execute on function public.student_signup(int, int, text) to anon, authenticated;
+
+-- 가입 열기·닫기 (교사): 열면 오늘(한국 시간) 밤 12시까지 열린다
+create or replace function public.set_class_signup(p_class_id int, p_open boolean)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public
+as $$
+declare
+  v_until timestamptz;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  v_until := case when p_open
+    then ((now() at time zone 'Asia/Seoul')::date + 1)::timestamp at time zone 'Asia/Seoul'
+  end;
+  update public.classes set signup_until = v_until where id = p_class_id;
+  if not found then
+    raise exception 'NOT_FOUND';
+  end if;
+  return jsonb_build_object('ok', true, 'class_id', p_class_id, 'signup_until', v_until);
+end;
+$$;
+revoke all on function public.set_class_signup(int, boolean) from public, anon;
+grant execute on function public.set_class_signup(int, boolean) to authenticated;

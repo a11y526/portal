@@ -9,3 +9,5 @@ export const TEST_CLASS = 20;
 export const TEACHER_CLASSES = [...CLASSES, TEST_CLASS];
 // 반 이름 숫자 부분: 20 → 'test' (뒤에 '반'을 붙여 쓴다)
 export const clsName = (n) => (Number(n) === TEST_CLASS ? 'test' : n);
+// 원래 사이트(7~12반)인지. 학번으로 첫 가입·학생 안내는 다른 선생님 사이트에서만 보인다(2026-11-10 사용자 결정)
+export const IS_MAIN = SUPABASE_URL.includes('sxejmhkevefwnpwldczt');

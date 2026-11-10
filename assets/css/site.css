@@ -3345,3 +3345,17 @@ html.tch .qse-side .btn-line { background: #fff; } html.tch .qse-side .btn-line:
 .share-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
 .share-main .muted { flex-basis: 100%; font-size: 13px; overflow-wrap: anywhere; }
 .tag-wait { background: var(--pending-bg, rgba(255,196,77,.22)); color: var(--pending-fg, #8A5300); }
+
+/* ---------- 입구: 학번으로 첫 가입 (다른 선생님 사이트만, 2026-11-10) ---------- */
+.first-row { display: flex; gap: 10px; flex-wrap: wrap; }
+.first-row .btn { min-height: 48px; }
+.su-who { display: block; min-height: 1.4em; margin-top: 6px; font-size: 16px; font-weight: 900; color: #0D0D0D; }
+.su-who.bad { color: #A23B0B; }
+.su-note { margin: 0; font-size: 14px; color: var(--ink-2); }
+.signed-box { align-items: center; text-align: center; }
+.sd-label { font-size: 14px; font-weight: 700; color: var(--ink-2); }
+.sd-code { font-size: 56px; font-weight: 900; letter-spacing: .12em; line-height: 1.1; }
+#install-dlg ol { margin: 0; padding-left: 20px; display: flex; flex-direction: column; gap: 8px; font-size: 16px; }
+.signup-box { margin-top: 18px; padding: 18px 20px; border-radius: 22px; background: #fff; display: flex; flex-direction: column; gap: 8px; }
+.signup-head { display: flex; align-items: center; gap: 10px 14px; flex-wrap: wrap; }
+.signup-head .btn { margin-left: auto; }

@@ -1,0 +1,292 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>과학 수업 사용 안내</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
+<style>
+  :root { --ink: #0D0D0D; --ink2: #5D5D5D; --ink3: #6E6E6E; --box: #F7F7F7; --pill: #F0F0F0; --ok: #0F8A5F; --okbg: rgba(34,197,130,.14); --re: #A23B0B; --rebg: rgba(255,122,69,.16); --wait: #8A5300; --waitbg: rgba(255,196,77,.22); }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--ink); font-family: 'Noto Sans KR', system-ui, sans-serif; font-variant-numeric: tabular-nums; }
+  a { color: inherit; }
+  .bar { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 10px; padding: 14px 20px; background: rgba(255,255,255,.86); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px); }
+  .bar b { font-size: 17px; font-weight: 900; margin-right: auto; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; min-height: 42px; padding: 0 18px; border: 0; border-radius: 999px; background: var(--pill); color: var(--ink); font: 700 15px/1 inherit; font-family: inherit; text-decoration: none; cursor: pointer; }
+  .btn:hover { background: #E6E6E6; }
+  .btn.dark { background: var(--ink); color: #fff; }
+  main { max-width: 980px; margin: 0 auto; padding: 10px 20px 80px; display: flex; flex-direction: column; gap: 22px; }
+  .g { background: var(--box); border-radius: 28px; padding: 34px 36px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 28px; align-items: center; }
+  .g.one { grid-template-columns: 1fr; }
+  .eyebrow { font-size: 14px; font-weight: 700; color: var(--ink3); margin: 0 0 6px; }
+  h1 { margin: 0; font-size: clamp(40px, 7vw, 76px); font-weight: 900; letter-spacing: -0.045em; line-height: 1.08; }
+  h2 { margin: 0 0 14px; font-size: clamp(26px, 3.4vw, 38px); font-weight: 900; letter-spacing: -0.035em; line-height: 1.2; }
+  p { margin: 0; font-size: 18px; line-height: 1.6; color: var(--ink2); }
+  ol, ul { margin: 0; padding-left: 22px; display: flex; flex-direction: column; gap: 10px; font-size: 18.5px; line-height: 1.5; }
+  li b { color: var(--ink); }
+  li::marker { font-weight: 900; }
+  .cover { text-align: left; padding: 56px 40px; }
+  .cover p { margin-top: 14px; font-size: 20px; }
+  /* 그림(화면 모양) */
+  .pic { background: #fff; border-radius: 22px; padding: 22px; display: flex; flex-direction: column; gap: 12px; }
+  .pic .lbl { font-size: 13px; font-weight: 700; color: var(--ink3); }
+  .in { height: 46px; border-radius: 14px; background: var(--box); display: flex; align-items: center; padding: 0 16px; font-size: 18px; font-weight: 700; letter-spacing: .08em; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .chip { display: inline-flex; align-items: center; min-height: 36px; padding: 0 14px; border-radius: 999px; background: var(--pill); font-size: 15px; font-weight: 700; }
+  .chip.on { background: var(--ink); color: #fff; }
+  .chip.ok { background: var(--okbg); color: var(--ok); }
+  .chip.re { background: var(--rebg); color: var(--re); }
+  .chip.wait { background: var(--waitbg); color: var(--wait); }
+  .blank { display: inline-block; min-width: 86px; padding: 4px 10px; border-radius: 10px; background: var(--box); font-weight: 700; text-align: center; }
+  .blank.bad { box-shadow: inset 0 0 0 2px var(--re); background: #fff; }
+  .blank.good { box-shadow: inset 0 0 0 2px var(--ok); background: #fff; }
+  .menu { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  .menu div { background: var(--box); border-radius: 18px; padding: 16px; font-size: 17px; font-weight: 900; }
+  .menu div span { display: block; margin-top: 4px; font-size: 13.5px; font-weight: 500; color: var(--ink2); }
+  .menu .main { background: var(--ink); color: #fff; }
+  .menu .main span { color: rgba(255,255,255,.8); }
+  .coins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; }
+  .coins div { background: #fff; border-radius: 20px; padding: 18px 14px; text-align: center; }
+  .coins b { display: block; font-size: 22px; font-weight: 900; }
+  .coins span { display: block; margin-top: 6px; font-size: 14.5px; color: var(--ink2); line-height: 1.45; }
+  .rules li { font-size: 19px; }
+  /* 크롬 새 탭 그림 */
+  .newtab { align-items: center; gap: 16px; }
+  .nt-search { width: 100%; height: 44px; border-radius: 999px; box-shadow: inset 0 0 0 1px #E3E3E3; display: flex; align-items: center; padding: 0 18px; font-size: 14px; color: var(--ink3); }
+  .nt-tiles { display: flex; gap: 18px; }
+  .nt-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; font-size: 13px; font-weight: 500; color: var(--ink2); }
+  .nt-tile i { width: 48px; height: 48px; border-radius: 50%; background: var(--pill); display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 18px; font-weight: 900; color: var(--ink2); }
+  .nt-tile.on { color: var(--ink); font-weight: 900; }
+  .nt-tile.on i { background: var(--ink); color: #fff; }
+  .nt-dlg { width: 100%; background: var(--box); border-radius: 18px; padding: 16px; display: flex; flex-direction: column; gap: 6px; }
+  .nt-dlg > b { font-size: 16px; margin-bottom: 4px; }
+  .nt-in { background: #fff; height: 40px; font-size: 15px; letter-spacing: 0; }
+  .addr { display: inline-block; margin-top: 6px; padding: 4px 12px; border-radius: 10px; background: #fff; font-size: .95em; overflow-wrap: anywhere; }
+  /* 화면으로 보기(프로젝터): 한 장씩 */
+  body.slides main { max-width: none; height: calc(100vh - 70px); padding: 0 28px 28px; }
+  body.slides .g { display: none; height: 100%; padding: 4vh 5vw; overflow: auto; }
+  body.slides .g.on { display: grid; }
+  body.slides h2 { font-size: clamp(34px, 4.4vw, 60px); }
+  body.slides p, body.slides li { font-size: clamp(20px, 1.9vw, 28px); }
+  body.slides .rules li { font-size: clamp(22px, 2.1vw, 30px); }
+  body.slides .pic { padding: 30px; }
+  .count { font-size: 15px; font-weight: 700; color: var(--ink3); min-width: 54px; text-align: center; }
+  body:not(.slides) .only-slides { display: none; }
+  body.slides .only-scroll { display: none; }
+  @media (max-width: 760px) {
+    .g { grid-template-columns: 1fr; padding: 26px 22px; }
+    .coins { grid-template-columns: 1fr; }
+  }
+  @media print {
+    .bar { display: none; }
+    main { padding: 0; gap: 12px; }
+    .g { break-inside: avoid; padding: 20px 24px; }
+    .cover { padding: 24px; }
+  }
+</style>
+</head>
+<body>
+<div class="bar">
+  <b>과학 수업 사용 안내</b>
+  <a class="btn only-scroll" href="index.html">첫 화면</a>
+  <button class="btn dark only-scroll" type="button" id="to-slides">화면으로 보기</button>
+  <button class="btn only-slides" type="button" id="prev" aria-label="앞 장">‹</button>
+  <span class="count only-slides" id="count"></span>
+  <button class="btn only-slides" type="button" id="next" aria-label="다음 장">›</button>
+  <button class="btn only-slides" type="button" id="to-scroll">닫기</button>
+</div>
+
+<main>
+  <section class="g one cover">
+    <div>
+      <p class="eyebrow">처음 왔어요</p>
+      <h1>과학 수업,<br>이렇게 해요</h1>
+      <p>로그인하고, 학습지를 쓰고, 모둠과 함께 활동해요. 잘하면 점수가 쌓여요.</p>
+    </div>
+  </section>
+
+  <section class="g">
+    <div>
+      <p class="eyebrow">1 · 처음 한 번만</p>
+      <h2>학번으로 가입해요</h2>
+      <ol>
+        <li>첫 화면에서 <b>[처음 왔어요]</b>를 눌러요</li>
+        <li><b>학번 5자리</b>를 넣어요 (1학년 1반 1번 → 10101)</li>
+        <li><b>내 코드 6자리</b>를 직접 정해요</li>
+        <li>코드를 <b>공책에 적어 둬요</b></li>
+      </ol>
+    </div>
+    <div class="pic" aria-hidden="true">
+      <span class="lbl">학번 5자리</span>
+      <div class="in">10101</div>
+      <span class="lbl">내가 정할 코드 6자리</span>
+      <div class="in">● ● ● ● ● ●</div>
+      <div class="row"><span class="chip on">가입하기</span></div>
+    </div>
+  </section>
+
+  <section class="g">
+    <div>
+      <p class="eyebrow">2 · 처음 한 번만</p>
+      <h2>크롬 새 탭에 바로가기를 만들어요</h2>
+      <ol>
+        <li>크롬에서 <b>새 탭</b>을 열어요 (Ctrl + T)</li>
+        <li>아래 동그라미 중 <b>[＋ 바로가기 추가]</b>를 눌러요</li>
+        <li>이름에 <b>과학</b>, URL에 아래 주소를 써요<br><b class="addr" data-addr></b></li>
+        <li><b>[완료]</b>를 누르면 끝!</li>
+      </ol>
+    </div>
+    <div class="pic newtab" aria-hidden="true">
+      <div class="nt-search">검색어 또는 URL 입력</div>
+      <div class="nt-tiles">
+        <span class="nt-tile"><i>Y</i>유튜브</span>
+        <span class="nt-tile"><i>D</i>드라이브</span>
+        <span class="nt-tile on"><i>＋</i>바로가기 추가</span>
+      </div>
+      <div class="nt-dlg">
+        <b>바로가기 추가</b>
+        <span class="lbl">이름</span>
+        <div class="in nt-in">과학</div>
+        <span class="lbl">URL</span>
+        <div class="in nt-in" data-addr></div>
+        <div class="row" style="justify-content:flex-end"><span class="chip">취소</span><span class="chip on">완료</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g">
+    <div>
+      <p class="eyebrow">3 · 다음부터</p>
+      <h2>새 탭의 과학을 눌러요</h2>
+      <ol>
+        <li>새 탭의 <b>과학</b> 동그라미를 눌러요</li>
+        <li><b>반 · 번호 · 내 코드</b>로 로그인해요</li>
+        <li>코드를 잊었으면 <b>선생님께</b> 말해요</li>
+      </ol>
+    </div>
+    <div class="pic" aria-hidden="true">
+      <span class="lbl">로그인 뒤 첫 화면</span>
+      <div class="menu">
+        <div class="main">수업<span>오늘 수업으로</span></div>
+        <div>마이페이지<span>레벨 · 기록 · 꾸미기</span></div>
+        <div>상점<span>꾸미기 · 보상</span></div>
+        <div>순위<span>이번 달 TOP</span></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="g">
+    <div>
+      <p class="eyebrow">4 · 수업 시간</p>
+      <h2>[수업]을 누르면 탭이 있어요</h2>
+      <ul>
+        <li><b>개인 학습지</b> · 혼자 쓰는 학습지</li>
+        <li><b>모둠활동</b> · 모둠과 함께하는 활동</li>
+        <li><b>게시판</b> · 선생님이 올린 자료</li>
+        <li><b>퀴즈 쇼</b> · 반 전체 퀴즈 (열렸을 때만)</li>
+      </ul>
+    </div>
+    <div class="pic" aria-hidden="true">
+      <div class="row"><span class="chip on">개인 학습지</span><span class="chip">모둠활동</span><span class="chip">게시판</span><span class="chip">퀴즈 쇼</span></div>
+    </div>
+  </section>
+
+  <section class="g">
+    <div>
+      <p class="eyebrow">5 · 개인 학습지</p>
+      <h2>앞 화면을 따라가요</h2>
+      <ol>
+        <li>학습지 쪽은 <b>선생님 화면을 따라</b> 저절로 넘어가요</li>
+        <li>선생님이 열면 <b>칸을 채우고 [이 쪽 제출]</b></li>
+        <li><b>빨간 칸</b>은 다시 써요. 맞으면 <b>초록</b></li>
+        <li>모든 쪽을 다 내면 <b>완료</b> · 점수를 받아요</li>
+      </ol>
+    </div>
+    <div class="pic" aria-hidden="true">
+      <p style="color:var(--ink)">기체의 압력이 <span class="blank good">커지면</span> 부피는 <span class="blank bad">커진다</span></p>
+      <div class="row"><span class="chip re">고칠 칸 1개</span><span class="chip on">이 쪽 제출</span></div>
+      <p style="font-size:15px">먼저 낸 답 중에서 뽑혀 앞 화면에 나오면 보너스가 있어요.</p>
+    </div>
+  </section>
+
+  <section class="g">
+    <div>
+      <p class="eyebrow">6 · 모둠활동</p>
+      <h2>모둠이 함께 내요</h2>
+      <ol>
+        <li>그날 모둠은 <b>선생님이 정해요</b></li>
+        <li>활동 결과를 <b>모둠 게시판</b>에 올려요 (글 · 사진 · 링크)</li>
+        <li>다 되면 한 명이 <b>[제출]</b></li>
+        <li><b>다시</b>를 받으면 고쳐서 또 내요</li>
+        <li>먼저 <b>통과</b>한 모둠부터 순위 발표!</li>
+      </ol>
+    </div>
+    <div class="pic" aria-hidden="true">
+      <div class="row"><span class="chip">진행 중</span><span class="chip wait">검사 대기</span><span class="chip re">다시</span><span class="chip ok">통과</span></div>
+      <p style="font-size:15px">다른 모둠의 결과는 순위 발표 때 공개돼요.</p>
+    </div>
+  </section>
+
+  <section class="g one">
+    <div>
+      <p class="eyebrow">7 · 점수</p>
+      <h2>점수는 세 가지예요</h2>
+      <div class="coins">
+        <div><b>XP</b><span>쌓이면 레벨이 올라요<br>이번 달 순위의 기준</span></div>
+        <div><b>금화</b><span>상점 <b>보상</b>을 살 때<br>(선생님 승인)</span></div>
+        <div><b>은화</b><span>XP만큼 쌓여요<br>캐릭터 <b>꾸미기</b>를 살 때</span></div>
+      </div>
+      <p style="margin-top:16px">학습지 완료 · 모둠 통과 · 순위 · 퀴즈로 받아요. <b style="color:var(--ink)">닉네임</b>은 마이페이지에서 신청하고, 선생님이 승인하면 순위에 나와요.</p>
+    </div>
+  </section>
+
+  <section class="g one">
+    <div>
+      <p class="eyebrow">8 · 약속</p>
+      <h2>꼭 지켜요</h2>
+      <ol class="rules">
+        <li>내 코드는 <b>나만</b> 알아요. 친구 코드로 들어가지 않아요</li>
+        <li>수업 중에는 <b>다른 화면으로 가지 않아요</b> (화면을 벗어나면 기록돼요)</li>
+        <li>답은 <b>내 생각으로</b> 써요</li>
+        <li>게시판에는 <b>수업 내용만</b> 올려요</li>
+      </ol>
+    </div>
+  </section>
+</main>
+
+<script>
+  // 이 사이트 주소(https:// 빼고, 안내문이 있는 폴더)
+  const addr = (location.host + location.pathname.replace(/[^/]*$/, '')).replace(/\/$/, '');
+  document.querySelectorAll('[data-addr]').forEach((el) => { el.textContent = addr; });
+  const slides = [...document.querySelectorAll('main .g')];
+  let at = 0;
+  function show(i) {
+    at = Math.max(0, Math.min(slides.length - 1, i));
+    slides.forEach((s, j) => s.classList.toggle('on', j === at));
+    document.getElementById('count').textContent = `${at + 1} / ${slides.length}`;
+  }
+  function slideMode(on) {
+    document.body.classList.toggle('slides', on);
+    if (on) show(at);
+    else { slides.forEach((s) => s.classList.remove('on')); scrollTo(0, 0); }
+    history.replaceState(null, '', on ? '?slide' : location.pathname);
+  }
+  document.getElementById('to-slides').onclick = () => { at = 0; slideMode(true); };
+  document.getElementById('to-scroll').onclick = () => slideMode(false);
+  document.getElementById('prev').onclick = () => show(at - 1);
+  document.getElementById('next').onclick = () => show(at + 1);
+  addEventListener('keydown', (e) => {
+    if (!document.body.classList.contains('slides')) return;
+    if (['ArrowRight', 'PageDown', ' ', 'Enter'].includes(e.key)) { e.preventDefault(); show(at + 1); }
+    else if (['ArrowLeft', 'PageUp'].includes(e.key)) { e.preventDefault(); show(at - 1); }
+    else if (e.key === 'Home') show(0);
+    else if (e.key === 'End') show(slides.length - 1);
+    else if (e.key === 'Escape') slideMode(false);
+    else if (e.key === 'f' || e.key === 'F') document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen?.();
+  });
+  if (new URLSearchParams(location.search).has('slide')) slideMode(true);
+</script>
+</body>
+</html>

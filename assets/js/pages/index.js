@@ -1,9 +1,9 @@
 // 입구: 로그인(반·번호·코드) → 왼쪽 내 캐릭터, 오른쪽 수업·마이페이지·이번 달 순위, 아래 우리 반 게시판
 // 로그인은 로그아웃할 때까지 유지된다(login.js). 코드 없이 수업(게시판)만 볼 수도 있다.
 // test.html은 같은 화면을 test반 하나로 쓴다(<main data-test>): 반 고르기·코드 없이 보기 없음
-import { CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
+import { CLASSES, TEST_CLASS, GRADE, IS_MAIN, clsName } from '../config.js';
 import { initUI, toast, prepareDraw, countUp } from '../ui.js';
-import { studentLogin, studentLogout, getMyPage, getClassMaterials, onClassRefresh } from '../db.js';
+import { studentLogin, studentSignup, studentLogout, getMyPage, getClassMaterials, onClassRefresh } from '../db.js';
 import { getOmok } from '../db.js'; // nogame
 import { setTop, refreshTop } from '../topbar.js';
 import { readLogin, saveLogin, clearLogin } from '../login.js';
@@ -64,6 +64,8 @@ $('guest').innerHTML = CLASSES.map((n) => `<a class="guest-link glass lift" href
 
 function showLogin() {
   hideMats();
+  $('v-signup').classList.add('hidden');
+  $('v-signed').classList.add('hidden');
   $('v-home').classList.add('hidden');
   $('logout').classList.add('hidden');
   $('top-rank').classList.remove('hidden');
@@ -119,9 +121,106 @@ $('login-form').addEventListener('submit', async (e) => {
   }
 });
 
+/* ---------- 학번으로 첫 가입 (다른 선생님 사이트만) ----------
+   학번 10701 = 1학년 7반 1번. 선생님이 [가입 열기]를 누른 반에서, 아직 코드가 없는 번호만 가입한다 */
+const SU_ERR = {
+  SIGNUP_CLOSED: '지금은 가입할 수 없어요. 선생님이 열어 주셔야 해요',
+  CLASS_LOCKED: '지금은 잠겨 있어요',
+  NO_STUDENT: '선생님 명단에 없는 번호예요. 선생님께 말해 주세요',
+  TAKEN: '이미 가입한 번호예요. 코드를 잊었으면 선생님께 말해 주세요',
+  WEAK: '너무 쉬운 코드예요. 다른 숫자로 정해 주세요',
+  BAD_CODE: '코드는 숫자 6자리예요',
+};
+
+// '10701' → { cls: 7, num: 1 } · 맞지 않으면 null
+function parseId(v) {
+  const m = /^(\d)(\d{2})(\d{2})$/.exec(v);
+  if (!m || Number(m[1]) !== GRADE) return null;
+  const cls = Number(m[2]);
+  const num = Number(m[3]);
+  if (!CLASSES.includes(cls) || num < 1) return null;
+  return { cls, num };
+}
+
+function showSignup() {
+  $('v-login').classList.add('hidden');
+  $('v-signed').classList.add('hidden');
+  $('v-signup').classList.remove('hidden');
+  for (const id of ['su-id', 'su-code', 'su-code2']) $(id).value = '';
+  showWho();
+  scrollTo(0, 0);
+  prepareDraw($('v-signup'));
+  $('su-id').focus();
+}
+
+function showWho() {
+  const v = $('su-id').value.replace(/\D/g, '');
+  const p = parseId(v);
+  const el = $('su-who');
+  el.classList.toggle('bad', v.length === 5 && !p);
+  el.textContent = p ? `${GRADE}학년 ${p.cls}반 ${p.num}번` : v.length === 5 ? '학번을 확인해 주세요' : '';
+}
+
+if (!IS_MAIN && !TEST) {
+  $('first-row').classList.remove('hidden');
+  $('go-signup').addEventListener('click', showSignup);
+  $('su-back').addEventListener('click', showLogin);
+  $('su-id').addEventListener('input', showWho);
+  $('signup-form').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const p = parseId($('su-id').value.replace(/\D/g, ''));
+    const code = $('su-code').value.replace(/\D/g, '');
+    if (!p) { toast('학번 5자리를 확인해 주세요', 'error'); return $('su-id').focus(); }
+    if (code.length !== 6) { toast('코드는 숫자 6자리예요', 'error'); return $('su-code').focus(); }
+    if (code !== $('su-code2').value.replace(/\D/g, '')) {
+      toast('두 코드가 달라요', 'error');
+      $('su-code2').value = '';
+      return $('su-code2').focus();
+    }
+    const btn = e.currentTarget.querySelector('[type="submit"]');
+    btn.disabled = true;
+    try {
+      const res = await studentSignup(p.cls, p.num, code);
+      if (!res?.ok) return toast(SU_ERR[res?.error] || '가입하지 못했어요', 'error');
+      store.set('lastClass', String(p.cls));
+      store.set('num-' + p.cls, String(p.num));
+      saveLogin(res);
+      pickClass = p.cls;
+      $('v-signup').classList.add('hidden');
+      $('sd-who').textContent = `${GRADE}학년 ${p.cls}반 ${p.num}번`;
+      $('sd-code').textContent = `${code.slice(0, 3)} ${code.slice(3)}`;
+      $('v-signed').classList.remove('hidden');
+      scrollTo(0, 0);
+      prepareDraw($('v-signed'));
+    } catch (err) {
+      console.error(err);
+      toast('가입하지 못했어요. 다시 눌러 주세요', 'error');
+    } finally {
+      btn.disabled = false;
+    }
+  });
+  $('sd-go').addEventListener('click', () => {
+    $('sd-code').textContent = '';
+    $('v-signed').classList.add('hidden');
+    const l = readLogin();
+    if (l) showHome(l); else showLogin();
+  });
+}
+
+/* ---------- 크롬 새 탭 바로가기 안내 (다른 선생님 사이트만) ---------- */
+if (!IS_MAIN && !TEST) {
+  $('install-app').addEventListener('click', () => {
+    $('install-addr').textContent = (location.host + location.pathname.replace(/[^/]*$/, '')).replace(/\/$/, '');
+    $('install-dlg').showModal();
+  });
+  $('install-close').addEventListener('click', () => $('install-dlg').close());
+}
+
 /* ---------- 로그인 뒤 ---------- */
 async function showHome(login) {
   refreshTop();
+  $('v-signup').classList.add('hidden');
+  $('v-signed').classList.add('hidden');
   $('v-login').classList.add('hidden');
   $('top-rank').classList.add('hidden');
   $('logout').classList.remove('hidden');

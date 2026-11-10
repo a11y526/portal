@@ -1,11 +1,11 @@
 // 관리 화면: 첫 화면은 항목 카드, 누르면 그 항목만(#lessons #boards #mats #progress #ai #roster #nick #buys #shopset #grant #coins #points #data #lock #omok #presets)
 // 수업 시작(차시 창 → 반 → 수업 모드, 학습지 올리기), 반 게시판(반마다 섹션·자료), 보드 만들기(여러 반 한 번에)·오늘 보드 지정·보관, 명단·코드 발급, 닉네임 승인·반별 닉네임 고치기, 구매 승인, 상점 설정,
 // 포인트 규칙·레벨 기준, CSV 내보내기·학기말 정리, 반별 잠금, 빠른 피드백 버튼
-import { CLASSES, TEACHER_CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
+import { CLASSES, TEACHER_CLASSES, TEST_CLASS, GRADE, IS_MAIN, clsName } from '../config.js';
 import { initUI, toast, esc } from '../ui.js';
 import {
   listClasses, listBoards, createBoards, updateBoard, deleteBoard, setLessonSims, setTodayBoard, cleanupPostPhotos,
-  listStudents, setRosterSize, updateStudent, issueCodes, resetCode,
+  listStudents, setRosterSize, updateStudent, issueCodes, resetCode, listSignup, setClassSignup,
   listPresets, addPreset, deletePreset, listNicknameRequests, decideNickname, listNicknames, setNickname, setClassLock,
   listPurchases, decidePurchase, listAvatarItems, updateAvatarItem, listShopItems, updateShopItem,
   getPointRules, savePointRules, getWorksheetRules, saveWorksheetRules, getWsFirstRules, saveWsFirstRules, getQuizRules, saveQuizRules, getQuizShowRules, saveQuizShowRules, getLevelThresholds, saveLevelThresholds, grantPoints, listGrants, getCoinStatus,
@@ -407,6 +407,62 @@ async function refreshStudents() {
   students = await listStudents();
   renderRoster();
   renderRosterSize();
+  refreshSignup();
+}
+
+/* ---------- 학번으로 첫 가입 (다른 선생님 사이트만) ---------- */
+let signupUntil = new Map(); // 반 → 열린 끝 시각(ms)
+
+async function refreshSignup() {
+  if (IS_MAIN) return;
+  try {
+    const rows = await listSignup();
+    signupUntil = new Map(rows.map((r) => [r.id, r.signup_until ? Date.parse(r.signup_until) : 0]));
+  } catch (err) {
+    console.error(err);
+  }
+  renderSignup();
+}
+
+function renderSignup() {
+  if (IS_MAIN) return;
+  const n = rosterClass;
+  const box = $('signup-box');
+  box.classList.toggle('hidden', !CLASSES.includes(n));
+  if (!CLASSES.includes(n)) return;
+  const open = (signupUntil.get(n) || 0) > Date.now();
+  const active = students.filter((s) => s.class_id === n && s.active);
+  const done = active.filter((s) => s.has_code).length;
+  $('signup-eg').textContent = `${GRADE}${String(n).padStart(2, '0')}01`;
+  $('signup-state').textContent = !active.length ? '명단을 먼저 만드세요 (반별 마지막 번호)'
+    : `${open ? '열림 · 오늘 밤 12시까지' : '닫힘'} · 가입 ${done} / ${active.length}명`;
+  const btn = $('signup-toggle');
+  btn.textContent = open ? '가입 닫기' : '가입 열기';
+  btn.className = `btn btn-small ${open ? 'btn-line' : 'btn-primary'}`;
+  btn.disabled = !active.length;
+}
+
+if (!IS_MAIN) {
+  // 가입이 열려 있고 이 칸이 보이는 동안 10초마다 가입 수를 다시 읽는다
+  setInterval(() => {
+    const panel = $('signup-box').closest('[data-panel]');
+    if (document.hidden || panel.classList.contains('hidden') || $('signup-box').classList.contains('hidden')) return;
+    if ((signupUntil.get(rosterClass) || 0) > Date.now()) refreshStudents().catch(() => {});
+  }, 10000);
+  $('signup-toggle').addEventListener('click', async (e) => {
+    const n = rosterClass;
+    const open = (signupUntil.get(n) || 0) > Date.now();
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      await setClassSignup(n, !open);
+      toast(`${clsName(n)}반 가입을 ${open ? '닫았어요' : '열었어요'}`, 'ok');
+      await refreshStudents();
+    } catch (err) {
+      toast(errMsg(err), 'error');
+      btn.disabled = false;
+    }
+  });
 }
 
 /* ---------- 반별 마지막 번호 ---------- */
@@ -460,6 +516,7 @@ $('roster-tabs').addEventListener('click', (e) => {
   if (!tab) return;
   rosterClass = Number(tab.dataset.tab);
   renderRoster();
+  renderSignup();
 });
 
 $('roster-list').addEventListener('click', async (e) => {

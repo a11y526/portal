@@ -157,7 +157,8 @@ $$;
 -- =========================================================
 -- 원래 사이트의 차시·수업자료 주소·보드·웹 학습지 받기 (2026-11-10)
 -- 원래 서버의 share_pull은 원래 선생님이 [승인]한 서버에만 답한다(학습지 정답이 공개 저장소에 들어가지 않게).
--- 10분마다 _share_tick: 받은 응답이 있으면 넣고, 승인 전이면 신청·받기를 다시 보내고, 승인된 뒤에는 하루 한 번(한국 시간 2:10 넘어서) 받는다.
+-- 10분마다 _share_tick: 받은 응답이 있으면 넣고, 승인 전이면 신청·받기를 다시 보낸다. 승인된 뒤에는 하루 세 번(한국 시간 새벽 2:10·
+--   오후 1시·오후 4시, 2026-11-10 사용자 결정) 지난번 버전을 보내 바뀌었을 때만 내용을 받는다. 거절되면 하루 한 번(2:10 넘어서) 다시 묻는다.
 -- 넣는 규칙: 차시는 없는 것만 새로(제목·순서·단원·차시 수), 이미 있는 차시는 빈 수업자료 주소·단원만 채움.
 --   보드는 수업자료 주소가 있는 차시 중 그 반에 보드가 하나도 없을 때만. 오늘 보드는 바꾸지 않는다.
 --   학습지는 원래 사이트에서 바뀐 것만(받은 updated_at을 share.applied에 적음). 칸 번호가 빠지거나 종류가 바뀌면,
@@ -311,7 +312,8 @@ begin
 
   update public.settings
   set value = jsonb_set(value, '{share}', sh || jsonb_build_object('status', 'approved', 'pulled_at', now(),
-                'applied', applied, 'held', held, 'quiz', quiz, 'error', null, 'last_ws', n_ws, 'last_qs', n_qs))
+                'applied', applied, 'held', held, 'quiz', quiz, 'error', null, 'last_ws', n_ws, 'last_qs', n_qs,
+                'version', d ->> 'version', 'checked_at', now()))
   where key = 'auto_update';
   return 'applied';
 end;
@@ -334,6 +336,7 @@ declare
   d     jsonb;
   hdr   jsonb;
   res   text := 'wait';
+  slot  timestamptz;
 begin
   select value into cfg from public.settings where key = 'auto_update';
   if cfg is null or not coalesce((cfg ->> 'on')::boolean, false) or coalesce(cfg ->> 'url', '') !~ '^https://[a-z0-9]{20}\.supabase\.co$' then
@@ -358,7 +361,9 @@ begin
       exception when others then
         d := null;
       end;
-      if code = 200 and d is not null and coalesce((d ->> 'ok')::boolean, false) then
+      if code = 200 and d is not null and coalesce((d ->> 'ok')::boolean, false) and coalesce((d ->> 'same')::boolean, false) then
+        sh := sh || jsonb_build_object('status', 'approved', 'error', null, 'checked_at', now());
+      elsif code = 200 and d is not null and coalesce((d ->> 'ok')::boolean, false) then
         update public.settings set value = jsonb_set(value, '{share}', sh) where key = 'auto_update';
         begin
           res := public._share_apply(d);
@@ -377,16 +382,27 @@ begin
     end if;
   end if;
 
-  -- 2) 새로 보낼지: 승인 전이면 10분마다, 승인·거절 뒤에는 하루 한 번(한국 시간 2:10 넘어서)
+  -- 2) 새로 보낼지: 승인 전은 10분마다, 승인 뒤는 한국 시간 2:10·13:00·16:00이 지날 때마다 한 번(버전만 묻고 바뀌었으면 받음),
+  --    거절 뒤에는 하루 한 번(한국 시간 2:10 넘어서)
   if exists (select 1 from public.auto_update_fetch where file = 'share:pull') then
     update public.settings set value = jsonb_set(value, '{share}', sh) where key = 'auto_update';
     return res;
   end if;
-  if sh ->> 'status' in ('approved', 'rejected') and coalesce((sh ->> 'sent_at')::timestamptz, 'epoch') > now() - interval '20 hours' then
+  if sh ->> 'status' = 'approved' then
+    select max(t) into slot from (
+      select ((now() at time zone 'Asia/Seoul')::date + x.dd + x.tt) at time zone 'Asia/Seoul' t
+      from (values (0, time '02:10'), (0, time '13:00'), (0, time '16:00'), (-1, time '16:00')) x(dd, tt)) y
+    where t <= now();
+    if coalesce((sh ->> 'sent_at')::timestamptz, 'epoch') >= slot then
+      update public.settings set value = jsonb_set(value, '{share}', sh) where key = 'auto_update';
+      return res;
+    end if;
+  end if;
+  if sh ->> 'status' = 'rejected' and coalesce((sh ->> 'sent_at')::timestamptz, 'epoch') > now() - interval '20 hours' then
     update public.settings set value = jsonb_set(value, '{share}', sh) where key = 'auto_update';
     return res;
   end if;
-  if sh ->> 'status' in ('approved', 'rejected') and ((now() at time zone 'Asia/Seoul')::time < time '02:10' or (now() at time zone 'Asia/Seoul')::time > time '07:00') then
+  if sh ->> 'status' = 'rejected' and ((now() at time zone 'Asia/Seoul')::time < time '02:10' or (now() at time zone 'Asia/Seoul')::time > time '07:00') then
     update public.settings set value = jsonb_set(value, '{share}', sh) where key = 'auto_update';
     return res;
   end if;
@@ -398,8 +414,13 @@ begin
         'p_label', coalesce((select string_agg(x || '반', ' ') from jsonb_array_elements_text(cfg -> 'classes') x), '')),
       '{}'::jsonb, hdr, 30000);
   end if;
-  rid := net.http_post(src ->> 'url' || '/rest/v1/rpc/share_pull',
-    jsonb_build_object('p_url', cfg ->> 'url', 'p_key', sh ->> 'key'), '{}'::jsonb, hdr, 60000);
+  if sh ->> 'status' = 'approved' and coalesce(sh ->> 'version', '') <> '' then
+    rid := net.http_post(src ->> 'url' || '/rest/v1/rpc/share_since',
+      jsonb_build_object('p_url', cfg ->> 'url', 'p_key', sh ->> 'key', 'p_since', sh ->> 'version'), '{}'::jsonb, hdr, 60000);
+  else
+    rid := net.http_post(src ->> 'url' || '/rest/v1/rpc/share_pull',
+      jsonb_build_object('p_url', cfg ->> 'url', 'p_key', sh ->> 'key'), '{}'::jsonb, hdr, 60000);
+  end if;
   insert into public.auto_update_fetch (file, request_id, asked_at) values ('share:pull', rid, now())
   on conflict (file) do update set request_id = excluded.request_id, asked_at = excluded.asked_at;
   sh := sh || jsonb_build_object('sent_at', now());

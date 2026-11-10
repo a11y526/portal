@@ -60,6 +60,20 @@ end;
 $$;
 
 -- 받아 가기: 승인된 서버만. 차시(이 사이트 lessons/에 수업자료가 있는 차시는 파일 이름도)와 학습지, 퀴즈 쇼 세트
+-- 나눠 주는 내용의 버전(바뀌었는지만 가볍게 보기). 차시 줄·학습지 시각·퀴즈 세트 시각으로 만든 md5
+create or replace function public._share_version()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select md5(
+    coalesce((select string_agg(concat_ws('|', code, title, sort, unit, periods, lesson_src), ',' order by code) from public.lessons), '') || '#' ||
+    coalesce((select string_agg(lesson_code || '@' || updated_at::text, ',' order by lesson_code) from public.worksheets), '') || '#' ||
+    coalesce((select string_agg(id::text || '@' || updated_at::text, ',' order by id) from public.qs_sets), ''));
+$$;
+
 create or replace function public.share_pull(p_url text, p_key text)
 returns jsonb
 language plpgsql
@@ -69,6 +83,7 @@ set search_path = public, extensions
 as $$
 declare
   row public.share_peers;
+  ver text := public._share_version();
 begin
   select * into row from public.share_peers
   where url = p_url and key_hash = encode(digest(coalesce(p_key, ''), 'sha256'), 'hex');
@@ -80,7 +95,7 @@ begin
   end if;
   update public.share_peers set pulled_at = now() where id = row.id;
   return jsonb_build_object(
-    'ok', true,
+    'ok', true, 'version', ver,
     'lessons', coalesce((
       select jsonb_agg(jsonb_build_object(
         'code', l.code, 'title', l.title, 'sort', l.sort, 'unit', l.unit, 'periods', l.periods,
@@ -98,6 +113,25 @@ begin
         'updated_at', q.updated_at) order by q.created_at)
       from public.qs_sets q), '[]'::jsonb)
   );
+end;
+$$;
+
+-- 바뀌었는지 먼저 보기(그쪽 서버가 하루 세 번). p_since = 지난번에 받은 버전. 같으면 내용 없이 {ok, same: true}, 다르면 share_pull과 같음
+create or replace function public.share_since(p_url text, p_key text, p_since text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  ver text := public._share_version();
+begin
+  if p_since is not null and p_since = ver and exists (select 1 from public.share_peers
+      where url = p_url and status = 'approved' and key_hash = encode(digest(coalesce(p_key, ''), 'sha256'), 'hex')) then
+    return jsonb_build_object('ok', true, 'same', true, 'version', ver);
+  end if;
+  return public.share_pull(p_url, p_key);
 end;
 $$;
 
@@ -139,10 +173,13 @@ end;
 $$;
 
 revoke all on function public.share_hello(text, text, text) from public;
+revoke all on function public._share_version() from public, anon, authenticated;
 revoke all on function public.share_pull(text, text) from public;
+revoke all on function public.share_since(text, text, text) from public;
 revoke all on function public.get_share_peers() from public, anon;
 revoke all on function public.decide_share_peer(uuid, text) from public, anon;
 grant execute on function public.share_hello(text, text, text) to anon, authenticated;
 grant execute on function public.share_pull(text, text) to anon, authenticated;
+grant execute on function public.share_since(text, text, text) to anon, authenticated;
 grant execute on function public.get_share_peers() to authenticated;
 grant execute on function public.decide_share_peer(uuid, text) to authenticated;

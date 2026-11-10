@@ -1173,7 +1173,8 @@ const UPTO_POLL_MS = 1000;
 
 /* 학습지 수업 따라가기 (2026-11-05): 학생 학습지는 수업자료의 지금 쪽(boards.ws_now)으로 저절로 넘어가고,
    학생이 앞뒤로 넘기지 못한다. 수업자료가 마지막 쪽에 5초 머물거나 W(모두 열기)를 누르면 수업 끝(set_ws_free, Shift+W로 되돌림):
-   모든 쪽이 열리고 학생이 마음대로 넘기며 덜 쓴 쪽을 쓴다. 같은 쪽에 0.6초 머물러야 보낸다(빨리 넘길 때 신호를 줄임) */
+   모든 쪽이 열리고 학생이 마음대로 넘기며 덜 쓴 쪽을 쓴다. 같은 쪽에 0.6초 머물러야 보낸다(빨리 넘길 때 신호를 줄임).
+   앞으로 가는 것만 따라간다(2026-11-11): 선생님이 이전 쪽으로 돌아가도 학생 학습지는 그대로(Shift+W로 되돌리면 다시 그 쪽부터) */
 const END_DWELL_MS = 5000;
 const follow = {
   sent: null,
@@ -1201,7 +1202,7 @@ const follow = {
     if (board) board.ws_free = false;
   },
   async send(slide) {
-    if (!board || slide === this.sent || this.ended) return;
+    if (!board || this.ended || (this.sent != null && slide <= this.sent)) return;
     try {
       await setBoardSlideNow(board.id, slide);
       this.sent = slide;

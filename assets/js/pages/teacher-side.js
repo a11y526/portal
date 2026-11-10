@@ -1,5 +1,7 @@
 // 관리 메뉴: 첫 화면 항목(#hub)을 그대로 읽어 만든다
 // 넓은 화면(961px 이상)은 위 메뉴(#topnav, 묶음 이름에 마우스를 올리면 항목 창), 좁은 화면은 ☰로 여는 서랍(#side)
+import { IS_MAIN } from '../config.js';
+
 const $ = (id) => document.getElementById(id);
 const root = document.documentElement;
 const WIDE = matchMedia('(min-width: 961px)');
@@ -29,7 +31,7 @@ function link(a, cls) {
 function initTop() {
   const top = $('topnav');
   top.innerHTML = `<a class="tn-brand" href="#">관리</a><nav class="tn-nav" aria-label="관리 메뉴"></nav>
-    <div class="tn-right"><a class="tn-ghost" href="check.html">검사 <span aria-hidden="true">↗</span></a>
+    <div class="tn-right">${IS_MAIN ? '' : '<a class="tn-ghost" href="guide.html" target="_blank" rel="noopener">안내 <span aria-hidden="true">↗</span></a>'}<a class="tn-ghost" href="check.html">검사 <span aria-hidden="true">↗</span></a>
       <button class="tn-ghost" type="button" data-logout>로그아웃</button>
       <a class="tn-pill" href="#lessons">수업 시작 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg></a></div>`;
   const nav = top.querySelector('.tn-nav');
@@ -87,6 +89,7 @@ export function initSide() {
       <button type="button" class="side-x" id="side-close" aria-label="사이드바 접기"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3.5" y="4.5" width="17" height="15" rx="3"/><path d="M9.5 4.5v15M15.5 10l-2 2 2 2"/></svg></button>
     </div>
     <nav class="side-nav" aria-label="관리 메뉴"></nav>
+    ${IS_MAIN ? '' : '<a class="side-link side-out" href="guide.html" target="_blank" rel="noopener"><i class="side-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5M12 8h.01"/></svg></i><span>안내</span></a>'}
     <button class="side-link side-out" type="button" data-logout><i class="side-ic" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 4.5h4.5v15H14M10 8l-4 4 4 4M6 12h10"/></svg></i><span>로그아웃</span></button>`;
   const nav = side.querySelector('.side-nav');
   side.querySelector('.side-home').addEventListener('click', () => root.classList.remove('side-drawer'));

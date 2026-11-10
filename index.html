@@ -48,9 +48,9 @@
     </div>
     <!-- 다른 선생님 사이트에서만(IS_MAIN이 아닐 때) 보인다 -->
     <div class="first-row rise hidden" style="--d:.18s" id="first-row">
-      <button type="button" class="btn btn-primary press" id="go-signup">처음 왔어요 · 학번으로 가입</button>
+      <button type="button" class="btn btn-primary press" id="go-signup">처음 가입</button>
       <a class="btn btn-line press" href="guide.html">사용 안내</a>
-      <button type="button" class="btn btn-line press" id="install-app">크롬에 바로가기</button>
+      <button type="button" class="btn btn-line press" id="install-app">바로가기 만들기</button>
     </div>
   </section>
 
@@ -62,26 +62,26 @@
         <input id="su-id" class="code-input" type="text" inputmode="numeric" pattern="[0-9]*" maxlength="5" placeholder="10101" required>
         <b class="su-who" id="su-who"></b>
       </label>
-      <label class="field"><span>내가 정할 코드 6자리</span>
+      <label class="field"><span>코드 6자리 (직접 정하기)</span>
         <input id="su-code" class="code-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="● ● ● ● ● ●" required>
       </label>
       <label class="field"><span>코드 한 번 더</span>
         <input id="su-code2" class="code-input" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="6" placeholder="● ● ● ● ● ●" required>
       </label>
-      <p class="su-note">코드는 다음부터 로그인할 때 써요. 친구에게 알려 주지 마세요.</p>
-      <button class="btn btn-primary btn-big press" type="submit">가입하기</button>
+      <p class="su-note">다음부터 로그인할 때 씀. 친구에게 알려 주지 않기</p>
+      <button class="btn btn-primary btn-big press" type="submit">가입</button>
       <button class="btn btn-line press" type="button" id="su-back">로그인으로</button>
     </form>
   </section>
 
   <!-- 가입 끝: 코드를 한 번 크게 보여 준다 -->
   <section class="login-view hidden" id="v-signed" aria-labelledby="signed-h">
-    <h1 class="main-title rise" id="signed-h">가입했어요</h1>
+    <h1 class="main-title rise" id="signed-h">가입 완료</h1>
     <div class="login-box glass-strong rise signed-box" style="--d:.06s">
       <span class="su-who" id="sd-who"></span>
       <span class="sd-label">내 코드</span>
       <b class="sd-code num" id="sd-code"></b>
-      <p class="su-note">공책에 적어 두세요. 다음부터는 반 · 번호 · 이 코드로 로그인해요.</p>
+      <p class="su-note">공책에 적어 두기. 다음부터 반, 번호, 이 코드로 로그인</p>
       <button class="btn btn-primary btn-big press" type="button" id="sd-go">들어가기</button>
     </div>
   </section>
@@ -140,15 +140,15 @@
 </main>
 <dialog class="sheet" id="install-dlg" aria-labelledby="install-h">
   <div class="card glass-strong">
-    <h2 id="install-h">크롬 새 탭에 바로가기</h2>
+    <h2 id="install-h">바로가기 만들기</h2>
     <ol>
-      <li>크롬에서 <b>새 탭</b>을 열어요 (Ctrl + T)</li>
-      <li>아래 동그라미 중 <b>[＋ 바로가기 추가]</b>를 눌러요</li>
-      <li>이름 <b>과학</b>, URL <b class="num" id="install-addr"></b></li>
-      <li><b>[완료]</b></li>
+      <li>크롬 새 탭 (Ctrl + T)</li>
+      <li>아래 동그라미 [＋ 바로가기 추가]</li>
+      <li>이름: 과학<br>URL: <b class="num" id="install-addr"></b></li>
+      <li>[완료]</li>
     </ol>
-    <p class="su-note">다음부터는 새 탭의 <b>과학</b>을 눌러 들어와요.</p>
-    <button class="btn btn-primary press" type="button" id="install-close">알겠어요</button>
+    <p class="su-note">다음부터 새 탭의 '과학'으로 들어옴</p>
+    <button class="btn btn-primary press" type="button" id="install-close">닫기</button>
   </div>
 </dialog>
 <script type="module" src="assets/js/pages/index.js"></script>

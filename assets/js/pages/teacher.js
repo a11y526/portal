@@ -434,8 +434,8 @@ function renderSignup() {
   const active = students.filter((s) => s.class_id === n && s.active);
   const done = active.filter((s) => s.has_code).length;
   $('signup-eg').textContent = `${GRADE}${String(n).padStart(2, '0')}01`;
-  $('signup-state').textContent = !active.length ? '명단을 먼저 만드세요 (반별 마지막 번호)'
-    : `${open ? '열림 · 오늘 밤 12시까지' : '닫힘'} · 가입 ${done} / ${active.length}명`;
+  $('signup-state').textContent = !active.length ? '명단 먼저 (반별 마지막 번호)'
+    : `${open ? '열림, 오늘 밤 12시까지' : '닫힘'} / 가입 ${done} / ${active.length}명`;
   const btn = $('signup-toggle');
   btn.textContent = open ? '가입 닫기' : '가입 열기';
   btn.className = `btn btn-small ${open ? 'btn-line' : 'btn-primary'}`;
@@ -456,7 +456,7 @@ if (!IS_MAIN) {
     btn.disabled = true;
     try {
       await setClassSignup(n, !open);
-      toast(`${clsName(n)}반 가입을 ${open ? '닫았어요' : '열었어요'}`, 'ok');
+      toast(`${clsName(n)}반 가입 ${open ? '닫힘' : '열림'}`, 'ok');
       await refreshStudents();
     } catch (err) {
       toast(errMsg(err), 'error');

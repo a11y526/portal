@@ -124,12 +124,12 @@ $('login-form').addEventListener('submit', async (e) => {
 /* ---------- 학번으로 첫 가입 (다른 선생님 사이트만) ----------
    학번 10701 = 1학년 7반 1번. 선생님이 [가입 열기]를 누른 반에서, 아직 코드가 없는 번호만 가입한다 */
 const SU_ERR = {
-  SIGNUP_CLOSED: '지금은 가입할 수 없어요. 선생님이 열어 주셔야 해요',
-  CLASS_LOCKED: '지금은 잠겨 있어요',
-  NO_STUDENT: '선생님 명단에 없는 번호예요. 선생님께 말해 주세요',
-  TAKEN: '이미 가입한 번호예요. 코드를 잊었으면 선생님께 말해 주세요',
-  WEAK: '너무 쉬운 코드예요. 다른 숫자로 정해 주세요',
-  BAD_CODE: '코드는 숫자 6자리예요',
+  SIGNUP_CLOSED: '가입 닫힘. 선생님께 말하기',
+  CLASS_LOCKED: '반이 잠겨 있음',
+  NO_STUDENT: '명단에 없는 번호. 선생님께 말하기',
+  TAKEN: '이미 가입한 번호. 코드를 잊었으면 선생님께',
+  WEAK: '너무 쉬운 코드. 다른 숫자로',
+  BAD_CODE: '코드는 숫자 6자리',
 };
 
 // '10701' → { cls: 7, num: 1 } · 맞지 않으면 null
@@ -158,7 +158,7 @@ function showWho() {
   const p = parseId(v);
   const el = $('su-who');
   el.classList.toggle('bad', v.length === 5 && !p);
-  el.textContent = p ? `${GRADE}학년 ${p.cls}반 ${p.num}번` : v.length === 5 ? '학번을 확인해 주세요' : '';
+  el.textContent = p ? `${GRADE}학년 ${p.cls}반 ${p.num}번` : v.length === 5 ? '학번 확인' : '';
 }
 
 if (!IS_MAIN && !TEST) {
@@ -170,10 +170,10 @@ if (!IS_MAIN && !TEST) {
     e.preventDefault();
     const p = parseId($('su-id').value.replace(/\D/g, ''));
     const code = $('su-code').value.replace(/\D/g, '');
-    if (!p) { toast('학번 5자리를 확인해 주세요', 'error'); return $('su-id').focus(); }
-    if (code.length !== 6) { toast('코드는 숫자 6자리예요', 'error'); return $('su-code').focus(); }
+    if (!p) { toast('학번 5자리 확인', 'error'); return $('su-id').focus(); }
+    if (code.length !== 6) { toast('코드는 숫자 6자리', 'error'); return $('su-code').focus(); }
     if (code !== $('su-code2').value.replace(/\D/g, '')) {
-      toast('두 코드가 달라요', 'error');
+      toast('두 코드가 다름', 'error');
       $('su-code2').value = '';
       return $('su-code2').focus();
     }
@@ -181,7 +181,7 @@ if (!IS_MAIN && !TEST) {
     btn.disabled = true;
     try {
       const res = await studentSignup(p.cls, p.num, code);
-      if (!res?.ok) return toast(SU_ERR[res?.error] || '가입하지 못했어요', 'error');
+      if (!res?.ok) return toast(SU_ERR[res?.error] || '가입 실패', 'error');
       store.set('lastClass', String(p.cls));
       store.set('num-' + p.cls, String(p.num));
       saveLogin(res);
@@ -194,7 +194,7 @@ if (!IS_MAIN && !TEST) {
       prepareDraw($('v-signed'));
     } catch (err) {
       console.error(err);
-      toast('가입하지 못했어요. 다시 눌러 주세요', 'error');
+      toast('가입 실패. 다시 누르기', 'error');
     } finally {
       btn.disabled = false;
     }

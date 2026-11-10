@@ -3338,3 +3338,10 @@ html.tch .qse-body .nd-views { border-bottom: 0; gap: 4px; }
 html.tch .qse-body .nd-views .nd-view { height: 36px; padding: 0 16px; border: 0; border-radius: 999px; background: var(--t-pill); color: var(--ink-2); }
 html.tch .qse-body .nd-views .nd-view.on { background: #0D0D0D; color: #fff; }
 html.tch .qse-side .btn-line { background: #fff; } html.tch .qse-side .btn-line:hover { background: #EDEDED; }
+
+/* 관리 '다른 선생님 서버'(2026-11-10) */
+.share-list { display: flex; flex-direction: column; gap: 10px; }
+.share-row { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; background: #fff; border-radius: 18px; padding: 14px 16px; }
+.share-main { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; min-width: 0; }
+.share-main .muted { flex-basis: 100%; font-size: 13px; overflow-wrap: anywhere; }
+.tag-wait { background: var(--pending-bg, rgba(255,196,77,.22)); color: var(--pending-fg, #8A5300); }

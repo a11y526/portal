@@ -213,6 +213,7 @@ update public.students set code_hash = extensions.crypt('$code', extensions.gen_
 delete from public.student_sessions where student_id in (select id from public.students where number = 0 or class_id = 20);
 insert into public.settings (key, value) values ('auto_update', '$cfg'::jsonb)
 on conflict (key) do update set value = public.settings.value || excluded.value;
+select public._share_tick();
 "@ '체험 코드·자동 업데이트 설정'
 $st = @(RunSql 'select public.setup_status() as s;' '설치 확인')
 Say ("  설치됨: " + (($st[0].s.classes | ForEach-Object { "$($_)반" }) -join ', ')) Green

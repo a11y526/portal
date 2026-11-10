@@ -689,6 +689,9 @@ export async function getCoinStatus(classId = null) {
 /* ---------- 교사: 학습지 AI 채점 (2026-10-24) ---------- */
 
 // { conf: {on, model, batch, wait, url}, state: {calls, day, cooldown_until, last_error, last_ok_at…}, today, waiting, cron, lessons: [{code, title, fields, cached}] }
+export async function getSharePeers() { return unwrap(await need().rpc('get_share_peers')).peers; } // nogame
+export async function decideSharePeer(id, status) { return unwrap(await need().rpc('decide_share_peer', { p_id: id, p_status: status })); } // nogame
+
 export async function getAiAdmin() {
   return unwrap(await need().rpc('get_ai_admin'));
 }

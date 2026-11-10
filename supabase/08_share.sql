@@ -1,6 +1,6 @@
 -- =========================================================
 -- 08_share.sql — 원래 사이트(a11y526/portal) 서버에서만 실행한다. 복사한 사이트에는 들어가지 않는다(build-nogame DROP).
--- 다른 선생님 서버가 매일 새벽 이 서버에서 차시 목록·웹 학습지(정답 포함)를 받아 간다(그쪽은 06_auto_update.sql).
+-- 다른 선생님 서버가 매일 새벽 이 서버에서 차시 목록·웹 학습지(정답 포함)·퀴즈 쇼 세트를 받아 간다(그쪽은 06_auto_update.sql).
 -- 정답이 공개 저장소에 들어가지 않게, 선생님이 관리 '다른 선생님 서버'에서 [승인]한 서버만 받는다.
 --   ① 그쪽 서버가 무작위 열쇠(64자)를 만들어 share_hello(자기 주소, 열쇠)로 신청 → 여기는 열쇠의 sha256만 적음
 --   ② 선생님이 승인 → ③ 그쪽 서버가 share_pull(주소, 열쇠)로 받아 감. 열쇠는 그쪽 서버의 settings에만 있다
@@ -59,7 +59,7 @@ begin
 end;
 $$;
 
--- 받아 가기: 승인된 서버만. 차시(이 사이트 lessons/에 수업자료가 있는 차시는 파일 이름도)와 학습지
+-- 받아 가기: 승인된 서버만. 차시(이 사이트 lessons/에 수업자료가 있는 차시는 파일 이름도)와 학습지, 퀴즈 쇼 세트
 create or replace function public.share_pull(p_url text, p_key text)
 returns jsonb
 language plpgsql
@@ -90,7 +90,13 @@ begin
       select jsonb_agg(jsonb_build_object(
         'lesson_code', w.lesson_code, 'title', w.title, 'pages', w.pages, 'key', w.key,
         'page_count', w.page_count, 'field_count', w.field_count, 'updated_at', w.updated_at) order by w.lesson_code)
-      from public.worksheets w), '[]'::jsonb)
+      from public.worksheets w), '[]'::jsonb),
+    -- 퀴즈 쇼 세트(2026-11-10). 그림은 이 서버 'quizshow' 버킷 경로(공개 읽기) → 받는 쪽이 전체 주소로 바꿈
+    'quiz_sets', coalesce((
+      select jsonb_agg(jsonb_build_object(
+        'id', q.id, 'title', q.title, 'description', q.description, 'questions', q.questions,
+        'updated_at', q.updated_at) order by q.created_at)
+      from public.qs_sets q), '[]'::jsonb)
   );
 end;
 $$;

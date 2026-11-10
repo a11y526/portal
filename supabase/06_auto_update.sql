@@ -162,7 +162,9 @@ $$;
 --   보드는 수업자료 주소가 있는 차시 중 그 반에 보드가 하나도 없을 때만. 오늘 보드는 바꾸지 않는다.
 --   학습지는 원래 사이트에서 바뀐 것만(받은 updated_at을 share.applied에 적음). 칸 번호가 빠지거나 종류가 바뀌면,
 --   또는 이미 쓰는 학생이 있는데 정답이 바뀌면 넣지 않고 share.held에 적는다(이 서버 학습지는 그대로).
--- 설정: settings.auto_update.share = {key, status, sent_at, pulled_at, applied:{차시: updated_at}, held:{차시: 까닭}, error}
+--   퀴즈 쇼 세트(2026-11-10)는 같은 id로 넣는다. 원래 쪽이 바뀌면 덮어쓰되, 이 서버에서 고쳤거나 지운 세트는 건드리지 않는다
+--   (share.quiz = {세트 id: {src: 원래 updated_at, local: 넣은 뒤 이 서버 updated_at}}). 그림은 원래 서버 공개 주소로.
+-- 설정: settings.auto_update.share = {key, status, sent_at, pulled_at, applied:{차시: updated_at}, held:{차시: 까닭}, quiz, error}
 -- =========================================================
 
 -- 원래 서버 주소·공개 키. 설치·자동 업데이트가 원래 주소를 이 서버 주소로 바꿔 쓰므로 주소를 나눠 적는다
@@ -173,6 +175,25 @@ immutable
 as $$
   select jsonb_build_object('url', 'https://' || 'sxejmhkevefwnpwldczt' || '.supabase.co',
                             'anon', 'sb_publishable_gdlN0VcGUXOPkXLSqfJn0Q_VYES-EwK');
+$$;
+
+-- 퀴즈 쇼 문제의 그림 경로(버킷 안 경로) → 원래 서버 공개 주소. 이미 https 주소면 그대로
+create or replace function public._share_qs_img(qs jsonb, base text)
+returns jsonb
+language sql
+immutable
+as $$
+  select coalesce(jsonb_agg(
+    case when jsonb_typeof(q) <> 'object' then q else
+      (q || case when coalesce(q ->> 'image', '') <> '' and q ->> 'image' !~ '^https://'
+                 then jsonb_build_object('image', base || (q ->> 'image')) else '{}'::jsonb end)
+      || case when jsonb_typeof(q -> 'options') = 'array' then jsonb_build_object('options', (
+           select coalesce(jsonb_agg(
+             case when jsonb_typeof(o) = 'object' and coalesce(o ->> 'image', '') <> '' and o ->> 'image' !~ '^https://'
+                  then o || jsonb_build_object('image', base || (o ->> 'image')) else o end order by n), '[]'::jsonb)
+           from jsonb_array_elements(q -> 'options') with ordinality x(o, n))) else '{}'::jsonb end
+    end order by i), '[]'::jsonb)
+  from jsonb_array_elements(case when jsonb_typeof(qs) = 'array' then qs else '[]'::jsonb end) with ordinality t(q, i);
 $$;
 
 create or replace function public._share_apply(d jsonb)
@@ -192,6 +213,13 @@ declare
   started int;
   n_ws    int := 0;
   has_old boolean;
+  quiz    jsonb := coalesce(sh -> 'quiz', '{}'::jsonb);
+  qz      jsonb;
+  mine    jsonb;
+  cur_at  timestamptz;
+  new_at  timestamptz;
+  n_qs    int := 0;
+  img     text := (public._share_source() ->> 'url') || '/storage/v1/object/public/quizshow/';
 begin
   -- 차시
   insert into public.lessons (code, title, lesson_src, sort, unit, periods)
@@ -255,9 +283,35 @@ begin
     applied := applied || jsonb_build_object(w ->> 'lesson_code', w ->> 'updated_at');
   end loop;
 
+  -- 퀴즈 쇼 세트
+  for qz in select * from jsonb_array_elements(coalesce(d -> 'quiz_sets', '[]'::jsonb)) loop
+    continue when coalesce(qz ->> 'id', '') !~ '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$';
+    continue when jsonb_typeof(qz -> 'questions') is distinct from 'array';
+    mine := quiz -> (qz ->> 'id');
+    continue when mine ->> 'src' is not distinct from (qz ->> 'updated_at');
+    select updated_at into cur_at from public.qs_sets where id = (qz ->> 'id')::uuid;
+    if mine is null then
+      continue when found;  -- 같은 id가 이미 있음(받은 적 없는데) → 건드리지 않음
+      insert into public.qs_sets (id, title, description, questions, updated_at)
+      values ((qz ->> 'id')::uuid, left(coalesce(qz ->> 'title', ''), 80), left(coalesce(qz ->> 'description', ''), 500),
+              public._share_qs_img(qz -> 'questions', img), now())
+      returning updated_at into new_at;
+    else
+      continue when not found;  -- 이 서버에서 지운 세트
+      continue when to_jsonb(cur_at) is distinct from (mine -> 'local');  -- 이 서버에서 고친 세트
+      update public.qs_sets
+      set title = left(coalesce(qz ->> 'title', ''), 80), description = left(coalesce(qz ->> 'description', ''), 500),
+          questions = public._share_qs_img(qz -> 'questions', img), updated_at = now()
+      where id = (qz ->> 'id')::uuid
+      returning updated_at into new_at;
+    end if;
+    quiz := quiz || jsonb_build_object(qz ->> 'id', jsonb_build_object('src', qz ->> 'updated_at', 'local', to_jsonb(new_at)));
+    n_qs := n_qs + 1;
+  end loop;
+
   update public.settings
   set value = jsonb_set(value, '{share}', sh || jsonb_build_object('status', 'approved', 'pulled_at', now(),
-                'applied', applied, 'held', held, 'error', null, 'last_ws', n_ws))
+                'applied', applied, 'held', held, 'quiz', quiz, 'error', null, 'last_ws', n_ws, 'last_qs', n_qs))
   where key = 'auto_update';
   return 'applied';
 end;
@@ -356,6 +410,7 @@ $$;
 
 revoke all on function public._share_source() from public, anon, authenticated;
 revoke all on function public._share_apply(jsonb) from public, anon, authenticated;
+revoke all on function public._share_qs_img(jsonb, text) from public, anon, authenticated;
 revoke all on function public._share_tick() from public, anon, authenticated;
 
 do $$

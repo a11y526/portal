@@ -204,6 +204,12 @@ return {WS:WS,RED:RED,tell:tell,how:how,panel:panel,toast:toast,el:el,T:T,pt:pt,
 .quiz.ok .r{color:#0F8A5F}
 .quiz.bad .r{color:#A23B0B}
 .quiz.locked{opacity:.45}
+.subq{display:flex;flex-direction:column;gap:6px;margin-top:auto}
+.subq button{background:#0D0D0D;color:#fff;font-size:17px;min-height:46px;border-radius:999px;border:0;font-weight:800;cursor:pointer}
+.subq button.locked{background:#ECECEC;color:#8A8A8A}
+.subq button.shake{animation:qshake .42s}
+.subq .msg{font-size:14.5px;font-weight:700;color:#5D5D5D;text-align:center;min-height:21px}
+.subq .msg.ok{color:#0F8A5F}.subq .msg.bad{color:#A23B0B}
 .quiz.shake{animation:qshake .42s}
 #qtitle{font-size:14px;font-weight:800;color:#5D5D5D;margin:4px 2px 0}
 .seg2{display:inline-flex;gap:4px;background:#F0F0F0;border-radius:999px;padding:3px}
@@ -283,6 +289,7 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
     <p id="qtitle">③ 맞혀 보기 · 어느 방향으로 돌고 있을까?</p>
     <div id="quizzes"></div>
     <div class="card off" id="c4"><small>④ 보는 위치를 바꾸면</small>같은 회전도 <b>위에서 ↻</b>이면 <b>아래에서는 ↺</b>로 보여요. <b>앞에서</b> 보면 빙글빙글 대신 <b>왼쪽 ↔ 오른쪽</b>으로 지나가요.</div>
+    <div class="subq"><button type="button" id="subBtn" class="locked">제출</button><div class="msg" id="subMsg">①~④를 다 하면 [제출]할 수 있어요</div></div>
   </aside>
 </div>
 <script>
@@ -369,7 +376,19 @@ function check(d){
   if(H.is(2)&&!H.is(3)&&frontDeg>=120&&belowDeg>=200){H.done(3);on('c4');finish();}
   status();}
 function on(id){const c=document.getElementById(id);c.classList.remove('off');c.classList.add('ok');}
-function finish(){if(finished)return;finished=true;Q.tell({type:'sim:done'});Q.toast('다 했어요! 위에서 ↻는 아래에서 ↺');}
+function finish(){if(finished)return;finished=true;subBtn.classList.remove('locked');subMsg.className='msg';subMsg.textContent='이제 [제출]을 눌러 학습지로 보내요';Q.toast('다 했어요! 위에서 ↻는 아래에서 ↺ · 이제 [제출]');}
+const subBtn=document.getElementById('subBtn'),subMsg=document.getElementById('subMsg');
+subBtn.onclick=()=>{subBtn.blur();
+  if(!finished){subBtn.classList.remove('shake');void subBtn.offsetWidth;subBtn.classList.add('shake');
+    const k=H.first();Q.toast('🔒 아직 제출할 수 없어요 · 먼저 <b>'+['①','②','③','④'][k]+'</b>부터 해 보세요',3000);
+    const hs=document.querySelectorAll('#how span');if(hs[k]){hs[k].classList.remove('flash');void hs[k].offsetWidth;hs[k].classList.add('flash');}
+    subMsg.className='msg bad';subMsg.textContent='먼저 '+['①','②','③','④'][k]+'부터 해 보세요';return;}
+  QZ.forEach((q,i)=>Q.tell({type:'sim:answer',n:i+1,value:q.d===1?'시계 방향':'시계 반대 방향'}));Q.tell({type:'sim:done'});
+  subMsg.className='msg ok';subMsg.textContent=window.parent!==window?'학습지로 보냈어요':'제출했어요';};
+addEventListener('message',e=>{const r=e.data;if(e.source!==window.parent||!r||r.type!=='sim:result')return;
+  if(r.ok){subMsg.className='msg ok';subMsg.textContent='맞았어요! 학습지에 제출했어요';}
+  else if(r.checking&&r.checking.length){subMsg.className='msg';subMsg.textContent='답을 확인하고 있어요';}
+  else{subMsg.className='msg bad';subMsg.textContent='학습지의 다른 칸을 확인해 보세요';}});
 function status(){let t;
   if(!H.is(0))t=dir>0?'빨간 점이 12 → 1 → 2 → 3 …으로 가요. 한 바퀴 지켜봐요':'[↻ 시계 방향으로 돌리기]를 눌러 보세요';
   else if(!H.is(1))t=dir<0?'이번에는 12 → 11 → 10 → 9 …으로 가요':'이제 [↺ 시계 반대 방향으로 돌리기]를 눌러 보세요';

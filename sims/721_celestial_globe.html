@@ -291,7 +291,7 @@ CONS.forEach(k=>{const g=el('g',{},svg);let d='';
 /* 관측자가 볼 수 있는 하늘(지평선 위쪽 반) */
 const vis=el('path',{fill:'rgba(255,255,255,.07)'},svg);
 const earth=el('g',{style:'cursor:grab'},svg);
-el('circle',{cx:C[0],cy:C[1],r:RE+26,fill:'rgba(0,0,0,0)'},earth);
+el('circle',{cx:C[0],cy:C[1],r:RS+14,fill:'rgba(0,0,0,0)'},earth); /* 터치로도 잘 돌게: 투명한 구 어디를 끌어도 지구가 돈다 */
 el('circle',{cx:C[0],cy:C[1],r:RE,fill:'#2C6FB5',stroke:'#9CC8F0','stroke-width':2},earth);
 const spin=el('g',{},earth);
 [[[60,.4],[110,.42],[150,.55],[130,.85],[80,.82]],[[210,.5],[270,.5],[290,.8],[230,.85]],[[330,.45],[20,.55],[10,.85],[330,.82]]].forEach(poly=>{
@@ -300,9 +300,9 @@ const me=el('g',{},spin);
 el('circle',{cx:C[0],cy:C[1]-RE,r:9,fill:'#D70015',stroke:'#fff','stroke-width':2.5},me);
 el('line',{x1:C[0],y1:C[1]-RE-10,x2:C[0],y2:C[1]-RE-30,stroke:'#fff','stroke-width':3},me);
 T(me,C[0]+12,C[1]-RE+22,'우리나라',{'font-size':13,fill:'#fff'});
-el('circle',{cx:C[0],cy:C[1],r:4,fill:'#FFD60A'},svg);
-const aE=el('path',{d:arcD(RE+16,200,330),fill:'none',stroke:'#5AB0FF','stroke-width':5,'marker-end':'url(#ah)',opacity:.9},svg);
-T(svg,C[0],C[1]+RE+40,'지구: 시계 반대 방향',{'text-anchor':'middle','font-size':15,fill:'#8CC4FF'});
+el('circle',{cx:C[0],cy:C[1],r:4,fill:'#FFD60A','pointer-events':'none'},svg);
+const aE=el('path',{d:arcD(RE+16,200,330),fill:'none',stroke:'#5AB0FF','stroke-width':5,'marker-end':'url(#ah)',opacity:.9,'pointer-events':'none'},svg);
+T(svg,C[0],C[1]+RE+40,'지구: 시계 반대 방향',{'text-anchor':'middle','font-size':15,fill:'#8CC4FF','pointer-events':'none'});
 function arcD(r,a,b){const p=t=>[C[0]+r*Math.cos(t*Math.PI/180),C[1]-r*Math.sin(t*Math.PI/180)];const [x0,y0]=p(a),[x1,y1]=p(b);return `M${x0} ${y0} A${r} ${r} 0 0 0 ${x1} ${y1}`;}
 const hint=T(svg,C[0],C[1]+26,'끌어서 돌리기',{'text-anchor':'middle','font-size':14,fill:'#fff','pointer-events':'none'});
 /* ---- 오른쪽: 우리나라 관측자가 남쪽 하늘을 볼 때 ---- */
@@ -341,9 +341,11 @@ function draw(){
   if(net>=360&&H.is(0)&&!H.is(1)){H.done(1);P.open(1);P.open(2);cw.setAttribute('opacity',1);}
   hint.setAttribute('opacity',net>15?0:1);}
 let la=null;
-Q.drag(svg,earth,p=>{const a=Math.atan2(C[1]-p.y,p.x-C[0])*180/Math.PI;if(la===null){la=a;return;}const d=dAng(a,la);la=a;
+let lastWarn=0;
+Q.drag(svg,earth,p=>{const dx=p.x-C[0],dy=C[1]-p.y;if(dx*dx+dy*dy<28*28){la=null;return;} /* 가운데 가까이는 각도가 튀니 세지 않는다 */
+  const a=Math.atan2(dy,dx)*180/Math.PI;if(la===null){la=a;return;}let d=dAng(a,la);la=a;d=Math.max(-40,Math.min(40,d));
   /* 지구는 시계 반대 방향(각도가 커지는 쪽)으로만 돈다. 거꾸로 끌면 멈춰 있고, 다시 앞으로 끌면 그 자리에서 이어서 돈다 */
-  if(d<0){if(d<-.5)Q.toast('지구는 <b>시계 반대 방향</b>으로만 돌아요');return;}
+  if(d<0){const t=performance.now();if(d<-2&&t-lastWarn>1500){lastWarn=t;Q.toast('지구는 <b>시계 반대 방향</b>으로만 돌아요');}return;}
   phi+=d;net+=d;draw();},
   ()=>{if(!H.is(0)){Q.toast('①부터 해 보세요');return false;}la=null;},()=>{la=null;});
 document.getElementById('rs').onclick=e=>{e.target.blur();phi=90;SV.forEach(o=>o.hist=[]);draw();};

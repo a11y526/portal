@@ -2925,6 +2925,8 @@ html.stu :is(.input, .code-input) { background: #fff; border: 1px solid var(--s-
 html.stu :is(.input, .code-input, .qb-blank-in):focus { outline: none; border-color: #0D0D0D; }
 html.stu :is(.glass, .glass-strong) :is(.input, .code-input) { border-color: transparent; }
 html.stu :is(.glass, .glass-strong) :is(.input, .code-input):focus { border-color: #0D0D0D; }
+/* 학습지 표 안 빈칸(2026-11-11): 표도 칸도 흰색이라 묻혀서, 표 안 칸은 연회색으로 채운다(채점 표시 칸은 그대로) */
+html.stu .ws-page td .ws-in:not(.is-wrong):not(.is-empty):not(.is-checking), html.stu .ws-page td .ws-in[disabled]:not(.is-wrong):not(.is-empty):not(.is-checking) { background: #EDEDED; }
 
 /* 탭: 알약, 고른 것만 검정 */
 html.stu .class-tabs { background: var(--s-pill); }

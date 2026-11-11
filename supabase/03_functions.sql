@@ -2539,8 +2539,8 @@ as $$
   select z.id, z.page,
          (row_number() over (partition by z.page order by
             z.late,
-            case when z.late then 0 else z.prior end,
-            case when z.late then 0 else z.shown end,
+            -- 이번 달 인정 + 이 보드에서 뜬 횟수(넘김 포함)를 더해 적은 학생 먼저(2026-11-11): 넘기기만 받은 학생이 쪽마다 맨 앞에 서지 않게
+            case when z.late then 0 else z.prior + z.shown end,
             case when z.late then extract(epoch from z.created_at)::double precision else z.lot end,
             z.id))::int,
          z.late

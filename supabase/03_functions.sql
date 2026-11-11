@@ -2595,7 +2595,7 @@ security definer
 set search_path = public
 as $$
 begin
-  if exists (select 1 from public.students where id = p_sid and number = 0) then
+  if exists (select 1 from public.students where id = p_sid and number = 0 and class_id <> 20) then  -- test반 0번은 줄에 넣음(시험용)
     return;
   end if;
   -- 이미 줄에 있으면(다시 제출) 잠금 없이 끝 (2026-10-27 렉: 다시 제출도 잠금 앞에 줄을 섰음)
@@ -3006,11 +3006,11 @@ begin
     raise exception 'NOT_FOUND';
   end if;
   select count(*)::int into v_done
-  from public.worksheet_answers a join public.students s on s.id = a.student_id and s.number > 0
+  from public.worksheet_answers a join public.students s on s.id = a.student_id and (s.number > 0 or s.class_id = 20)  -- test반은 0번도 셈
   where a.board_id = b.id and a.done_at is not null;
   select count(*)::int into v_total from public.board_groups where board_id = b.id;
   if v_total = 0 then
-    select count(*)::int into v_total from public.students where class_id = b.class_id and active and number > 0;
+    select count(*)::int into v_total from public.students where class_id = b.class_id and active and (number > 0 or class_id = 20);
   end if;
   return jsonb_build_object(
     'has_sheet', exists (select 1 from public.worksheets where lesson_code = b.lesson_code),

@@ -5,6 +5,10 @@
 --   ① 그쪽 서버가 무작위 열쇠(64자)를 만들어 share_hello(자기 주소, 열쇠)로 신청 → 여기는 열쇠의 sha256만 적음
 --   ② 선생님이 승인 → ③ 그쪽 서버가 share_pull(주소, 열쇠)로 받아 감. 열쇠는 그쪽 서버의 settings에만 있다
 -- 다시 실행해도 된다.
+-- 2026-11-11 사용자 결정: 학습 자료는 따로 사이트에서 나누기로 해서 자동 나눠 주기를 멈춘다.
+--   settings 'share_out' = {"on": true}일 때만 내용을 준다(줄이 없으면 멈춤). 멈춘 동안 승인된 서버에는 '바뀐 것 없음'으로만 답해서
+--   그쪽 서버는 아무것도 넣지 않고, 이미 받아 간 것은 그대로 남는다. 다시 켜기: insert into public.settings (key, value)
+--   values ('share_out', '{"on": true}') on conflict (key) do update set value = excluded.value;
 -- =========================================================
 
 create table if not exists public.share_peers (
@@ -59,6 +63,17 @@ begin
 end;
 $$;
 
+-- 자동 나눠 주기가 켜져 있는지(기본은 꺼짐)
+create or replace function public._share_out_on()
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+as $$
+  select coalesce((select (value ->> 'on')::boolean from public.settings where key = 'share_out'), false);
+$$;
+
 -- 받아 가기: 승인된 서버만. 차시(이 사이트 lessons/에 수업자료가 있는 차시는 파일 이름도)와 학습지, 퀴즈 쇼 세트
 -- 나눠 주는 내용의 버전(바뀌었는지만 가볍게 보기). 차시 줄·학습지 시각·퀴즈 세트 시각으로 만든 md5
 create or replace function public._share_version()
@@ -92,6 +107,10 @@ begin
   end if;
   if row.status <> 'approved' then
     return jsonb_build_object('ok', false, 'error', upper(row.status));
+  end if;
+  if not public._share_out_on() then
+    -- 멈춤: 빈 내용(그쪽 _share_apply가 아무것도 넣지 않음). 버전을 비워 두어 다시 켜면 처음부터 받아 가게 한다
+    return jsonb_build_object('ok', true, 'version', '', 'lessons', '[]'::jsonb, 'worksheets', '[]'::jsonb, 'quiz_sets', '[]'::jsonb);
   end if;
   update public.share_peers set pulled_at = now() where id = row.id;
   return jsonb_build_object(
@@ -127,6 +146,11 @@ as $$
 declare
   ver text := public._share_version();
 begin
+  -- 멈춤: 승인된 서버에는 지난번 버전 그대로 '같음'이라고만 답한다
+  if not public._share_out_on() and coalesce(p_since, '') <> '' and exists (select 1 from public.share_peers
+      where url = p_url and status = 'approved' and key_hash = encode(digest(coalesce(p_key, ''), 'sha256'), 'hex')) then
+    return jsonb_build_object('ok', true, 'same', true, 'version', p_since);
+  end if;
   if p_since is not null and p_since = ver and exists (select 1 from public.share_peers
       where url = p_url and status = 'approved' and key_hash = encode(digest(coalesce(p_key, ''), 'sha256'), 'hex')) then
     return jsonb_build_object('ok', true, 'same', true, 'version', ver);
@@ -174,6 +198,7 @@ $$;
 
 revoke all on function public.share_hello(text, text, text) from public;
 revoke all on function public._share_version() from public, anon, authenticated;
+revoke all on function public._share_out_on() from public, anon, authenticated;
 revoke all on function public.share_pull(text, text) from public;
 revoke all on function public.share_since(text, text, text) from public;
 revoke all on function public.get_share_peers() from public, anon;

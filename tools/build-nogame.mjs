@@ -3,6 +3,8 @@
 // - 게임 화면·엔진·그림과 이 사이트에만 쓰는 파일은 빼고(DROP)
 // - HTML <!-- nogame:start --> … <!-- nogame:end -->, JS /* nogame:start */ … /* nogame:end */ 사이와 '// nogame'으로 끝나는 줄을 지우고
 // - SQL은 게임 표·함수·설정 이름이 든 문장을 통째로 뺀다(classes.omok_open 열은 남김: 반 목록이 읽음)
+// - 수업자료·시뮬레이션(lessons/, sims/)은 넘기지 않는다(2026-11-11 사용자 결정: 학습 자료는 따로 사이트에서 나눈다).
+//   내보낼 폴더에 이미 있는 lessons/·sims/는 손대지 않고 그대로 둔다. 다시 넘기려면 아래 KEEP을 비운다
 // 끝나면 남은 게임 이름·없는 import·문법 오류를 검사해서 하나라도 있으면 실패한다.
 import { execFileSync } from 'node:child_process';
 import { existsSync, mkdirSync, readFileSync, readdirSync, rmSync, writeFileSync, copyFileSync } from 'node:fs';
@@ -16,7 +18,7 @@ if (!process.argv[2] || OUT === ROOT) throw new Error('내보낼 폴더를 주�
 const REPO = 'science-portal';
 
 const DROP = [
-  /^games\.html$/, /^omok(-online|-rank)?\.html$/, /^othello\.html$/, /^quoridor\.html$/, /^rummikub\.html$/, /^yut\.html$/, /^rpg-moon\.html$/,
+  /^games\.html$/, /^game-report\.html$/, /^omok(-online|-rank)?\.html$/, /^othello\.html$/, /^quoridor\.html$/, /^rummikub\.html$/, /^yut\.html$/, /^rpg-moon\.html$/,
   /^assets\/js\/(omok|omok-rank-view|othello|quoridor|rummikub|yut|rpg-moon|rpg-moon-data)\.js$/,
   /^assets\/js\/pages\/(games|omok|omok-online|omok-rank|othello|quoridor|rummikub|yut)\.js$/,
   /^assets\/img\/rpg\//, /^sims\/712_moon_rpg\.html$/,
@@ -26,13 +28,15 @@ const DROP = [
   // 웹 설치 화면·중계는 원래 사이트(a11y526.github.io/portal/install/)에서만 돈다
   /^install\/(index\.html|install\.js|config\.js)$/, /^supabase\/functions\/setup-relay\//,
 ];
+// 넘기지 않고, 내보낼 폴더에 있는 것을 그대로 두는 폴더
+const KEEP = ['lessons', 'sims'];
 const GAME_SQL = /\b(public\.)?(_?omok_(?!open)\w*|get_omok\w*|start_omok|submit_omok|_?om_\w+|_?ot_\w+|_?rk_\w+|_?qd_\w+|_?yt_\w+|_?moon_rpg\w*|get_moon_rpg_class)\b|'(omok|omok_pvp|rummikub|quoridor|othello|yut|moon_rpg|game_xp_off)'/;
 // 사본에 남으면 안 되는 이름(화면·스크립트). CSS는 퀴즈 화면이 오목 칸 모양(.omok-*)을 같이 써서 검사에서 뺀다
 const LEFTOVER = /games\.html|omok\.html|omok-online|omok-rank|othello|quoridor|rummikub|yut\.|yut\.html|rpg-moon|moon_rpg|moonRpg|MoonRpg|getOmok|setOmokOpen|OmokRules|오목|오델로|루미큐브|쿼리도|윷놀이|달 자원 RPG/;
 
 // 커밋된 파일만 쓴다(HEAD). 다른 창에서 고치는 중인 것이 다른 선생님 사이트·서버로 가지 않게
 const files = execFileSync('git', ['ls-tree', '-r', '-z', '--name-only', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean)
-  .filter((f) => !DROP.some((re) => re.test(f)));
+  .filter((f) => !DROP.some((re) => re.test(f)) && !KEEP.includes(f.split('/')[0]));
 // 설치·자동 업데이트 파일은 이 스크립트와 같이 고치므로 폴더의 지금 파일을 쓴다(아직 커밋 전이어도)
 const LOCAL = ['CLAUDE_INSTALL.md', 'supabase/06_auto_update.sql', 'install/설치.bat', 'install/install.ps1', 'install/sync-upstream.yml', 'install/README.md'];
 for (const f of LOCAL) {
@@ -73,7 +77,7 @@ function fixInstallDoc(text) {
 
 // 내보낼 폴더 비우기(.git은 남김)
 mkdirSync(OUT, { recursive: true });
-for (const e of readdirSync(OUT)) if (e !== '.git') rmSync(join(OUT, e), { recursive: true, force: true });
+for (const e of readdirSync(OUT)) if (e !== '.git' && !KEEP.includes(e)) rmSync(join(OUT, e), { recursive: true, force: true });
 
 let marked = 0;
 for (const f of files) {

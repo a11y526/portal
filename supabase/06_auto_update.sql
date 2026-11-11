@@ -1,6 +1,6 @@
 -- =========================================================
 -- 06_auto_update.sql — 복사한 사이트(다른 선생님) 서버의 자동 업데이트
--- 매일 새벽 2시(한국 시간) a11y526/science-portal의 01~04·06·07을 받아 두고, 2시 5분에 지난번과 다르면 다시 실행한다.
+-- 매일 새벽 2시(한국 시간) a11y526/science-portal의 01~04·06을 받아 두고, 2시 5분에 지난번과 다르면 다시 실행한다.
 -- 01~04는 다시 실행해도 안전하다(관리 화면에서 바꾼 값은 그대로). 실행은 한 번에: 중간에 오류가 나면 모두 되돌리고 오류만 적는다.
 -- 원래 사이트(a11y526/portal) 서버에서는 실행하지 않는다.
 -- 설정 settings.auto_update = {on, source(받을 주소, 끝에 /), url(이 서버 주소), classes(담당 반), md5, applied_at, checked_at, error}
@@ -22,7 +22,8 @@ returns text[]
 language sql
 immutable
 as $$
-  select array['01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql', '07_lessons.sql'];
+  -- 07_lessons.sql(차시·수업자료 주소·보드)은 설치 때 한 번만 넣고 새벽마다 다시 넣지 않는다(2026-11-11 사용자 결정: 학습 자료는 자동으로 넣지 않음)
+  select array['01_schema.sql', '02_policies.sql', '03_functions.sql', '04_seed.sql', '06_auto_update.sql'];
 $$;
 
 -- 1단계: 네 파일을 받아 달라고 요청만 한다(pg_net은 기다리지 않고 나중에 응답 표에 넣음)

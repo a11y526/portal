@@ -1,14 +1,14 @@
 // 수업 모드 (프로젝터): 수업자료 HTML이 화면 가득, G키로 모둠활동 덮개(모둠·게시판·순위 발표·퀴즈 쇼)를 열고 닫는다
 // live.html?c=<반>&l=<차시>
 // 수업자료 iframe은 한 번 만들면 없애거나 다시 불러오지 않는다(보던 쪽과 시뮬레이션 상태가 남게)
-import { TEACHER_CLASSES, GRADE, clsName } from '../config.js';
+import { TEACHER_CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { toast, esc, groupName } from '../ui.js';
 import {
   getLesson, listClasses, listBoards, getBoard, setTodayBoard, sendClassRefresh,
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setBoardSlideNow, setWsFree, setLessonSlideCount, updateBoard,
-  onRemote, sendRemote, watchBoard, getAwayStats,
+  onRemote, sendRemote, watchBoard, getAwayStats, createBoards,
 } from '../db.js';
 import { setOmokOpen } from '../db.js'; // nogame
 import { boardHTML } from '../posts.js';
@@ -1500,6 +1500,14 @@ teacherGate($('app'), async () => {
 
   const [lesson, classes, boards] = await Promise.all([getLesson(code), listClasses(), listBoards()]);
   board = boards.find((b) => b.class_id === classId && b.lesson_code === code) ?? null; // 가장 최근 것
+  // test반은 새 차시 보드가 자동으로 안 생기던 반 → 수업 모드를 열 때 없으면 만든다
+  if (!board && classId === TEST_CLASS && lesson?.lesson_src) {
+    try {
+      const like = boards.find((b) => b.lesson_code === code);
+      await createBoards({ lesson_code: code, title: like?.title || code, sim_links: like?.sim_links || [], items: [{ class_id: classId }], setToday: false });
+      board = (await listBoards()).find((b) => b.class_id === classId && b.lesson_code === code) ?? null;
+    } catch (err) { toast(errMsg(err), 'error'); }
+  }
 
   const title = [`${GRADE}학년 ${clsName(classId)}반`, `${code}차시`, lesson?.title || board?.title].filter(Boolean).join(' · ');
   $('cover-title').textContent = title;

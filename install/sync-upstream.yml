@@ -1,6 +1,6 @@
 # 원래 포털(a11y526/science-portal)의 새 기능을 매일 받아 온다. 복사한 저장소(Fork)에서만 돈다.
 # 서버(Supabase)는 한국 시간 2:00~2:05에 먼저 바뀌고(06_auto_update.sql), 이 일은 2:20에 사이트 파일을 받는다.
-# site.js는 원래 저장소가 바꾸지 않으므로 이 저장소의 값(내 서버 주소·담당 반)이 그대로 남는다.
+# site.js(내 서버 주소·담당 반)만 이 저장소 값을 남기고, 나머지는 원래 포털과 똑같이 맞춘다(직접 고친 파일은 원래대로).
 name: 새 기능 받기
 on:
   schedule:
@@ -14,15 +14,13 @@ jobs:
     if: github.repository != 'a11y526/science-portal'
     runs-on: ubuntu-latest
     steps:
-      - name: 원래 저장소와 맞추기
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+      - name: 원래 저장소와 똑같이 맞추기
         env:
           GH_TOKEN: ${{ github.token }}
+        # 맞추는 방법은 원래 포털의 install/stay-original.sh를 받아 쓴다(이 파일은 되도록 고치지 않는다)
         run: |
-          before=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
-          gh api -X POST "repos/$GITHUB_REPOSITORY/merge-upstream" -f branch=main
-          after=$(gh api "repos/$GITHUB_REPOSITORY/commits/main" --jq .sha)
-          echo "before=$before after=$after"
-          # 이 일이 올린 변경은 사이트 다시 만들기를 깨우지 않으므로 직접 부탁한다
-          if [ "$before" != "$after" ]; then
-            gh api -X POST "repos/$GITHUB_REPOSITORY/pages/builds" || echo "사이트 다시 만들기 요청 실패(다음 변경 때 다시)"
-          fi
+          curl -fsSL "https://raw.githubusercontent.com/a11y526/science-portal/main/install/stay-original.sh?t=$(date +%s)" -o "$RUNNER_TEMP/stay.sh"
+          bash "$RUNNER_TEMP/stay.sh"

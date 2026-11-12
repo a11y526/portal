@@ -38,7 +38,7 @@ const LEFTOVER = /games\.html|omok\.html|omok-online|omok-rank|othello|quoridor|
 const files = execFileSync('git', ['ls-tree', '-r', '-z', '--name-only', 'HEAD'], { cwd: ROOT, encoding: 'utf8' }).split('\0').filter(Boolean)
   .filter((f) => !DROP.some((re) => re.test(f)) && !KEEP.includes(f.split('/')[0]));
 // 설치·자동 업데이트 파일은 이 스크립트와 같이 고치므로 폴더의 지금 파일을 쓴다(아직 커밋 전이어도)
-const LOCAL = ['CLAUDE_INSTALL.md', 'supabase/06_auto_update.sql', 'install/설치.bat', 'install/install.ps1', 'install/sync-upstream.yml', 'install/README.md'];
+const LOCAL = ['CLAUDE_INSTALL.md', 'supabase/06_auto_update.sql', 'install/설치.bat', 'install/install.ps1', 'install/sync-upstream.yml', 'install/stay-original.sh', 'install/README.md'];
 for (const f of LOCAL) {
   if (!existsSync(join(ROOT, f))) throw new Error(`${f}가 없어요`);
   if (!files.includes(f)) files.push(f);

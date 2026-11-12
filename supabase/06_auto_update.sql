@@ -1,6 +1,6 @@
 -- =========================================================
 -- 06_auto_update.sql — 복사한 사이트(다른 선생님) 서버의 자동 업데이트
--- 매일 새벽 2시(한국 시간) a11y526/science-portal의 01~04·06을 받아 두고, 2시 5분에 지난번과 다르면 다시 실행한다.
+-- 매일 새벽 2시(한국 시간) a11y526/science-portal의 01~04·06을 받아 두고, 2시 5분에 (바뀌지 않았어도) 다시 실행한다.
 -- 01~04는 다시 실행해도 안전하다(관리 화면에서 바꾼 값은 그대로). 실행은 한 번에: 중간에 오류가 나면 모두 되돌리고 오류만 적는다.
 -- 원래 사이트(a11y526/portal) 서버에서는 실행하지 않는다.
 -- 설정 settings.auto_update = {on, source(받을 주소, 끝에 /), url(이 서버 주소), classes(담당 반), md5, applied_at, checked_at, error}
@@ -50,7 +50,7 @@ begin
 end;
 $$;
 
--- 2단계: 받은 네 파일이 지난번과 다르면 차례로 실행한다. 결과: 'same' | 'applied' | 'off' | 오류 글
+-- 2단계: 받은 파일을 매일 차례로 다시 실행한다. 결과: 'applied' | 'off' | 오류 글
 create or replace function public._auto_update_apply()
 returns text
 language plpgsql
@@ -88,11 +88,9 @@ begin
     parts := parts || body;
   end loop;
 
+  -- 바뀌지 않았어도 매일 다시 실행한다(2026-11-12 사용자 결정: 이 서버에서 함수 등을 직접 고쳐도 다음 날 원래대로).
+  -- 관리 화면에서 바꾼 값(명단·코드·설정·퀴즈·학습지)은 01~04가 건드리지 않는다
   sum := md5(array_to_string(parts, E'\n'));
-  if sum = cfg ->> 'md5' then
-    update public.settings set value = value || jsonb_build_object('checked_at', now(), 'error', null) where key = 'auto_update';
-    return 'same';
-  end if;
 
   select string_agg(x, ', ' order by ord) into cls
   from jsonb_array_elements_text(cfg -> 'classes') with ordinality as t(x, ord)

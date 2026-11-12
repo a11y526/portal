@@ -735,7 +735,49 @@ addEventListener('keydown', (e) => {
   }
 });
 
+/* ---------- 공유 자료실에서 퀴즈 받기 (2026-11-12) ----------
+   자료실(a11y526.github.io/science-share)의 카훗 퀴즈 [내 포털에 넣기]가 이 화면을 quizshow-edit.html?qs-in=1 로 새 창에 연다.
+   여기서 'qs:ready'를 보내면 자료실이 {type:'qs:file', code, name, table}을 보내고(table은 [가져오기 → 표 붙여 넣기]와 같은 줄 모양),
+   받으면 'qs:got'으로 답한다. 로그인 뒤 새 세트로 저장하고 그 세트 편집 화면으로 간다 */
+const SHARE_ORIGINS = ['https://a11y526.github.io'];
+let qsIncoming = null;
+let qsGot = false;
+let gateReady = false;
+if (params.has('qs-in') && window.opener) {
+  const okOrigin = (o) => SHARE_ORIGINS.includes(o) || (location.hostname === 'localhost' && /^http:\/\/localhost(:\d+)?$/.test(o));
+  addEventListener('message', (e) => {
+    if (!okOrigin(e.origin) || e.data?.type !== 'qs:file' || qsGot) return;
+    const { name, table } = e.data;
+    if (typeof table !== 'string' || table.length > 2e5) return;
+    qsGot = true;
+    qsIncoming = { name: String(name || '공유 자료실 퀴즈').slice(0, 80), table };
+    e.source?.postMessage({ type: 'qs:got' }, e.origin);
+    if (gateReady) makeIncoming();
+  });
+  let n = 0;
+  const ping = setInterval(() => {
+    if (qsGot || ++n > 600 || !window.opener) { clearInterval(ping); return; }
+    try { window.opener.postMessage({ type: 'qs:ready' }, '*'); } catch { clearInterval(ping); }
+  }, 500);
+}
+async function makeIncoming() {
+  if (!qsIncoming) return;
+  const { name, table } = qsIncoming;
+  qsIncoming = null;
+  const list = questionsFromTable(table).slice(0, MAX_QUESTIONS);
+  if (!list.length) { toast('받은 퀴즈에서 문제를 읽지 못했어요', 'error'); return; }
+  try {
+    const id = await saveQsSet(null, { title: name, description: '공유 자료실에서 가져온 퀴즈', questions: list });
+    toast(`${list.length}문제를 새 퀴즈로 저장했어요`, 'ok');
+    location.replace(`quizshow-edit.html?id=${id}`);
+  } catch (err) {
+    toast(errMsg(err), 'error');
+  }
+}
+
 teacherGate($('app'), async () => {
   if (setId) await showEditor();
   else await showList();
+  gateReady = true;
+  makeIncoming();
 });

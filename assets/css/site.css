@@ -360,6 +360,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
 .roster-row { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; padding: 6px 8px 6px 16px; border-radius: 16px; background: rgba(255,255,255,.55); }
 .roster-row > b { width: 48px; font-size: 16px; font-weight: 900; }
 .roster-row.off { opacity: .6; }
+.roster-code { font-size: 15px; font-weight: 800; letter-spacing: .08em; min-width: 64px; }
 .roster-btns { margin-left: auto; display: flex; gap: 6px; }
 .codes-preview { display: grid; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); gap: 6px 14px; max-height: 50vh; overflow-y: auto; font-size: 15px; }
 .codes-preview b { font-weight: 900; letter-spacing: .06em; }

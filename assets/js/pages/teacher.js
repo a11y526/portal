@@ -372,6 +372,7 @@ editForm.addEventListener('submit', async (e) => {
 /* ---------- 명단 ---------- */
 let rosterClass = TEACHER_CLASSES[0];
 
+let codesShown = false; // 프로젝터에 비칠 수 있어 평소엔 가림
 function renderRoster() {
   const counts = new Map(TEACHER_CLASSES.map((n) => [n, 0]));
   for (const s of students) if (s.active) counts.set(s.class_id, (counts.get(s.class_id) || 0) + 1);
@@ -387,12 +388,15 @@ function renderRoster() {
   $('roster-count').textContent = active.length ? `${active.length}명 · 코드 없음 ${missing}명` : '';
   $('issue-missing').disabled = !missing;
   $('issue-all').disabled = !active.length;
+  $('codes-toggle').textContent = codesShown ? '코드 숨기기' : '코드 보기';
+  $('codes-toggle').disabled = !active.some((s) => s.has_code);
 
   $('roster-list').innerHTML = list.length ? list.map((s) => `
     <div class="roster-row${s.active ? '' : ' off'}" data-sid="${s.id}">
       <b class="num">${s.number}번</b>
       ${s.active
         ? `<span class="tag ${s.has_code ? 'tag-today' : 'tag-warn'}">${s.has_code ? '코드 있음' : '코드 없음'}</span>
+           ${s.has_code ? `<span class="roster-code num${s.code ? '' : ' muted'}">${codesShown ? (s.code || '모름') : '••••••'}</span>` : ''}
            <span class="roster-btns">
              <button type="button" class="btn btn-line btn-small" data-reset>코드 다시 발급</button>
              <button type="button" class="btn btn-danger btn-small" data-off>빼기</button>
@@ -560,6 +564,7 @@ async function issue(onlyMissing) {
     btn.disabled = false;
   }
 }
+$('codes-toggle').addEventListener('click', () => { codesShown = !codesShown; renderRoster(); });
 $('issue-missing').addEventListener('click', () => issue(true));
 $('issue-all').addEventListener('click', () => issue(false));
 

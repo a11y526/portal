@@ -75,6 +75,14 @@ alter table public.students add constraint students_number_check check (number b
 -- 모둠을 명단에 고정하던 열은 쓰지 않는다 (예전에 만들어졌으면 지움)
 alter table public.students drop column if exists group_no;
 
+-- 학생 코드 (교사만 봄, 2026-11-12 사용자 결정: 학생이 잊어버리면 선생님이 관리 화면에서 보고 다시 알려 줌)
+-- 로그인 확인은 여전히 students.code_hash로만 한다. 이 표는 학생 쪽 함수가 읽지 않는다
+create table if not exists public.student_codes (
+  student_id uuid primary key references public.students(id) on delete cascade,
+  code       text not null check (code ~ '^[0-9]{6}$'),
+  updated_at timestamptz not null default now()
+);
+
 -- 그날(보드)의 모둠 편성. 결석으로 뺀 학생은 행이 없다
 create table if not exists public.board_groups (
   board_id   uuid not null references public.boards(id) on delete cascade,

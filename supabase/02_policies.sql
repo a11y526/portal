@@ -64,6 +64,14 @@ create policy students_teacher_all on public.students
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
 
+-- 학생 코드: 교사만 (anon·학생 함수는 못 읽음)
+alter table public.student_codes enable row level security;
+revoke all on public.student_codes from anon;
+drop policy if exists student_codes_teacher_all on public.student_codes;
+create policy student_codes_teacher_all on public.student_codes
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
 drop policy if exists submissions_teacher_all on public.submissions;
 create policy submissions_teacher_all on public.submissions
   for all to authenticated

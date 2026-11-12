@@ -552,10 +552,18 @@ export async function getBoard(id) {
 /* ---------- 교사: 명단·코드 ---------- */
 
 export async function listStudents() {
-  return unwrap(await need().from('students')
-    .select('id, class_id, number, has_code, active')
-    .gt('number', 0) // 0번(선생님 체험 계정)은 명단·코드·모둠·점수 주기에서 뺀다
-    .order('class_id').order('number'));
+  const [rows, codes] = await Promise.all([
+    need().from('students')
+      .select('id, class_id, number, has_code, active')
+      .gt('number', 0) // 0번(선생님 체험 계정)은 명단·코드·모둠·점수 주기에서 뺀다
+      .order('class_id').order('number'),
+    need().from('student_codes').select('student_id, code'),
+  ]);
+  const list = unwrap(rows);
+  // 교사만 보는 코드(학생이 정했거나 발급한 것). 표가 아직 없는 서버면 비워 둔다
+  const map = new Map((codes.error ? [] : codes.data || []).map((c) => [c.student_id, c.code]));
+  for (const s of list) s.code = s.has_code ? map.get(s.id) || null : null;
+  return list;
 }
 
 // 반 명단을 1~last번으로: 없는 번호는 새로 넣고(이미 있으면 그대로), last보다 큰 번호는 명단에서 뺀다

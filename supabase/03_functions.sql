@@ -991,7 +991,7 @@ grant execute on function public.unreveal_board(uuid) to authenticated;
 
 -- ---------------------------------------------------------
 -- 코드 발급 (교사)
--- 평문 코드는 이 응답에서만 돌려준다(인쇄용). 저장은 해시만.
+-- 평문 코드는 응답(인쇄용)과 교사만 보는 student_codes에. 로그인 확인은 해시로.
 -- p_only_missing = true면 코드가 없는 학생만.
 -- ---------------------------------------------------------
 create or replace function public.issue_codes(p_class_id int, p_only_missing boolean default false)
@@ -1017,6 +1017,8 @@ begin
   loop
     v_code := public._new_code();
     update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = r.id;
+    insert into public.student_codes (student_id, code) values (r.id, v_code)
+    on conflict (student_id) do update set code = excluded.code, updated_at = now();
     delete from public.student_sessions where student_id = r.id;
     delete from public.code_attempts where student_key = p_class_id || '-' || r.number;
     v_out := v_out || jsonb_build_array(jsonb_build_object(
@@ -1052,6 +1054,8 @@ begin
 
   v_code := public._new_code();
   update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = s.id;
+  insert into public.student_codes (student_id, code) values (s.id, v_code)
+  on conflict (student_id) do update set code = excluded.code, updated_at = now();
   delete from public.student_sessions where student_id = s.id;
   delete from public.code_attempts where student_key = s.class_id || '-' || s.number;
 
@@ -9073,6 +9077,8 @@ begin
   end if;
 
   update public.students set code_hash = crypt(v_code, gen_salt('bf')) where id = s.id;
+  insert into public.student_codes (student_id, code) values (s.id, v_code)
+  on conflict (student_id) do update set code = excluded.code, updated_at = now();
   delete from public.code_attempts where student_key = p_class_id || '-' || p_number;
 
   v_token := encode(gen_random_bytes(32), 'hex');

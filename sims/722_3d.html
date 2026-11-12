@@ -574,7 +574,12 @@ function place(){
   else{const th=-Math.PI/2+b*(Math.PI/2+pitch-dip);look=Hd.clone().multiplyScalar(Math.cos(th)).add(O.up.clone().multiplyScalar(Math.sin(th)));
     upv=Hd.clone().multiplyScalar(-Math.sin(th)).add(O.up.clone().multiplyScalar(Math.cos(th)));}
   cam.position.copy(pc);cam.up.copy(upv);cam.lookAt(pc.clone().add(look));
-  if(dragX||dragY){if(b<.5){const t=v<.3?tgt:O.pos;const off=cam.position.clone().sub(t);const ax=v<.3?ZUP:O.up;off.applyAxisAngle(ax,dragX);const side=off.clone().cross(ax).normalize();off.applyAxisAngle(side,dragY);cam.position.copy(t.clone().add(off));cam.up.copy(upv);cam.lookAt(t);}
+  /* 끌어서 돌려 보기. 서울 바로 위에서 내려다볼 때는 off와 ax가 같은 방향이라 off×ax가 0에 가까워
+     기울일 축이 매 프레임 제멋대로 바뀌어 화면이 심하게 떨렸음 → 그때는 화면 오른쪽 방향을 기울일 축으로 씀 */
+  if(dragX||dragY){if(b<.5){const t=v<.3?tgt:O.pos;const off=cam.position.clone().sub(t);const ax=v<.3?ZUP:O.up;
+      let side=off.clone().cross(ax);const top=side.lengthSq()<1e-6*off.lengthSq();if(top)side=look.clone().cross(upv);side.normalize();
+      const q=new THREE.Quaternion().setFromAxisAngle(ax,dragX).multiply(new THREE.Quaternion().setFromAxisAngle(side,dragY));
+      off.applyQuaternion(q);cam.position.copy(t.clone().add(off));cam.up.copy(top?upv.clone().applyQuaternion(q):upv);cam.lookAt(t);}
     else{cam.rotateOnWorldAxis(O.up,dragX);cam.rotateX(dragY);}}
   cam.fov=45+(FOVG-45)*b;cam.near=Math.max(1e-7,Math.min(1e-3,h*.05));cam.updateProjectionMatrix();
   /* 나침반: 화면 위쪽(내려다볼 때) 또는 바라보는 쪽(고개 들었을 때)이 어느 방위인지 */
@@ -748,8 +753,20 @@ function changed(){dirty=true;drawDials();track();}
 
 addEventListener('resize',size);size();
 let active=true;addEventListener('message',e=>{const d=e.data||{};if(d.type==='active'){active=!!d.on;dirty=true;}if(d.type==='view'){fly=null;view=tView=Math.max(0,Math.min(1,+d.v||0));dirty=true;}});
+/* 떨림 방지 (카메라 기준 그리기): 지구는 원점(태양)에서 1만큼 떨어져 있고 땅 근처에서는 카메라 높이가 0.0001 정도라
+   그래픽 카드의 소수 자릿수(float32)로는 위치가 매 프레임 조금씩 어긋나 화면이 떨린다.
+   그릴 때만 장면 전체를 카메라가 원점에 오도록 옮겨서(계산은 자바스크립트의 정밀한 숫자로) 작은 수끼리 계산하게 한다. */
+const WORLD=new THREE.Group();[...S.children].forEach(o=>WORLD.add(o));S.add(WORLD);
+const _cp=new THREE.Vector3();
+function renderRel(){
+  _cp.copy(cam.position);
+  WORLD.position.copy(_cp).negate();cam.position.set(0,0,0);
+  S.updateMatrixWorld();cam.updateMatrixWorld();
+  gMat.uniforms.eInv.value.copy(earth.matrixWorld).invert();
+  R.render(S,cam);
+  cam.position.copy(_cp);WORLD.position.set(0,0,0);S.updateMatrixWorld();cam.updateMatrixWorld();}
 let tk=0;function loop(now){requestAnimationFrame(loop);if(!active)return;now=now||performance.now();const moving=stepView(now);if(QM&&now-tk>400){tk=now;track();}
-  if(moving||dirty||lastH>GU*2.5){dirty=false;place();R.render(S,cam);markZoom();
+  if(moving||dirty||lastH>GU*2.5){dirty=false;place();renderRel();markZoom();
     cmp.style.display=showCompass?'block':'none';if(showCompass)rose.setAttribute('transform','rotate('+(-heading).toFixed(1)+')');}}
 document.fonts&&document.fonts.ready.then(()=>{dirty=true;drawDials();placeCompass();});placeCompass();if(QM){prog.zod.clear();prog.months.clear();}loop();
 })();

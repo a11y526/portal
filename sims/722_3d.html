@@ -681,8 +681,11 @@ function drawDate(){const f=E.fit(cDate),x=f[0],w=f[1],hh=f[2],cx=w/2,cy=hh/2,R0
   $('vZod').textContent='태양 뒤 '+zodNow().ko;
   chD.forEach(([b,dd])=>b.classList.toggle('on',Math.round(day)===dd));}
 /* 날짜 칸에 직접 입력: 연도는 상관없이 월·일로 */
-vDate.addEventListener('change',()=>{const m=/^\d+-(\d+)-(\d+)$/.exec(vDate.value);if(m)setDay(dayOfDate(+m[1],+m[2]));});
-vDate.addEventListener('blur',()=>drawDate());
+/* Safari·아이패드는 change를 칸을 벗어날 때만 보내기도 해서 input·change·blur 모두에서 반영 */
+let lastDV='';function applyDate(){const v=vDate.value;if(!v||v===lastDV)return;const m=/^\d+-(\d+)-(\d+)$/.exec(v);if(!m)return;lastDV=v;const nd=dayOfDate(+m[1],+m[2]);if(wrapDay(nd)!==Math.round(day))setDay(nd);}
+['input','change'].forEach(t=>vDate.addEventListener(t,applyDate));
+vDate.addEventListener('focus',()=>{lastDV=vDate.value;});
+vDate.addEventListener('blur',()=>{applyDate();drawDate();});
 [vDate,vTime].forEach(f=>f.addEventListener('click',()=>{try{f.showPicker();}catch(_){}}));
 function dateFromPointer(e){const r=cDate.getBoundingClientRect(),px=e.clientX-r.left-r.width/2,py=e.clientY-r.top-r.height/2;
   const want=(Math.atan2(px,py)/D+FL+360)%360,cur=(E.sunLon(E.msOf(day))+180)%360;setDay(Math.round(day+E.dAng(want,cur)/0.9856));}
@@ -714,8 +717,10 @@ function drawTime(){const f=E.fit(cTime),x=f[0],w=f[1],hh=f[2],cx=w/2,cy=hh/2,R0
   const H=Math.floor(min/60)%24,M=min%60;if(document.activeElement!==vTime)vTime.value=p2(H)+':'+p2(M);
   const rs=riseSet();chT.forEach(([b,k])=>{const t=k==='rise'?rs[0]:k==='set'?rs[1]:k;b.classList.toggle('on',Math.abs(min-t)<3);});}
 /* 시각 칸에 직접 입력 */
-vTime.addEventListener('change',()=>{const m=/^(\d+):(\d+)/.exec(vTime.value);if(m){min=(+m[1]*60+ +m[2])%1440;changed();}});
-vTime.addEventListener('blur',()=>drawTime());
+let lastTV='';function applyTime(){const v=vTime.value;if(!v||v===lastTV)return;const m=/^(\d+):(\d+)/.exec(v);if(!m)return;lastTV=v;const nm=(+m[1]*60+ +m[2])%1440;if(nm!==min){min=nm;changed();}}
+['input','change'].forEach(t=>vTime.addEventListener(t,applyTime));
+vTime.addEventListener('focus',()=>{lastTV=vTime.value;});
+vTime.addEventListener('blur',()=>{applyTime();drawTime();});
 function timeFromPointer(e){const r=cTime.getBoundingClientRect(),px=e.clientX-r.left-r.width/2,py=e.clientY-r.top-r.height/2;
   let m=((Math.atan2(px,-py)/(2*Math.PI))*24+12)*60;m=((Math.round(m/5)*5)%1440+1440)%1440;min=m;changed();}
 let dT=false;cTime.addEventListener('pointerdown',e=>{dT=true;cTime.setPointerCapture(e.pointerId);timeFromPointer(e);});

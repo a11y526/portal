@@ -431,10 +431,10 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 <script>
 (function(){
 'use strict';
-const H=Q.how(['① <b>시간 막대</b>를 끌어 낮 12시에서 밤 12시(00:00)까지 옮기기','② 밤 12시 <b>남쪽 하늘 한가운데의 별자리</b>를 누르기','③ 1~3번을 <b>골라 [제출]</b>']);
+const H=Q.how(['① <b>시간 막대</b>를 끌어 낮 12시에서 밤 12시(00:00)까지 옮기기','② 밤 12시 <b>남쪽 한가운데 점선</b>에 가장 가까운 별자리 누르기','③ 1~3번을 <b>골라 [제출]</b>']);
 const P=Q.panel([
   {html:'<span class="n">1</span>오늘(11월 3일) 낮 12시에서 12시간 뒤인 밤 12시(00:00)에 남쪽 하늘 한가운데에 위치한 별자리는?',opts:['천칭자리','염소자리','양자리'],lock:'② 별자리를 눌러 보세요'},
-  {html:'<span class="n">2</span>오늘 밤 12시에 남쪽 하늘에서 본 별자리(양자리)는 앞 활동에서 태양이 언제 위치한 별자리와 같은가?',opts:['3개월 뒤','6개월 뒤','9개월 뒤'],lock:'② 별자리를 눌러 보세요'},
+  {html:'<span class="n">2</span>앞 활동(7쪽)에서 태양이 양자리에 가장 가까이 있었던 때는 오늘로부터 몇 개월 뒤였나?',opts:['3개월 뒤','6개월 뒤','9개월 뒤'],lock:'② 별자리를 눌러 보세요'},
   {html:'<span class="n">3</span>오늘 밤 12시에 남쪽 하늘에서 보이는 별자리는 오늘 낮 12시 태양의 위치를 기준으로 어느 쪽에 있는 별자리인가?',opts:['태양과 같은 쪽','태양의 반대쪽'],lock:'② 별자리를 눌러 보세요'}],{how:H});
 const cv=document.getElementById('cv'),mo=document.getElementById('mo'),rg=document.getElementById('rg'),ov=document.getElementById('ov');
 let min=0,V=null,eve=false,reached=false,found=false,dirty=true;
@@ -442,7 +442,7 @@ rg.addEventListener('input',()=>{min=+rg.value;if(min>=300&&min<=480)eve=true;
   if(!reached&&min>=720){if(!eve){Q.toast('건너뛰지 말고 저녁을 지나며 끌어 보자');}else{reached=true;H.done(0);}}dirty=true;});
 cv.addEventListener('click',e=>{if(!V)return;if(!reached){Q.toast('①부터 해 보세요');return;}if(min<700){Q.toast('밤 12시(00:00)로 옮겨 보자');return;}
   const r=cv.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top;let hit=null,bd=80;V.labels.forEach(l=>{const d=Math.hypot(px-l.x,py-l.y);if(d<bd){bd=d;hit=l;}});if(!hit)return;
-  if(hit.id==='Ari'){if(!found){found=true;H.done(1);P.open(0);P.open(1);P.open(2);Q.toast('양자리 — 6개월 뒤 낮 12시에 태양이 있을 별자리예요');}dirty=true;}else Q.toast('남쪽(가운데) 가장 가까운 별자리를 찾아보자');});
+  if(hit.id==='Ari'){if(!found){found=true;H.done(1);P.open(0);P.open(1);P.open(2);Q.toast('양자리 — 6개월 뒤 낮 12시에 태양이 있을 별자리예요');}dirty=true;}else Q.toast('남쪽 한가운데 점선에 가장 가까운 별자리를 찾아보자');});
 function model(){const [x,w,h]=E.fit(mo);x.clearRect(0,0,w,h);x.fillStyle='#F7F7F7';x.beginPath();x.roundRect(0,0,w,h,16);x.fill();
   const cx=w*.42,cy=h*.5,R=Math.min(w,h)*.33;E.txt(x,'우주에서 내려다본 모습',w/2,20,{s:14,c:'#5D5D5D'});
   /* 태양(가운데) — 지구(오른쪽) — 왼쪽 천칭자리 / 오른쪽 양자리 */
@@ -456,7 +456,11 @@ function model(){const [x,w,h]=E.fit(mo);x.clearRect(0,0,w,h);x.fillStyle='#F7F7
   x.strokeStyle=min>=700?'#0D0D0D':'#FFB340';x.lineWidth=3;x.setLineDash([6,5]);x.beginPath();x.moveTo(ox,oy);x.lineTo(ox+Math.cos(a)*R*.9,oy-Math.sin(a)*R*.9);x.stroke();x.setLineDash([]);
   x.fillStyle='#E0503C';x.beginPath();x.arc(ox,oy,5,0,7);x.fill();
   E.txt(x,'관측자가 바라보는 남쪽',w/2,h-18,{s:13,c:'#5D5D5D',w:500});}
-function draw(){const ms=E.msOf(0)+min*6e4;V=E.skyView(cv,{ms:ms,span:160,altMax:80,hy:cv.getBoundingClientRect().height*.9,hl:found?{Ari:true}:{}});model();
+/* 남쪽 한가운데(정남) 기준선: 여러 별자리 중 '한가운데'가 어디인지 보이게 */
+function midLine(hy){const x=cv.getContext('2d'),mx=V.P(0,180)[0],night=min>=600;x.save();
+  x.strokeStyle=night?'rgba(255,214,120,.85)':'rgba(255,255,255,.5)';x.lineWidth=2;x.setLineDash([7,6]);x.beginPath();x.moveTo(mx,hy-2);x.lineTo(mx,4);x.stroke();x.restore();
+  E.txt(x,'남쪽 한가운데',mx+8,hy-22,{a:'left',s:14,w:900,c:night?'#FFD678':'rgba(255,255,255,.8)',halo:3,hc:'rgba(14,19,38,.8)'});}
+function draw(){const ms=E.msOf(0)+min*6e4;const hy=cv.getBoundingClientRect().height*.9;V=E.skyView(cv,{ms:ms,span:160,altMax:80,hy:hy,hl:found?{Ari:true}:{}});midLine(hy);model();
   const hh=(12+Math.floor(min/60))%24,mm=min%60;ov.textContent=(min>=720?'11월 4일 00:00 (밤 12시)':'11월 3일 '+(hh<10?'0':'')+hh+':'+(mm<10?'0':'')+mm);}
 function loop(){if(dirty&&Q.isActive()){dirty=false;draw();}requestAnimationFrame(loop);}
 addEventListener('resize',()=>dirty=true);Q.onActive(a=>{if(a)dirty=true;});document.fonts&&document.fonts.ready.then(()=>dirty=true);

@@ -247,7 +247,7 @@ function ringView(c,o){
   var V={s:s,cx:cx,cy:cy,P:P,toLon:function(px,py){return unproj((px-cx)/s,(cy-py)/s);}};
   var LO=o.only==='labels';x.clearRect(0,0,w,h);
   if(o.bg&&!LO){x.fillStyle=o.bg;x.fillRect(0,0,w,h);}
-  var day=o.day||0,ms=msOf(day),sl=sunLon(ms),el=(sl+180)%360;V.sunLon=sl;V.earthLon=el;
+  var day=o.day||0,ms=msOf(day),sl=o.sl!=null?o.sl:sunLon(ms),el=(sl+180)%360;V.sunLon=sl;V.earthLon=el;
   /* 띠(천구): 뒤쪽 안쪽 면 */
   function band(back){
     var f0=CAM.frontLon+(back?90:-90),i,q;x.beginPath();
@@ -361,7 +361,7 @@ E.orbitDrag=function(c,o){var on=false;
     if(o.can&&!o.can())return;on=true;c.setPointerCapture(e.pointerId);c.style.cursor='grabbing';e.preventDefault();});
   c.addEventListener('pointermove',function(e){var r=c.getBoundingClientRect(),px=e.clientX-r.left,py=e.clientY-r.top,V=o.V();
     if(!on){if(V)c.style.cursor=Math.hypot(px-V.earth[0],py-V.earth[1])<V.er+26?'grab':'default';return;}
-    var want=V.toLon(px,py),d=o.get(),cur=(E.sunLon(E.msOf(d))+180)%360,step=E.dAng(want,cur)/0.9856;
+    var want=V.toLon(px,py),d=o.get(),cur=((o.lonOf?o.lonOf(d):E.sunLon(E.msOf(d)))+180)%360,step=E.dAng(want,cur)/0.9856;
     if(Math.abs(step)>60)return;o.set(Math.max(o.lo(),Math.min(o.hi(),d+step)));});
   function up(){if(!on)return;on=false;c.style.cursor='grab';if(o.end)o.end();}
   c.addEventListener('pointerup',up);c.addEventListener('pointercancel',up);};
@@ -440,6 +440,11 @@ const P=Q.panel([
   {html:'<span class="n">1</span>내가 태어난 달(생일 달)에는 내 탄생 별자리를 밤하늘에서 볼 수 있는가?',opts:['볼 수 있다','볼 수 없다'],lock:'① 별자리를 골라 보세요'},
   {html:'<span class="n">2</span>내가 태어난 달에 내 탄생 별자리를 밤하늘에서 볼 수 없는 까닭은?',opts:['그 달에는 내 탄생 별자리가 태양 근처에 있기 때문이다','그 달에는 지구가 공전을 멈추기 때문이다'],lock:'① 별자리를 골라 보세요'},
   {html:'<span class="n">3</span>내 생일과 관련된 별자리를 하나 고르고, 그 별자리를 한밤중에 가장 잘 볼 수 있는 시기와 까닭을 써 보자.',input:'long',ph:'예: ○○자리는 ○○철에 잘 보인다. 왜냐하면 …',lock:'② 지구를 맞춰 보세요'}],{how:H,mapVal:(i,v)=>{if(i===2&&pick){const ko=E.SC.cons[pick[0]].ko;if(v.indexOf(ko)<0)return ko+': '+v;}return v;}});
+/* 탄생 별자리 날짜(교과서 표)에 맞춘 태양 자리: 그 기간에는 태양이 그 별자리 앞을 지나가게 그린다
+   (실제 하늘은 세차 운동 때문에 약 한 달 어긋나 있어서, 그대로 그리면 처녀자리 기간에 태양이 사자자리 앞에 있음) */
+const CEN=B.map(b=>E.SC.cons[b[0]].lon),mid=(a,b)=>((a+E.dAng(b,a)/2)%360+360)%360;
+const SPAN=B.map((b,i)=>{const s0=mid(CEN[(i+11)%12],CEN[i]),s1=mid(CEN[i],CEN[(i+1)%12]);let a=dayOf(b[2][0],b[2][1]),z=dayOf(B[(i+1)%12][2][0],B[(i+1)%12][2][1]);if(z<=a)z+=365.25;return {a:a,z:z,s0:s0,w:((s1-s0)%360+360)%360};});
+function lonOf(d){d=((d%365.25)+365.25)%365.25;for(const s of SPAN){let k=d;if(k<s.a)k+=365.25;if(k>=s.a&&k<s.z)return (s.s0+s.w*(k-s.a)/(s.z-s.a))%360;}return E.sunLon(E.msOf(d));}
 const SEA=m=>m>=3&&m<=5?'봄철':m>=6&&m<=8?'여름철':m>=9&&m<=11?'가을철':'겨울철';
 let pick=null,day=0,V=null,dirty=true,best=false;
 const tiles=document.getElementById('tiles'),cv=document.getElementById('cv'),c1=document.getElementById('c1'),c2=document.getElementById('c2');
@@ -449,12 +454,12 @@ B.forEach(b=>{const t=document.createElement('button');t.type='button';t.innerHT
   /* 생일 기간의 가운데 날 */
   let a=dayOf(b[2][0],b[2][1]),z=dayOf(b[3][0],b[3][1]);if(z<a)z+=365.25;day=((a+z)/2)%365.25;
   if(!H.is(0)){H.done(0);P.open(0);P.open(1);}H.done(1,false);dirty=true;};tiles.appendChild(t);});
-E.orbitDrag(cv,{V:()=>V,get:()=>day,set:d=>{day=((d%365.25)+365.25)%365.25;dirty=true;},lo:()=>-1e9,hi:()=>1e9,can:()=>{if(!pick){Q.toast('①부터 해 보세요');return false;}return true;}});
+E.orbitDrag(cv,{V:()=>V,get:()=>day,lonOf:lonOf,set:d=>{day=((d%365.25)+365.25)%365.25;dirty=true;},lo:()=>-1e9,hi:()=>1e9,can:()=>{if(!pick){Q.toast('①부터 해 보세요');return false;}return true;}});
 function draw(){
-  if(!pick){V=E.ringView(cv,{day:0,arrow:false,sight:false,sunSpot:false});c1.innerHTML='<b>내 생일 무렵</b><br>별자리를 먼저 골라 보자';c2.innerHTML='<b>가장 잘 보이는 시기</b><br>—';return;}
-  const id=pick[0],ko=E.SC.cons[id].ko,sl=E.sunLon(E.msOf(day)),nl=(sl+180)%360,dn=Math.abs(E.dAng(E.SC.cons[id].lon,nl)),ds=Math.abs(E.dAng(E.SC.cons[id].lon,sl));
+  if(!pick){V=E.ringView(cv,{day:0,sl:lonOf(0),arrow:false,sight:false,sunSpot:false});c1.innerHTML='<b>내 생일 무렵</b><br>별자리를 먼저 골라 보자';c2.innerHTML='<b>가장 잘 보이는 시기</b><br>—';return;}
+  const id=pick[0],ko=E.SC.cons[id].ko,sl=lonOf(day),nl=(sl+180)%360,dn=Math.abs(E.dAng(E.SC.cons[id].lon,nl)),ds=Math.abs(E.dAng(E.SC.cons[id].lon,sl));
   const isBest=dn<20;if(isBest&&!best){best=true;H.done(1);P.open(2);Q.toast(ko+'가 한밤중 남쪽 하늘에 왔어요!');}
-  V=E.ringView(cv,{day:day,night:true,hl:{[id]:ds<35?'rgba(255,179,64,.35)':'#FFB340'},grab:!best});
+  V=E.ringView(cv,{day:day,sl:sl,night:true,hl:{[id]:ds<35?'rgba(255,179,64,.35)':'#FFB340'},grab:!best});
   const m=E.monthOf(E.msOf(day));
   c1.innerHTML='<b>내 생일 무렵 ('+pick[1]+')</b><br>'+ko+'는 태양 근처 → 햇빛 때문에 밤에 볼 수 없음';
   c2.innerHTML='<b>지금 지구: '+m+'월</b><br>'+(isBest?'한밤중 남쪽 하늘에 '+ko+' → <b style="font-size:inherit">가장 잘 보이는 시기: '+SEA(m)+' (약 '+m+'월)</b>':ds<35?ko+'가 태양 쪽 → 안 보임':'지구를 더 끌어 보자');}

@@ -431,28 +431,31 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 <script>
 (function(){
 'use strict';
-const H=Q.how(['① <b>지구를 끌어</b> 시계 반대 방향으로 한 바퀴(12개월) 돌리기','② 12개월 뒤 태양 뒤에 있는 <b>별자리 이름</b>을 누르기','③ 1~3번을 <b>골라 [제출]</b>']);
+const H=Q.how(['① 지금 태양 뒤에 있는 <b>별자리 이름</b>을 누르기','② <b>지구를 끌어</b> 시계 반대 방향으로 한 바퀴(12개월) 돌리기','③ 12개월 뒤 태양 뒤에 있는 <b>별자리 이름</b>을 누르기','④ 1~3번을 <b>골라 [제출]</b>']);
 const P=Q.panel([
-  {html:'<span class="n">1</span>지구가 시계 반대 방향으로 공전할 때, 지구에서 본 태양이 별자리 사이를 이동하는 방향은?',opts:['시계 반대 방향','시계 방향'],lock:'① 지구를 한 바퀴 돌려 보세요'},
-  {html:'<span class="n">2</span>태양이 별자리 사이를 매일 약 1°씩 이동하여 처음의 자리로 되돌아오는 데 걸리는 시간은?',opts:['하루','한 달','1년'],lock:'② 별자리를 눌러 보세요'},
-  {html:'<span class="n">3</span>태양의 연주 운동이 나타나는 까닭은?',opts:['태양이 실제로 별자리 사이를 돌아서','지구가 태양을 중심으로 공전하기 때문이다'],lock:'② 별자리를 눌러 보세요'}],{how:H});
-const LO=0,HI=365.25;let day=0,V=null,lap=false,found=false,dirty=true;const seen=new Set();
+  {html:'<span class="n">1</span>지구가 시계 반대 방향으로 공전할 때, 지구에서 본 태양이 별자리 사이를 이동하는 방향은?',opts:['시계 반대 방향','시계 방향'],lock:'② 지구를 한 바퀴 돌려 보세요'},
+  {html:'<span class="n">2</span>태양이 별자리 사이를 매일 약 1°씩 이동하여 처음의 자리로 되돌아오는 데 걸리는 시간은?',opts:['하루','한 달','1년'],lock:'③ 12개월 뒤 별자리를 눌러 보세요'},
+  {html:'<span class="n">3</span>태양의 연주 운동이 나타나는 까닭은?',opts:['태양이 실제로 별자리 사이를 돌아서','지구가 태양을 중심으로 공전하기 때문이다'],lock:'③ 12개월 뒤 별자리를 눌러 보세요'}],{how:H});
+/* 처음 태양 자리: 사자자리 한가운데 (12개월 뒤 돌아온 별자리가 또렷하도록) */
+const START=E.ZOD.find(z=>z.id==='Leo'),LO=E.dayFor(START.lon,0,366),HI=LO+365.25;let day=LO,V=null,first=false,lap=false,found=false,dirty=true;const seen=new Set();
 const cv=document.getElementById('cv'),rg=document.getElementById('rg'),ov=document.getElementById('ov');
-function set(d){day=d;rg.value=Math.round(day);dirty=true;seen.add(Math.min(11,Math.floor(day/30.44)));
+function set(d){day=d;rg.value=Math.round(day-LO);dirty=true;seen.add(Math.min(11,Math.floor((day-LO)/30.44)));
   if(!lap&&day>=HI-0.8&&seen.size<12)Q.toast('건너뛰지 말고 한 달씩 지나가며 돌려 보자');
-  if(!lap&&day>=HI-0.8&&seen.size===12){lap=true;H.done(0);P.open(0);Q.toast('한 바퀴! 태양은 어느 별자리로 돌아왔을까?');}
+  if(!lap&&day>=HI-0.8&&seen.size===12){lap=true;H.done(1);P.open(0);Q.toast('한 바퀴! 태양은 어느 별자리로 돌아왔을까?');}
   }
-E.orbitDrag(cv,{V:()=>V,get:()=>day,set:set,lo:()=>LO,hi:()=>HI,miss:(px,py)=>{if(!V)return;
+const needFirst=()=>{Q.toast('① 먼저 지금 <b>태양 뒤에 있는 별자리 이름</b>을 눌러 보자');};
+E.orbitDrag(cv,{V:()=>V,get:()=>day,set:set,lo:()=>LO,hi:()=>HI,can:()=>{if(!first){needFirst();return false;}return true;},miss:(px,py)=>{if(!V)return;
   let hit=null;V.zod.forEach(z=>{if(z.px!=null&&Math.hypot(px-z.px,py-z.py)<46)hit=z;});if(!hit)return;
-  if(!lap){Q.toast('①부터 해 보세요');return;}
-  if(hit.id==='Lib'){if(!found){found=true;H.done(1);P.open(1);P.open(2);Q.toast('처음 자리(천칭자리)로 되돌아왔어요');}dirty=true;}else Q.toast('12개월 뒤 태양 뒤에 있는 별자리를 찾아보자');}});
-rg.addEventListener('input',()=>set(+rg.value));
-function draw(){V=E.ringView(cv,{day:day,trail:0,trailFull:day>=HI-0.8,grab:!lap,hl:found?{Lib:true}:{}});
-  const sl=E.sunLon(E.msOf(day)),moved=((sl-E.sunLon(E.msOf(0)))%360+360)%360,m=Math.round(day/30.44*10)/10;
-  ov.textContent=(day>=HI-0.8?'12개월 (1년) · 360°':(m<1?Math.round(day)+'일':m.toFixed(1)+'개월')+' · 태양 '+Math.round(moved)+'° 이동')+' · '+E.nearestZod(sl).ko;}
+  if(!first){if(hit.id===START.id){first=true;H.done(0);dirty=true;Q.toast('지금 태양 뒤에는 <b>'+START.ko+'</b>! 이제 지구를 끌어 돌려 보자');}else Q.toast('태양 쪽 점선 끝에 있는 별자리를 찾아보자');return;}
+  if(!lap){Q.toast('② 지구를 먼저 한 바퀴 돌려 보자');return;}
+  if(hit.id===START.id){if(!found){found=true;H.done(2);P.open(1);P.open(2);Q.toast('처음 자리('+START.ko+')로 되돌아왔어요');}dirty=true;}else Q.toast('12개월 뒤 태양 뒤에 있는 별자리를 찾아보자');}});
+rg.addEventListener('input',()=>{if(!first){rg.value=0;needFirst();return;}set(LO+(+rg.value));});
+function draw(){V=E.ringView(cv,{day:day,trail:LO,trailFull:day>=HI-0.8,grab:first&&!lap,hl:(found||(first&&day-LO<20))?{[START.id]:true}:{}});
+  const sl=E.sunLon(E.msOf(day)),moved=((sl-E.sunLon(E.msOf(LO)))%360+360)%360,m=Math.round((day-LO)/30.44*10)/10;
+  ov.textContent=(day>=HI-0.8?'12개월 (1년) · 360°':(m<1?Math.round(day-LO)+'일':m.toFixed(1)+'개월')+' · 태양 '+Math.round(moved)+'° 이동')+' · '+E.nearestZod(sl).ko;}
 function loop(){if(dirty&&Q.isActive()){dirty=false;draw();}requestAnimationFrame(loop);}
 addEventListener('resize',()=>dirty=true);Q.onActive(a=>{if(a)dirty=true;});document.fonts&&document.fonts.ready.then(()=>dirty=true);
-set(0);loop();
+set(LO);loop();
 })();
 </script>
 

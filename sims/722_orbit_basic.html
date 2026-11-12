@@ -435,17 +435,20 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 <script>
 (function(){
 'use strict';
-const H=Q.how(['① <b>지구를 끌어</b> 빨간 화살표 방향으로 끝까지 옮기기','② 하늘 창에서 <b>지금 태양 뒤에 있는 별자리</b>를 누르기','③ 1~3번을 <b>골라 [제출]</b>']);
+const H=Q.how(['① <b>지구를 끌어</b> 빨간 화살표 방향으로 끝까지 옮기기','② 하늘 창에서 <b>지금 태양 뒤에 있는 별자리</b>를 누르기','③ 지구를 계속 끌어 <b>한 바퀴(1년)</b> 돌리기','④ 1~5번을 <b>골라 [제출]</b>']);
 const P=Q.panel([
   {html:'<span class="n">1</span>우주에서 지구의 북극을 내려다볼 때, 지구가 태양을 중심으로 공전하는 방향은?',opts:['시계 반대 방향','시계 방향'],lock:'① 지구를 끝까지 옮겨 보세요'},
   {html:'<span class="n">2</span>지구가 이동하는 동안 천구에 있는 별자리는 실제로 움직이는가?',opts:['실제로 움직인다','움직이지 않는다'],lock:'① 지구를 끝까지 옮겨 보세요'},
-  {html:'<span class="n">3</span>지구가 시계 반대 방향으로 이동할 때, 지구에서 본 태양은 별자리 사이를 어느 순서로 이동하는 것처럼 보이는가?',opts:['게자리 → 사자자리 → 처녀자리','처녀자리 → 사자자리 → 게자리'],lock:'② 태양 뒤 별자리를 눌러 보세요'}],{how:H});
-const LO=E.dayFor(122,200,366),HI=E.dayFor(203,LO,LO+120);
-let day=LO,V=null,SV=null,reached=false,found=false,dirty=true,midSeen=false;
+  {html:'<span class="n">3</span>지구가 시계 반대 방향으로 이동할 때, 지구에서 본 태양은 별자리 사이를 어느 순서로 이동하는 것처럼 보이는가?',opts:['게자리 → 사자자리 → 처녀자리','처녀자리 → 사자자리 → 게자리'],lock:'② 태양 뒤 별자리를 눌러 보세요'},
+  {html:'<span class="n">4</span>태양이 별자리 사이를 매일 약 1°씩 이동하여 처음의 자리로 되돌아오는 데 걸리는 시간은?',opts:['하루','한 달','1년'],lock:'③ 지구를 한 바퀴 돌려 보세요'},
+  {html:'<span class="n">5</span>태양의 연주 운동이 나타나는 까닭은?',opts:['태양이 실제로 별자리 사이를 돌아서','지구가 태양을 중심으로 공전하기 때문이다'],lock:'③ 지구를 한 바퀴 돌려 보세요'}],{how:H});
+const LO=E.dayFor(122,200,366);let HI=E.dayFor(203,LO,LO+120);const HI0=HI;
+let day=LO,V=null,SV=null,reached=false,found=false,lap=false,dirty=true,midSeen=false;
 const cv=document.getElementById('cv'),sk=document.getElementById('sk'),rg=document.getElementById('rg'),ov=document.getElementById('ov');
 function set(d){day=d;rg.value=Math.round((day-LO)/(HI-LO)*1000);dirty=true;if(E.nearestZod(E.sunLon(E.msOf(day))).id==='Leo')midSeen=true;
   if(!reached&&day>=HI-0.6&&!midSeen)Q.toast('건너뛰지 말고 천천히 끌어 보자');
   if(!reached&&day>=HI-0.6&&midSeen){reached=true;H.done(0);P.open(0);P.open(1);Q.toast('끝까지 왔어요! 하늘 창을 보세요');}
+  if(found&&!lap&&day>=LO+365.25-1.5){lap=true;H.done(2);P.open(3);P.open(4);Q.toast('1년 만에 처음 자리(게자리)로 돌아왔어요');}
   }
 E.orbitDrag(cv,{V:()=>V,get:()=>day,set:set,lo:()=>LO,hi:()=>HI,miss:()=>{}});
 rg.addEventListener('input',()=>set(LO+(HI-LO)*rg.value/1000));
@@ -453,22 +456,22 @@ sk.addEventListener('click',e=>{if(!SV)return;const r=sk.getBoundingClientRect()
   if(!reached){Q.toast('①부터 해 보세요');return;}
   let hit=null;SV.forEach(l=>{if(Math.hypot(px-l.x,py-l.y)<60)hit=l;});if(!hit)return;
   const now=E.nearestZod(E.sunLon(E.msOf(day)));
-  if(hit.id===now.id){if(!found){found=true;H.done(1);P.open(2);Q.toast(now.ko+' — 태양이 게자리에서 여기까지 옮겨 왔어요');}dirty=true;}
+  if(hit.id===now.id){if(!found){found=true;H.done(1);P.open(2);HI=LO+365.25;Q.toast(now.ko+' — 이제 지구를 계속 끌어 한 바퀴 돌려 보자',3000);}dirty=true;}
   else Q.toast('지금 태양 바로 뒤에 있는 별자리를 찾아보자');});
 /* 지구에서 본 하늘 띠: 황경 95°~235° (동쪽=큰 황경이 왼쪽) */
 function strip(){const [x,w,h]=E.fit(sk);x.clearRect(0,0,w,h);const g=x.createLinearGradient(0,0,0,h);g.addColorStop(0,'#1E2747');g.addColorStop(1,'#0E1326');x.fillStyle=g;x.beginPath();x.roundRect(0,0,w,h,14);x.fill();
-  const L0=228,L1=95,X=l=>(L0-l)/(L0-L1)*w,Yl=b=>h*.5-b*h/48;
   const sl=E.sunLon(E.msOf(day)),now=E.nearestZod(sl);SV=[];
-  ['Gem','Cnc','Leo','Vir','Lib'].forEach(id=>{const c=E.SC.cons[id],on=found&&id===now.id;
+  const fol=found&&day>HI0+1,L0=fol?sl+66:228,L1=fol?sl-67:95,X=l=>fol?w/2-E.dAng(l,sl)/(L0-L1)*w:(L0-l)/(L0-L1)*w,Yl=b=>h*.5-b*h/48;
+  (fol?E.ZOD.map(z=>z.id).filter(id=>Math.abs(E.dAng(E.SC.cons[id].lon,sl))<80):['Gem','Cnc','Leo','Vir','Lib']).forEach(id=>{const c=E.SC.cons[id],on=found&&id===now.id;
     x.strokeStyle=on?'#FFB340':'rgba(255,236,170,.6)';x.lineWidth=on?2.4:1.3;
     c.l.forEach(ln=>{x.beginPath();ln.forEach((p,i)=>{const e=E.eclOf(p[0],p[1]);const px=X(e[0]),py=Yl(e[1]);i?x.lineTo(px,py):x.moveTo(px,py);});x.stroke();});
     const lx=X(c.lon);E.txt(x,c.ko,lx,h-14,{s:15,c:on?'#FFB340':'#fff',w:on?900:700});SV.push({id:id,x:lx,y:h*.5});});
   /* 지나온 자취 */
-  const s0=E.sunLon(E.msOf(LO));x.strokeStyle='rgba(255,179,64,.85)';x.lineWidth=5;x.lineCap='round';x.beginPath();x.moveTo(X(s0),h*.5);x.lineTo(X(sl),h*.5);x.stroke();
+  if(!fol){const s0=E.sunLon(E.msOf(LO));x.strokeStyle='rgba(255,179,64,.85)';x.lineWidth=5;x.lineCap='round';x.beginPath();x.moveTo(X(s0),h*.5);x.lineTo(X(sl),h*.5);x.stroke();}
   const sx=X(sl),gs=x.createRadialGradient(sx,h*.5,0,sx,h*.5,34);gs.addColorStop(0,'rgba(255,245,200,1)');gs.addColorStop(.35,'rgba(255,200,90,.9)');gs.addColorStop(1,'rgba(255,179,64,0)');
   x.fillStyle=gs;x.beginPath();x.arc(sx,h*.5,34,0,7);x.fill();E.txt(x,'태양',sx,14,{s:14,c:'#FFB340',w:900});
   E.txt(x,'← 동',12,14,{a:'left',s:13,c:'rgba(255,255,255,.7)'});E.txt(x,'서 →',w-12,14,{a:'right',s:13,c:'rgba(255,255,255,.7)'});}
-function draw(){V=E.ringView(cv,{day:day,trail:LO,grab:!reached,dy:0.02});strip();
+function draw(){V=E.ringView(cv,{day:day,trail:LO,grab:!reached||(found&&!lap),dy:0.02});strip();
   const d=new Date(E.msOf(day)+9*36e5);ov.textContent=(d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일 · 태양 쪽: '+E.nearestZod(E.sunLon(E.msOf(day))).ko;}
 function loop(){if(dirty&&Q.isActive()){dirty=false;draw();}requestAnimationFrame(loop);}
 addEventListener('resize',()=>dirty=true);Q.onActive(a=>{if(a)dirty=true;});document.fonts&&document.fonts.ready.then(()=>dirty=true);

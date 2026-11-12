@@ -1,20 +1,75 @@
 <!doctype html>
-<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>722 우주에서 땅까지 (실시간 3D)</title>
+<html lang="ko"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>722 지구의 공전과 태양의 연주 운동 (실시간 3D)</title>
 <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&display=swap" rel="stylesheet">
 <style>*{box-sizing:border-box}html,body{margin:0;height:100%;background:#02030a;color:#0D0D0D;font-family:"Noto Sans KR","Apple SD Gothic Neo",sans-serif;overflow:hidden;-webkit-font-smoothing:antialiased;user-select:none;-webkit-user-select:none}
-#gl{position:fixed;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:grab}
+#gl{position:fixed;top:0;left:0;width:calc(100% - var(--qw,0px));height:calc(100% - var(--qh,0px));display:block;touch-action:none;cursor:grab}
 #gl:active{cursor:grabbing}
 /* 반투명 막대: 뒤 화면이 비쳐 보임 */
 .card{background:rgba(255,255,255,.58);-webkit-backdrop-filter:blur(14px) saturate(1.3);backdrop-filter:blur(14px) saturate(1.3);box-shadow:0 0 0 1px rgba(255,255,255,.35)}
-button{font:700 13.5px "Noto Sans KR",sans-serif;border:0;border-radius:999px;background:rgba(255,255,255,.55);color:#0D0D0D;cursor:pointer;min-height:40px;padding:0 12px;transition:background .2s,color .2s;white-space:nowrap;touch-action:manipulation}
+button{font:700 14px "Noto Sans KR",sans-serif;border:0;border-radius:999px;background:rgba(255,255,255,.55);color:#0D0D0D;cursor:pointer;min-height:44px;padding:0 13px;transition:background .2s,color .2s;white-space:nowrap;touch-action:manipulation}
 button:hover{background:rgba(255,255,255,.85)}button:active{transform:scale(.97)}
 button.on,button.on:hover{background:#0D0D0D;color:#fff}
-/* 1.5초 동안 마우스를 안 움직이면 사라짐 */
-.ui{transition:opacity .35s}
-body.idle .ui{opacity:0;pointer-events:none}
-.bar{position:fixed;left:0;right:0;margin:0 auto;width:max-content;z-index:3;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;padding:6px 8px;border-radius:999px;max-width:calc(100% - 20px)}
+.bar{position:fixed;left:0;right:var(--qw,0px);margin:0 auto;width:max-content;z-index:3;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;padding:6px 8px;border-radius:999px;max-width:calc(100% - var(--qw,0px) - 20px)}
 #topbar{top:10px}
-#bar{bottom:10px}
+#bar{bottom:calc(var(--qh,0px) + 10px);flex-wrap:nowrap;gap:8px;padding:6px 10px}
+#bar canvas,#bar .chips,#bar .arw,#bar .sep,#vZod{display:none!important}
+#bar .eb{display:block!important;padding:0 2px 0 6px}
+#bar input.val{cursor:pointer}
+/* 날짜·시각 직접 입력 칸 */
+.bar input.val{font:900 16px "Noto Sans KR",sans-serif;font-variant-numeric:tabular-nums;color:#0D0D0D;background:rgba(255,255,255,.75);border:0;border-radius:999px;min-height:40px;padding:0 10px;text-align:center;min-width:0;width:auto;cursor:text}
+.bar input.val:focus{outline:2px solid #0D0D0D;background:#fff}
+#vDate{width:160px}#vTime{width:140px}
+#vZod{font-size:13px;font-weight:700;color:#3A3A3A;white-space:nowrap}
+#bHelp{background:#0D0D0D;color:#fff}
+#bHelp:hover{background:#333}
+/* 조작법 팝업 */
+.pop{position:fixed;inset:0;z-index:20;display:grid;place-items:center;background:rgba(2,3,10,.55);padding:16px}
+.pop[hidden]{display:none}
+.pbox{background:#fff;color:#0D0D0D;border-radius:28px;padding:22px 24px 18px;width:min(560px,100%);max-height:100%;overflow:auto;font-size:15.5px;line-height:1.5}
+.pbox h3{margin:0 0 10px;font-size:22px;font-weight:900}
+.pbox dl{margin:0;display:grid;grid-template-columns:auto 1fr;gap:9px 14px}
+.pbox dt{font-weight:900;white-space:nowrap}
+.pbox dd{margin:0;color:#3A3A3A}
+.pbox kbd{font:700 13.5px "Noto Sans KR",sans-serif;background:#F0F0F0;border-radius:999px;padding:1px 9px;white-space:nowrap}
+.pbox .end{display:flex;justify-content:flex-end;margin-top:14px}
+.pbox .end button{background:#0D0D0D;color:#fff;padding:0 22px}
+/* 문항 칸 (학습지·문항 있는 수업자료 쪽) */
+#qp{display:none}
+body.qm{--qw:340px}
+body.qm #qp{display:flex;flex-direction:column;gap:8px;position:fixed;top:0;right:0;bottom:0;width:var(--qw);background:#fff;padding:10px 10px 10px 12px;overflow:auto;z-index:4;font-family:"Noto Sans KR",sans-serif;word-break:keep-all}
+#qp .how{margin:0;padding:8px 12px;border-radius:16px;background:#F7F7F7;font-size:14px;line-height:1.5;display:flex;flex-direction:column;gap:1px}
+#qp .how span{color:#8A8A8A;font-weight:600}
+#qp .how span.now{color:#0D0D0D;font-weight:800}
+#qp .how span.done{color:#0B6B47}
+#qp .how span.done::after{content:" ✓";font-weight:800}
+#qp .how span.flash{animation:fl .5s 3}
+@keyframes fl{50%{background:#FFE9A8}}
+#qs{display:flex;flex-direction:column;gap:8px}
+.q{background:#F7F7F7;border:2px solid transparent;border-radius:18px;padding:10px 12px;display:flex;flex-direction:column;gap:7px;transition:border-color .2s,opacity .2s}
+.q p{margin:0;font-size:15.5px;font-weight:700;line-height:1.45}
+.q .n{display:inline-grid;place-items:center;width:23px;height:23px;border-radius:50%;background:#0D0D0D;color:#fff;font-size:12.5px;margin-right:6px;vertical-align:2px}
+.q .opts{display:flex;flex-wrap:wrap;gap:6px}
+.q .opts button{background:#fff;color:#0D0D0D;font-size:14.5px;font-weight:600;min-height:42px;padding:4px 14px;white-space:normal;text-align:left}
+.q .opts button:hover{background:#fff}
+.q .opts button.on{background:#0D0D0D;color:#fff}
+.q .lock{font-size:13.5px;font-weight:700;color:#8A8A8A}
+.q .lock.warn{color:#A23B0B}
+.q.locked{opacity:.6;cursor:pointer}
+.q.locked .opts{display:none}
+.q:not(.locked) .lock{display:none}
+.q.nudge{animation:ng .35s}
+@keyframes ng{25%{transform:translateX(-5px)}75%{transform:translateX(5px)}}
+.sub{display:flex;flex-direction:column;gap:6px;margin-top:auto;padding-top:4px}
+.sub button{background:#0D0D0D;color:#fff;font-size:16px;min-height:48px}
+.sub button:hover{background:#333}
+.sub button:disabled{background:#F0F0F0;color:#8A8A8A;cursor:not-allowed}
+.sub .msg{font-size:14px;font-weight:700;color:#8A8A8A;text-align:center;min-height:20px}
+.sub .msg.ok{color:#0B6B47}
+.toast{position:fixed;left:calc((100% - var(--qw,0px)) / 2);top:64px;transform:translateX(-50%);background:rgba(13,13,13,.92);color:#fff;font:700 15px "Noto Sans KR",sans-serif;border-radius:999px;padding:8px 18px;pointer-events:none;opacity:0;transition:opacity .25s;z-index:15;max-width:90%;text-align:center}
+.toast.on{opacity:1}
+.gohere{animation:gh .6s 4}
+@keyframes gh{50%{box-shadow:0 0 0 4px #FFB340}}
+@media(max-width:860px){body.qm{--qw:0px;--qh:44%}body.qm #qp{top:auto;left:0;width:auto;height:var(--qh);border-radius:22px 22px 0 0}}
 .bar .grp{display:flex;align-items:center;gap:3px}
 .bar .sep{width:1px;align-self:stretch;margin:6px 2px;background:rgba(13,13,13,.12)}
 .bar .eb{font-size:12px;font-weight:700;color:#5D5D5D;padding:0 4px 0 6px;white-space:nowrap}
@@ -29,7 +84,7 @@ body.idle .ui{opacity:0;pointer-events:none}
 #compass{width:40px;height:40px;border-radius:50%;padding:0;background:rgba(255,255,255,.7);display:none;flex:none}
 #compass svg{width:40px;height:40px;display:block}
 #credit{position:fixed;left:14px;bottom:66px;margin:0;font-size:10px;color:rgba(255,255,255,.38);z-index:2}
-@media(max-width:1320px){.bar canvas{display:none}.bar .chips button{padding:0 8px}}
+@media(max-width:1320px){.bar .chips button{padding:0 8px}#vZod{display:none}}
 @media(max-width:1440px){.bar .eb{display:none}}
 @media(max-width:760px){.bar{border-radius:24px}.bar .sep{display:none}#credit{display:none}}
 @media(max-width:560px){.bar .chips{display:none}}</style>
@@ -223,16 +278,27 @@ E.orbitDrag=function(c,o){var on=false;
   <div class="grp" id="zoom"><span class="eb">시점</span></div>
   <div class="sep"></div>
   <div class="grp" id="tg"><button type="button" id="bLines" class="on">별자리 선</button><button type="button" id="bSight" class="on">태양 방향</button><button type="button" id="bAir">대기 끄기</button></div>
+  <div class="sep"></div>
+  <button type="button" id="bHelp">조작법</button>
 </div>
 <div id="bar" class="card ui bar">
   <div class="grp"><span class="eb">날짜</span><canvas id="cDate" aria-label="공전 궤도: 누르면 그 날짜로"></canvas>
-    <button type="button" class="arw" id="dPrev" aria-label="하루 전">‹</button><span class="val" id="vDate"></span><button type="button" class="arw" id="dNext" aria-label="하루 뒤">›</button>
-    <div class="chips" id="chD"></div></div>
+    <button type="button" class="arw" id="dPrev" aria-label="하루 전">‹</button><input type="date" class="val" id="vDate" aria-label="날짜 입력"><button type="button" class="arw" id="dNext" aria-label="하루 뒤">›</button>
+    <div class="chips" id="chD"></div><span id="vZod"></span></div>
   <div class="sep"></div>
   <div class="grp"><span class="eb">시각</span><canvas id="cTime" aria-label="24시간 시계: 누르면 그 시각으로"></canvas>
-    <button type="button" class="arw" id="tPrev" aria-label="한 시간 전">‹</button><span class="val" id="vTime"></span><button type="button" class="arw" id="tNext" aria-label="한 시간 뒤">›</button>
+    <button type="button" class="arw" id="tPrev" aria-label="한 시간 전">‹</button><input type="time" class="val" id="vTime" step="300" aria-label="시각 입력"><button type="button" class="arw" id="tNext" aria-label="한 시간 뒤">›</button>
     <div class="chips" id="chT"></div></div>
 </div>
+<aside id="qp"><p class="how" id="how"></p><div id="qs"></div></aside>
+<div id="help" class="pop" hidden><div class="pbox" role="dialog" aria-label="조작법"><h3>조작법</h3><dl>
+  <dt>시점</dt><dd>위 <kbd>우주</kbd>~<kbd>땅</kbd> 누르기<br>두 손가락 벌리기·모으기(마우스 휠) = 가까이·멀리</dd>
+  <dt>둘러보기</dt><dd>화면을 한 손가락(마우스)으로 끌기<br>두 번 누르기 = 처음 방향</dd>
+  <dt>날짜</dt><dd>아래 날짜 칸 누르기 → 달력에서 고르기 (숫자를 직접 써도 됨)</dd>
+  <dt>시각</dt><dd>아래 시각 칸 누르기 → 시각 고르기 (숫자를 직접 써도 됨)</dd>
+  <dt>보기</dt><dd><kbd>별자리 선</kbd> <kbd>태양 방향</kbd> 켜고 끄기<br><kbd>대기 끄기</kbd> 낮에도 별이 보임</dd>
+  <dt class="qmo">문항</dt><dd class="qmo">해 보면 문항이 열림 → 모두 골라 <kbd>제출</kbd></dd>
+</dl><div class="end"><button type="button" id="hClose">닫기</button></div></div></div>
 <p id="credit" class="ui">지구 사진 NASA Blue Marble · 별 위치 Hipparcos·Yale BSC</p>
 <script>
 (function(){
@@ -240,7 +306,11 @@ E.orbitDrag=function(c,o){var on=false;
 const D=Math.PI/180,SC=E.SC,EPS=23.4393*D,RR=SC.cam.ringR,RH=SC.cam.ringH;
 const LATG=37.5,LONG=127.0;
 /* ---------- 상태 (수업자료 쪽마다 주소 # 뒤에 시작값) ---------- */
-let st={view:0,day:0,min:720};try{Object.assign(st,JSON.parse(decodeURIComponent(location.hash.slice(1)||'{}')));}catch(e){}
+/* 주소 # 뒤 {…} = 수업자료 쪽 시작값. 문항 칸은 Q 도구가 있고 qs:1일 때만(지금은 없음 = 조작 익히기용) */
+let st={view:0,day:0,min:720},hasSt=false;try{const h=decodeURIComponent(location.hash.slice(1)||'');if(h.charAt(0)==='{'){Object.assign(st,JSON.parse(h));hasSt=true;}}catch(e){}
+const QM=!!st.qs&&typeof Q!=='undefined';
+/* 학습지(#ws=쪽)에서 열면 수업자료 같은 쪽과 같은 장면으로 시작 */
+if(!hasSt){const m=/ws=(\d+)/.exec(location.hash),PRE={7:{view:1,day:0,min:720},10:{view:0,day:49,min:1440}};if(m&&PRE[m[1]])Object.assign(st,PRE[m[1]]);}document.body.classList.toggle('qm',QM);document.querySelectorAll('.qmo').forEach(e=>e.hidden=!QM);
 let view=st.view,day=st.day,min=st.min,lines=st.lines!==false,sight=st.sight!==false,air=true;
 /* ---------- 렌더러 ---------- */
 const cv=document.getElementById('gl');
@@ -484,8 +554,9 @@ function place(){
 
   const tgt=T0.clone().lerp(ec,aT);
   const dip=Math.acos(ER/(ER+h));
-  const FOVG=innerHeight<650?104:92;
-  const barTop=barEl.getBoundingClientRect().top,hy=Math.min(HORIZON_Y,(barTop-22)/innerHeight);
+  const cvR=cv.getBoundingClientRect(),cvH=Math.max(1,cvR.height);
+  const FOVG=cvH<650?104:92;
+  const barTop=barEl.getBoundingClientRect().top-cvR.top,hy=Math.max(.6,Math.min(HORIZON_Y,(barTop-22)/cvH));
   const pitch=Math.atan((hy-.5)*2*Math.tan(FOVG/2*D));
   const ha=Math.PI*ss(.46,.64,v),Hd=O.north.clone().multiplyScalar(Math.cos(ha)).add(O.east.clone().multiplyScalar(Math.sin(ha)));
   const b=ss(.58,.93,v);
@@ -544,16 +615,13 @@ function place(){
   sky.userData.names.forEach(s=>{const below=gK>.5&&s.userData.dir.dot(O.up)<-Math.sin(dip)-.01;s.visible=lines&&!below&&(airK>.5||space<.6);s.material.opacity=1-.3*dayK;const k=1+1.1*airK;s.scale.set(s.userData.w*0.032*k,0.032*k,1);});
   /* 글 */
   sun.material.uniforms.t.value=performance.now()/1000;}
-function size(){const w=innerWidth,h=innerHeight;R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();dirty=true;drawDials();}
+function size(){const r=cv.getBoundingClientRect(),w=Math.max(1,Math.round(r.width)),h=Math.max(1,Math.round(r.height));R.setSize(w,h,false);cam.aspect=w/h;cam.updateProjectionMatrix();dirty=true;drawDials();}
 
 /* ================= 조작 ================= */
 /* 시점: 왼쪽 단추로 날아가기, 마우스 휠·트랙패드로 확대·축소 */
 const STOPS=[['우주',0],['지구',.3],['한반도',.5],['서울',.68],['땅',1]];
 const zoomNav=document.getElementById('zoom');
 const zBtns=STOPS.map(([t,v])=>{const b=document.createElement('button');b.type='button';b.textContent=t;b.onclick=()=>flyTo(v);zoomNav.appendChild(b);return b;});
-/* 1.5초 동안 마우스를 안 움직이면 조작 막대가 사라짐 */
-let idleT=0;function wake(){document.body.classList.remove('idle');clearTimeout(idleT);idleT=setTimeout(()=>document.body.classList.add('idle'),1500);}
-['pointermove','pointerdown','wheel','keydown'].forEach(t=>addEventListener(t,wake,{passive:true}));wake();
 let tView=view,fly=null;
 function flyTo(v){dragX=dragY=0;const d=Math.abs(v-view);if(d<1e-4)return;fly={from:view,to:v,t0:performance.now(),dur:1400+3200*Math.sqrt(d)};tView=v;}
 cv.addEventListener('wheel',e=>{e.preventDefault();fly=null;const k=e.ctrlKey?.008:(e.deltaMode===1?.015:.0005);tView=Math.max(0,Math.min(1,tView-e.deltaY*k));},{passive:false});
@@ -566,20 +634,31 @@ cmp.onclick=()=>{dragX=dragY=0;dirty=true;};
 function placeCompass(){}
 /* 켜고 끄기 */
 const tg=(id,f)=>{const b=document.getElementById(id);b.onclick=()=>{f(b);dirty=true;};};
-tg('bLines',b=>{lines=!lines;b.classList.toggle('on',lines);});tg('bSight',b=>{sight=!sight;b.classList.toggle('on',sight);});tg('bAir',b=>{air=!air;b.classList.toggle('on',!air);});
+tg('bLines',b=>{lines=!lines;b.classList.toggle('on',lines);});tg('bSight',b=>{sight=!sight;b.classList.toggle('on',sight);});tg('bAir',b=>{air=!air;b.classList.toggle('on',!air);if(!air&&view>.85)prog.airOff=true;track();});
 document.getElementById('bLines').classList.toggle('on',lines);document.getElementById('bSight').classList.toggle('on',sight);
 /* 화면 끌어서 둘러보기, 두 번 누르면 원래 방향 */
-let drag=null;cv.addEventListener('pointerdown',e=>{drag=[e.clientX,e.clientY,dragX,dragY];cv.setPointerCapture(e.pointerId);});
-cv.addEventListener('pointermove',e=>{if(!drag)return;const k=view>.8?.004:.006;dragX=drag[2]-(e.clientX-drag[0])*k;dragY=Math.max(-1.2,Math.min(1.2,drag[3]-(e.clientY-drag[1])*k));dirty=true;});
-cv.addEventListener('pointerup',()=>drag=null);cv.addEventListener('dblclick',()=>{dragX=dragY=0;dirty=true;});
+const pts=new Map();let drag=null,pinch=null,lastTap=0;
+function twoD(){const v=[...pts.values()];return Math.hypot(v[0][0]-v[1][0],v[0][1]-v[1][1]);}
+cv.addEventListener('pointerdown',e=>{try{cv.setPointerCapture(e.pointerId);}catch(_){}pts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(pts.size===1){drag=[e.clientX,e.clientY,dragX,dragY];const now=performance.now();if(e.pointerType!=='mouse'&&now-lastTap<330){dragX=dragY=0;dirty=true;}lastTap=now;}
+  else if(pts.size===2){drag=null;fly=null;pinch={d:Math.max(20,twoD()),v:tView};}});
+cv.addEventListener('pointermove',e=>{if(!pts.has(e.pointerId))return;pts.set(e.pointerId,[e.clientX,e.clientY]);
+  if(pinch&&pts.size>=2){tView=Math.max(0,Math.min(1,pinch.v+Math.log(twoD()/pinch.d)*.4));return;}
+  if(!drag)return;const k=view>.8?.004:.006;dragX=drag[2]-(e.clientX-drag[0])*k;dragY=Math.max(-1.2,Math.min(1.2,drag[3]-(e.clientY-drag[1])*k));dirty=true;});
+function upP(e){pts.delete(e.pointerId);if(pts.size<2)pinch=null;if(pts.size===1){const p=[...pts.values()][0];drag=[p[0],p[1],dragX,dragY];}else if(!pts.size)drag=null;}
+cv.addEventListener('pointerup',upP);cv.addEventListener('pointercancel',upP);cv.addEventListener('dblclick',()=>{dragX=dragY=0;dirty=true;});
 
 /* ---------- 날짜 다이얼: 위에서 본 공전 궤도. 지구를 끌거나 궤도 아무 데나 누르면 그 날짜로 ---------- */
 const YEAR=365;
 function wrapDay(d){return ((d%YEAR)+YEAR)%YEAR;}
 function dayOfDate(m,d){let ms=Date.UTC(2025,m-1,d,3);if(ms<E.DAY0)ms=Date.UTC(2026,m-1,d,3);return Math.round((ms-E.DAY0)/864e5);}
-const cDate=document.getElementById('cDate'),cTime=document.getElementById('cTime');
+const $=id=>document.getElementById(id),cDate=$('cDate'),cTime=$('cTime'),vDate=$('vDate'),vTime=$('vTime');
+const prog={moved:0,zod:new Set(),months:new Set(),ground:false,airOff:false};
+function setDay(d){const nd=wrapDay(d);let dd=Math.abs(nd-day);if(dd>YEAR/2)dd=YEAR-dd;prog.moved+=dd;day=nd;changed();}
 const FL=SC.cam.frontLon;
+function zodNow(){return E.nearestZod(E.sunLon(msNow()));}
 function orbitXY(el,cx,cy,r){const a=(el-FL)*D;return [cx+r*Math.sin(a),cy+r*Math.cos(a)];}
+const p2=v=>(v<10?'0':'')+v;
 function drawDate(){const f=E.fit(cDate),x=f[0],w=f[1],hh=f[2],cx=w/2,cy=hh/2,R0=Math.max(2,Math.min(w,hh)/2-1),r=R0*(w<80?.66:.6),sc=w<80?.6:1;
   x.clearRect(0,0,w,hh);x.fillStyle='#0E1326';x.beginPath();x.arc(cx,cy,R0,0,7);x.fill();
   x.strokeStyle='rgba(255,255,255,.28)';x.lineWidth=1.5;x.beginPath();x.arc(cx,cy,r,0,7);x.stroke();
@@ -590,21 +669,27 @@ function drawDate(){const f=E.fit(cDate),x=f[0],w=f[1],hh=f[2],cx=w/2,cy=hh/2,R0
   const e=(E.sunLon(E.msOf(day))+180)%360,p=orbitXY(e,cx,cy,r);
   x.strokeStyle='rgba(255,179,64,.7)';x.setLineDash([3,3]);x.lineWidth=1.3;x.beginPath();x.moveTo(p[0],p[1]);x.lineTo(cx,cy);x.stroke();x.setLineDash([]);
   x.fillStyle='#3F86D6';x.strokeStyle='#fff';x.lineWidth=2.5*sc;x.beginPath();x.arc(p[0],p[1],7.5*sc,0,7);x.fill();x.stroke();
-  const d=new Date(E.msOf(day)+9*36e5);document.getElementById('vDate').textContent=(d.getUTCMonth()+1)+'월 '+d.getUTCDate()+'일';
+  const d=new Date(E.msOf(day)+9*36e5);if(document.activeElement!==vDate)vDate.value=d.getUTCFullYear()+'-'+p2(d.getUTCMonth()+1)+'-'+p2(d.getUTCDate());
+  $('vZod').textContent='태양 뒤 '+zodNow().ko;
   chD.forEach(([b,dd])=>b.classList.toggle('on',Math.round(day)===dd));}
+/* 날짜 칸에 직접 입력: 연도는 상관없이 월·일로 */
+vDate.addEventListener('change',()=>{const m=/^\d+-(\d+)-(\d+)$/.exec(vDate.value);if(m)setDay(dayOfDate(+m[1],+m[2]));});
+vDate.addEventListener('blur',()=>drawDate());
+[vDate,vTime].forEach(f=>f.addEventListener('click',()=>{try{f.showPicker();}catch(_){}}));
 function dateFromPointer(e){const r=cDate.getBoundingClientRect(),px=e.clientX-r.left-r.width/2,py=e.clientY-r.top-r.height/2;
-  const want=(Math.atan2(px,py)/D+FL+360)%360,cur=(E.sunLon(E.msOf(day))+180)%360;day=wrapDay(Math.round(day+E.dAng(want,cur)/0.9856));changed();}
+  const want=(Math.atan2(px,py)/D+FL+360)%360,cur=(E.sunLon(E.msOf(day))+180)%360;setDay(Math.round(day+E.dAng(want,cur)/0.9856));}
 let dD=false;cDate.addEventListener('pointerdown',e=>{dD=true;cDate.setPointerCapture(e.pointerId);dateFromPointer(e);});
-cDate.addEventListener('pointermove',e=>{if(dD)dateFromPointer(e);});cDate.addEventListener('pointerup',()=>dD=false);
-const chD=[['3월',3,21],['6월',6,21],['9월',9,23],['12월',12,22]].map(([t,m,d])=>{const b=document.createElement('button');b.type='button';b.textContent=t;const dd=dayOfDate(m,d);b.onclick=()=>{day=dd;changed();};document.getElementById('chD').appendChild(b);return [b,dd];});
+cDate.addEventListener('pointermove',e=>{if(dD)dateFromPointer(e);});cDate.addEventListener('pointerup',()=>dD=false);cDate.addEventListener('pointercancel',()=>dD=false);
+const chD=[['3월',3,21],['6월',6,21],['9월',9,23],['12월',12,22]].map(([t,m,d])=>{const b=document.createElement('button');b.type='button';b.textContent=t;const dd=dayOfDate(m,d);b.onclick=()=>setDay(dd);$('chD').appendChild(b);return [b,dd];});
 /* ‹ › : 한 번 누르면 한 칸, 꾹 누르고 있으면 계속 흐름 (오래 누를수록 빨라짐) */
 function hold(id,once,run){const b=document.getElementById(id);let t=0,iv=0,n=0;
   const stop=()=>{clearTimeout(t);clearInterval(iv);t=iv=0;};
   b.addEventListener('pointerdown',e=>{e.preventDefault();stop();n=0;once();t=setTimeout(()=>{iv=setInterval(()=>{run(++n);},50);},380);});
   ['pointerup','pointerleave','pointercancel','blur'].forEach(ev=>b.addEventListener(ev,stop));
+  b.addEventListener('contextmenu',e=>e.preventDefault());
   b.addEventListener('keydown',e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();once();}});}
-hold('dPrev',()=>{day=wrapDay(Math.round(day)-1);changed();},n=>{day=wrapDay(Math.round(day)-(n>40?3:1));changed();});
-hold('dNext',()=>{day=wrapDay(Math.round(day)+1);changed();},n=>{day=wrapDay(Math.round(day)+(n>40?3:1));changed();});
+hold('dPrev',()=>setDay(Math.round(day)-1),n=>setDay(Math.round(day)-(n>40?3:1)));
+hold('dNext',()=>setDay(Math.round(day)+1),n=>setDay(Math.round(day)+(n>40?3:1)));
 
 /* ---------- 시각 다이얼: 24시간 시계. 위 = 낮 12시, 아래 = 밤 12시, 왼쪽 = 아침(동), 오른쪽 = 저녁(서) ---------- */
 function sunAltAt(m){const ms=E.msOf(day)+(m-720)*6e4,rd=E.sunRaDec(E.sunLon(ms));return E.altaz(rd[0],rd[1],E.lst(ms))[0];}
@@ -618,25 +703,52 @@ function drawTime(){const f=E.fit(cTime),x=f[0],w=f[1],hh=f[2],cx=w/2,cy=hh/2,R0
   const a=angOf(min),rr=(R0+ri)/2,p=[cx+rr*Math.sin(a),cy-rr*Math.cos(a)],alt=sunAltAt(min);
   x.fillStyle=alt>0?'#FFB340':'#fff';x.strokeStyle=alt>0?'#fff':'#0D0D0D';x.lineWidth=2.5*sc;x.beginPath();x.arc(p[0],p[1],8*sc,0,7);x.fill();x.stroke();
   if(!mini){E.txt(x,alt>0?'낮':'밤',cx,cy-7,{s:12,w:900,c:'#0D0D0D'});E.txt(x,'해 '+Math.round(alt)+'°',cx,cy+9,{s:10.5,w:700,c:'#5D5D5D'});}
-  const H=Math.floor(min/60)%24,M=min%60;document.getElementById('vTime').textContent=(H<12?'오전 ':'오후 ')+((H%12)||12)+':'+(M<10?'0':'')+M;
+  const H=Math.floor(min/60)%24,M=min%60;if(document.activeElement!==vTime)vTime.value=p2(H)+':'+p2(M);
   const rs=riseSet();chT.forEach(([b,k])=>{const t=k==='rise'?rs[0]:k==='set'?rs[1]:k;b.classList.toggle('on',Math.abs(min-t)<3);});}
+/* 시각 칸에 직접 입력 */
+vTime.addEventListener('change',()=>{const m=/^(\d+):(\d+)/.exec(vTime.value);if(m){min=(+m[1]*60+ +m[2])%1440;changed();}});
+vTime.addEventListener('blur',()=>drawTime());
 function timeFromPointer(e){const r=cTime.getBoundingClientRect(),px=e.clientX-r.left-r.width/2,py=e.clientY-r.top-r.height/2;
   let m=((Math.atan2(px,-py)/(2*Math.PI))*24+12)*60;m=((Math.round(m/5)*5)%1440+1440)%1440;min=m;changed();}
 let dT=false;cTime.addEventListener('pointerdown',e=>{dT=true;cTime.setPointerCapture(e.pointerId);timeFromPointer(e);});
-cTime.addEventListener('pointermove',e=>{if(dT)timeFromPointer(e);});cTime.addEventListener('pointerup',()=>dT=false);
+cTime.addEventListener('pointermove',e=>{if(dT)timeFromPointer(e);});cTime.addEventListener('pointerup',()=>dT=false);cTime.addEventListener('pointercancel',()=>dT=false);
 const chT=[['해 뜰 때','rise'],['낮 12시',720],['해 질 때','set'],['밤 12시',0]].map(([t,k])=>{const b=document.createElement('button');b.type='button';b.textContent=t;
-  b.onclick=()=>{const rs=riseSet();min=k==='rise'?rs[0]:k==='set'?rs[1]:k;changed();};document.getElementById('chT').appendChild(b);return [b,k];});
+  b.onclick=()=>{const rs=riseSet();min=k==='rise'?rs[0]:k==='set'?rs[1]:k;changed();};$('chT').appendChild(b);return [b,k];});
 hold('tPrev',()=>{min=(Math.ceil(min/60)*60-60+1440)%1440;changed();},n=>{min=(min-(n>40?10:5)+1440)%1440;changed();});
 hold('tNext',()=>{min=(Math.floor(min/60)*60+60)%1440;changed();},n=>{min=(min+(n>40?10:5))%1440;changed();});
+
+/* ---------- 조작법 팝업 ---------- */
+const help=$('help');
+$('bHelp').onclick=()=>{help.hidden=false;$('hClose').focus();};
+$('hClose').onclick=()=>{help.hidden=true;};
+help.addEventListener('click',e=>{if(e.target===help)help.hidden=true;});
+addEventListener('keydown',e=>{if(e.key==='Escape'&&!help.hidden){help.hidden=true;e.stopImmediatePropagation();}},true);
+
+/* ---------- 문항: 해 보면 열림 → [제출]로 학습지 칸(.sim-in)에 ---------- */
+let H_=null,P_=null;
+if(QM){
+  H_=Q.how(['① 날짜를 바꿔 <b>지구를 옮기기</b>','② 7월 → 10월로 옮기며 <b>태양 뒤 별자리</b> 보기','③ 날짜를 바꿔 <b>1년(12달)</b> 돌려 보기','④ <b>[땅]</b>에서 낮 12시 하늘 보기 → <b>[대기 끄기]</b>','⑤ 1~6번을 골라 <b>[제출]</b>']);
+  P_=Q.panel([
+    {html:'<span class="n">1</span>우주에서 지구의 북극을 내려다볼 때, 지구가 태양을 중심으로 공전하는 방향은?',opts:['시계 반대 방향','시계 방향'],lock:'① 지구를 옮겨 보세요'},
+    {html:'<span class="n">2</span>지구가 이동하는 동안 천구에 있는 별자리는 실제로 움직이는가?',opts:['실제로 움직인다','움직이지 않는다'],lock:'① 지구를 옮겨 보세요'},
+    {html:'<span class="n">3</span>지구가 시계 반대 방향으로 이동할 때, 지구에서 본 태양은 별자리 사이를 어느 순서로 이동하는 것처럼 보이는가?',opts:['게자리 → 사자자리 → 처녀자리','처녀자리 → 사자자리 → 게자리'],lock:'② 태양 뒤 별자리를 보세요'},
+    {html:'<span class="n">4</span>태양이 별자리 사이를 매일 약 1°씩 이동하여 처음의 자리로 되돌아오는 데 걸리는 시간은?',opts:['하루','한 달','1년'],lock:'③ 1년을 돌려 보세요'},
+    {html:'<span class="n">5</span>태양의 연주 운동이 나타나는 까닭은?',opts:['태양이 실제로 별자리 사이를 돌아서','지구가 태양을 중심으로 공전하기 때문이다'],lock:'③ 1년을 돌려 보세요'},
+    {html:'<span class="n">6</span>낮 12시에 땅에서 하늘을 보면, 태양 근처 별자리의 별이 맨눈으로 보이는가?',opts:['또렷하게 보인다','태양 빛이 밝아 보이지 않는다'],lock:'④ [땅]에서 낮 하늘을 보세요'}],{how:H_});}
+function track(){if(!QM)return;
+  prog.zod.add(zodNow().id);prog.months.add(new Date(msNow()+9*36e5).getUTCMonth());
+  if(view>.85&&sunAltAt(min)>5)prog.ground=true;
+  const c1=prog.moved>=20,c2=c1&&['Cnc','Leo','Vir'].every(z=>prog.zod.has(z)),c3=c2&&(prog.months.size>=12||prog.moved>=330),c4=prog.ground&&prog.airOff;
+  if(c1){H_.done(0);P_.open(0);P_.open(1);}if(c2){H_.done(1);P_.open(2);}if(c3){H_.done(2);P_.open(3);P_.open(4);}if(c4){H_.done(3);P_.open(5);}}
 function drawDials(){drawDate();drawTime();}
-function changed(){dirty=true;drawDials();}
+function changed(){dirty=true;drawDials();track();}
 
 addEventListener('resize',size);size();
 let active=true;addEventListener('message',e=>{const d=e.data||{};if(d.type==='active'){active=!!d.on;dirty=true;}if(d.type==='view'){fly=null;view=tView=Math.max(0,Math.min(1,+d.v||0));dirty=true;}});
-function loop(now){requestAnimationFrame(loop);if(!active)return;const moving=stepView(now||performance.now());
+let tk=0;function loop(now){requestAnimationFrame(loop);if(!active)return;now=now||performance.now();const moving=stepView(now);if(QM&&now-tk>400){tk=now;track();}
   if(moving||dirty||lastH>GU*2.5){dirty=false;place();R.render(S,cam);markZoom();
     cmp.style.display=showCompass?'block':'none';if(showCompass)rose.setAttribute('transform','rotate('+(-heading).toFixed(1)+')');}}
-document.fonts&&document.fonts.ready.then(()=>{dirty=true;drawDials();placeCompass();});placeCompass();loop();
+document.fonts&&document.fonts.ready.then(()=>{dirty=true;drawDials();placeCompass();});placeCompass();if(QM){prog.zod.clear();prog.months.clear();}loop();
 })();
 </script>
 

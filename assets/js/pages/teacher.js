@@ -2042,10 +2042,55 @@ async function refresh() {
   cleanupPostPhotos().catch((err) => console.error(err));
 }
 
+/* ---------- 공유 자료실에서 웹 학습지 받기 (2026-11-12) ----------
+   자료실(a11y526.github.io/science-share)의 웹 학습지 [내 포털에 넣기]가 이 화면을 teacher/?ws-in=1#lessons 로 새 창에 연다.
+   여기서 'ws:ready'를 보내면 자료실이 {type:'ws:file', code, name, html}을 보내고, 받으면 'ws:got'으로 답한다.
+   로그인 뒤 [학습지 올리기]와 같은 미리보기 창을 띄운다(선생님이 [저장]을 눌러야 들어간다). 정답이 든 html이라 자료실 주소에서 온 것만 받는다 */
+const SHARE_ORIGINS = ['https://a11y526.github.io'];
+let wsIncoming = null;
+let wsGot = false; // 한 번만 받는다
+let adminReady = false;
+if (new URLSearchParams(location.search).has('ws-in') && window.opener) {
+  const okOrigin = (o) => SHARE_ORIGINS.includes(o) || (location.hostname === 'localhost' && /^http:\/\/localhost(:\d+)?$/.test(o));
+  addEventListener('message', (e) => {
+    if (!okOrigin(e.origin) || e.data?.type !== 'ws:file' || wsGot) return;
+    const { code, name, html } = e.data;
+    if (!/^[0-9]{3}[A-Za-z0-9]*$/.test(String(code || '')) || typeof html !== 'string' || html.length > 8e6) return;
+    wsGot = true;
+    wsIncoming = { code, name: String(name || `${code}.html`).slice(0, 120), html };
+    e.source?.postMessage({ type: 'ws:got' }, e.origin);
+    history.replaceState(null, '', location.pathname + location.hash);
+    if (adminReady) openIncoming();
+  });
+  let n = 0;
+  const ping = setInterval(() => {
+    if (wsGot || ++n > 600 || !window.opener) { clearInterval(ping); return; }
+    try { window.opener.postMessage({ type: 'ws:ready' }, '*'); } catch { clearInterval(ping); }
+  }, 500);
+}
+function openIncoming() {
+  if (!wsIncoming) return;
+  const { code, name, html } = wsIncoming;
+  wsIncoming = null;
+  if (location.hash !== '#lessons') location.hash = 'lessons';
+  let parsed;
+  try {
+    parsed = parseWorksheet(html);
+  } catch (err) {
+    toast(err.message || '학습지를 읽지 못했어요', 'error');
+    return;
+  }
+  sheetDraft = { code, file: { name: `공유 자료실 · ${name}` }, parsed };
+  showSheetPreview();
+  if (!lessonWindows().some((l) => l.code === code)) toast(`${code}차시 창이 아직 없어요. 저장해 두면 그 차시 창을 만들 때 바로 쓰여요`);
+}
+
 renderCreateForm();
 teacherGate($('v-admin'), async () => {
   await refresh();
   await Promise.all([refreshStudents(), refreshPresets(), refreshNicks(), refreshBuys(), refreshPoints(), refreshLessons()]).catch((err) => toast(errMsg(err), 'error'));
   Promise.all([refreshOmokRules(), refreshOmpRules(), refreshOtRules(), refreshRkRules(), refreshQdRules(), refreshYtRules()]).catch((err) => toast(errMsg(err), 'error')); // nogame
   loadPanel(location.hash.slice(1));
+  adminReady = true;
+  openIncoming();
 });

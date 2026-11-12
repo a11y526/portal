@@ -12,7 +12,10 @@ button.on,button.on:hover{background:#0D0D0D;color:#fff}
 .bar{position:fixed;left:0;right:var(--qw,0px);margin:0 auto;width:max-content;z-index:3;display:flex;align-items:center;justify-content:center;flex-wrap:wrap;gap:4px 10px;padding:6px 8px;border-radius:999px;max-width:calc(100% - var(--qw,0px) - 20px)}
 #topbar{top:10px}
 #bar{bottom:calc(var(--qh,0px) + 10px);flex-wrap:nowrap;gap:8px;padding:6px 10px}
-#bar canvas,#bar .chips,#bar .arw,#bar .sep,#vZod{display:none!important}
+#bar canvas,#bar .chips,#bar .sep,#vZod{display:none!important}
+/* ‹ › : 한 번 = 하루·한 시간, 꾹 = 계속 */
+#bar .arw{width:40px;min-width:40px;padding:0;font-size:22px;font-weight:900;flex:none;user-select:none;-webkit-user-select:none;-webkit-touch-callout:none;touch-action:manipulation}
+@media(max-width:600px){body #bar{gap:2px;padding:4px}body #bar .eb{display:none!important}#bar .grp{gap:2px}body #vDate{width:116px}body #vTime{width:106px}body .bar input.val{font-size:13px;padding:0 2px}body #bar .arw{width:28px;min-width:28px;font-size:18px}}
 #bar .eb{display:block!important;padding:0 2px 0 6px}
 #bar input.val{cursor:pointer}
 /* 날짜·시각 직접 입력 칸 */
@@ -294,8 +297,8 @@ E.orbitDrag=function(c,o){var on=false;
 <div id="help" class="pop" hidden><div class="pbox" role="dialog" aria-label="조작법"><h3>조작법</h3><dl>
   <dt>시점</dt><dd>위 <kbd>우주</kbd>~<kbd>땅</kbd> 누르기<br>두 손가락 벌리기·모으기(마우스 휠) = 가까이·멀리</dd>
   <dt>둘러보기</dt><dd>화면을 한 손가락(마우스)으로 끌기<br>두 번 누르기 = 처음 방향</dd>
-  <dt>날짜</dt><dd>아래 날짜 칸 누르기 → 달력에서 고르기 (숫자를 직접 써도 됨)</dd>
-  <dt>시각</dt><dd>아래 시각 칸 누르기 → 시각 고르기 (숫자를 직접 써도 됨)</dd>
+  <dt>날짜</dt><dd><kbd>‹</kbd> <kbd>›</kbd> 하루씩 · 꾹 누르면 쭉 바뀜<br>날짜 칸 누르기 → 달력에서 고르기 (숫자를 직접 써도 됨)</dd>
+  <dt>시각</dt><dd><kbd>‹</kbd> <kbd>›</kbd> 한 시간씩 · 꾹 누르면 쭉 바뀜<br>시각 칸 누르기 → 시각 고르기 (숫자를 직접 써도 됨)</dd>
   <dt>보기</dt><dd><kbd>별자리 선</kbd> <kbd>태양 방향</kbd> 켜고 끄기<br><kbd>대기 끄기</kbd> 낮에도 별이 보임</dd>
   <dt class="qmo">문항</dt><dd class="qmo">해 보면 문항이 열림 → 모두 골라 <kbd>제출</kbd></dd>
 </dl><div class="end"><button type="button" id="hClose">닫기</button></div></div></div>

@@ -243,6 +243,14 @@ export function renderPage(box, page, answers, { locked = false, side = null, hi
   const wrap = document.createElement('div');
   wrap.append(frag);
   sanitize(wrap, { prefix: false });
+  // 넓은 표는 좁은 화면(휴대폰)에서 화면 밖으로 넘치지 않게 표만 옆으로 밀어 보게
+  wrap.querySelectorAll('table').forEach((t) => {
+    if (t.parentElement?.classList.contains('ws-tscroll')) return;
+    const s = document.createElement('div');
+    s.className = 'ws-tscroll';
+    t.replaceWith(s);
+    s.append(t);
+  });
   const byKey = new Map((page?.fields ?? []).map((f) => [f.key, f]));
   let no = 0;
   wrap.querySelectorAll('[data-ws]').forEach((mark) => {

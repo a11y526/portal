@@ -181,7 +181,7 @@ dialog.sheet .card { max-height: calc(100vh - 32px); overflow: auto; }
   padding: 0 18px; font: inherit; font-size: 22px; letter-spacing: .3em; color: var(--ink); font-variant-numeric: tabular-nums;
 }
 .code-input:focus { outline: 3px solid rgba(36,87,230,.35); outline-offset: 1px; }
-.code-input::placeholder { color: rgba(78,88,104,.45); }
+.code-input::placeholder { color: rgba(78,88,104,.45); letter-spacing: 0; }
 .code-slots { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 6px; margin-top: 8px; }
 .code-slots i { height: 4px; border-radius: 2px; background: rgba(78,88,104,.18); transition: background-color .15s; }
 .code-slots i.on { background: var(--accent); }
@@ -1216,6 +1216,7 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-page h3::before { content: ''; flex: none; width: 10px; height: 10px; background: var(--accent); }
 .ws-page p { margin: 8px 0; }
 .ws-page img { display: block; max-width: 100%; height: auto; border-radius: 12px; border: 1px solid rgba(78,88,104,.15); }
+.ws-tscroll { max-width: 100%; overflow-x: auto; -webkit-overflow-scrolling: touch; }
 .ws-page table { width: 100%; border-collapse: collapse; margin: 8px 0; font-size: 16px; background: rgba(255,255,255,.55); }
 .ws-page td, .ws-page th { border: 1px solid rgba(78,88,104,.18); padding: 10px 12px; text-align: left; vertical-align: middle; line-height: 1.8; }
 .ws-page th { background: rgba(78,88,104,.07); font-size: 14px; color: var(--ink-2); }
@@ -2884,6 +2885,8 @@ body.admin dialog .card .input { border-color: var(--a-line2); }
   .has-stu-top body { padding-bottom: 84px; }
 }
 @media (max-width: 480px) { .stu-top { grid-template-columns: 1fr; padding-left: 8px; } .stu-brand { display: none; } .stu-right { justify-self: stretch; justify-content: flex-end; } }
+/* 로그인 전(금화·캐릭터가 없을 때)에는 좁은 화면에서도 이름을 보임 — 빈 알약이 되지 않게 */
+@media (max-width: 480px) { .stu-top:not(:has(.stu-me)) { grid-template-columns: 1fr auto; padding-left: 18px; } .stu-top:not(:has(.stu-me)) .stu-brand { display: block; } }
 @media (max-width: 400px) { .stu-coin b { font-size: 13px; } .stu-coin { padding: 0 9px; gap: 4px; } }
 
 /* ===== 학생 화면 '가' 디자인 (2026-11-05 시안 mockups/student-glass.html 승인)

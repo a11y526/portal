@@ -13,6 +13,7 @@ const IC = {
   shop: '<path d="M4 9h16l-1.2 10.2A2 2 0 0 1 16.8 21H7.2a2 2 0 0 1-2-1.8z"/><path d="M8.5 9V7a3.5 3.5 0 0 1 7 0v2"/>',
   games: '<rect x="2.5" y="7" width="19" height="11" rx="5.5"/><path d="M7.5 10.5v4M5.5 12.5h4"/>',
   rank: '<path d="M7 4h10v5a5 5 0 0 1-10 0z"/><path d="M12 14v7M8 21h8"/>',
+  board: '<rect x="4" y="3" width="16" height="18" rx="3"/><path d="M8 8h8M8 12h8M8 16h5"/>',
 };
 const PAGE = location.pathname.split('/').pop() || 'index.html';
 const CUR = /^(index|test)\.html$/.test(PAGE) ? 'home'
@@ -75,8 +76,15 @@ function render() {
          <a class="stu-me" href="me.html" aria-label="마이페이지">${c.avatar ? avatarSVG(c.avatar, 38, { label: '내 캐릭터' }) : ''}</a>
          <button type="button" class="stu-out" id="stu-out">로그아웃</button>`
       : CUR === 'home' ? '' : `<a class="stu-login" href="${home}">로그인</a>`}</div>`;
-  dock.innerHTML = items.map(([k, t, h]) =>
-    `<a href="${esc(h)}"${k === CUR ? ' class="cur" aria-current="page"' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg>${k === 'me' ? '마이' : t}</a>`).join('');
+  // 아래 탭 바(좁은 화면): 홈·게시판·순위·마이 4칸, 아이콘만(2026-11-13 사용자 요청). 게시판·마이는 로그인해야 열려서 로그인 전엔 입구로
+  const dockItems = [
+    ['home', '홈', home],
+    ['board', '게시판', login ? `class.html?c=${login.class_id}#mats` : home],
+    ['rank', '순위', 'rank.html'],
+    ['me', '마이페이지', login ? 'me.html' : home],
+  ];
+  dock.innerHTML = dockItems.map(([k, t, h]) =>
+    `<a href="${esc(h)}" aria-label="${t}" title="${t}"${k === CUR ? ' class="cur" aria-current="page"' : ''}><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${IC[k]}</svg></a>`).join('');
   top.querySelector('#stu-out')?.addEventListener('click', logout);
   liquid(top, dock, [...top.querySelectorAll('.stu-coin')]);
 }
@@ -95,6 +103,22 @@ async function logout() {
   location.href = home;
 }
 
+// 아래 탭 바: 아래로 내리면 숨고, 위로 올리거나 맨 위·맨 아래에 오면 다시 보임
+function hideOnScroll() {
+  let last = scrollY, acc = 0;
+  const update = () => {
+    const y = Math.max(0, scrollY);
+    const dy = y - last;
+    last = y;
+    if (Math.sign(dy) !== Math.sign(acc)) acc = 0; // 방향이 바뀌면 다시 셈
+    acc += dy;
+    const end = y + innerHeight >= document.documentElement.scrollHeight - 4;
+    if (y < 60 || end || acc < -24) dock.classList.remove('is-away');
+    else if (acc > 24) dock.classList.add('is-away');
+  };
+  addEventListener('scroll', update, { passive: true }); // 계산이 가벼워 바로 처리(rAF는 숨은 탭에서 멈춤)
+}
+
 // 로그인·로그아웃이 같은 화면 안에서 바뀔 때(입구) 다시 그린다
 export function refreshTop() { if (top) render(); }
 
@@ -110,5 +134,6 @@ export function mountTop() {
   document.body.append(dock);
   document.documentElement.classList.add('has-stu-top');
   render();
+  hideOnScroll();
   addEventListener('storage', (e) => { if (e.key === KEY || e.key === 'student') render(); });
 }

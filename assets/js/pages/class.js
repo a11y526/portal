@@ -288,6 +288,8 @@ const store = {
 };
 
 let tab = ['group', 'mats'].includes(store.get('classTab')) ? store.get('classTab') : 'sheet';
+// 아래 탭 바의 [게시판]은 class.html?c=7#mats 로 온다 → 게시판 탭부터
+if (location.hash === '#mats') { tab = 'mats'; store.set('classTab', tab); }
 let hasSheet = false;
 let hasQs = false;   // 선생님이 퀴즈 쇼를 열었을 때만 [퀴즈 쇼] 탭
 

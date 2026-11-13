@@ -1631,7 +1631,7 @@ $('lock-list').addEventListener('click', async (e) => {
 });
 
 /* nogame:start */
-/* ---------- 오목 (반마다 켜기/끄기, 수업 모드를 열면 그 반은 꺼짐) ---------- */
+/* ---------- 오목 (반마다 켜기/끄기) ---------- */
 // 하루 판 수 settings.omok.daily, 보상 받는 승리 reward_daily (xp·silver는 '포인트 규칙'에서)
 async function refreshOmokRules() {
   omokRules = (await getOmokRules()) ?? { xp: 2, silver: 0, daily: 7 };

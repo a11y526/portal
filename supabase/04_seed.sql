@@ -422,3 +422,7 @@ on conflict (key) do nothing;
 -- 금화 → 은화 바꾸기 (2026-11-05): 금화 10개 → 은화 12개
 insert into public.settings (key, value) values ('exchange', '{"gold": 10, "silver": 12}'::jsonb)
 on conflict (key) do nothing;
+
+-- 맞음 낱말(2026-11-13 사용자 요청: 722 생일 별자리 서술 f35는 '반대'가 들어가면 무조건 맞음). _ws_check가 읽음
+insert into public.settings (key, value) values ('ws_pass_words', '{"722": {"f35": ["반대"]}}'::jsonb)
+on conflict (key) do nothing;

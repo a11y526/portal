@@ -1,5 +1,5 @@
 #!/bin/zsh
-# 배포: 버전을 하나 올리고(2.1.1 → 2.1.2) 커밋 · 태그 · push · GitHub 릴리스
+# 배포: 버전을 하나 올리고(2.2.0 → 2.2.1 … 2.2.9 → 2.3.0) 커밋 · 태그 · push · GitHub 릴리스
 # 쓰는 법: 바꾼 파일을 git add 해 둔 뒤
 #   tools/release.sh "무엇을 바꿨는지 한 줄"
 # (VERSION만 올리고 싶으면 아무것도 add 하지 않고 실행해도 됨)
@@ -12,7 +12,9 @@ if [[ -z "$msg" ]]; then echo '사용: tools/release.sh "바꾼 내용"'; exit 1
 
 old=$(tr -d ' \n' < VERSION)
 IFS=. read -r ma mi pa <<< "$old"
-new="${2:-$ma.$mi.$((pa + 1))}"
+# 끝 번호는 0~9: 2.2.9 다음은 2.3.0
+if (( pa >= 9 )); then auto="$ma.$((mi + 1)).0"; else auto="$ma.$mi.$((pa + 1))"; fi
+new="${2:-$auto}"
 if [[ ! "$new" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then echo "버전 번호가 이상해요: $new"; exit 1; fi
 if git rev-parse -q --verify "refs/tags/v$new" >/dev/null; then echo "v$new 태그가 이미 있어요"; exit 1; fi
 

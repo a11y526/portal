@@ -365,6 +365,9 @@ declare
   v_check jsonb := '[]'::jsonb;
   v_used  jsonb := '[]'::jsonb;
   v_mk    text;
+  -- 맞음 낱말(2026-11-13 사용자 요청): settings.ws_pass_words = {"722": {"f35": ["반대"]}} — 그 낱말이 들어간 답은 AI 없이 맞음
+  v_pass  jsonb := case when p_lesson is null then '{}'::jsonb
+                   else coalesce((select s.value -> p_lesson from public.settings s where s.key = 'ws_pass_words'), '{}'::jsonb) end;
 begin
   v_on := coalesce((v_conf ->> 'on')::boolean, false);
   v_wait := coalesce((v_conf ->> 'wait')::numeric, 20);
@@ -415,6 +418,10 @@ begin
     v_kind := public._ws_ai_kind(p_lesson, e.k, e.spec);
     if v_kind = 'text' then
       ok := exists (select 1 from jsonb_array_elements_text(e.ans) as z(t) where public._ws_norm(z.t) = public._ws_norm(v));
+    end if;
+    if v_kind is not null and not ok and jsonb_typeof(v_pass -> e.k) = 'array' then
+      ok := exists (select 1 from jsonb_array_elements_text(v_pass -> e.k) as z(t)
+                    where btrim(z.t) <> '' and strpos(replace(v, ' ', ''), replace(z.t, ' ', '')) > 0);
     end if;
     if v_kind is not null and not ok then
       select c.ok into v_hit from public.ws_ai_cache c

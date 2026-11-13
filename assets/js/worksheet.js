@@ -84,6 +84,14 @@ export function parseWorksheet(text) {
   // .sim-in 칸 키는 다른 칸 뒤 번호부터(위 설명)
   const isField = (el) => !el.parentElement.closest(FIELD) && !el.closest('.ans, .key-tag');
   let late = sections.reduce((c, sec) => c + [...sec.querySelectorAll(FIELD)].filter((el) => isField(el) && !el.matches('.sim-in')).length, 0);
+  // 고정 칸 이름 data-key="f12"(2026-11-13): 하나라도 있으면 그 이름을 쓰고, 이름 없는 칸은 쓰인 가장 큰 번호 뒤부터 문서 순서로.
+  // 칸을 넣거나 빼도 다른 칸 이름이 밀리지 않는다. 하나도 없는 예전 파일은 위 방식(문서 순서 + .sim-in은 뒤 번호) 그대로
+  const KEY_RE = /^f[1-9][0-9]{0,3}$/;
+  const fixed = sections.flatMap((sec) => [...sec.querySelectorAll(FIELD)].filter(isField).map((el) => String(el.dataset.key || '').trim()).filter(Boolean));
+  const useFixed = fixed.length > 0;
+  const taken = new Set(fixed.filter((k) => KEY_RE.test(k)));
+  let next = Math.max(0, ...[...taken].map((k) => +k.slice(1)));
+  const used = new Set();
   const seen = new Set();
   const sims = new Set();
 
@@ -126,7 +134,17 @@ export function parseWorksheet(text) {
       .filter((el) => !el.parentElement.closest(FIELD))
       .forEach((el) => {
         const simIn = el.matches('.sim-in') && el.matches('.bl, .fill, .ox:not(.multi)');
-        const k = 'f' + (simIn ? ++late : ++n);
+        let k;
+        if (useFixed) {
+          const want = String(el.dataset.key || '').trim();
+          if (want && KEY_RE.test(want) && !used.has(want)) k = want;
+          else {
+            if (want) warn.push(`칸 이름 ${want}이 ${KEY_RE.test(want) ? '두 번 나와요' : '규칙(f + 숫자)에 맞지 않아요'}`);
+            k = 'f' + (++next);
+            warn.push(`data-key 없는 칸에 ${k}를 붙였어요`);
+          }
+          used.add(k);
+        } else k = 'f' + (simIn ? ++late : ++n);
         const mark = doc.createElement('span');
         mark.setAttribute('data-ws', k);
         let spec;
@@ -176,7 +194,7 @@ export function parseWorksheet(text) {
       open: fields.filter((f) => f.type === 'choice' && !key[f.key].answers.length).length });
   });
 
-  return { title, pages, key, report, fieldCount: Math.max(n, late), sims: [...sims] };
+  return { title, pages, key, report, fieldCount: useFixed ? Object.keys(key).length : Math.max(n, late), sims: [...sims] };
 }
 
 /* ---------- 점 찍기 칸 읽기 ----------

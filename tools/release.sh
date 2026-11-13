@@ -3,6 +3,7 @@
 # 쓰는 법: 바꾼 파일을 git add 해 둔 뒤
 #   tools/release.sh "무엇을 바꿨는지 한 줄"
 # (VERSION만 올리고 싶으면 아무것도 add 하지 않고 실행해도 됨)
+# 번호를 직접 정하려면 두 번째 값으로: tools/release.sh "바꾼 내용" 2.2.0
 set -e
 cd "$(dirname "$0")/.."
 
@@ -11,7 +12,9 @@ if [[ -z "$msg" ]]; then echo '사용: tools/release.sh "바꾼 내용"'; exit 1
 
 old=$(tr -d ' \n' < VERSION)
 IFS=. read -r ma mi pa <<< "$old"
-new="$ma.$mi.$((pa + 1))"
+new="${2:-$ma.$mi.$((pa + 1))}"
+if [[ ! "$new" =~ '^[0-9]+\.[0-9]+\.[0-9]+$' ]]; then echo "버전 번호가 이상해요: $new"; exit 1; fi
+if git rev-parse -q --verify "refs/tags/v$new" >/dev/null; then echo "v$new 태그가 이미 있어요"; exit 1; fi
 
 echo "$new" > VERSION
 git add VERSION

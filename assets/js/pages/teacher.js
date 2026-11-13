@@ -26,7 +26,6 @@ import { parseWorksheet, renderPage, closeSims, simHref, TYPE_NAME } from '../wo
 import { refreshMats } from './teacher-mats.js';
 import { refreshProgress, todayPlan } from './teacher-progress.js';
 import { refreshAi } from './teacher-ai.js';
-import { refreshShare, shareBadge } from './teacher-share.js'; // nogame
 import { initSide, markSide, syncSideBadges } from './teacher-side.js';
 import { startHero, stopHero, showToday } from './teacher-hero.js';
 
@@ -1984,7 +1983,6 @@ function updateHub() {
   const omok = classes.filter((c) => c.omok_open).map((c) => `${clsName(c.id)}반`);
 /* nogame:end */
   if (classes.length) set('hub-omok', (omok.length ? `켜짐: ${omok.join(', ')}` : '모두 꺼짐') + (omokRules ? ` · 오목 하루 ${omokRules.daily ?? 7}판` : '') + (ompRules ? ` · 1대1 ${ompRules.daily}판` : '') + (otRules ? ` · 오델로 ${otRules.daily}판` : '') + (rkRules ? ` · 루미큐브 ${rkRules.daily}판` : '') + (qdRules ? ` · 쿼리도 ${qdRules.daily}판` : '') + (ytRules ? ` · 윷놀이 ${ytRules.daily}판` : '')); // nogame
-  shareBadge(); // nogame
   set('hub-presets', `버튼 ${presets.length}개`);
   set('hub-buys', buyReqs.length ? `기다리는 신청 ${buyReqs.length}개` : '기다리는 신청 없음');
   $('hub-buys-badge').textContent = buyReqs.length;
@@ -2026,7 +2024,6 @@ function loadPanel(key) {
   if (key === 'ai') refreshAi().catch(() => {});
   if (key === '') todayPlan().then(showToday).catch(() => {});
   if (key === 'moon-rpg') refreshMoonRpg().catch(() => {}); // nogame
-  if (key === 'share') refreshShare().catch(() => {}); // nogame
 }
 initSide();
 addEventListener('hashchange', route);

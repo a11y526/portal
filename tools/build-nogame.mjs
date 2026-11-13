@@ -24,7 +24,7 @@ const DROP = [
   /^assets\/img\/rpg\//, /^sims\/712_moon_rpg\.html$/,
   // 이 사이트에만 쓰는 것: 작업 기록·설계 문서·시안·진도 가져오기·패치·편집기 내려받기·이 도구
   /^CLAUDE\.md$/, /^시작하기\.md$/, /^PRODUCT\.md$/, /^docs\//, /^dist\//, /^tools\//,
-  /^supabase\/05_progress_import\.sql$/, /^supabase\/08_share\.sql$/, /^assets\/js\/pages\/teacher-share\.js$/, /^supabase\/patch[_-]/,
+  /^supabase\/05_progress_import\.sql$/, /^supabase\/patch[_-]/,
   // 웹 설치 화면·중계는 원래 사이트(a11y526.github.io/portal/install/)에서만 돈다
   /^install\/(index\.html|install\.js|config\.js)$/, /^supabase\/functions\/setup-relay\//,
 ];

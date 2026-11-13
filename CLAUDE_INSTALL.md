@@ -112,11 +112,10 @@ insert into public.settings (key, value) values ('auto_update', jsonb_build_obje
   'url', 'https://<REF>.supabase.co',
   'classes', '[1, 2, 3, 4, 5, 6]'::jsonb))
 on conflict (key) do update set value = public.settings.value || excluded.value;
-select public._share_tick();
 ```
 
 매일 한국 시간 2:00에 원래 저장소의 01~04를 받고 2:05에 달라졌으면 다시 실행한다(오류가 나면 모두 되돌리고 `settings.auto_update.error`에 적음).
-`_share_tick()`은 원래 서버에 차시·웹 학습지 받기를 신청한다. 원래 선생님이 관리 화면 '다른 선생님 서버'에서 [승인]하면 10분 안에 차시·수업자료 주소·보드·웹 학습지가 들어오고, 그 뒤로는 매일 새벽 바뀐 것만 받는다(`settings.auto_update.share`).
+수업자료·시뮬레이션·웹 학습지는 공유 자료실(https://a11y526.github.io/science-share/)에서 [내 포털에 넣기]로 가져온다.
 
 **3-4. 확인** — `installed`, `seeded`가 true이고 `classes`가 담당 반과 같아야 한다.
 

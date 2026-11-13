@@ -258,8 +258,7 @@ async function install(f) {
     await runSql(`update public.students set code_hash = extensions.crypt('${f.code}', extensions.gen_salt('bf')) where number = 0 or class_id = 20;
 delete from public.student_sessions where student_id in (select id from public.students where number = 0 or class_id = 20);
 insert into public.settings (key, value) values ('auto_update', '${cfg}'::jsonb)
-on conflict (key) do update set value = public.settings.value || excluded.value;
-select public._share_tick();`, '체험 코드 저장');
+on conflict (key) do update set value = public.settings.value || excluded.value;`, '체험 코드 저장');
     const st = await runSql('select public.setup_status() as s;', '설치 확인');
     const got = st?.[0]?.s?.classes || [];
     note(got.map((n) => `${n}반`).join(' · '));

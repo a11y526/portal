@@ -1,0 +1,28 @@
+/* 기말 정리(study.html·입구 '기말 정리' 칸) — 2026-11-13. 정리 문제집 본문(study5.html 등)은 자기 CSS를 쓴다 */
+
+/* 입구: 순위 줄처럼 가로 한 줄 칸 */
+html.stu .home-item.home-row { grid-column: span 2; min-height: 0; flex-direction: row; align-items: center; }
+html.stu .home-item.home-row .home-go { display: block; font-size: 22px; }
+
+/* 기말 정리 목록 */
+.study-wrap { width: min(860px, 100%); padding: 28px max(16px, env(safe-area-inset-left, 0px)) 120px; gap: 0; }
+.study-head { padding: 18px 2px 22px; }
+.study-head .eyebrow { font-size: 13px; font-weight: 700; color: #8A8A8A; }
+.study-head h1 { margin: 6px 0 0; font-size: clamp(36px, 6vw, 56px); font-weight: 900; letter-spacing: -.045em; line-height: 1.1; }
+.study-head p { margin: 10px 0 0; color: #5D5D5D; font-size: 16px; }
+.study-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 12px; }
+.study-unit { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 18px; align-items: center;
+  padding: 22px 24px; border-radius: 28px; background: #F7F7F7; color: #0D0D0D; text-decoration: none; }
+a.study-unit:hover { background: #F0F0F0; color: #0D0D0D; }
+a.study-unit:active { transform: scale(.995); }
+.study-unit .no { font-size: clamp(34px, 5vw, 48px); font-weight: 900; letter-spacing: -.05em; line-height: 1; min-width: 1.6em; font-variant-numeric: tabular-nums; }
+.study-unit .t b { display: block; font-size: 21px; font-weight: 900; letter-spacing: -.03em; }
+.study-unit .t span { display: block; margin-top: 4px; font-size: 14px; color: #5D5D5D; }
+.study-unit .go { display: inline-flex; align-items: center; min-height: 44px; padding: 0 20px; border-radius: 999px; background: #0D0D0D; color: #fff; font-weight: 700; font-size: 15px; white-space: nowrap; }
+.study-unit.soon { color: #8A8A8A; }
+.study-unit.soon .t b { color: #5D5D5D; }
+.study-unit.soon .go { background: #F0F0F0; color: #8A8A8A; }
+@media (max-width: 560px) {
+  .study-unit { grid-template-columns: auto minmax(0, 1fr); padding: 18px; gap: 6px 14px; }
+  .study-unit .go { grid-column: 1 / -1; justify-content: center; margin-top: 8px; }
+}

@@ -349,15 +349,24 @@ function paintToday() {
   const now = hm(new Date());
   const cls = (r) => (r.class_id === 20 ? 'test반' : `${r.class_id}반`);
   const at = today.find((r) => r.kind === '수업' && r.end && now < r.end);
+  // 반과 차시가 정해진 수업은 누르면 수업 모드(live.html)가 바로 열린다(teacher.js의 [수업 시작]과 같은 주소)
+  const openUrl = (r) => (r.kind === '수업' && r.code ? `live.html?c=${r.class_id}&l=${encodeURIComponent(r.code)}` : '');
   list.innerHTML = today.map((r) => {
     const what = r.kind === '수업' ? (r.code || '차시 미정') : r.kind;
     const live = r === at && r.start && now >= r.start;
     const tag = r === at ? (live ? ' · 지금' : ' · 다음') : '';
-    return `<div class="hero-chip${r === at ? ' now' : ''}${r.kind !== '수업' ? ' off' : ''}"><small>${r.period}교시${tag}</small>${escH(cls(r))} · ${escH(what)}</div>`;
+    const inner = `<small>${r.period}교시${tag}</small>${escH(cls(r))} · ${escH(what)}`;
+    const cl = `hero-chip${r === at ? ' now' : ''}${r.kind !== '수업' ? ' off' : ''}`;
+    const url = openUrl(r);
+    return url
+      ? `<a class="${cl}" href="${url}" style="display:block;text-decoration:none;cursor:pointer" title="수업 모드로 열기">${inner}</a>`
+      : `<div class="${cl}">${inner}</div>`;
   }).join('');
   if (at) {
     const live = at.start && now >= at.start;
-    next.innerHTML = `${live ? '지금 수업' : '다음 수업'} · ${at.period}교시 <b class="acc">${escH(cls(at))}</b> <b>${escH(at.code || '')} ${escH(at.title)}</b>`;
+    const url = openUrl(at);
+    const text = `${live ? '지금 수업' : '다음 수업'} · ${at.period}교시 <b class="acc">${escH(cls(at))}</b> <b>${escH(at.code || '')} ${escH(at.title)}</b>`;
+    next.innerHTML = url ? `<a href="${url}" style="color:inherit;text-decoration:none" title="수업 모드로 열기">${text} <b class="acc">▶ 열기</b></a>` : text;
   }
   next.classList.toggle('hidden', !at);
 }

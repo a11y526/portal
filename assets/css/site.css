@@ -2616,6 +2616,8 @@ body.admin .hero-chip small { display: block; font-size: 12px; color: #6e6e6e; }
 body.admin .hero-chip.now { background: #0d0d0d; color: #fff; }
 body.admin .hero-chip.now small { color: #bdbdbd; }
 body.admin .hero-chip.off { color: #6e6e6e; }
+/* .hero-foot가 pointer-events:none(우주를 누를 수 있게)이라, 수업 모드로 여는 링크만 다시 눌리게 */
+body.admin a.hero-chip, body.admin .hero-next a { pointer-events: auto; }
 
 /* 위 메뉴 (teacher-side.js initTop). 961px 이상에서만, 좁은 화면은 ☰ 서랍 */
 .topnav { display: none; }

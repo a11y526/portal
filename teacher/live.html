@@ -29,6 +29,24 @@
     <div class="ws-band hidden" id="ws-band" aria-live="polite"></div>
   </div>
 
+  <!-- 게임형 쪽 미션 기록판(2026-11-14): 게임형 쪽에서 V. 번호·닉네임 없이 모아서만 -->
+  <section class="wsf wsg hidden" id="wsg" role="dialog" aria-modal="true" aria-labelledby="wsg-title">
+    <div class="wsf-card">
+      <header class="wsf-top">
+        <div class="wsf-who">
+          <strong class="wsf-name" id="wsg-title">미션 기록</strong>
+          <span class="wsf-meta num" id="wsg-meta"></span>
+        </div>
+        <span class="wsf-badge">게임형 쪽</span>
+      </header>
+      <div class="wsf-body"><ol class="wsg-list" id="wsg-list"></ol></div>
+      <footer class="wsf-foot">
+        <span class="wsf-note">4초마다 새로 읽음</span>
+        <button type="button" class="btn btn-primary btn-big press" id="wsg-close"><span>닫기</span><kbd>Esc</kbd></button>
+      </footer>
+    </div>
+  </section>
+
   <!-- 쪽별 첫 답: 학생 한 명이 낸 쪽을 띄우고 [인정]/[넘기기] (덮개가 닫혀 있을 때만) -->
   <section class="wsf hidden" id="wsf" role="dialog" aria-modal="true" aria-labelledby="wsf-name">
     <div class="wsf-card">

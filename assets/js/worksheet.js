@@ -13,6 +13,9 @@
 // {type:'sim:answer', n, value}로 그 쪽 n번째 .sim-in 칸을 채운다. 키는 학습지의 다른 칸을 다 센 뒤 맨 뒤 번호
 // (이미 올린 학습지에 넣어도 원래 칸의 키·학생 답이 밀리지 않게)
 // 고르기(.ox, 여러 개 고르기 빼고)에도 sim-in을 붙일 수 있다(2026-11-03, 713): 보기 버튼은 늘 잠기고, 시뮬레이션이 보기 글 그대로 보낸 값이 골라진다
+// 게임형 쪽(2026-11-14) <section class="page game">: 문항 없이 게임(시뮬레이션)이 쪽을 채우고, <div class="mission" data-name="…" [data-blind]>
+// 하나에 칸 하나. 그 칸은 fields에 sim:true + stage {n, name, blind}(쪽 안 미션 순서 n, 1부터). 게임은 {type:'sim:stage', n, value}로 답을 확정하고
+// 반 페이지가 그 칸만 바로 제출한다(submit_worksheet_stage). 화면에서는 입력칸 대신 미션 기록(별)으로 그린다
 
 const FIELD = '.bl, .ox, .ineq .box, .fill, .plot';
 const SYMS = { '<': '<', '＜': '<', '〈': '<', '=': '=', '＝': '=', '>': '>', '＞': '>', '〉': '>' };
@@ -83,7 +86,8 @@ export function parseWorksheet(text) {
   let n = 0;
   // .sim-in 칸 키는 다른 칸 뒤 번호부터(위 설명)
   const isField = (el) => !el.parentElement.closest(FIELD) && !el.closest('.ans, .key-tag');
-  let late = sections.reduce((c, sec) => c + [...sec.querySelectorAll(FIELD)].filter((el) => isField(el) && !el.matches('.sim-in')).length, 0);
+  const inMission = (el) => !!el.closest('section.page.game .mission');
+  let late = sections.reduce((c, sec) => c + [...sec.querySelectorAll(FIELD)].filter((el) => isField(el) && !el.matches('.sim-in') && !inMission(el)).length, 0);
   // 고정 칸 이름 data-key="f12"(2026-11-13): 하나라도 있으면 그 이름을 쓰고, 이름 없는 칸은 쓰인 가장 큰 번호 뒤부터 문서 순서로.
   // 칸을 넣거나 빼도 다른 칸 이름이 밀리지 않는다. 하나도 없는 예전 파일은 위 방식(문서 순서 + .sim-in은 뒤 번호) 그대로
   const KEY_RE = /^f[1-9][0-9]{0,3}$/;
@@ -126,6 +130,18 @@ export function parseWorksheet(text) {
       simCount++;
     });
 
+    const game = sec.classList.contains('game');
+    // 게임형 쪽: 미션마다 칸이 꼭 하나
+    const missions = game ? [...sec.querySelectorAll('.mission')] : [];
+    if (game) {
+      if (!simCount) warn.push('게임형 쪽인데 시뮬레이션(.sim)이 없어요');
+      if (!missions.length) warn.push('게임형 쪽에 미션(.mission)이 없어요');
+      missions.forEach((m, i) => {
+        const n = [...m.querySelectorAll(FIELD)].filter((el) => !el.parentElement.closest(FIELD)).length;
+        if (n !== 1) warn.push(`미션 ${i + 1}(${squash(m.dataset.name) || '이름 없음'})의 칸이 ${n}개예요 (미션 하나에 칸 하나)`);
+        if (!squash(m.dataset.name)) warn.push(`미션 ${i + 1}에 이름(data-name)이 없어요`);
+      });
+    }
     const fields = [];
     const count = { blank: 0, choice: 0, multi: 0, sym: 0, text: 0, plot: 0 };
     let missing = 0;
@@ -133,7 +149,11 @@ export function parseWorksheet(text) {
     [...sec.querySelectorAll(FIELD)]
       .filter((el) => !el.parentElement.closest(FIELD))
       .forEach((el) => {
-        const simIn = el.matches('.sim-in') && el.matches('.bl, .fill, .ox:not(.multi)');
+        const mission = game ? el.closest('.mission') : null;
+        if (game && !mission) warn.push('게임형 쪽의 칸은 미션(.mission) 안에 있어야 해요');
+        if (mission && !el.matches('.bl, .fill, .ox:not(.multi)')) warn.push('미션 칸은 빈칸·서술·고르기만 돼요');
+        const simIn = (el.matches('.sim-in') || !!mission) && el.matches('.bl, .fill, .ox:not(.multi)');
+        const stage = mission && simIn ? { n: missions.indexOf(mission) + 1, name: squash(mission.dataset.name) || `미션 ${missions.indexOf(mission) + 1}`, blind: mission.hasAttribute('data-blind') } : null;
         let k;
         if (useFixed) {
           const want = String(el.dataset.key || '').trim();
@@ -180,7 +200,7 @@ export function parseWorksheet(text) {
         }
         count[spec.type]++;
         key[k] = spec;
-        fields.push({ key: k, type: spec.type, ...(spec.options ? { options: spec.options } : {}), ...(spec.axis ? { axis: spec.axis } : {}), ...(simIn ? { sim: true } : {}) });
+        fields.push({ key: k, type: spec.type, ...(spec.options ? { options: spec.options } : {}), ...(spec.axis ? { axis: spec.axis } : {}), ...(simIn ? { sim: true } : {}), ...(stage ? { stage } : {}) });
         el.replaceWith(mark);
       });
     if (missing) warn.push(`정답이 빠진 칸 ${missing}개 (채우기만 하면 맞음으로 처리돼요)`);
@@ -189,8 +209,8 @@ export function parseWorksheet(text) {
     const box = doc.createElement('div');
     box.append(...sec.childNodes);
     sanitize(box);
-    pages.push({ slide: Number.isFinite(slide) ? slide : si + 1, title: pageTitle, html: box.innerHTML.trim(), fields });
-    report.push({ slide: Number.isFinite(slide) ? slide : null, title: pageTitle, count, sims: simCount, warn, plotPoints,
+    pages.push({ slide: Number.isFinite(slide) ? slide : si + 1, title: pageTitle, html: box.innerHTML.trim(), fields, ...(game ? { game: true } : {}) });
+    report.push({ slide: Number.isFinite(slide) ? slide : null, title: pageTitle, count, sims: simCount, warn, plotPoints, missions: missions.length,
       open: fields.filter((f) => f.type === 'choice' && !key[f.key].answers.length).length });
   });
 
@@ -254,7 +274,22 @@ const plotValue = (pts) => [...pts].sort((a, b) => a[0] - b[0] || a[1] - b[1]).m
    반 페이지: 한 쪽 그리기
    칸 자리(<span data-ws>)를 입력칸·보기 버튼으로 바꾼다
    ========================================================= */
-export function renderPage(box, page, answers, { locked = false, side = null, hideSim = false } = {}) {
+// 미션 기록 한 칸: 이름 + 별(1번 만에 ★★★, 2번 ★★, 3번 이상 ★) 또는 도전 중·아직. st = { tries, first_ok, ok }
+export const stageStars = (st) => (st?.ok ? Math.max(1, 4 - Math.min(3, st.tries || 1)) : 0);
+function stageChip(f, st, checking) {
+  const el = document.createElement('span');
+  const stars = stageStars(st);
+  el.className = `ws-stage${st?.ok ? ' is-clear' : ''}${f.stage.blind ? ' is-blind' : ''}`;
+  el.dataset.k = f.key;
+  const state = st?.ok ? `<span class="ws-stage-stars" aria-label="별 ${stars}개">${'★'.repeat(stars)}<i>${'★'.repeat(3 - stars)}</i></span>`
+    : checking ? '<span class="ws-stage-st">확인 중</span>'
+    : st?.tries ? `<span class="ws-stage-st num">${st.tries}번 도전</span>` : '<span class="ws-stage-st">아직</span>';
+  el.innerHTML = `<span class="ws-stage-n num">${f.stage.n}</span><span class="ws-stage-name"></span>${f.stage.blind ? '<span class="ws-stage-tag">실전</span>' : ''}${state}`;
+  el.querySelector('.ws-stage-name').textContent = f.stage.name;
+  return el;
+}
+
+export function renderPage(box, page, answers, { locked = false, side = null, hideSim = false, stages = null, checking = null } = {}) {
   const tpl = document.createElement('template');
   tpl.innerHTML = page?.html || '';
   const frag = tpl.content;
@@ -277,6 +312,10 @@ export function renderPage(box, page, answers, { locked = false, side = null, hi
     no++;
     const v = answers?.[f.key] ?? '';
     let el;
+    if (f.stage) {
+      mark.replaceWith(stageChip(f, stages?.[f.key], checking?.(f.key)));
+      return;
+    }
     if (f.type === 'choice' || f.type === 'sym' || f.type === 'multi') {
       const picked = f.type === 'multi' ? new Set(String(v).split('|')) : null;
       el = document.createElement('span');

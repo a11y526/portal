@@ -379,6 +379,22 @@ create index if not exists ws_firsts_board_idx on public.ws_firsts (board_id, pa
 alter table public.point_events add column if not exists ws_first_id uuid null references public.ws_firsts(id) on delete set null;
 create unique index if not exists point_events_ws_first_once_idx on public.point_events (ws_first_id) where ws_first_id is not null;
 
+-- ---------------------------------------------------------
+-- 게임형 쪽 스테이지 기록 (2026-11-14): 학습지 게임형 쪽(section.page.game)의 미션 칸마다 학생이 답을 확정한 횟수.
+-- 첫 시도 답·맞음 여부는 처음 한 번만 적고, 맞힐 때까지 tries가 는다(별: 1번 ★★★, 2번 ★★, 3번 이상 ★)
+-- ---------------------------------------------------------
+create table if not exists public.ws_stage_tries (
+  board_id    uuid not null references public.boards(id) on delete cascade,
+  student_id  uuid not null references public.students(id) on delete cascade,
+  key         text not null,                    -- 학습지 칸 이름(f12)
+  tries       int not null default 0,
+  first_value text null,                        -- 처음 확정한 답
+  first_ok    boolean null,
+  ok_at       timestamptz null,                 -- 맞힌 때(못 깼으면 null)
+  updated_at  timestamptz not null default now(),
+  primary key (board_id, student_id, key)
+);
+
 -- 수업 모드가 새 첫 답을 실시간으로 받도록
 do $$
 begin

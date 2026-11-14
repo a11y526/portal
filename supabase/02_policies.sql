@@ -212,6 +212,15 @@ create policy ws_firsts_teacher_all on public.ws_firsts
   for all to authenticated
   using (public.is_teacher()) with check (public.is_teacher());
 
+-- 게임형 쪽 스테이지 기록 (2026-11-14): 학생은 submit_worksheet_stage로만 들어간다
+alter table public.ws_stage_tries enable row level security;
+revoke all on public.ws_stage_tries from anon;
+
+drop policy if exists ws_stage_tries_teacher_all on public.ws_stage_tries;
+create policy ws_stage_tries_teacher_all on public.ws_stage_tries
+  for all to authenticated
+  using (public.is_teacher()) with check (public.is_teacher());
+
 alter table public.ws_page_open enable row level security;
 revoke all on public.ws_page_open from anon;
 

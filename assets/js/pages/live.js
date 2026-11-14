@@ -8,7 +8,7 @@ import {
   getBoardGroupMembers, listSubmissions, onSubmissionsChange, getWorksheetStats, setWorksheetUpto, resetWorksheetUpto,
   getWsFirst, acceptWsFirst, skipWsFirst, unskipWsFirst, onWsFirstsChange, openWsPage, closeWsPage, unacceptWsFirst, sendWsOpen, setQuizOpen, listQuizGames,
   listPosts, teacherDeletePost, onPostsChange, cleanupPostPhotos, recordLessonTaught, setBoardSlideMax, setBoardSlideNow, setWsFree, setLessonSlideCount, updateBoard,
-  onRemote, sendRemote, watchBoard, getAwayStats, createBoards,
+  onRemote, sendRemote, watchBoard, getAwayStats, createBoards, getWsStages,
 } from '../db.js';
 import { boardHTML } from '../posts.js';
 import { renderPage, closeSims } from '../worksheet.js';
@@ -133,6 +133,12 @@ function handleKey(e) {
     case 'KeyF': if (!e.repeat) toggleFullscreen(); return true;
     case 'KeyW': if (!e.repeat) { if (e.shiftKey) sheetUpto.rewind(); else sheetUpto.openAll(); } return true;
   }
+  if (wsStage.isOpen()) {
+    switch (e.code) {
+      case 'Escape': case 'Enter': case 'NumpadEnter': case 'KeyV': if (!e.repeat) wsStage.close(); return true;
+    }
+    return false;
+  }
   if (wsFirst.isOpen()) {
     switch (e.code) {
       case 'Enter': case 'NumpadEnter':
@@ -166,7 +172,7 @@ const swallow = (e) => { e.stopImmediatePropagation(); e.preventDefault(); };
 
 // 수업자료 안: G·F만 가로채고 나머지는 수업자료가 처리. 덮개나 첫 답 창이 열려 있으면 모두 막는다(쪽이 넘어가지 않게)
 function onLessonKey(e) {
-  if (handleKey(e) || coverOpen || wsFirst.isOpen()) swallow(e);
+  if (handleKey(e) || coverOpen || wsFirst.isOpen() || wsStage.isOpen()) swallow(e);
 }
 
 // 바깥 문서와 덮개 안 화면(모둠 편성·순위 발표): 우리 키만 가로채고 나머지(스페이스로 다음 등)는 그 화면이 처리
@@ -224,6 +230,7 @@ function toggleCover(force) {
     lessonFrame.focus();
   }
   wsFirst.paint();
+  wsStage.paint();
 }
 $('cover-close').addEventListener('click', () => toggleCover(false));
 
@@ -951,6 +958,66 @@ $('ws-band').addEventListener('click', (e) => {
    다 넘기면 창이 닫힌다. Esc로 닫으면 남은 것은 그 쪽에서 V로 다시 보기
    덮개가 열려 있는 동안은 숨겨 두었다가 닫으면 다시 보인다
    ========================================================= */
+/* =========================================================
+   게임형 쪽 미션 기록판 (2026-11-14): 게임형 쪽에서 V를 누르면 첫 답 대신 반 전체 기록을 모아서 보여 준다.
+   번호·닉네임 없이 미션마다 깬 학생 수, 별 분포, 처음 확정한 답별 학생 수(실전 미션에서 어디서 헷갈렸는지).
+   열려 있는 동안 4초마다 다시 읽는다. Esc·Enter·V로 닫음
+   ========================================================= */
+const wsStage = {
+  slide: null,
+  data: null,
+  timer: null,
+  isOpen() { return !!this.data && !coverOpen; },
+  open(slide, data) {
+    this.slide = slide;
+    this.render(data);
+    clearInterval(this.timer);
+    this.timer = setInterval(() => this.refresh(), 4000);
+  },
+  async refresh() {
+    if (!this.data || !board) return;
+    try {
+      const g = await getWsStages(board.id, this.slide);
+      if (g?.game && this.data) this.render(g);
+    } catch (err) { console.error(err); }
+  },
+  close() {
+    clearInterval(this.timer);
+    this.timer = null;
+    this.data = null;
+    this.paint();
+  },
+  render(g) {
+    this.data = g;
+    const total = g.total || 0;
+    $('wsg-meta').textContent = `수업자료 ${this.slide}쪽 · 명단 ${total}명`;
+    $('wsg-list').innerHTML = (g.stages ?? []).map((st, i) => {
+      const pct = total ? Math.round((st.cleared / total) * 100) : 0;
+      const firsts = (st.firsts ?? []).slice(0, 6).map((f) =>
+        `<span class="wsg-first${f.ok ? ' is-ok' : ''}"><b>${esc(f.value)}</b><span class="num">${f.n}명</span></span>`).join('');
+      return `<li class="wsg-row">
+        <div class="wsg-head">
+          <span class="wsg-n num">${i + 1}</span>
+          <strong class="wsg-name">${esc(st.name || `미션 ${i + 1}`)}</strong>
+          ${st.blind ? '<span class="wsg-tag">실전</span>' : ''}
+          <span class="wsg-count num">깬 학생 <b>${st.cleared}</b> / ${total}</span>
+        </div>
+        <div class="wsg-bar"><i style="width:${pct}%"></i></div>
+        <div class="wsg-stars num">
+          <span>★★★ <b>${st.s3}</b></span><span>★★ <b>${st.s2}</b></span><span>★ <b>${st.s1}</b></span>
+          <span class="wsg-try">도전 중 <b>${Math.max(0, st.tried - st.cleared)}</b></span>
+        </div>
+        ${firsts ? `<div class="wsg-firsts"><span class="wsg-ft">${st.blind ? '처음 예측' : '첫 시도'}</span>${firsts}</div>` : ''}
+      </li>`;
+    }).join('');
+    this.paint();
+  },
+  paint() {
+    $('wsg').classList.toggle('hidden', !this.isOpen());
+    if (!this.isOpen() && !coverOpen) lessonFrame.focus();
+  },
+};
+
 const wsFirst = {
   item: null,
   viewing: false,
@@ -965,6 +1032,13 @@ const wsFirst = {
   async view(review = false) {
     const slide = lessonFrame.currentSlide();
     if (!board || this.viewing || !slide) return;
+    // 게임형 쪽이면 첫 답 대신 반 전체 미션 기록판 (2026-11-14)
+    if (!review && !wsStage.isOpen()) {
+      try {
+        const g = await getWsStages(board.id, slide);
+        if (g?.game) { wsStage.open(slide, g); return; }
+      } catch (err) { console.error(err); }
+    }
     this.slide = slide;
     this.review = review;
     this.viewing = true;
@@ -1138,6 +1212,7 @@ const wsFirst = {
   },
 };
 $('wsf-ok').addEventListener('click', () => wsFirst.decide(true));
+$('wsg-close').addEventListener('click', () => wsStage.close());
 $('wsf-skip').addEventListener('click', () => wsFirst.decide(false));
 $('wsf-back').addEventListener('click', () => wsFirst.back());
 
@@ -1361,13 +1436,13 @@ const remote = {
       case 'timer-minus': timer.step(-1); return;
       case 'timer-plus': timer.step(1); return;
       case 'sheet': if (!coverOpen && !first) sheetBand.togglePage(); return;
-      case 'view': if (!coverOpen && !first) wsFirst.view(); return;
+      case 'view': if (wsStage.isOpen()) wsStage.close(); else if (!coverOpen && !first) wsFirst.view(); return;
       case 'back': if (!coverOpen && !(first && wsFirst.review)) wsFirst.back(); return;
       case 'open-all': sheetUpto.openAll(); return;
       case 'rewind': sheetUpto.rewind(); return;
       case 'wsf-ok': if (first && !wsFirst.review && !wsFirst.item.paid) wsFirst.decide(true); return;
       case 'wsf-skip': if (first && !wsFirst.review) wsFirst.decide(false); return;
-      case 'wsf-close': if (first) wsFirst.close(); return;
+      case 'wsf-close': if (first) wsFirst.close(); if (wsStage.isOpen()) wsStage.close(); return;
       case 'embed-next': if (coverOpen) this.embedNext(); return;
     }
   },

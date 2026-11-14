@@ -1102,6 +1102,25 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .wsf-foot .btn-primary kbd { background: rgba(255,255,255,.2); }
 @keyframes wsf-in { from { opacity: 0; } }
 @keyframes wsf-pop { from { opacity: 0; transform: translateY(18px) scale(.97); } }
+/* 게임형 쪽 미션 기록판 (수업 모드 V, 2026-11-14) */
+.wsg-list { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 14px; }
+.wsg-row { padding: 18px 22px; border-radius: 22px; background: #fff; display: flex; flex-direction: column; gap: 10px; }
+.wsg-head { display: flex; align-items: center; gap: 12px; }
+.wsg-n { flex: none; width: 34px; height: 34px; border-radius: 999px; background: #F0F0F0; display: grid; place-items: center; font-weight: 900; font-size: 17px; }
+.wsg-name { flex: 1; min-width: 0; font-size: clamp(20px, 2.8vh, 28px); font-weight: 900; letter-spacing: -0.02em; }
+.wsg-tag { flex: none; padding: 4px 14px; border-radius: 999px; background: #F0F0F0; font-size: 15px; font-weight: 700; color: #5D5D5D; }
+.wsg-count { flex: none; font-size: 18px; font-weight: 700; color: #5D5D5D; }
+.wsg-count b { font-size: 26px; font-weight: 900; color: #0D0D0D; }
+.wsg-bar { height: 12px; border-radius: 999px; background: #F0F0F0; overflow: hidden; }
+.wsg-bar i { display: block; height: 100%; border-radius: 999px; background: #22C582; transition: width .4s ease; }
+.wsg-stars { display: flex; gap: 22px; flex-wrap: wrap; font-size: 18px; font-weight: 700; color: #0B6B47; }
+.wsg-stars b { color: #0D0D0D; font-weight: 900; }
+.wsg-stars .wsg-try { color: #8A8A8A; }
+.wsg-firsts { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.wsg-ft { font-size: 15px; font-weight: 700; color: #8A8A8A; margin-right: 4px; }
+.wsg-first { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 999px; background: #F0F0F0; font-size: 17px; color: #5D5D5D; }
+.wsg-first b { color: #0D0D0D; font-weight: 900; }
+.wsg-first.is-ok { background: rgba(34,197,130,.16); color: #0B6B47; }
 @media (prefers-reduced-motion: reduce) { .wsf, .wsf-card { animation: none; } }
 
 /* ---------- 8단계: 반 페이지 탭 [개인 학습지] [모둠활동] ---------- */
@@ -1259,6 +1278,11 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-card.sim-only .ws-side { order: 2; position: static; width: 100%; height: calc(100vh - 230px); min-height: 520px; }
 .ws-card.sim-only .ws-nav { order: 3; }
 .ws-card.sim-only .ws-foot { order: 4; }
+/* 게임형 쪽 (2026-11-14): 제목 → 게임 → 미션 기록(가로로) → 아래 띠 → 쪽 넘기기 */
+.ws-card.is-game .ws-page { order: 3; align-self: stretch; width: 100%; display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 10px; }
+.ws-card.is-game .ws-page > :not(.w-mission) { grid-column: 1 / -1; }
+.ws-card.is-game .ws-page .w-mission { margin: 0; }
+.ws-card.is-game .ws-nav { order: 5; }
 .ws-gate { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin: 0 0 14px; padding: 12px 16px; border-radius: 16px;
   background: var(--accent-tint); border: 1.5px solid var(--accent); color: var(--accent); }
 .ws-gate.is-open { background: var(--passed-bg); border-color: var(--passed-solid); color: var(--passed-fg); animation: ws-gate-in .4s var(--ease); }
@@ -1293,6 +1317,17 @@ aside.side { position: fixed; z-index: 40; top: 0; bottom: 0; left: 0; width: va
 .ws-page .w-qline .ws-fill { flex: 1 1 100%; }
 .ws-sim-in { background: rgba(0,102,204,.05); border-style: dashed; cursor: default; resize: none; }
 .ws-sim-in::placeholder { color: rgba(0,102,204,.55); font-size: 14px; }
+/* 게임형 쪽 미션 기록 (2026-11-14): 미션마다 한 줄, 깬 미션은 초록 + 별, 실전(블라인드)은 회색 꼬리표 */
+.ws-page .w-mission { margin: 6px 0; }
+.ws-stage { display: flex; align-items: center; gap: 12px; min-height: 52px; padding: 8px 18px; border-radius: 18px; background: #F0F0F0; color: #5D5D5D; line-height: 1.4; }
+.ws-stage-n { flex: none; width: 28px; height: 28px; border-radius: 999px; background: #fff; display: grid; place-items: center; font-size: 14px; font-weight: 900; color: #0D0D0D; }
+.ws-stage-name { flex: 1; min-width: 0; font-weight: 700; color: #0D0D0D; }
+.ws-stage-tag { flex: none; padding: 2px 10px; border-radius: 999px; background: #fff; font-size: 13px; font-weight: 700; color: #5D5D5D; }
+.ws-stage-st { flex: none; font-size: 14.5px; font-weight: 700; color: #8A8A8A; }
+.ws-stage-stars { flex: none; font-size: 20px; letter-spacing: 2px; color: #0B6B47; }
+.ws-stage-stars i { font-style: normal; color: rgba(11,107,71,.22); }
+.ws-stage.is-clear { background: rgba(34,197,130,.14); }
+.ws-stage.is-clear .ws-stage-n { background: #22C582; color: #fff; }
 .ws-sim-ox { padding: 3px; border: 2px dashed rgba(0,102,204,.35); background: rgba(0,102,204,.05); }
 .ws-sim-ox .ws-opt[disabled]:not([aria-pressed="true"]) { opacity: .45; }
 .ws-ox { display: inline-flex; flex-wrap: wrap; gap: 6px; vertical-align: middle; margin: 2px 4px; border-radius: 26px; }

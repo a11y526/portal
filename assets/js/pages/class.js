@@ -2,12 +2,12 @@
 // 학생 기기가 느리고 와이파이가 약해서: 갱신이 실패하면 마지막 화면을 그대로 두고 '연결 확인 중'만 띄운다
 import { CLASSES, TEST_CLASS, GRADE, clsName } from '../config.js';
 import { initUI, esc, toast, prepareDraw, countUp, groupName } from '../ui.js';
-import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, onClassRefresh, sendClassRefresh, onWsOpen, onWsAi, onQuizShow,
+import { sb, getClassPage, submitGroup, getWorksheet, saveWorksheetAnswers, submitWorksheetPage, submitWorksheetStage, onClassRefresh, sendClassRefresh, onWsOpen, onWsAi, onQuizShow,
   getPosts, savePost, deletePost, uploadPostPhoto, postPhotoUrl, getClassMaterials } from '../db.js';
 import { moonRpgState, moonRpgFinish } from '../db.js'; // nogame
 import { avatarSVG, react, setWaiting, bindReactions } from '../avatar.js';
 import { readLogin, clearLogin } from '../login.js';
-import { renderPage, markFields, closeSims, showSide, wakeSims, pageSims } from '../worksheet.js';
+import { renderPage, markFields, closeSims, showSide, wakeSims, pageSims, stageStars } from '../worksheet.js';
 import { boardHTML, shrinkPhoto } from '../posts.js';
 import { materialsHTML, bindVideos, closeVideos } from '../materials.js';
 
@@ -397,6 +397,8 @@ const ws = {
   done: false,
   gain: null,       // { xp, coins }
   passed: new Set(), // 제출해서 맞은 칸(f1…). 이 칸들이 다 든 쪽은 잠긴다
+  stages: {},       // 게임형 쪽 미션 기록 { f12: { tries, first_ok, ok } } (2026-11-14)
+  stageQ: Promise.resolve(), // 미션 제출은 하나씩 차례로
   justPassed: -1,   // 방금 제출한 쪽(제출함 표시를 한 번 튀게)
   firsts: new Set(), // 선생님이 첫 답으로 인정한 쪽(pages 순서)
   opened: new Set(), // 선생님이 [제출 시작]으로 연 쪽(pages 순서). 칸이 있는 쪽은 열려 있을 때만 쓰고 제출(잠그면 다시 빠짐)
@@ -505,7 +507,8 @@ function simLeft(p) {
   return [...new Set(pageSims(p))].filter((src) => !done.has(simKey(p.slide, src)));
 }
 // 선생님이 [제출 시작](S)을 누르기 전에도 띠를 보여 시뮬레이션을 먼저 끝내 둘 수 있게 한다(칸은 S 전까지 locked로 잠김)
-const gated = (p = pages()[ws.idx]) => !!login && !ws.done && !pageDone(p) && simLeft(p).length > 0
+// 게임형 쪽은 쓸 칸이 없고 미션마다 바로 제출하므로 잠그지 않는다
+const gated = (p = pages()[ws.idx]) => !!login && !ws.done && !p?.game && !pageDone(p) && simLeft(p).length > 0
   && !ws.preAnswered.has(String(p.slide));
 const partKey = (pg, label) => `${pg}|part|${label}`;
 const isPartPage = (pg) => simDone().has(`${pg}|parts`); // 줄마다 여는 시뮬레이션이 있는 쪽(sim:gate parts를 받은 적 있음)
@@ -629,6 +632,7 @@ async function fetchSheet() {
     ws.done = !!res.mine?.done_at;
     ws.gain = ws.done ? { xp: res.mine.xp ?? 0, coins: res.mine.coins ?? 0 } : null;
     ws.passed = new Set(res.mine?.passed ?? []);
+    ws.stages = res.mine?.stages ?? {};
     ws.opened = new Set(res.opened ?? []);
     const local = draftKey() ? store.get(draftKey()) : null;
     const server = res.mine?.answers ?? {};
@@ -708,7 +712,7 @@ function renderWsPage() {
   // 넓은 화면이면 그 쪽의 시뮬레이션을 오른쪽 칸에 바로 띄운다(좁으면 쪽 안 카드 + [시뮬레이션 열기])
   const side = wideSheet.matches && !isClosed(page) ? $('ws-side') : null;
   if (isClosed(page)) $('ws-page').innerHTML = `<div class="empty ws-closed">${LOCK_SVG}<strong>아직 수업에서 안 나간 쪽이에요</strong></div>`;
-  else renderPage($('ws-page'), page, ws.answers, { locked: locked() || gated(), side, hideSim: true });
+  else renderPage($('ws-page'), page, ws.answers, { locked: locked() || gated(), side, hideSim: true, stages: stageView(), checking: (k) => ws.bad[k] === 'checking' });
   if (!side) showSide($('ws-side'), []);
   if (!isClosed(page)) { if (gated(page)) openParts(page); renderGate(page, !!side); }
   shutSims(!isClosed(page) && simShut(page));
@@ -717,6 +721,8 @@ function renderWsPage() {
   $('sheet').classList.toggle('has-side', hasSide);
   // 쓸 칸이 없는 쪽(칸이 모두 시뮬레이션이 채우는 .sim-in이어도): 시뮬레이션을 가운데 크게, 쪽 번호는 그 아래로
   $('sheet').classList.toggle('sim-only', hasSide && (page?.fields ?? []).every((f) => f.sim));
+  // 게임형 쪽: 게임이 위에 크게, 미션 기록은 그 아래 한 줄로
+  $('sheet').classList.toggle('is-game', !!page?.game && !isClosed(page));
   document.querySelector('.class-wrap').classList.toggle('is-wide', hasSide && tab === 'sheet');
   markFields($('ws-page'), ws.bad, wsMarks());
   navButtons();
@@ -781,6 +787,13 @@ function renderWsFoot() {
     foot.innerHTML = `${status}${prog}<span class="ws-wait-open">${PLAY_SVG}시뮬레이션을 끝까지 하면 쓸 수 있어요</span>`;
     return;
   }
+  if (page.game) {
+    // 게임형 쪽: 제출 단추 없음. 미션을 깰 때마다 저절로 제출된다
+    const st = page.fields.filter((f) => f.stage);
+    const clear = st.filter((f) => ws.passed.has(f.key)).length;
+    foot.innerHTML = `${status}${prog}<span class="ws-wait-open">${PLAY_SVG}게임에서 미션을 깨면 저절로 제출돼요 · <b class="num">${clear} / ${st.length}</b></span>`;
+    return;
+  }
   const nBad = page.fields.filter((f) => ws.bad[f.key] && ws.bad[f.key] !== 'checking').length;
   const nChk = page.fields.filter((f) => ws.bad[f.key] === 'checking').length;
   foot.innerHTML = `${status}${prog}
@@ -835,6 +848,83 @@ function nudgeSim() {
   target.classList.add('ws-pulse');
 }
 
+/* ---------- 게임형 쪽 미션 제출 (2026-11-14, 학습지_웹판_규칙.md '게임형 쪽') ----------
+   게임이 {type:'sim:stage', n, value}를 보내면 그 쪽 n번째 미션 칸만 submit_worksheet_stage로 바로 제출하고,
+   결과를 {type:'sim:stage-result', n, ok, checking, tries, first_ok, stars, error}로 게임에 돌려준다.
+   게임이 열리며 {type:'sim:gate', game:true}를 보내면 지금까지의 기록을 {type:'sim:stages', list:[{n, ok, tries, first_ok, stars}]}로 보낸다 */
+const stageView = () => {
+  const out = { ...ws.stages };
+  ws.passed.forEach((k) => { if (!out[k]?.ok) out[k] = { ...(out[k] ?? {}), ok: true, tries: out[k]?.tries || 1 }; });
+  return out;
+};
+const stageFields = (page) => (page?.fields ?? []).filter((f) => f.stage);
+function tellPage(slide, msg) {
+  document.querySelectorAll('iframe.ws-sim-frame').forEach((f) => {
+    if (f.dataset.pg === String(slide)) f.contentWindow?.postMessage(msg, '*');
+  });
+}
+function sendStages(slide) {
+  const page = pages().find((p) => String(p.slide) === String(slide));
+  if (!page?.game) return;
+  const view = stageView();
+  tellPage(slide, { type: 'sim:stages', list: stageFields(page).map((f) => {
+    const st = view[f.key] ?? {};
+    return { n: f.stage.n, ok: !!st.ok, tries: st.tries ?? 0, first_ok: st.first_ok ?? null, stars: stageStars(st) };
+  }) });
+}
+function simStage(pg, n, value) {
+  const idx = pages().findIndex((p) => String(p.slide) === String(pg));
+  const page = pages()[idx];
+  const f = stageFields(page).find((x) => x.stage.n === Math.floor(Number(n) || 0));
+  if (!page?.game || !f || typeof value !== 'string' || !value.trim()) return;
+  const reply = (r) => tellPage(pg, { type: 'sim:stage-result', n: f.stage.n, ...r });
+  if (!login) { reply({ error: 'NO_SESSION' }); return; }
+  ws.stageQ = ws.stageQ.then(() => sendStage(idx, page, f, value.replace(/\s+/g, ' ').trim().slice(0, 300), reply)).catch((err) => console.error(err));
+}
+async function sendStage(idx, page, f, value, reply) {
+  if (ws.done || ws.passed.has(f.key)) {
+    const st = stageView()[f.key];
+    reply({ ok: true, already: true, tries: st?.tries ?? 1, first_ok: st?.first_ok ?? null, stars: stageStars(st) });
+    return;
+  }
+  let res;
+  try {
+    res = await withTimeout(submitWorksheetStage(login.token, ws.boardId, idx, f.key, value), SUBMIT_WAIT_MS);
+  } catch (err) {
+    console.error(err);
+    reply({ error: 'NET' });
+    toast('보내지 못했어요. 다시 해 주세요', 'error');
+    return;
+  }
+  if (!res?.ok) {
+    reply({ error: res?.error || 'FAIL' });
+    toast(WS_ERR[res?.error] || '기록하지 못했어요', 'error');
+    sheetError(res?.error);
+    return;
+  }
+  ws.answers[f.key] = value;
+  persist();
+  if (res.checking) ws.bad[f.key] = 'checking';
+  else delete ws.bad[f.key];
+  ws.stages[f.key] = { tries: res.tries ?? 0, first_ok: res.first_ok ?? null, ok: !!res.correct };
+  if (res.passed) ws.passed = new Set(res.passed);
+  reply({ ok: !!res.correct, checking: !!res.checking, tries: res.tries ?? 0, first_ok: res.first_ok ?? null, stars: stageStars(ws.stages[f.key]) });
+  if (res.done) {
+    ws.done = true;
+    ws.dirty = false;
+    ws.bad = {};
+    ws.badPts = {};
+    ws.gain = { xp: res.xp ?? 0, coins: res.coins ?? 0 };
+    persist();
+    renderSheet();
+    if (!res.already) showSheetDone(res);
+    return;
+  }
+  if (res.correct && stageFields(page).every((x) => ws.passed.has(x.key))) ws.justPassed = idx;
+  if (pages()[ws.idx] === page) { renderWsPage(); renderWsFoot(); } else renderDots();
+  syncRecheck();
+}
+
 // 시뮬레이션에서 본 줄: 기기에 적어 두고, 지금 보는 쪽이면 그 줄 칸을 바로 연다(쓰던 칸은 그대로)
 function markPart(pg, label) {
   const k = partKey(pg, label);
@@ -869,7 +959,7 @@ function markSimDone(pg, src) {
 // S 전·시뮬레이션 잠금 중이면 ws.simFill에 두었다가 칸이 열려 다시 그릴 때 넣는다(제출한 칸은 그대로)
 function simAnswer(pg, n, value) {
   const page = pages()[ws.idx];
-  if (!page || String(page.slide) !== String(pg) || typeof value !== 'string') return;
+  if (!page || page.game || String(page.slide) !== String(pg) || typeof value !== 'string') return;
   const f = (page.fields ?? []).filter((x) => x.sim)[Math.max(1, Math.floor(Number(n) || 1)) - 1];
   if (!f) return;
   const v = value.replace(/\s+/g, ' ').trim();
@@ -881,7 +971,7 @@ function simAnswer(pg, n, value) {
 // 다 나눌 때마다 보내는 것(712_sort 등 sim:done 없음)은 칸만 채운다
 function simSubmit(pg) {
   const page = pages()[ws.idx];
-  if (!page || String(page.slide) !== String(pg) || !(page.fields ?? []).some((f) => f.sim)) return;
+  if (!page || page.game || String(page.slide) !== String(pg) || !(page.fields ?? []).some((f) => f.sim)) return;
   if (locked() || gated(page)) return;
   const empty = page.fields.filter((f) => (ws.answers[f.key] ?? '') === '').length;
   if (empty) { toast(`남은 칸 ${empty}개를 쓰고 [이 쪽 제출]을 눌러 주세요`); return; }
@@ -1112,7 +1202,15 @@ async function submitPage(btn, idx = ws.idx, auto = false) {
 const checkingPage = () => pages().findIndex((p) => hasFields(p) && !pageDone(p) && p.fields.some((f) => ws.bad[f.key] === 'checking'));
 function recheck() {
   const i = checkingPage();
-  if (i >= 0 && !document.hidden) submitPage(null, i, true);
+  if (i < 0 || document.hidden) return;
+  const pg = pages()[i];
+  // 게임형 쪽: 확인 중인 미션 칸만 다시 낸다(다른 미션은 건드리지 않음)
+  if (pg.game) {
+    const f = stageFields(pg).find((x) => ws.bad[x.key] === 'checking');
+    if (f && ws.answers[f.key]) simStage(pg.slide, f.stage.n, ws.answers[f.key]);
+    return;
+  }
+  submitPage(null, i, true);
 }
 function syncRecheck() {
   const on = checkingPage() >= 0;
@@ -1516,6 +1614,7 @@ addEventListener('message', (e) => {
   const { sim, pg } = f.dataset;
   if (msg.type === 'sim:gate') {
     f.dataset.gate = '1';
+    if (msg.game) sendStages(pg);
     if (msg.parts && simDoneKey() && !isPartPage(pg)) {
       store.set(simDoneKey(), [...simDone(), `${pg}|parts`]);
       if (String(pages()[ws.idx]?.slide) === pg && gated()) renderWsPage();
@@ -1523,6 +1622,7 @@ addEventListener('message', (e) => {
   } else if (msg.type === 'sim:part' && typeof msg.label === 'string') markPart(pg, msg.label.trim().slice(0, 40));
   else if (msg.type === 'sim:done') { markSimDone(pg, sim); simSubmit(pg); }
   else if (msg.type === 'sim:answer') simAnswer(pg, msg.n, msg.value);
+  else if (msg.type === 'sim:stage') simStage(pg, msg.n, msg.value);
   else if (msg.type === 'sim:progress') {
     const n = Math.max(0, Math.floor(Number(msg.n) || 0));
     const total = Math.max(1, Math.floor(Number(msg.total) || 1));

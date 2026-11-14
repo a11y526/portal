@@ -2060,7 +2060,10 @@ begin
                      'passed',  a.passed,
                      'done_at', a.done_at,
                      'xp',      v_xp,
-                     'coins',   v_co
+                     'coins',   v_co,
+                     -- 게임형 쪽 미션 기록 (2026-11-14): {f12: {tries, first_ok, ok}}
+                     'stages',  (select coalesce(jsonb_object_agg(x.key, jsonb_build_object('tries', x.tries, 'first_ok', x.first_ok, 'ok', x.ok_at is not null)), '{}'::jsonb)
+                                 from public.ws_stage_tries x where x.board_id = b.id and x.student_id = a.student_id)
                    ) end
   );
 end;
@@ -2490,6 +2493,210 @@ end;
 $$;
 revoke all on function public.submit_worksheet_page(text, uuid, int, jsonb) from public;
 grant execute on function public.submit_worksheet_page(text, uuid, int, jsonb) to anon, authenticated;
+
+-- ---------------------------------------------------------
+-- 게임형 쪽 스테이지 제출 (2026-11-14, 학습지_웹판_규칙.md '게임형 쪽')
+-- 시뮬레이션(게임)이 미션 답을 확정할 때마다 {type:'sim:stage', n, value}를 보내면 반 페이지가 부른다.
+-- 그 칸(fields[].stage가 있는 칸) 하나만 저장·채점하고 ws_stage_tries에 시도를 적는다.
+-- 맞으면 그 칸을 passed에 넣고, 학습지 칸이 모두 passed면 완료 + settings.worksheet XP·코인(submit_worksheet_page와 같음).
+-- AI 판정을 기다리는 서술 칸은 시도로 세지 않고 checking만 돌려준다(판정이 오면 반 페이지가 그 쪽을 다시 제출)
+-- 결과: {ok:true, correct, checking, tries, first_ok, passed, done, xp, coins, level_before, level_after, total_xp}
+--       {ok:false, error: NO_SESSION·BOARD_CHANGED·NO_SHEET·NOT_OPEN·NO_PAGE·LOCKED·NO_FIELD·EMPTY·NO_GROUP}
+-- ---------------------------------------------------------
+create or replace function public.submit_worksheet_stage(p_token text, p_board_id uuid, p_page int, p_key text, p_value text)
+returns jsonb
+language plpgsql
+volatile
+security definer
+set search_path = public, extensions
+as $$
+declare
+  t        jsonb;
+  v_sid    uuid;
+  v_pages  jsonb;
+  v_val    text;
+  v_one    jsonb;
+  a        public.worksheet_answers;
+  r        public.ws_stage_tries;
+  v_chk    jsonb;
+  v_ok     boolean;
+  v_passed jsonb;
+  v_left   int;
+  v_set    jsonb;
+  v_xp     int := 0;
+  v_co     int := 0;
+  v_before int;
+  v_paid   int := 0;
+  v_ids    uuid[];
+begin
+  t := public._ws_target(p_token, p_board_id);
+  if t ? 'error' then
+    return jsonb_build_object('ok', false, 'error', t ->> 'error');
+  end if;
+  v_sid := (t ->> 'sid')::uuid;
+
+  select pages into v_pages from public.worksheets where lesson_code = t ->> 'lesson_code';
+  if p_page is null or p_page < 0 or p_page >= coalesce(jsonb_array_length(v_pages), 0) then
+    return jsonb_build_object('ok', false, 'error', 'NO_PAGE');
+  end if;
+  if coalesce((v_pages -> p_page ->> 'slide')::int, 0) > (t ->> 'upto')::int then
+    return jsonb_build_object('ok', false, 'error', 'LOCKED');
+  end if;
+  if not exists (select 1 from jsonb_array_elements(coalesce(v_pages -> p_page -> 'fields', '[]'::jsonb)) as f
+                 where f ->> 'key' = p_key and f ? 'stage')
+     or not ((t -> 'key') ? p_key) then
+    return jsonb_build_object('ok', false, 'error', 'NO_FIELD');
+  end if;
+  v_val := left(btrim(regexp_replace(coalesce(p_value, ''), '\s+', ' ', 'g')), 300);
+  if v_val = '' then
+    return jsonb_build_object('ok', false, 'error', 'EMPTY');
+  end if;
+  if not exists (select 1 from public.ws_page_open where board_id = p_board_id and page = p_page and closed_at is null)
+     and not exists (select 1 from public.worksheet_answers where board_id = p_board_id and student_id = v_sid and done_at is not null) then
+    return jsonb_build_object('ok', false, 'error', 'NOT_OPEN');
+  end if;
+  if exists (select 1 from public.boards where id = p_board_id and ws_group)
+     and public._group_of(p_board_id, v_sid) is null then
+    return jsonb_build_object('ok', false, 'error', 'NO_GROUP');
+  end if;
+  v_ids := public._ws_group_begin(p_board_id, v_sid);
+
+  -- 이 칸만 더해 저장(다른 칸 답은 그대로, 맞은 칸은 바뀌지 않음)
+  v_one := jsonb_build_object(p_key, v_val);
+  insert into public.worksheet_answers as x (board_id, student_id, answers)
+  values (p_board_id, v_sid, v_one)
+  on conflict (board_id, student_id) do update
+    set answers = case when x.done_at is null then public._ws_merge(x.answers, x.passed, x.answers || excluded.answers) else x.answers end,
+        updated_at = case when x.done_at is null then now() else x.updated_at end;
+  select * into a from public.worksheet_answers
+  where board_id = p_board_id and student_id = v_sid for update;
+  select * into r from public.ws_stage_tries where board_id = p_board_id and student_id = v_sid and key = p_key;
+  select coalesce(sum(xp), 0)::int into v_before from public.point_events where student_id = v_sid;
+
+  -- 이미 깬 칸·끝낸 학습지: 기록은 그대로
+  if a.done_at is not null or coalesce(a.passed, '[]'::jsonb) ? p_key then
+    return jsonb_build_object('ok', true, 'correct', true, 'already', true, 'tries', coalesce(r.tries, 0), 'first_ok', r.first_ok,
+      'passed', a.passed, 'done', a.done_at is not null);
+  end if;
+
+  -- 게임 미션의 빈칸·고르기는 게임이 정한 글 그대로라 AI 없이 바로 채점(서술 칸만 AI)
+  v_chk := public._ws_check(jsonb_build_object(p_key, t -> 'key' -> p_key), a.answers,
+    case when t -> 'key' -> p_key ->> 'type' = 'text' then t ->> 'lesson_code' end);
+  if jsonb_array_length(v_chk -> 'checking') > 0 then
+    perform public._ws_ai_enqueue(t ->> 'lesson_code', jsonb_build_object(p_key, t -> 'key' -> p_key), a.answers, v_chk -> 'checking',
+      (select class_id from public.students where id = v_sid));
+    perform public._ws_group_sync(p_board_id, v_sid, v_ids);
+    return jsonb_build_object('ok', true, 'correct', false, 'checking', true, 'tries', coalesce(r.tries, 0), 'first_ok', r.first_ok,
+      'passed', a.passed, 'done', false);
+  end if;
+  v_ok := jsonb_array_length(v_chk -> 'empty') = 0 and jsonb_array_length(v_chk -> 'wrong') = 0;
+
+  insert into public.ws_stage_tries as s (board_id, student_id, key, tries, first_value, first_ok, ok_at)
+  values (p_board_id, v_sid, p_key, 1, v_val, v_ok, case when v_ok then now() end)
+  on conflict (board_id, student_id, key) do update
+    set tries = s.tries + 1,
+        ok_at = coalesce(s.ok_at, case when v_ok then now() end),
+        updated_at = now()
+  returning * into r;
+
+  if not v_ok then
+    perform public._ws_group_sync(p_board_id, v_sid, v_ids);
+    return jsonb_build_object('ok', true, 'correct', false, 'tries', r.tries, 'first_ok', r.first_ok, 'passed', a.passed, 'done', false);
+  end if;
+
+  select coalesce(jsonb_agg(k order by coalesce(nullif(regexp_replace(k, '\D', '', 'g'), ''), '0')::int), '[]'::jsonb)
+  into v_passed
+  from (select k from jsonb_object_keys(t -> 'key') as k
+        where k = p_key or coalesce(a.passed, '[]'::jsonb) ? k) z;
+  select count(*)::int into v_left from jsonb_object_keys(t -> 'key') as k where not v_passed ? k;
+
+  if v_left > 0 then
+    update public.worksheet_answers set passed = v_passed where board_id = p_board_id and student_id = v_sid;
+    perform public._ws_group_sync(p_board_id, v_sid, v_ids);
+    return jsonb_build_object('ok', true, 'correct', true, 'tries', r.tries, 'first_ok', r.first_ok, 'passed', v_passed, 'done', false);
+  end if;
+
+  update public.worksheet_answers set passed = v_passed, done_at = now()
+  where board_id = p_board_id and student_id = v_sid;
+  select value into v_set from public.settings where key = 'worksheet';
+  v_xp := coalesce((v_set ->> 'xp')::int, 10);
+  v_co := coalesce((v_set ->> 'coins')::int, 5);
+  if v_xp <> 0 or v_co <> 0 then
+    insert into public.point_events (student_id, xp, coins, reason, worksheet_board_id)
+    values (v_sid, v_xp, v_co, '학습지 ' || (t ->> 'lesson_code'), p_board_id)
+    on conflict (student_id, worksheet_board_id) where worksheet_board_id is not null do nothing;
+    get diagnostics v_paid = row_count;
+  end if;
+  if v_paid = 0 then
+    v_xp := 0;
+    v_co := 0;
+  end if;
+  perform public._ws_group_sync(p_board_id, v_sid, v_ids);
+  return jsonb_build_object('ok', true, 'correct', true, 'tries', r.tries, 'first_ok', r.first_ok, 'passed', v_passed,
+    'done', true, 'already', false, 'xp', v_xp, 'coins', v_co,
+    'level_before', (public._level_info(v_before) ->> 'level')::int,
+    'level_after',  (public._level_info(v_before + v_xp) ->> 'level')::int,
+    'total_xp',     v_before + v_xp);
+end;
+$$;
+revoke all on function public.submit_worksheet_stage(text, uuid, int, text, text) from public;
+grant execute on function public.submit_worksheet_stage(text, uuid, int, text, text) to anon, authenticated;
+
+-- 수업 모드 V(교사, 2026-11-14): 지금 수업자료 쪽이 게임형 쪽이면 반 전체 미션 기록(번호·닉네임 없이 모아서만).
+-- 결과: {game:false} 또는 {game:true, slide, total(명단 인원), stages:[{key, name, blind, tried, cleared, s3, s2, s1,
+--        firsts:[{value, n, ok}] (처음 확정한 답별 학생 수, 많은 순)}]}
+create or replace function public.get_ws_stages(p_board_id uuid, p_slide int)
+returns jsonb
+language plpgsql
+stable
+security definer
+set search_path = public
+as $$
+declare
+  b      public.boards;
+  v_page jsonb;
+  v_out  jsonb;
+begin
+  if not public.is_teacher() then
+    raise exception 'NOT_TEACHER';
+  end if;
+  select * into b from public.boards where id = p_board_id;
+  select pg into v_page
+  from public.worksheets w, jsonb_array_elements(w.pages) as pg
+  where w.lesson_code = b.lesson_code and (pg ->> 'slide')::int = p_slide
+  limit 1;
+  if v_page is null or not exists (select 1 from jsonb_array_elements(coalesce(v_page -> 'fields', '[]'::jsonb)) f where f ? 'stage') then
+    return jsonb_build_object('game', false);
+  end if;
+  with kids as (
+    select s.id from public.students s
+    where s.class_id = b.class_id and s.active and (s.number > 0 or s.class_id = 20)
+  ), st as (
+    select f, n from jsonb_array_elements(v_page -> 'fields') with ordinality as e(f, n) where f ? 'stage'
+  )
+  select coalesce(jsonb_agg(jsonb_build_object(
+      'key',     st.f ->> 'key',
+      'name',    st.f -> 'stage' ->> 'name',
+      'blind',   coalesce((st.f -> 'stage' ->> 'blind')::boolean, false),
+      'tried',   (select count(*) from public.ws_stage_tries x where x.board_id = b.id and x.key = st.f ->> 'key' and x.student_id in (select id from kids)),
+      'cleared', (select count(*) from public.ws_stage_tries x where x.board_id = b.id and x.key = st.f ->> 'key' and x.student_id in (select id from kids) and x.ok_at is not null),
+      's3',      (select count(*) from public.ws_stage_tries x where x.board_id = b.id and x.key = st.f ->> 'key' and x.student_id in (select id from kids) and x.ok_at is not null and x.tries = 1),
+      's2',      (select count(*) from public.ws_stage_tries x where x.board_id = b.id and x.key = st.f ->> 'key' and x.student_id in (select id from kids) and x.ok_at is not null and x.tries = 2),
+      's1',      (select count(*) from public.ws_stage_tries x where x.board_id = b.id and x.key = st.f ->> 'key' and x.student_id in (select id from kids) and x.ok_at is not null and x.tries >= 3),
+      'firsts',  (select coalesce(jsonb_agg(jsonb_build_object('value', v, 'n', c, 'ok', o) order by c desc, v), '[]'::jsonb)
+                  from (select x.first_value as v, count(*)::int as c, bool_or(x.first_ok) as o
+                        from public.ws_stage_tries x
+                        where x.board_id = b.id and x.key = st.f ->> 'key' and x.student_id in (select id from kids)
+                        group by x.first_value) g)
+    ) order by st.n), '[]'::jsonb)
+  into v_out from st;
+  return jsonb_build_object('game', true, 'slide', p_slide,
+    'total', (select count(*) from public.students s where s.class_id = b.class_id and s.active and (s.number > 0 or s.class_id = 20)),
+    'stages', v_out);
+end;
+$$;
+revoke all on function public.get_ws_stages(uuid, int) from public, anon;
+grant execute on function public.get_ws_stages(uuid, int) to authenticated;
 
 -- ---------------------------------------------------------
 -- 쪽별 첫 답 (2026-10-16)
